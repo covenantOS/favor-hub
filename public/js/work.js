@@ -1416,9 +1416,11 @@ const ACTION_VIEWS = [['open', 'Open actions'], ['ty', 'Thank-yous'], ['opps', '
 function viewOfHref(href) {
   try { const u = new URL(href, location.href); if (u.pathname.replace(/\/?$/, '/') !== '/work/') return null; return u.searchParams.get('view') || 'open'; } catch (_) { return null; }
 }
+let pendingView = null;
 function syncHead() {
   const nav = document.getElementById('h-tabs');
   if (!nav || !DATA || !DATA.me) return;
+  if (pendingView && S.loaded) { const pv = pendingView; pendingView = null; if (window.WCTabs.has(pv, DATA.me) && pv !== S.view) { switchView(pv); return; } }
   const want = HEAD_OF[S.view] || 'work';
   nav.querySelectorAll('a.h-tab[data-nav-id]').forEach((a) => {
     const v = viewOfHref(a.getAttribute('href') || '');
@@ -1448,9 +1450,18 @@ document.addEventListener('click', (e) => {
   const chip = t && t.closest('[data-vchip]');
   if (chip) { e.preventDefault(); switchView(chip.dataset.vchip); return; }
   const a = t && t.closest('#h-tabs a.h-tab[href]');
-  if (!a || !S.loaded) return;
+  if (!a) return;
   const v = viewOfHref(a.getAttribute('href'));
-  if (!v || !window.WCTabs.has(v, DATA.me)) return;
+  if (!v) return;
+  // Pressed while the board is still loading: the tab lights now and opens as soon as the page has drawn, without a reload.
+  if (!S.loaded || !DATA || !DATA.me) {
+    e.preventDefault(); e.stopPropagation();
+    pendingView = v;
+    const nav = document.getElementById('h-tabs');
+    if (nav) nav.querySelectorAll('a.h-tab[data-nav-id]').forEach((x) => x.classList.toggle('is-on', x === a));
+    return;
+  }
+  if (!window.WCTabs.has(v, DATA.me)) return;
   e.preventDefault(); e.stopPropagation();
   switchView(v);
 }, true);

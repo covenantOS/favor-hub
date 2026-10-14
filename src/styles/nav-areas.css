@@ -133,3 +133,6 @@ body.h-body[data-area='staff'] .exp-page .container,
 body.h-body[data-area='staff'] #pr { max-width: 1280px; width: 100%; margin-inline: auto; }
 body.h-body[data-area='staff'] .exp-page .container { padding-inline: 0; }
 body.h-body[data-area='help'] .wl { max-width: 1280px; margin-inline: auto; }
+
+/* The scrollbar's room is kept on pages that scroll, so a page growing past the window never shifts a centered column sideways. */
+html:has(body.h-body:is([data-area='today'], [data-area='partners'], [data-area='gifts'], [data-area='projects'], [data-area='staff'], [data-area='kpi'], [data-area='admin'], [data-area='help'])) { scrollbar-gutter: stable; }
