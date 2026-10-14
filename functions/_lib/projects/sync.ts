@@ -296,7 +296,7 @@ export async function syncTask(
     let parentGid = '';
     if (hub.parent_id) {
       parentGid = (await mapGid(env, 'task', hub.parent_id)) || '';
-      if (!parentGid) return 'parent not in Asana yet';
+      if (!parentGid) throw new Error('retry: the parent task is not in Asana yet');
     }
     const secGid = parentGid ? '' : await asanaSection(c, client, sp, hub.section_id);
     const f = fromHub(hub, secGid);
