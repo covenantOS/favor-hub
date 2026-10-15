@@ -17,6 +17,10 @@ const BOOT = `try{var np=JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1
 try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:50px;height:50px;overflow:scroll';document.documentElement.appendChild(d);document.documentElement.style.setProperty('--sbw',(d.offsetWidth-d.clientWidth)+'px');d.remove();}catch(e){}
 (function(){var r=document.documentElement;addEventListener('keydown',function(e){if(e.key==='Tab'||e.key.indexOf('Arrow')===0)r.classList.add('kbd');},true);addEventListener('pointerdown',function(){r.classList.remove('kbd');},true);})();`;
 
+// The web fonts are asked for early only outside Lite mode; in Lite the phone's own fonts are used and these never download (as on
+// classic pages).
+const FONTS = `if (!(window.FavorLite && window.FavorLite.on)) ['/fonts/inter-var.woff2', '/fonts/playfair-500.woff2'].forEach(function (h) { var l = document.createElement('link'); l.rel = 'preload'; l.href = h; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = ''; document.head.appendChild(l); });`;
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -30,8 +34,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: 'FavorOS' },
     ],
     links: [
-      { rel: 'preload', href: '/fonts/inter-var.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
-      { rel: 'preload', href: '/fonts/playfair-500.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
       { rel: 'stylesheet', href: css },
       { rel: 'icon', type: 'image/png', href: '/images/favor-icon.png' },
       { rel: 'apple-touch-icon', href: '/images/apple-touch-icon.png' },
@@ -57,6 +59,7 @@ function Document({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: hubOwn }} />
         <script dangerouslySetInnerHTML={{ __html: liteJs }} />
         <script dangerouslySetInnerHTML={{ __html: motionJs }} />
+        <script dangerouslySetInnerHTML={{ __html: FONTS }} />
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
       <body className="h-body">
