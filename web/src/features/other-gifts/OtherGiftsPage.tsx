@@ -6,7 +6,7 @@ import type { OgGift, OgListRow } from '@shared/schemas';
 import { EntityChip } from '@/features/entity/EntityChip';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { money0, money2 } from '@/lib/format';
-import { useOgIndex, useOgList } from './data';
+import { useOgIndex, useOgList, useTributes, type GiftTribute } from './data';
 import { AddGift } from './AddGift';
 import { BatchesPanel } from './Batches';
 import './styles.css';
@@ -71,12 +71,19 @@ function Strip() {
   );
 }
 
-function Row({ r, onOpenBatch }: { r: OgListRow; onOpenBatch: (id: string) => void }) {
+function Row({ r, onOpenBatch, tribute }: { r: OgListRow; onOpenBatch: (id: string) => void; tribute?: GiftTribute }) {
   const inHub = r.source === 'hub';
   return (
     <tr className={inHub && r.check !== 'approved' ? 'is-hub' : ''}>
       <td>{mon(r.date)}</td>
-      <td className="og-from">{r.fromId ? <EntityChip kind="partner" id={r.fromId} label={r.fromName} /> : <i>{r.fromName}</i>}</td>
+      <td className="og-from">
+        {r.fromId ? <EntityChip kind="partner" id={r.fromId} label={r.fromName} /> : <i>{r.fromName}</i>}
+        {tribute ? (
+          <div className="og-tribute">
+            {tribute.kind === 'honor' ? 'In honor of' : 'In memory of'} {tribute.honoree}
+          </div>
+        ) : null}
+      </td>
       <td>{r.recommendedId ? <EntityChip kind="partner" id={r.recommendedId} label={r.recommendedName} /> : <span className="og-dim">None</span>}</td>
       <td>
         <span className="og-pill">{r.kindLabel}</span>
@@ -131,6 +138,7 @@ function ListCard({ onOpenBatch }: { onOpenBatch: (id: string) => void }) {
   const [size, setSize] = useState(15);
   const [moving, setMoving] = useState(false);
   const d = useOgList(tab, term, page, size).data;
+  const tributes = useTributes(d.rows.map((r) => r.giftId || r.id));
   // A change of tab, search or page keeps the rows on screen until the next ones arrive.
   const change = (fn: () => void) => {
     setMoving(true);
@@ -199,7 +207,7 @@ function ListCard({ onOpenBatch }: { onOpenBatch: (id: string) => void }) {
           </thead>
           <tbody>
             {d.rows.map((r) => (
-              <Row key={r.source + r.id} r={r} onOpenBatch={onOpenBatch} />
+              <Row key={r.source + r.id} r={r} onOpenBatch={onOpenBatch} tribute={tributes[r.giftId || r.id]} />
             ))}
             {!d.rows.length ? (
               <tr>
