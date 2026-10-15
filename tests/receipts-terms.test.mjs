@@ -99,3 +99,12 @@ test('search keywords for the Receipts page do not include letter', () => {
     assert.doesNotMatch(line, /\bletters?\b/i, f);
   }
 });
+
+// The web app's Receipts page (web/src/features/receipts): the quoted strings and the text between tags.
+for (const f of ['Panels.tsx', 'ReceiptsPage.tsx', 'Ask.tsx', 'logic.ts']) {
+  test(`no receipt is called a letter in web/src/features/receipts/${f}`, () => {
+    const src = stripComments(read(`web/src/features/receipts/${f}`));
+    const text = [...src.matchAll(/>\s*([^<>{}=;()\n][^<>{}]*?)\s*</g)].map((m) => m[1]);
+    assert.deepEqual(offenders(stringsOf(src).concat(text)), []);
+  });
+}
