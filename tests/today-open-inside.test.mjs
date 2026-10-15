@@ -74,7 +74,7 @@ describe('todaysEvents', () => {
       ev({ id: 'g', status: 'cancelled' }),
     ];
     const list = await google.todaysEvents('tok');
-    assert.deepEqual(list.map((e) => [e.id, e.source]), [['a', 'Zoom'], ['b', 'Google Meet'], ['c', 'Microsoft Teams'], ['d', 'Phone call'], ['e', 'No link'], ['f', 'No link']]);
+    assert.deepEqual(list.map((e) => [e.id, e.source]), [['a', 'Zoom'], ['b', 'Google Meet'], ['c', 'Microsoft Teams'], ['d', 'Phone call'], ['e', ''], ['f', '']]);
     assert.equal(list[0].meet, 'https://us02web.zoom.us/j/123');
     assert.equal(list[3].phone, '+1 (555) 010-2000');
     assert.equal(list[5].allDay, true);
@@ -88,7 +88,7 @@ describe('todaysEvents', () => {
     ];
     const [r, o, m] = await google.todaysEvents('tok');
     assert.equal(r.hub, 'abc123def456');
-    assert.equal(r.source, 'Favor Meetings');
+    assert.equal(r.source, 'FavorOS');
     assert.equal(o.canEdit, false);
     assert.equal(o.declined, true);
     assert.equal(m.canEdit, true);
@@ -215,8 +215,12 @@ describe('the Today route', () => {
     const res = await day.onRequestGet({ request: asUser('/api/hub/day'), env: { ...env, ...MIRROR } });
     const d = await res.json();
     const list = d.google.events;
-    assert.equal(list.find((e) => e.id === 'ev1').hub, 'm1');
-    assert.ok(list.some((e) => e.hub === 'm2' && e.provider === 'favor' && e.source === 'Favor Meetings'));
+    const moved = list.find((e) => e.id === 'ev1');
+    assert.equal(moved.hub, 'm1');
+    // A meeting moved to FavorOS reads as FavorOS even though its calendar event still carries the old Google Meet link.
+    assert.equal(moved.provider, 'favor');
+    assert.equal(moved.source, 'FavorOS');
+    assert.ok(list.some((e) => e.hub === 'm2' && e.provider === 'favor' && e.source === 'FavorOS'));
     assert.equal(d.google.mayWrite, true);
   });
 });

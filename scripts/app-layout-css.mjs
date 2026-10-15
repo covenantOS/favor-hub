@@ -40,12 +40,6 @@ const out = {
   css: [...css].filter(([, n]) => n >= need).map(([h]) => h),
   js: [...js].filter(([, v]) => v.n >= need).sort((a, b) => a[1].at - b[1].at).map(([s]) => s),
 };
-// Today's briefing is its own script (brief.js) that the app mounts into Today; its address, with the version the classic page carries.
-try {
-  const home = readFileSync(join(dist, 'index.html'), 'utf8');
-  const m = /src="(\/js\/brief\.js[^"]*)"/.exec(home);
-  if (m) out.brief = m[1].replace(/[?&]b=\d+/, '');
-} catch { /* no home page in this build */ }
 // The Projects task drawer opens on other pages (Chat, bell, Today, meeting notes); its stylesheets are the Projects page's own.
 try {
   const pj = readFileSync(join(dist, 'projects', 'index.html'), 'utf8');

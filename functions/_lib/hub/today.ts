@@ -1,6 +1,7 @@
 // What the Today page and the sidebar show the person signed in: what is waiting on them, their own
 // requests, and recent activity they are allowed to see. Read from the hub's own tables only.
 import { isHr } from '../people-dev';
+import { REAL_NOTE_SQL } from './feedback-notes';
 import { approverEmails, isExpenseAdmin } from '../expenses/auth';
 import type { Env } from '../http';
 import type { HubUser } from '../session';
@@ -280,7 +281,7 @@ export async function evalWaitingCount(env: Env, user: HubUser): Promise<number>
 /** Feedback notes for Will to read, or answers from him this person has not opened yet. */
 async function feedbackWaiting(env: Env, user: HubUser, access: Access) {
   const q = access.admin
-    ? env.DB.prepare("SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_feedback WHERE status = 'new'")
+    ? env.DB.prepare(`SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_feedback WHERE status = 'new' AND ${REAL_NOTE_SQL}`)
     : env.DB.prepare('SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_feedback WHERE email = ? AND reply IS NOT NULL AND reply_seen_at IS NULL').bind(user.email.toLowerCase());
   return q.first<{ n: number; oldest: string | null }>().catch(() => null);
 }
@@ -506,7 +507,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   const notes = await feedbackWaiting(env, user, access);
   const nn = Number(notes?.n) || 0;
   if (nn && access.admin) {
-    const first = await env.DB.prepare("SELECT id, name, email, source, comment FROM brain_feedback WHERE status = 'new' ORDER BY id LIMIT 1")
+    const first = await env.DB.prepare(`SELECT id, name, email, source, comment FROM brain_feedback WHERE status = 'new' AND ${REAL_NOTE_SQL} ORDER BY id LIMIT 1`)
       .first<{ id: number; name: string; email: string; source: string; comment: string | null }>()
       .catch(() => null);
     const from = first ? first.name || first.email : '';

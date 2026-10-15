@@ -154,6 +154,8 @@
   const dueChip = (r) => (r.late > 0 ? `<span class="r2t-chip r2t-chip--late" title="${esc(plural(r.late, 'day'))} late"><span class="wh-cl">${lateSpan(r.late).l}</span><span class="wh-cs">${lateSpan(r.late).s}</span></span>` : '<span class="r2t-chip r2t-chip--due">Today</span>');
   function paintDue(w) {
     const card = $('wh-due');
+    // Today lists due and late actions in Needs you (today3.js); the card is drawn only where the page has it.
+    if (!card) return;
     const d = w && w.due;
     card.hidden = !d;
     if (!d) return;
@@ -186,6 +188,7 @@
   document.addEventListener('fx-gifts-ready', () => { if (D) paintGifts(D.work); });
   function paintGifts(w0) {
     const card = $('wh-gifts');
+    if (!card) return;
     const skip = onToday ? shownElsewhere() : new Set();
     const w = w0 && w0.gifts && skip.size ? Object.assign({}, w0, { gifts: Object.assign({}, w0.gifts, { rows: w0.gifts.rows.filter((r) => !skip.has(String(r.giftId))) }) }) : w0;
     const g = w && w.gifts;
@@ -314,6 +317,9 @@
 
   function paint(d) {
     D = d;
+    // Today's Needs you and How Favor is doing read the same answer (today3.js), so /api/hub/home is read once.
+    window.__whData = d;
+    document.dispatchEvent(new CustomEvent('wh:data', { detail: d }));
     try { localStorage.setItem(SHAPE, JSON.stringify({ due: !!(d.work && d.work.due), gifts: !!(d.work && d.work.gifts) })); } catch (_) { /* storage refused */ }
     paintTop(d);
     paintDue(d.work);
@@ -362,7 +368,7 @@
       const shape = JSON.parse(localStorage.getItem(SHAPE) || 'null');
       // With no saved shape yet, a person who has the Work Center gets the Due card too (has-wc is set before the first paint).
       const wc = shape ? shape.due : document.documentElement.classList.contains('has-wc');
-      if (wc) { if (onToday) root.hidden = false; $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel wh-skel--row"></li>'.repeat(8); $('wh-due-h').textContent = "Today's work"; }
+      if (wc && $('wh-due')) { if (onToday) root.hidden = false; $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel wh-skel--row"></li>'.repeat(8); $('wh-due-h').textContent = "Today's work"; }
     } catch (_) { /* nothing held */ }
   }
   load();

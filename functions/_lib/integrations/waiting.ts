@@ -18,6 +18,7 @@ import { mailboxOf } from './mailbox';
 import { waitingOn } from '../mail/smart';
 import { mayReach, ping, postChat } from './ping';
 import { plainText } from './inbox';
+import { guards, isSelf, keepWait, waitTarget } from './waitrules';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const clip = (s: unknown, n: number) => {
@@ -76,9 +77,11 @@ export async function fastWaiting(env: Env, request: Request, user: HubUser): Pr
   const tester = isTester(me);
   const access = await accessOf(env, request, user);
   const dir = await dirMap(env);
+  const { self, gone: departed } = await guards(env, me, dir);
   const nameOf = (e: string) => dir.get(lower(e)) || (lower(e) === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : lower(e) === 'tester@favorintl.org' ? 'FavorOS Tester' : String(e || '').split('@')[0]);
   // Real staff never see a line about a test account, and a tester sees only lines about the other tester.
-  const visible = (e: string) => (tester ? isTester(e) : !isHiddenAccount(e));
+  // Nor a line about the signed-in person, nor about someone who left Favor.
+  const visible = (e: string) => !isSelf({ email: e }, self) && !departed.has(lower(e)) && (tester ? isTester(e) : !isHiddenAccount(e));
   const out: WaitItem[] = [];
   const jobs: Array<Promise<unknown>> = [];
   const since7 = new Date(Date.now() - 7 * DAY).toISOString();
@@ -291,7 +294,7 @@ export async function fastWaiting(env: Env, request: Request, user: HubUser): Pr
   }
   await Promise.all(jobs);
   const [gone, nudged] = await Promise.all([cleared(env, me), nudgedToday(env, me)]);
-  return order(out.filter((i) => !gone.has(i.id)).map((i) => ({ ...i, nudged: nudged.get(i.id) || null })));
+  return order(out.filter((i) => !gone.has(i.id) && keepWait(i)).map((i) => ({ ...i, nudged: nudged.get(i.id) || null })));
 }
 
 /** Oldest wait first within each side, the lines waiting on you first. */
@@ -303,13 +306,17 @@ export async function mailWaiting(env: Env, user: HubUser, fetcher: typeof fetch
   if (!box) return { items: [], connected: false };
   const me = lower(user.email);
   const rows = await waitingOn(box.ctx, box.gm, 3);
-  const [gone, nudged] = await Promise.all([cleared(env, me), nudgedToday(env, me)]);
+  const [gone, nudged, dir] = await Promise.all([cleared(env, me), nudgedToday(env, me), dirMap(env)]);
+  const { self, gone: departed } = await guards(env, me, dir);
   const items: WaitItem[] = [];
   for (const r of rows) {
-    const to = r.people?.[0];
+    // Gmail lists the signed-in person as "me", and a thread can start with them: the wait is on the first other person.
+    const to = waitTarget(r.people, self, departed);
     if (!to) continue;
     const id = `wm:${r.id}`;
     if (gone.has(id)) continue;
+    const days = Number(r.waitDays) || daysSince(new Date(r.date).toISOString());
+    if (!keepWait({ dir: 'out', days })) continue;
     const who = to.name || to.email;
     items.push({
       id,
@@ -320,7 +327,7 @@ export async function mailWaiting(env: Env, user: HubUser, fetcher: typeof fetch
       text: clip(r.snippet, 180),
       who: { email: lower(to.email), name: who },
       since: new Date(r.date).toISOString(),
-      days: Number(r.waitDays) || daysSince(new Date(r.date).toISOString()),
+      days,
       href: `/mail/#/SENT/${encodeURIComponent(r.id)}`,
       nudge: box.write ? { channel: 'mail', label: 'Nudge by email' } : null,
       draft: `Hi ${String(to.name || '').split(' ')[0] || 'there'},\n\nFollowing up on my note below. Do you have an answer for me?`,

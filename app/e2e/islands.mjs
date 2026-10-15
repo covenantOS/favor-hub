@@ -47,7 +47,7 @@ for (const route of routes) {
   page.on('pageerror', (e) => errs.push(e.message.slice(0, 120)));
   page.on('console', (m) => { if (m.type() === 'error' && !NOISE.test(m.text())) errs.push(m.text().slice(0, 120)); });
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.r2t-tile, .r2t-clear', { timeout: 20000 });
+  await page.waitForSelector('.td-row, .td-clear', { timeout: 20000 });
   await page.waitForTimeout(2500);
   await page.evaluate(() => (document.getElementById('h-app').dataset.mark = 'kept'));
   const steps = process.env.STEPS ? process.env.STEPS.split(',').map((h) => [h, h]) : [['/chat/', 'Chat'], ['/requests/', 'Requests'], ['/', 'Today'], ['/chat/', 'Chat'], ['/requests/', 'Requests'], ['/', 'Today']];
@@ -56,7 +56,7 @@ for (const route of routes) {
     const t0 = Date.now();
     await page.locator(`.h-side a[href="${href}"]`).first().evaluate((a) => a.click());
     await page.waitForFunction((h) => location.pathname === h, href, { timeout: 10000 });
-    await page.waitForFunction(() => { const m = document.querySelector('#h-content'); return m && m.children.length && !m.querySelector('.app-legacy[aria-busy="true"]') && (m.querySelector('.r2t-tile, .r2t-clear') || m.querySelector('.app-legacy > *')); }, null, { timeout: 15000 });
+    await page.waitForFunction(() => { const m = document.querySelector('#h-content'); return m && m.children.length && !m.querySelector('.app-legacy[aria-busy="true"]') && (m.querySelector('.td-row, .td-clear') || m.querySelector('.app-legacy > *')); }, null, { timeout: 15000 });
     rows.push(`${name} ${Date.now() - t0} ms`);
   }
   const mark = await page.evaluate(() => document.getElementById('h-app').dataset.mark);
