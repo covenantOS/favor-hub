@@ -37,4 +37,6 @@ export const WEB_ROUTE_LIST = [
   '/mail/',
   '/chat/',
   '/m/',
+  '/gifts/letters/',
+  '/gifts/declines/',
 ] as const;

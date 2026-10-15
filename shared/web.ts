@@ -8,9 +8,9 @@ import { WEB_ROUTE_LIST } from './web-route-list';
 export const WEB_ROUTES = WEB_ROUTE_LIST;
 
 /**
- * Routes that own only their own address, never the paths under it. /gifts/ is the Gifts overview; /gifts/letters/ and /gifts/declines/ are
- * still Astro pages, so listing /gifts/ must not hand them to the web app. The same holds for /brain/ (Brain admin and Text Favor Brain are separate
- * pages) and /admin/ (the Overview; each settings page under it is listed on its own).
+ * Routes that own only their own address, never the paths under it. /gifts/ is the Gifts overview; the pages under it (/gifts/letters/,
+ * /gifts/declines/, /gifts/recurring/, /gifts/other/) are listed and switched one at a time, so listing /gifts/ must not hand them over. The same
+ * holds for /brain/ (Brain admin and Text Favor Brain are separate pages) and /admin/ (the Overview; each settings page under it is listed on its own).
  */
 export const WEB_EXACT_ROUTES = ['/gifts/', '/brain/', '/admin/'] as const;
 
