@@ -299,6 +299,20 @@ function Side({ selected, setSelected }: { selected: string | null; setSelected:
   );
 }
 
+export function OtherGiftsSkeleton() {
+  return (
+    <div className="og" aria-busy="true">
+      <StripSkeleton />
+      <div className="og-grid">
+        <ListSkeleton />
+        <aside className="h-card og-side">
+          <div className="og-skel" />
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 export function OtherGiftsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   return (

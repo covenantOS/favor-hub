@@ -2,15 +2,7 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { api, ApiError, send } from '@/lib/api';
 import { hubGet } from '../../lib/hub';
-import {
-  ogBatchDetail,
-  ogIndex,
-  ogLastCoding,
-  ogList,
-  ogPartnerHits,
-  ogRecommenders,
-  type OgBatchDetail,
-} from '@shared/schemas';
+import { ogBatchDetail, ogIndex, ogLastCoding, ogList, ogPartnerHits, ogRecommenders, type OgBatchDetail } from '@shared/schemas';
 
 export const ogKeys = {
   index: ['og', 'index'] as const,
