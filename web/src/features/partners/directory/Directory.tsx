@@ -37,6 +37,7 @@ function moreCount(s: DirSearch): number {
   return [s.codesNot, s.solicit, s.solicitNot, s.firstFrom || s.firstTo, s.lastFrom || s.lastTo, s.noContactDays, s.major, s.recurring, s.openActions, s.deceased, s.inactive].filter(Boolean).length;
 }
 
+const SPEC_DEFAULT = { q: '', kinds: [], status: [], states: [], holder: '', codes: [], codesNot: [], solicit: [], solicitNot: [], tags: [], band: '', firstFrom: '', firstTo: '', lastFrom: '', lastTo: '', noContactDays: 0, major: false, recurring: false, openActions: false, starred: false, deceased: 'exclude', inactive: 'exclude', sort: 'name', dir: 'asc' };
 const KINDS = ['individual', 'household', 'organization', 'church', 'foundation'];
 const ARR = ['kinds', 'status', 'states', 'codes', 'codesNot', 'solicit', 'solicitNot', 'tags'] as const;
 type ArrKey = (typeof ARR)[number];
@@ -569,7 +570,8 @@ function ViewsMenu({ search, go, say }: { search: DirSearch; go: (s: DirSearch) 
     go(s);
   };
   const save = async (name: string, all: boolean) => {
-    const spec: Record<string, unknown> = {};
+    // The whole spec, with the defaults filled in, as the classic page stores it.
+    const spec: Record<string, unknown> = { ...SPEC_DEFAULT };
     for (const [k, v] of Object.entries(search)) if (!['page', 'pane', 'view'].includes(k)) spec[k] = (ARR as readonly string[]).includes(k) ? list(String(v)) : v;
     try {
       const hiddenNow = (() => {
