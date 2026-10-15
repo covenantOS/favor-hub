@@ -4,6 +4,7 @@ import type { Q } from '../work/partner';
 import { approveBatch, attachLetter, runBatch, type PostCtx } from './post';
 import { findDuplicate } from './read';
 import { blockers, cleanEdit, entererEmails, isKind, LETTER_MAX_BYTES, LETTER_TYPES, parseJson, type Dup, type OgBatch, type OgGift } from './rules';
+import { guardTestPartners } from '../testuser';
 import { addGift, getBatch, getGift, giftsOf, logEvent, openBatchFor, updateGift } from './store';
 
 export interface Who {
@@ -52,6 +53,7 @@ export async function createGift(env: Env, q: Q, me: Who, today: string, input: 
   if (!isKind(input.kind)) throw new HttpError(400, 'bad_kind', 'Pick DAF, Foundation, Wire, Stock or Phone.');
   const batch = await openBatchFor(env, { name: me.name, email: me.email }, today);
   const set = cleanEdit({ ...input, gift_date: input.gift_date || today }, today);
+  guardTestPartners(me.email, set);
   set.kind = input.kind;
   const g = await addGift(env, batch, { name: me.name, email: me.email }, set);
   await recheckDup(env, q, g.id);
@@ -70,6 +72,7 @@ export async function editGift(env: Env, q: Q, me: Who, today: string, id: strin
     return (await getGift(env, id))!;
   }
   const set = cleanEdit(patch, today);
+  guardTestPartners(me.email, set);
   if (!Object.keys(set).length) return g;
   // Choosing a different partner or soft credit name drops the other name's text so the pair never disagree.
   if ('partner_id' in set && !('partner_name' in set)) set.partner_name = null;

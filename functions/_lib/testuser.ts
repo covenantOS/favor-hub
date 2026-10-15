@@ -1,3 +1,4 @@
+import { HttpError } from './http';
 // The QA test user. A hub account with no Google account behind it, for agents and scripts that need to be a signed-in
 // admin without being a real person. Documented in docs/TEST-USER.md.
 //
@@ -74,4 +75,17 @@ export function agentKeyOk(env: Env, request: Request): boolean {
   const auth = request.headers.get('Authorization') || '';
   const supplied = (auth.startsWith('Bearer ') ? auth.slice(7).trim() : '') || request.headers.get('X-Agent-Key') || '';
   return Boolean(supplied && env.AGENT_API_KEY && timingSafeEqualStr(supplied, env.AGENT_API_KEY));
+}
+
+/** The partner records the test accounts may attach a gift to. Anything else is a real partner. */
+export const TEST_PARTNER_IDS = ['18698', '16269'];
+export const TEST_PARTNER_REFUSAL = 'The test user can only use a test partner record. Pick Test Sponsor or Test Recommender.';
+export const isTestPartnerId = (id: unknown) => TEST_PARTNER_IDS.includes(String(id ?? '').trim()) || /^TEST/i.test(String(id ?? '').trim());
+/** Throws when a test account names a partner that is not a test record. Empty ids pass. */
+export function guardTestPartners(email: string, set: Record<string, unknown>): void {
+  if (!isTester(email)) return;
+  for (const k of ['partner_id', 'soft_partner_id']) {
+    const v = set[k];
+    if (v !== undefined && v !== null && v !== '' && !isTestPartnerId(v)) throw new HttpError(403, 'test_partner', TEST_PARTNER_REFUSAL);
+  }
 }

@@ -295,6 +295,16 @@ describe('posting to Blackbaud', () => {
     assert.equal(s.calls.length, 0);
   });
 
+  it('a test account cannot attach a gift to a real partner, entering or editing', async () => {
+    const T1 = { name: 'FavorOS Tester', email: 'tester@favorintl.org', admin: true, canApprove: true };
+    await assert.rejects(() => acts.createGift(env, q, T1, TODAY, FULL({ partner_id: '37822' })), /test partner/);
+    await assert.rejects(() => acts.createGift(env, q, T1, TODAY, FULL({ soft_partner_id: '37822' })), /test partner/);
+    const g = await acts.createGift(env, q, T1, TODAY, FULL());
+    await assert.rejects(() => acts.editGift(env, q, T1, TODAY, g.id, { partner_id: '37822' }), /test partner/);
+    // A real person is not held to it.
+    await acts.createGift(env, q, A, TODAY, FULL({ partner_id: '37822' }));
+  });
+
   it('a letter attaches to the saved gift after it posts, and one added later attaches at once', async () => {
     const bucket = { items: new Map(), put: async (k, v) => bucket.items.set(k, v), delete: async (k) => bucket.items.delete(k), get: async (k) => (bucket.items.has(k) ? { arrayBuffer: async () => bucket.items.get(k).buffer } : null) };
     const g = await acts.createGift(env, q, A, TODAY, FULL());
