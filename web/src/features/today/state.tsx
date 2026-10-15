@@ -54,25 +54,27 @@ export function useHydrated(): boolean {
 }
 
 /**
- * The five reads the ranked list needs at once (suspends until they answer), then the parts that merge in without holding the list: the
- * gift desk (the slowest read, and empty for most people) and the mail parts. Classic Today drew its list after its main sources or 1.5 s
+ * The four reads the ranked list needs at once (suspends until they answer), then the parts that merge in without holding the list: the
+ * gift desk and the work summary (the two slowest reads, and empty for most people) and the mail parts. Classic Today drew its list after its main sources or 1.5 s
  * and let the gifts in when they answered; this does the same, so the server page carries the list as soon as the main sources are in.
  */
 export function useNeeds() {
   const { gone, owner } = useShared();
   const now = useNow();
   const hydrated = useHydrated();
-  const [t, ib, wt, h, b] = useSuspenseQueries({ queries: [todayQ, inboxQ('fast'), waitingQ('fast'), homeQ, briefQ(owner)] });
+  const [t, ib, wt, b] = useSuspenseQueries({ queries: [todayQ, inboxQ('fast'), waitingQ('fast'), briefQ(owner)] });
   const gifts = useQuery(giftsQ).data;
+  const homeData = useQuery(homeQ).data;
   const ibMail = useQuery(inboxQ('mail')).data;
   const wtMail = useQuery(waitingQ('mail')).data;
   const g = hydrated && gifts ? gifts : null;
+  const home = hydrated && homeData ? homeData : null;
   const today = t.data;
   const brief = b.data ? b.data.briefing || null : null;
   const built = useMemo(
-    () => buildItems({ today, inbox: [...(ib.data.items || []), ...((ibMail && ibMail.items) || [])], waiting: [...(wt.data.items || []), ...((wtMail && wtMail.items) || [])], brief, gifts: g, home: h.data, gone, now }),
-    [today, ib.data, ibMail, wt.data, wtMail, brief, g, h.data, gone, now],
+    () => buildItems({ today, inbox: [...(ib.data.items || []), ...((ibMail && ibMail.items) || [])], waiting: [...(wt.data.items || []), ...((wtMail && wtMail.items) || [])], brief, gifts: g, home, gone, now }),
+    [today, ib.data, ibMail, wt.data, wtMail, brief, g, home, gone, now],
   );
-  return { ...built, now, today, home: h.data, brief, briefRaw: b.data };
+  return { ...built, now, today, home, brief, briefRaw: b.data };
 }
 export type Needs = { items: Item[]; thanks: Thank[] };
