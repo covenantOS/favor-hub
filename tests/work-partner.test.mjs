@@ -44,6 +44,7 @@ before(() => {
     CREATE TABLE gifts (id TEXT PRIMARY KEY UNIQUE, date_added DATETIME, date_modified DATETIME, gift_amount REAL, gift_date DATETIME, gift_type TEXT, gift_status TEXT, gift_constituency TEXT,
       gift_splits TEXT, constituent_record_id TEXT, soft_credits TEXT, fundraiser_credits TEXT, gift_payment_method TEXT, linked_gift_id TEXT, receipt_status TEXT, receipt_date DATETIME,
       receipt_amount REAL, receipt_number TEXT, acknowledgment_status TEXT, acknowledgment_date DATETIME, post_status TEXT, post_date DATETIME, gift_comments TEXT, raw_json TEXT, synced_at DATETIME);
+    CREATE TABLE recurring_schedules (gift_id TEXT PRIMARY KEY, constituent_record_id TEXT, gift_status TEXT, amount REAL, frequency TEXT, start_date TEXT, end_date TEXT, next_transaction_date TEXT, status_date TEXT, synced_at TEXT);
     CREATE TABLE actions (id TEXT PRIMARY KEY UNIQUE, date_added DATETIME, date_modified DATETIME, action_date_due DATETIME, action_category TEXT, action_type TEXT, action_priority_level TEXT,
       action_completed_date DATETIME, action_direction TEXT, action_summary TEXT, action_description TEXT, constituent_record_id TEXT, action_fundraiser_id TEXT, raw_json TEXT, synced_at DATETIME);
     CREATE TABLE assignments (id TEXT PRIMARY KEY UNIQUE, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_amount REAL, assignment_appeal_id TEXT,
@@ -93,6 +94,9 @@ before(() => {
   gift('g5', '9001', 75, '2026-08-01', { type: 'RecurringGiftPayment', linked: 'r1' });
   gift('g6', '9001', 75, '2026-09-01', { type: 'RecurringGiftPayment', linked: 'r1' });
   gift('r1', '9001', 75, '2026-07-01', { type: 'RecurringGift' });
+  // The schedule rows the sync worker keeps, and a declined charge ($0 payment with the processor's reason) with no payment after it.
+  db.prepare("INSERT INTO recurring_schedules VALUES ('r1', '9001', 'Active', 75, 'MONTHLY', '2026-07-01', NULL, '2026-09-28', NULL, '2026-10-09 05:00:00')").run();
+  gift('g9', '9001', 0, '2026-10-02', { type: 'RecurringGiftPayment', linked: 'r1', comment: 'HARDREJECT: Invalid account number.' });
   gift('g7', '9001', 30, '2025-09-05'); // last year, outside the last 12 months
   gift('g8', '9003', 1000, '2026-03-03', { soft: JSON.stringify([{ id: 's', amount: { value: 400 }, constituent_id: '9001', gift_id: 'g8' }]) });
   action('x1', '9001', { due: '2026-10-20', category: 'Task/Other', type: 'RESERVED (Follow Up - New Gift Received)', summary: 'Thank for the gift' });
@@ -154,6 +158,21 @@ describe('the partner view', () => {
     assert.equal(p.recurring[0].lastPayment, '2026-09-01');
     assert.equal(p.recurring[0].payments, 2);
     assert.equal(p.recurring[0].lastAmount, 75);
+  });
+
+  it('shows the schedule, a past-due next charge and a declined charge on the partner, and never counts a $0 payment as paid', async () => {
+    const p = await loadPartner(q, '9001', TODAY);
+    const r = p.recurring[0];
+    assert.equal(r.frequency, 'MONTHLY');
+    assert.equal(r.nextCharge, '2026-09-28');
+    assert.equal(r.pastDue, true);
+    assert.equal(r.daysLate, 12);
+    assert.equal(r.declines.length, 1);
+    assert.equal(r.declines[0].reason, 'Invalid account number.');
+    assert.equal(r.declines[0].recovered, false);
+    assert.equal(r.missed, 2, 'one declined charge not recovered plus a past-due next charge');
+    assert.equal(r.payments, 2, 'the declined $0 payment is not a payment');
+    assert.equal(r.lastPayment, '2026-09-01');
   });
 
   it('lists open actions without completed or canceled ones, with recent history, notes and last contact', async () => {

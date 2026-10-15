@@ -10,33 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
+import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 
 const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
   id: '/web-check/',
   path: '/web-check/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
+  id: '/gifts/recurring/',
+  path: '/gifts/recurring/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/web-check/': typeof WebCheckIndexRoute
+  '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesByTo {
   '/web-check': typeof WebCheckIndexRoute
+  '/gifts/recurring': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/web-check/': typeof WebCheckIndexRoute
+  '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/web-check/'
+  fullPaths: '/web-check/' | '/gifts/recurring/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/web-check'
-  id: '__root__' | '/web-check/'
+  to: '/web-check' | '/gifts/recurring'
+  id: '__root__' | '/web-check/' | '/gifts/recurring/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   WebCheckIndexRoute: typeof WebCheckIndexRoute
+  GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +58,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebCheckIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gifts/recurring/': {
+      id: '/gifts/recurring/'
+      path: '/gifts/recurring'
+      fullPath: '/gifts/recurring/'
+      preLoaderRoute: typeof GiftsRecurringIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   WebCheckIndexRoute: WebCheckIndexRoute,
+  GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

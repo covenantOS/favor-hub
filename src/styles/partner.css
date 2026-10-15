@@ -303,3 +303,4 @@ html.pp-locked, html.pp-locked body { overflow: hidden; }
 .pp-chartkey { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 12.5px; color: var(--h-ink-3); }
 .pp-chartkey s { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--h-brand) 40%, #fff) 0 4px, color-mix(in srgb, var(--h-brand) 55%, #fff) 4px 8px); }
 @media (max-width: 720px) { .pp-givenote { margin: 8px 18px 0; } }
+.pp-missed { color: #a3341f; font-weight: 600; }

@@ -11,6 +11,7 @@ import { etParts } from '../actions/intake';
 import { FUNDRAISERS_SQL, SYNCED_SQL, readOnly, type ActionsRepo, type PartnerHit } from './repo';
 import { partnerGiving, type MirrorQ } from '../gifts/partner-giving';
 import { lifetimeLine, passedOnLine, sourceLine, STATUS_WORD, throughName } from '../../../shared/giving';
+import { cleanReason, methodWord } from './declines';
 
 export type Q = <T = Record<string, any>>(sql: string, params?: unknown[]) => Promise<T[]>;
 
@@ -101,7 +102,27 @@ export interface PartnerView {
     passedOn: { total: number; count: number; partners: number; line: string };
     household: { id: string; name: string; relation: string }[];
   };
-  recurring: { id: string; amount: number; status: string; since: string; fund: string; lastPayment: string; lastAmount: number | null; payments: number }[];
+  recurring: {
+    id: string;
+    amount: number;
+    status: string;
+    since: string;
+    fund: string;
+    lastPayment: string;
+    lastAmount: number | null;
+    payments: number;
+    frequency: string;
+    method: string;
+    nextCharge: string;
+    endDate: string;
+    /** Active and the next charge date is before today. */
+    pastDue: boolean;
+    daysLate: number;
+    /** Declined charges in the last 12 months, newest first, with whether a payment went through after. */
+    declines: { date: string; reason: string; recovered: boolean }[];
+    /** Missed charges still unrecovered: declined charges not followed by a payment, plus one if the next charge is past due. */
+    missed: number;
+  }[];
   actions: { openCount: number; open: PartnerAction[]; recent: PartnerAction[] };
   notes: { id: string; date: string; type: string; category: string; summary: string; text: string; by: string }[];
   assignments: { fid: string; name: string; type: string; from: string; to: string; current: boolean }[];
@@ -264,13 +285,13 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     ),
     partnerGiving(q as MirrorQ, id, today),
     q<any>(
-      `SELECT id, gift_amount AS amount, gift_status AS status, substr(gift_date, 1, 10) AS since, gift_splits AS splits FROM gifts
+      `SELECT id, gift_amount AS amount, gift_status AS status, substr(gift_date, 1, 10) AS since, gift_splits AS splits, gift_payment_method AS pm FROM gifts
         WHERE constituent_record_id = ?1 AND gift_type = 'RecurringGift' ORDER BY CASE gift_status WHEN 'Active' THEN 0 WHEN 'Held' THEN 1 ELSE 2 END, gift_date DESC LIMIT 12`,
       [id]
     ),
     // Payments carry the same partner id, so they read through the partner index; linked_gift_id has no index of its own.
     q<any>(
-      `SELECT linked_gift_id AS link, substr(gift_date, 1, 10) AS pdate, gift_amount AS amount FROM gifts
+      `SELECT linked_gift_id AS link, substr(gift_date, 1, 10) AS pdate, gift_amount AS amount, COALESCE(json_extract(raw_json, '$.reference'), gift_comments, '') AS ref FROM gifts
         WHERE constituent_record_id = ?1 AND gift_type = 'RecurringGiftPayment' AND linked_gift_id IS NOT NULL ORDER BY gift_date DESC LIMIT 600`,
       [id]
     ),
@@ -438,14 +459,24 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     return { fid: String(a.fid), name: fname.get(String(a.fid)) || `Fundraiser ${a.fid}`, type: text(a.type), from: text(a.fromd), to, current: !to || to >= today };
   });
 
-  // Payments arrive newest first, so the first one seen for a pledge is its last payment.
+  // Payments arrive newest first, so the first one seen for a pledge is its last payment. A $0 payment is a declined charge, not a payment.
   const paid = new Map<string, { date: string; amount: number; n: number }>();
+  const declined = new Map<string, { date: string; reason: string; recovered: boolean }[]>();
+  const yearAgo = new Date(Date.parse(today + 'T12:00:00Z') - 365 * 86400000).toISOString().slice(0, 10);
   for (const p of paymentRows) {
     const key = String(p.link);
+    if (num(p.amount) <= 0) {
+      if (/REJECT/i.test(text(p.ref)) && text(p.pdate) >= yearAgo) (declined.get(key) || declined.set(key, []).get(key)!).push({ date: text(p.pdate), reason: cleanReason(text(p.ref)), recovered: false });
+      continue;
+    }
     const seen = paid.get(key);
     if (seen) seen.n += 1;
     else paid.set(key, { date: text(p.pdate), amount: num(p.amount), n: 1 });
   }
+  for (const [key, list] of declined) for (const d of list) d.recovered = (paid.get(key)?.date || '') > d.date;
+  // The schedule rows the sync worker keeps: how often, the next charge and the end date. Absent table or row means no schedule facts.
+  const schedRows = await q<any>('SELECT gift_id AS id, frequency AS freq, substr(next_transaction_date, 1, 10) AS nxt, substr(end_date, 1, 10) AS ends, gift_status AS status FROM recurring_schedules WHERE constituent_record_id = ?1', [id]).catch(() => [] as any[]);
+  const schedBy = new Map<string, any>(schedRows.map((r: any) => [String(r.id), r]));
 
   const gifts = credited.slice(0, 25).map(shown);
   const largestGift = largestRow ? shown(largestRow) : null;
@@ -489,16 +520,30 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
       passedOn: { ...(pg?.passedOn || { total: 0, count: 0, partners: 0 }), line: pg ? passedOnLine(pg) : '' },
       household: (pg?.members || []).map((m) => ({ id: m.id, name: m.name, relation: m.relation === 'self' ? 'This partner' : 'Spouse' })),
     },
-    recurring: recurringRows.map((r: any) => ({
-      id: String(r.id),
-      amount: num(r.amount),
-      status: text(r.status),
-      since: text(r.since),
-      fund: fundOf(r.splits),
-      lastPayment: paid.get(String(r.id))?.date || '',
-      lastAmount: paid.get(String(r.id))?.amount ?? null,
-      payments: paid.get(String(r.id))?.n || 0,
-    })),
+    recurring: recurringRows.map((r: any) => {
+      const sch = schedBy.get(String(r.id));
+      const nextCharge = sch ? text(sch.nxt) : '';
+      const pastDue = !!sch && text(sch.status) === 'Active' && !!nextCharge && nextCharge < today;
+      const declines = declined.get(String(r.id)) || [];
+      return {
+        id: String(r.id),
+        amount: num(r.amount),
+        status: text(r.status),
+        since: text(r.since),
+        fund: fundOf(r.splits),
+        lastPayment: paid.get(String(r.id))?.date || '',
+        lastAmount: paid.get(String(r.id))?.amount ?? null,
+        payments: paid.get(String(r.id))?.n || 0,
+        frequency: sch ? text(sch.freq) : '',
+        method: methodWord(text(r.pm)),
+        nextCharge,
+        endDate: sch ? text(sch.ends) : '',
+        pastDue,
+        daysLate: pastDue ? Math.max(1, Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(nextCharge + 'T12:00:00Z')) / 86400000)) : 0,
+        declines,
+        missed: declines.filter((d) => !d.recovered).length + (pastDue ? 1 : 0),
+      };
+    }),
     actions: { openCount: num(openN[0]?.n), open: openRows.map((a: any) => actionOf(a, true)), recent: doneRows.map((a: any) => actionOf(a, false)) },
     notes: noteRows.map((a: any) => ({
       id: String(a.id),

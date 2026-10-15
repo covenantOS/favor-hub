@@ -1655,6 +1655,18 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'gifts-recurring',
+    skipIfMissing: true,
+    page: '/gifts/recurring/',
+    via: 'recurring',
+    at: '.rg-list',
+    title: 'Recurring gifts',
+    body: 'Every recurring gift schedule, declines first and then the largest. {Tap} a row to see the schedule and the last twelve months of payments. Change the amount or how often it runs and Blackbaud is updated and read back before the page says it is saved. Undo is open for 24 hours. Hold pauses a schedule and Stop ends it for good.',
+    for: (w) => w.admin || team('pc')(w) || team('support')(w),
+    added: '2026-10-14',
+    side: 'top',
+  },
+  {
     id: 'work-cadence-comm',
     skipIfMissing: true,
     page: '/work/',
