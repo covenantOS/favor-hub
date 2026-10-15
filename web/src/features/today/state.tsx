@@ -75,6 +75,11 @@ export function useHydrated(): boolean {
   return useSyncExternalStore(never, () => true, () => false);
 }
 
+/** Draws its children only in the browser, after hydration; until then it draws the fallback. The server page does not wait on their reads. */
+export function AfterHydration({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
+  return <>{useHydrated() ? children : fallback}</>;
+}
+
 /**
  * The four reads the ranked list needs at once (suspends until they answer), then the parts that merge in without holding the list: the
  * gift desk and the work summary (the two slowest reads, and empty for most people) and the mail parts. Classic Today drew its list after its main sources or 1.5 s

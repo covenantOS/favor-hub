@@ -7,7 +7,7 @@ import '@hub/styles/qa2-workhome.css';
 import '@hub/styles/today3.css';
 import { Suspense, useState } from 'react';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
-import { TodayProvider } from './state';
+import { AfterHydration, TodayProvider } from './state';
 import { Head, FirstWeek } from './Head';
 import { NeedsCard, useNeedsRefresh } from './Needs';
 import { ScheduleCard } from './Schedule';
@@ -29,7 +29,9 @@ function Page() {
       </div>
       <ErrorBoundary label="">
         <Suspense fallback={<section className="td-mods wh tw" id="wh" aria-label="Your work" hidden />}>
-          <Modules />
+          <AfterHydration fallback={<section className="td-mods wh tw" id="wh" aria-label="Your work" hidden />}>
+            <Modules />
+          </AfterHydration>
         </Suspense>
       </ErrorBoundary>
       <RecentCard />
