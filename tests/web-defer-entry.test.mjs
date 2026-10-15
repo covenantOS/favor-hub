@@ -45,3 +45,14 @@ describe('deferEntry', () => {
     assert.equal(rewriteHead(page), null);
   });
 });
+
+describe('deferEntry with a repeat visitor', () => {
+  it('leaves the page as drawn when the cookie names this build\'s entry, and rewrites it for any other build', async () => {
+    const enc = new TextEncoder();
+    const mk = () => new ReadableStream({ start(c) { c.enqueue(enc.encode(HEAD + ENTRY + TAIL)); c.close(); } });
+    assert.equal(await new Response(deferEntry(mk(), 'a=1; hub_w=index-1.js')).text(), HEAD + ENTRY + TAIL);
+    const other = await new Response(deferEntry(mk(), 'hub_w=index-0.js')).text();
+    assert.ok(!other.includes('<script type="module"') && other.includes('hub_w'));
+    assert.ok(!(await new Response(deferEntry(mk(), 'hub_w=index-1.jsx')).text()).includes('<script type="module"'));
+  });
+});

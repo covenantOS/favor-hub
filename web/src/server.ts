@@ -30,7 +30,7 @@ export default {
     const res = await handler.fetch(request);
     const html = (res.headers.get('content-type') || '').includes('text/html') && !!res.body;
     // A page's scripts start once its stylesheets have arrived (lib/defer-entry.ts), so the two do not share a slow link.
-    const out = new Response(html ? deferEntry(res.body!) : res.body, res);
+    const out = new Response(html ? deferEntry(res.body!, request.headers.get('cookie') || '') : res.body, res);
     if (html) {
       out.headers.set('Cache-Control', 'private, no-cache');
       out.headers.set('X-Hub-Front', 'web');
