@@ -228,7 +228,12 @@ function Toast({ msg }: { msg: { t: string; n: number } }) {
 
 function Page() {
   const search = ogSearch(useSearch({ strict: false }) as Record<string, unknown>);
-  const o = useSuspenseQuery(onlineQuery(search)).data;
+  const got = useSuspenseQuery(onlineQuery(search)).data;
+  if ('failed' in got) return <OnlineGiftsError message={got.message} />;
+  return <Loaded search={search} o={got} />;
+}
+
+function Loaded({ search, o }: { search: ReturnType<typeof ogSearch>; o: OgOverview }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [pick, setPick] = useState<Record<string, string>>({});
