@@ -118,9 +118,29 @@ export async function currentBoard(ctx: Ctx): Promise<Board> {
   return { rows: scopeRows(ctx.scope, applyOverlay(data.rows, changes, data.synced)), people: data.people, synced: data.synced, orphans: data.orphans, today };
 }
 
+/** UTF-8 text that was once read as Latin-1 ("SilÃ©n" for "Silén"), put back. Anything that does not decode cleanly stays as it was. */
+export function unMojibake(s: string): string {
+  if (!s || !/[Â-ô][-¿]/.test(s)) return s;
+  const codes = Array.from(s, (c) => c.charCodeAt(0));
+  if (codes.some((c) => c > 0xff)) return s;
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(codes));
+  } catch {
+    return s;
+  }
+}
+
 export function publicRow(r: BoardRow): Omit<BoardRow, 'fullDescription' | 'mod'> {
   const { fullDescription: _f, mod: _m, ...rest } = r;
-  return rest;
+  // Some mirror rows hold names and text encoded twice; the page shows them as Blackbaud does.
+  return {
+    ...rest,
+    partner: unMojibake(rest.partner),
+    place: unMojibake(rest.place),
+    summary: unMojibake(rest.summary),
+    description: unMojibake(rest.description),
+    gift: rest.gift ? { ...rest.gift, fund: unMojibake(rest.gift.fund) } : rest.gift,
+  };
 }
 
 export async function meterView(env: Env) {
