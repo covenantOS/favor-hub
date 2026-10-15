@@ -13,6 +13,8 @@ const CATS = [['Phone call', 'Call', 'phone'], ['Email', 'Email', 'mail'], ['Mee
 const DUE_OUT = { 'Task/Other': 7, 'Phone call': 2, Email: 2, Mailing: 7, Meeting: 14 };
 const COLS = [['type', 'Type', 4], ['what', 'Summary', 5], ['who', 'Fundraiser', 6], ['added', 'Added', 7]];
 const BASE_COLS = ['44px', '112px', 'minmax(170px, 1.25fr)', '196px', 'minmax(200px, 2fr)', '150px', '88px'];
+// Compact rows hold a whole action on one line, so the columns run wider and the row stays short.
+const COMPACT_COLS = ['34px', '196px', 'minmax(200px, 1.3fr)', 'minmax(215px, 1fr)', 'minmax(240px, 2fr)', 'minmax(130px, 0.8fr)', '92px'];
 const E = {
   codes: null, me: { fid: null, type: null, name: null }, types: {}, views: [], opps: null, oppNames: {}, oppLoading: false,
   oppF: { fr: '', status: '', purpose: '', q: '', inactive: false }, cols: readCols(), panel: null,
@@ -609,16 +611,21 @@ function afterOpen(idp) {
       <div class="ep-menu"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-menu="views">${wc.ic('filter')}Views${E.views.length ? ' (' + E.views.length + ')' : ''}</button></div>
       <div class="ep-menu"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-menu="cols">Columns</button></div>
       <div class="ep-menu"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-menu="export">${wc.ic('ext')}Export</button></div>
+      ${window.PT ? window.PT.densityHTML() : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-add-partner hidden>${wc.ic('plus')}Add partner</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm ep-keysbtn" data-ep="keys" title="Keyboard shortcuts (?)">Shortcuts</button>`;
   }
   applyCols(idp);
 }
+document.addEventListener('pt:density', () => { applyCols('o'); });
+addEventListener('resize', () => { applyCols('o'); });
 function applyCols(idp) {
   const sc = $(`#${idp || 'o'}-scroll`); if (!sc) return;
   const hide = COLS.filter(([k]) => !E.cols[k]);
   sc.className = sc.className.replace(/\s?wc-hc-\d/g, '') + hide.map(([, , n]) => ' wc-hc-' + n).join('');
-  const cols = BASE_COLS.filter((_, i) => !hide.some(([, , n]) => n === i + 1)).join(' ');
+  const base = document.documentElement.getAttribute('data-density') === 'compact' && innerWidth > 860 ? COMPACT_COLS : BASE_COLS;
+  // The Added column is hidden below 1280 px, so its track goes with it.
+  const cols = base.filter((_, i) => !hide.some(([, , n]) => n === i + 1) && !(i === 6 && innerWidth <= 1280)).join(' ');
   $$('.wc-grid', sc).forEach((g) => { g.style.setProperty('--cols', cols); });
 }
 function menu(kind, anchor) {
@@ -683,7 +690,7 @@ function applyView(v) {
   S.f = Object.assign({ fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sp.f || {});
   if (sp.sort) S.sort = sp.sort; if (sp.dir) S.dir = sp.dir;
   if (sp.cols) E.cols = Object.assign({ type: 1, what: 1, who: 1, added: 1 }, sp.cols);
-  S.sel.clear(); S.shown = 100;
+  S.sel.clear(); S.page = 1;
   W().render();
 }
 
@@ -715,6 +722,8 @@ function viewOpps() {
   const stages = (C.oppStatuses || []).filter((s) => by[s]).concat(by['(none)'] ? ['(none)'] : []);
   const frs = [...new Set(E.opps.flatMap((o) => o.fundraisers))].sort((a, b) => wc.P(a).n.localeCompare(wc.P(b).n));
   const purposes = [...new Set(E.opps.map((o) => o.purpose).filter(Boolean))].sort();
+  const sig = JSON.stringify(E.oppF); if (E.oppSig !== sig) { E.oppSig = sig; E.oppPage = 1; }
+  const size = PT.size('wc-opps', 50); E.oppPage = PT.clampPage(E.oppPage, list.length, size);
   v.innerHTML = `
     <div class="h-card wc-band ep-stages">${stages.slice(0, 8).map((s) => `<button type="button" class="wc-stat${E.oppF.status === s ? ' is-on' : ''}" data-ostage="${esc(s)}"><b>${by[s].n}</b><span>${esc(s === "(none)" ? "No status" : s)}</span>${by[s].ask ? `<small class="ep-stageamt">${money(by[s].ask)}</small>` : ""}</button>`).join('')}</div>
     <section class="h-card wc-sheet" aria-label="Opportunities">
@@ -724,15 +733,17 @@ function viewOpps() {
         <select class="wc-sel${E.oppF.status ? ' is-set' : ''}" data-of="status" aria-label="Status">${opt('', 'Every status', !E.oppF.status)}${stages.map((s) => opt(s, s === '(none)' ? 'No status' : s, E.oppF.status === s)).join('')}</select>
         <select class="wc-sel${E.oppF.purpose ? ' is-set' : ''}" data-of="purpose" aria-label="Purpose">${opt('', 'Every purpose', !E.oppF.purpose)}${purposes.map((s) => opt(s, s, E.oppF.purpose === s)).join('')}</select>
         <label class="wc-toggle"><input type="checkbox" data-oinactive ${E.oppF.inactive ? 'checked' : ''} />Show inactive</label>
-        <button type="button" class="h-btn h-btn--primary h-btn--sm" data-ep="oppnew">${wc.ic('plus')}New opportunity</button>
+        <button type="button" class="h-btn h-btn--primary h-btn--sm" data-ep="oppnew">${wc.ic('plus')}New opportunity</button>${PT.densityHTML()}
       </div>
       <div class="wc-scroll ep-opps" role="table" aria-label="Opportunities">
         <div class="ep-orow ep-orow--head" role="row"><span>Opportunity</span><span>Partner</span><span>Status</span><span>Ask</span><span>Expected</span><span>Funded</span><span>Next date</span><span>Fundraisers</span></div>
-        ${list.length ? list.slice(0, 400).map((o) => `<button type="button" class="ep-orow${o.inactive ? ' is-inactive' : ''}" role="row" data-opp="${esc(o.id)}"><span><b>${esc(o.name || 'No name')}</b><small>${esc(o.purpose)}</small></span><span>${esc(E.oppNames[o.cid] || 'Partner ' + o.cid)}</span><span><i class="ep-ostatus">${esc(o.status || 'No status')}</i></span><span>${o.ask ? money(o.ask) : ''}</span><span>${o.expected ? money(o.expected) : ''}</span><span>${o.funded ? money(o.funded) : ''}</span><span>${esc(wc.fd(o.deadline || o.expectedDate || o.askDate || ''))}</span><span>${o.fundraisers.map((f) => esc(wc.P(f).n)).join(', ')}</span></button>`).join('') : '<div class="wc-empty"><b>Nothing matches</b>Change a filter.</div>'}
+        ${list.length ? PT.slice(list, E.oppPage, size).map((o) => `<button type="button" class="ep-orow${o.inactive ? ' is-inactive' : ''}" role="row" data-opp="${esc(o.id)}"><span><b>${esc(o.name || 'No name')}</b><small>${esc(o.purpose)}</small></span><span>${esc(E.oppNames[o.cid] || 'Partner ' + o.cid)}</span><span><i class="ep-ostatus">${esc(o.status || 'No status')}</i></span><span>${o.ask ? money(o.ask) : ''}</span><span>${o.expected ? money(o.expected) : ''}</span><span>${o.funded ? money(o.funded) : ''}</span><span>${esc(wc.fd(o.deadline || o.expectedDate || o.askDate || ''))}</span><span>${o.fundraisers.map((f) => esc(wc.P(f).n)).join(', ')}</span></button>`).join('') : '<div class="wc-empty"><b>Nothing matches</b>Change a filter.</div>'}
       </div>
-      <div class="wc-foot"><span>${list.length === base.length ? wc.plural(base.length, 'opportunity', 'opportunities') : `${list.length} of ${wc.plural(base.length, 'opportunity', 'opportunities')} match`}${list.length > 400 ? ' · showing the first 400' : ''}</span></div>
+      <div class="wc-foot">${PT.pager('wc-opps', { total: list.length, page: E.oppPage, size, label: list.length === base.length ? (base.length === 1 ? 'opportunity' : 'opportunities') : `matching of ${base.length.toLocaleString('en-US')}` })}</div>
     </section>`;
+  if (wc.fit) wc.fit();
 }
+PT.on('wc-opps', { page(p) { E.oppPage = p; W().render(); } });
 function dlgOpp(o, pre = {}) {
   const wc = W();
   const C = E.codes || {};
