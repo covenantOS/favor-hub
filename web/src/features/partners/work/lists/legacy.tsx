@@ -55,8 +55,10 @@ export function useSheetSource(name: string, build: () => unknown) {
 }
 
 /** The shared Open in Google Sheets button. sheets.js owns its text while it works, so React leaves the inside alone. */
-export function SheetsButton({ name, label = 'Open in Google Sheets', className = 'h-btn h-btn--ghost h-btn--sm', title }: { name: string; label?: string; className?: string; title?: string }) {
-  return <button type="button" className={className} data-sheets={name} title={title} aria-label={title} dangerouslySetInnerHTML={{ __html: SHEET_MARK_HTML + label }} />;
+const GRID_MARK_HTML = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/></svg>';
+export function SheetsButton({ name, label = 'Open in Google Sheets', className = 'h-btn h-btn--ghost h-btn--sm', title, grid }: { name: string; label?: string; className?: string; title?: string; grid?: boolean }) {
+  // grid: the outlined table icon the Work Center list tabs draw (the green mark belongs to the other pages).
+  return <button type="button" className={className} data-sheets={name} title={title} aria-label={title} dangerouslySetInnerHTML={{ __html: (grid ? GRID_MARK_HTML : SHEET_MARK_HTML) + label }} />;
 }
 
 /** FavorSheets.screen(...) when the helper has loaded; the page builds its request through this. */

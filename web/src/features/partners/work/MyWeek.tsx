@@ -205,7 +205,7 @@ function WeekBody({ as }: { as: string }) {
   const pageRows = pageOf(rows, curPage, size);
 
   const columns: Column<WeekRow>[] = [
-    { key: 'date', label: 'Date', sort: 'date', phone: true, className: 'c-date', cell: (r) => <b>{fdShort(r.date)}</b> },
+    { key: 'date', label: 'Date', sort: 'date', firstDir: 'desc', phone: true, className: 'c-date', cell: (r) => <b>{fdShort(r.date)}</b> },
     {
       key: 'how', label: 'How', sort: 'how', phone: true, className: 'c-how',
       cell: (r) => (
@@ -305,7 +305,7 @@ function WeekBody({ as }: { as: string }) {
             What counted · {total} {total === 1 ? 'action' : 'actions'}
           </b>
           <span className="pt-spacer" />
-          <ColumnsMenu columns={columns} hidden={hidden} onChange={setHidden} />
+          <ColumnsMenu showFixed columns={columns} hidden={hidden} onChange={setHidden} />
           <DensitySwitch />
         </div>
         <DataTable
@@ -331,7 +331,7 @@ function WeekBody({ as }: { as: string }) {
           total={rows.length}
           page={curPage}
           size={size}
-          noun={d.moreRows ? 'actions (' + d.moreRows + ' more not listed)' : 'actions'}
+          noun={d.moreRows ? '(' + d.moreRows + ' more not listed)' : undefined}
           onPage={(p, s) => {
             if (s !== size) setSize(s);
             setPage(p);

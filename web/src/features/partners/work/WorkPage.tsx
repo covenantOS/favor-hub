@@ -85,6 +85,7 @@ export function WorkPage({ search }: { search: WorkSearch }) {
         <Suspense fallback={null}>
           <TabGate search={search} v={v}>
             {ownHeader ? null : <WorkHeader search={search} />}
+            {ownHeader ? null : <div className="wc-nav" id="wc-nav" />}
             <Suspense fallback={null}>{view}</Suspense>
           </TabGate>
         </Suspense>

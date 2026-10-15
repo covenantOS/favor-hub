@@ -198,12 +198,6 @@ export function ThankPop({ anchor, gift, owner, today, onClose, onDone }: { anch
         value={line}
         autoComplete="off"
         onChange={(e) => setLine(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            void save();
-          }
-        }}
       />
       <label className="wg-check">
         <input type="checkbox" id="wg-fu" checked={fu} onChange={(e) => setFu(e.target.checked)} /> Follow up in 2 weeks

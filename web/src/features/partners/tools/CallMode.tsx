@@ -6,6 +6,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { BodyPortal } from '@/shell/BodyPortal';
 import { Boundary } from '../record/Boundary';
 import { Ic } from '../record/Ic';
+import { useIsAdmin } from '../record/admin';
 import { ApiFail, N, digits, fd, money, newReq, plusDays, rApi, rPost, short, sleep, todayEt } from '../record/lib';
 import { toast } from '../record/toast';
 import { Steps, prepQuery, useLayer } from './Prep';
@@ -170,6 +171,7 @@ function Body({ id, say, onClose, onDone }: { id: string; say?: string; onClose:
     }
   };
   const flagsDnc = b.flags.includes('Do not call');
+  const admin = useIsAdmin();
   return (
     <>
       <div className="wg-dlg__head">
@@ -185,7 +187,7 @@ function Body({ id, say, onClose, onDone }: { id: string; say?: string; onClose:
           <Ic n="x" />
         </button>
       </div>
-      {b.comm && b.comm.banner.show ? (
+      {admin && b.comm && b.comm.banner.show ? (
         <div className="pp-comm pp-comm--inline" role="status" data-comm-banner="call" style={{ margin: '0 20px 12px' }}>
           <span className="pp-comm__k">Contact marks</span>
           {b.comm.channels

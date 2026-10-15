@@ -218,7 +218,7 @@ function GrantsBody({ as }: { as: string }) {
       ),
     },
     {
-      key: 'date', label: 'Date', sort: 'date', phone: true, className: 'c-date',
+      key: 'date', label: 'Date', sort: 'date', firstDir: 'desc', phone: true, className: 'c-date',
       cell: (r) => (
         <>
           <b>{r.date ? dateWords(r.date, today) : ''}</b> <span className="pt-sub">{r.open ? 'Due' : r.category}</span>
@@ -227,7 +227,7 @@ function GrantsBody({ as }: { as: string }) {
     },
     { key: 'by', label: 'Fundraiser', sort: 'by', phone: true, className: 'c-by', title: (r) => (r.who || []).join(', '), cell: (r) => <span className="pt-sub">{(r.who || []).join(', ')}</span> },
     {
-      key: 'acts', label: '', fixed: true, className: 'c-acts',
+      key: 'acts', label: '', srLabel: 'Actions', fixed: true, className: 'c-acts',
       cell: (r) =>
         r.local && String(r.id).startsWith('local-') ? null : (
           <div className="pt-acts">
@@ -273,10 +273,10 @@ function GrantsBody({ as }: { as: string }) {
           </span>
           <span className="pt-spacer" />
           <span className="pl-f">
-            <ColumnsMenu columns={columns} hidden={hidden} onChange={setHidden} />
+            <ColumnsMenu showFixed columns={columns} hidden={hidden} onChange={setHidden} />
           </span>
           <DensitySwitch />
-          <SheetsButton name="grants" className="h-btn h-btn--ghost h-btn--sm pl-f" />
+          <SheetsButton grid name="grants" className="h-btn h-btn--ghost h-btn--sm pl-f" />
           <button type="button" className="h-btn h-btn--ghost h-btn--sm pl-f" onClick={() => setLog({ kind: 'conversation' })}>
             Conversation
           </button>
@@ -309,7 +309,6 @@ function GrantsBody({ as }: { as: string }) {
           total={list.length}
           page={curPage}
           size={size}
-          noun="entries"
           onPage={(p, s) => {
             if (s !== size) setSize(s);
             setPage(p);
@@ -399,7 +398,7 @@ function LogDialog({ data: d, today, start, onClose, onSubmit }: { data: GrantsA
               <span className="wc-note">Pick the foundation first.</span>
             )}
           </div>
-          <PartnerFind autoFocus placeholder="Find the foundation: name, email, phone or lookup id" onPick={(h) => { setCid(h.cid); setName(h.name); }} />
+          <PartnerFind placeholder="Find the foundation: name, email, phone or lookup id" onPick={(h) => { setCid(h.cid); setName(h.name); }} />
         </div>
         <div className="wc-field">
           <span className="lab">What</span>

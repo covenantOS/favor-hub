@@ -10,6 +10,7 @@ import { N, fdY, useMounted, money0, rGet, rPost, todayEt, asParam } from './lib
 import { Boundary } from './Boundary';
 import { Term } from './Ic';
 import { RelationshipMap } from './RelationshipMap';
+import { AdminOnly } from './admin';
 
 export const CRM_TABS: [string, string][] = [
   ['gifts', 'Gifts'],
@@ -590,7 +591,9 @@ function ConnectionsBody({ id, household }: { id: string; household: { id: strin
   const reread = () => qc.invalidateQueries({ queryKey: extrasQuery(id).queryKey });
   return (
     <div className="pc-grid">
-      <RelationshipMap id={id} />
+      <AdminOnly>
+        <RelationshipMap id={id} />
+      </AdminOnly>
       <Sec title="Relationships">
         {rel.length ? (
           <DataTable<any> listKey="pc-rel" label="Relationships" columns={relCols} rows={rel} rowKey={(r) => String(r.id || r.name) + ':' + r.type} noFit />

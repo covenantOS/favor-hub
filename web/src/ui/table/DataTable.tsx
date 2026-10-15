@@ -29,6 +29,8 @@ export interface Column<T> {
   className?: string;
   /** Header cell class. */
   thClassName?: string;
+  /** Class on that hidden text. Default sr-only. */
+  srClass?: string;
   cell: (row: T, index: number) => ReactNode;
   title?: (row: T) => string | undefined;
   /** Shown on a phone (<= 860 px). Columns without it are hidden there. Defaults to true for fixed columns. */
@@ -169,9 +171,18 @@ export function DataTable<T>(p: DataTableProps<T>) {
   };
   const onKey = (e: KeyboardEvent<HTMLTableRowElement>, row: T, id: string) => {
     if (e.target !== e.currentTarget) return;
-    if (e.key === 'Enter' && p.onOpen) {
-      e.preventDefault();
-      p.onOpen(row);
+    if (e.key === 'Enter') {
+      // With no onOpen the row presses its own open control, or its first link (public/js/ptable.js).
+      if (p.onOpen) {
+        e.preventDefault();
+        p.onOpen(row);
+      } else {
+        const o = e.currentTarget.querySelector<HTMLElement>('[data-pt-open]') || e.currentTarget.querySelector<HTMLElement>('a[href]');
+        if (o) {
+          e.preventDefault();
+          o.click();
+        }
+      }
     } else if ((e.key === 'x' || e.key === ' ') && p.select) {
       e.preventDefault();
       if (p.select.disabled?.(id)) return;
@@ -204,8 +215,10 @@ export function DataTable<T>(p: DataTableProps<T>) {
                       {c.label}
                       <SortMark on={on} dir={p.sort?.dir} />
                     </button>
+                  ) : c.srLabel ? (
+                    <span className={c.srClass || 'sr-only'}>{c.srLabel}</span>
                   ) : (
-                    c.srLabel ? <span className="sr-only">{c.srLabel}</span> : c.label
+                    c.label
                   )}
                 </th>
               );
@@ -313,7 +326,7 @@ export function Pager({ listKey, total, page, size, onPage, noun, sizes = true }
     <nav className="pt-pager" data-pt-pager={listKey} aria-label="Pages">
       <span className="pt-range" aria-live="polite">
         {total ? `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')}` : 'None'}
-        {total && noun ? ' ' + noun : ''}
+        {noun ? ' ' + noun : ''}
       </span>
       {last > 1 ? (
         <span className="pt-nums">
@@ -370,7 +383,8 @@ export function DensitySwitch() {
 }
 
 /** The Columns menu. */
-export function ColumnsMenu<T>({ columns, hidden, onChange }: { columns: Column<T>[]; hidden: ReadonlySet<string>; onChange: (s: Set<string> | null) => void }) {
+/** showFixed: the Work Center list tabs' menu (ptable.js colsHTML): it also lists the always-on columns, ticked and greyed, and it closes when a choice is made (the classic list redraws). */
+export function ColumnsMenu<T>({ columns, hidden, onChange, showFixed }: { columns: Column<T>[]; hidden: ReadonlySet<string>; onChange: (s: Set<string> | null) => void; showFixed?: boolean }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -392,23 +406,28 @@ export function ColumnsMenu<T>({ columns, hidden, onChange }: { columns: Column<
       </summary>
       <div className="pt-cols__menu" role="group" aria-label="Columns shown">
         {columns
-          .filter((c) => !c.fixed)
+          .filter((c) => !c.fixed || (showFixed && c.label))
           .map((c) => (
-            <label key={c.key}>
+            <label key={c.key} className={c.fixed ? 'is-fixed' : undefined}>
               <input
                 type="checkbox"
-                checked={!hidden.has(c.key)}
+                checked={c.fixed || !hidden.has(c.key)}
+                disabled={c.fixed}
                 onChange={(e) => {
                   const s = new Set(hidden);
                   if (e.target.checked) s.delete(c.key);
                   else s.add(c.key);
                   onChange(s);
+                  if (showFixed) setOpen(false);
                 }}
               />
               {c.label}
             </label>
           ))}
-        <button type="button" className="pt-cols__reset" onClick={() => onChange(null)}>
+        <button type="button" className="pt-cols__reset" onClick={() => {
+          onChange(null);
+          if (showFixed) setOpen(false);
+        }}>
           Show the usual columns
         </button>
       </div>
@@ -430,7 +449,8 @@ export function useListKeys(listKey: string, opts: { search?: string } = {}) {
         return;
       }
       // An open dialog or side panel takes the keys (the search palette stays in the page while closed, so only a visible one counts).
-      const open = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"], .pt-side.is-on')).some((d) => d.getClientRects().length > 0 && getComputedStyle(d).visibility !== 'hidden');
+      // A closed side panel stays in the page, parked off screen with aria-hidden, and must not count.
+      const open = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"], .pt-side.is-on, .wc-dlg.is-on, .wc-drawer.is-on')).some((d) => d.getAttribute('aria-hidden') !== 'true' && d.getClientRects().length > 0 && getComputedStyle(d).visibility !== 'hidden');
       if (open) return;
       const list = document.querySelector(`[data-pt-list="${CSS.escape(listKey)}"]`);
       if (!list || !(list as HTMLElement).offsetParent) return;
@@ -465,8 +485,9 @@ export function useListKeys(listKey: string, opts: { search?: string } = {}) {
         }
       }
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // Capture phase: the list's [ and ] turn its pages before the shell's [ and ] (which switch the area's tabs) see the key, as ptable.js does.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [listKey, opts.search]);
 }
 

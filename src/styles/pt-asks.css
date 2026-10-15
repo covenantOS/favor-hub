@@ -36,7 +36,7 @@
 .pa-table .pa-prep { width: 22px; height: 22px; }
 .pa-table tbody tr.is-past .pa-amt { color: var(--h-red, #93391f); }
 .pa-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-@media (min-width: 861px) { [data-density='compact'] .pa-table tbody td { padding-top: 3px; padding-bottom: 3px; line-height: 1.25; } }
+@media (min-width: 861px) { [data-density='compact'] .pt-table.pa-table tbody td { padding-top: 3px; padding-bottom: 3px; line-height: 1.25; } }
 [data-density='comfortable'] .pa-table .wa-chip { height: 28px; }
 [data-density='comfortable'] .pa-table .pa-prep { width: 30px; height: 30px; }
 .pa-foot { padding: 10px 14px; border-top: 1px solid var(--h-line); font: 400 12.5px/1.5 var(--h-font); color: var(--h-ink-3); }

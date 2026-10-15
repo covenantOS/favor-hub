@@ -4,6 +4,12 @@ import { useRouter } from '@tanstack/react-router';
 import { hubOv } from '@/lib/hubOv';
 import { isInApp, useServedRoutes } from '@/shell/NavLink';
 
+/** Enter on a focused row presses that row's open control (what ptable.js does with [data-pt-open]). */
+export function pressRowOpen(): void {
+  const row = (document.activeElement as HTMLElement | null)?.closest?.('tr[data-pt-row]');
+  row?.querySelector<HTMLElement>('[data-pt-open]')?.click();
+}
+
 export const partnerHref = (cid: string) => '/work/partner/' + encodeURIComponent(cid);
 
 export function usePartnerOpen(): (cid: string) => void {

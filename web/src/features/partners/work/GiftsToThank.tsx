@@ -17,6 +17,7 @@ import { Term } from './lists/Term';
 import { clockWords } from './lists/clock';
 import { useFit } from './lists/fit';
 import { N } from '../api';
+import { loadDrill } from '../../highlights/drill';
 import { contextQuery, dateWords, moneyExact, moneyWhole, onPhone, telHref, useHeld, useMinute, workGet, initialsOf } from './lists/core';
 
 // The WorkHeader (the page bar, the view chips) is built on branch pr-actions; render it here when ./WorkHeader exists.
@@ -130,6 +131,7 @@ function GiftsBody({ as }: { as: string }) {
   const [anchorKey, setAnchorKey] = useState<string | null>(null);
   const { ref, fit } = useFit(360);
   const nowMin = useMinute();
+  useEffect(() => loadDrill(), []);
 
   const ov = ovHeld && ovHeld.at === dataUpdatedAt ? ovHeld : freshOverlay(dataUpdatedAt, d);
   const gone = useMemo(() => new Set(ov.gone), [ov]);
@@ -479,7 +481,7 @@ function GiftsBody({ as }: { as: string }) {
           ) : null}
           <span className="pt-spacer" />
           <DensitySwitch />
-          <SheetsButton name="gifts-to-thank" className="h-btn h-btn--ghost h-btn--sm pl-f" />
+          <SheetsButton grid name="gifts-to-thank" className="h-btn h-btn--ghost h-btn--sm pl-f" />
         </div>
         <DataTable
           listKey={KEY}
@@ -505,6 +507,9 @@ function GiftsBody({ as }: { as: string }) {
               toggleSel(id, on);
             },
             onPage: (on) => toggleMany(pageRows.map((r) => r.key), on),
+          }}
+          onRowClick={(r) => {
+            if (onPhone()) setPanelKey(r.key);
           }}
           onOpen={(r) => (onPhone() ? setPanelKey(r.key) : prep(r))}
           rowClassName={(r) => 'gt-row' + (leaving.includes(r.key) ? ' is-leaving' : '')}

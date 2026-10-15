@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CHANNEL_LABEL, KIND_CHANNEL, type Channel, type ChannelKey } from '@shared/commprefs';
+import { useIsAdmin } from './admin';
 import { todayEt, type Partner } from './lib';
 import { partnerQuery } from './queries';
 import { runBatch } from './writes';
@@ -24,8 +25,9 @@ export const commOf = (p: Partner): Comm | null => ((p as unknown as { comm?: Co
 
 /** The strip at the top of the record. Names each blocked channel and why, then the narrowing marks. */
 export function CommBanner({ p, kind }: { p: Partner; kind?: string }) {
+  const admin = useIsAdmin();
   const c = commOf(p);
-  if (!c || !c.banner.show) return null;
+  if (!admin || !c || !c.banner.show) return null;
   const want = kind ? KIND_CHANNEL[kind] : undefined;
   if (kind && !want) return null;
   const chans = c.channels.filter((x) => (want ? x.key === want : x.state !== 'ok'));
@@ -48,7 +50,8 @@ export function CommPrefs({ p, as, goTab }: { p: Partner; as: string; goTab: (ta
   const c = commOf(p);
   const qc = useQueryClient();
   const [busy, setBusy] = useState('');
-  if (!c) return null;
+  const admin = useIsAdmin();
+  if (!admin || !c) return null;
   const can = !!(p as unknown as { canCodes?: boolean }).canCodes;
   const reread = () => qc.invalidateQueries({ queryKey: partnerQuery(p.id, as).queryKey });
   const flip = async (ch: Channel) => {

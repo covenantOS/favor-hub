@@ -10,8 +10,14 @@
 html[data-density='compact'] .pt-table tbody tr.pt-group .wg-group { padding: 6px 12px; font-size: 11.5px; }
 .gt-table tbody tr.gt-row.is-leaving td, .mp-table tbody tr.is-leaving td, .cd-table tbody tr.is-leaving td { opacity: 0; transition: opacity 0.35s ease; }
 
+/* The Actions tab sets a 280 px floor on every fitted list (actions.css); the list tabs shrink to their rows like the classic ones. */
+#wc-root .pt-wrap--fit:has(> table.ptl-table) { min-height: 120px; }
+#wc-root .pt-wrap--fit:has(> table.pa-table), #wc-root .pt-wrap--fit:has(> table.gt-table) { min-height: 0; }
+
 /* ------------------------------------------------------------------ Gifts to thank */
 .gt-sheet .pt-bar.wg-tools { padding: 8px 12px; gap: 6px; }
+.gt-table thead th { font: 600 12px var(--h-font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--h-ink-3); }
+html[data-density='compact'] .gt-table thead th { font-size: 11.5px; }
 .gt-table td.gt-c-amt { width: 1%; }
 .gt-table td.gt-c-due { width: 1%; }
 .gt-table .gt-amt { font: 600 15px/1.2 var(--h-font); white-space: nowrap; color: var(--h-ink); font-variant-numeric: lining-nums tabular-nums; }
@@ -22,6 +28,7 @@ html[data-density='compact'] .pt-table tbody tr.pt-group .wg-group { padding: 6p
 .gt-table td.gt-c-who { width: 100%; max-width: 0; min-width: 260px; }
 .gt-table .gt-who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .gt-table .gt-who .wg-who { display: inline-flex; flex: none; margin: 0; flex-wrap: nowrap; font-size: 12px; align-items: center; }
+.gt-table .gt-who .wg-who > span { display: inline-flex; align-items: center; }
 .gt-table .gt-who .wg-ini { width: 20px; height: 20px; font-size: 11px; margin-right: 4px; }
 .gt-table .gt-who .wg-name { flex: 0 1 auto; max-width: 70%; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gt-table .gt-who .gt-sub { flex: 1 1 0; min-width: 0; margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
