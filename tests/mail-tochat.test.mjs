@@ -127,6 +127,7 @@ describe('the Move to Chat route', () => {
     d1.exec("CREATE TABLE IF NOT EXISTS hub_users (email TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', picture TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'staff', blocked INTEGER NOT NULL DEFAULT 0, pending INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')");
     for (const [e, n, r] of [['ada@favorintl.org', 'Ada Admin', 'admin'], ['bo@favorintl.org', 'Bo Builder', 'staff'], ['cy@favorintl.org', 'Cy Writer', 'staff'], ['maya@example.org', 'Maya', 'staff']]) d1.db.prepare('INSERT INTO hub_users (email, name, role) VALUES (?, ?, ?)').run(e, n, r);
     d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('mail.enabled', 'staff', 't', 'n'), ('chat.enabled', 'group', 't', 'n'), ('chat.access', ?, 't', 'n')").run(JSON.stringify({ emails: ['bo@favorintl.org', 'cy@favorintl.org'], teams: [] }));
+    d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('early_access', ?, 't', 'n')").run(JSON.stringify({ emails: ['bo@favorintl.org', 'cy@favorintl.org'], teams: [] }));
     env = { DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
     await d1.prepare('INSERT OR REPLACE INTO hub_google (email, refresh_enc, scopes, connected_at) VALUES (?, ?, ?, ?)').bind(ADA.email, await google.seal(env, 'refresh'), MODIFY, '2026-10-11T12:00:00.000Z').run();
     globalThis.fetch = async (url) => (String(url) === 'https://oauth.test/token' ? new Response(JSON.stringify({ access_token: 'at', expires_in: 3600 }), { status: 200 }) : new Response('{}', { status: 404 }));
@@ -141,6 +142,7 @@ describe('the Move to Chat route', () => {
     assert.deepEqual(t.data.teamChat.people.map((p) => p.email).sort(), ['ada@favorintl.org', 'bo@favorintl.org', 'cy@favorintl.org']);
     assert.equal((await call(ADA, 'GET', 'threads/mixedaaa')).data.teamChat.ok, false);
     d1.db.prepare("UPDATE hub_settings SET value = ? WHERE key = 'chat.access'").run(JSON.stringify({ emails: ['bo@favorintl.org'], teams: [] }));
+    d1.db.prepare("INSERT OR REPLACE INTO hub_settings (key, value, updated_by, updated_at) VALUES ('early_access', ?, 't', 'n')").run(JSON.stringify({ emails: ['bo@favorintl.org'], teams: [] }));
     assert.equal((await call(ADA, 'GET', 'threads/teamaaaa')).data.teamChat.ok, false, 'Cy is not in the Chat group');
     d1.db.prepare("UPDATE hub_settings SET value = 'off' WHERE key = 'chat.enabled'").run();
     assert.equal((await call(ADA, 'GET', 'threads/teamaaaa')).data.teamChat.ok, false, 'Chat is off');
@@ -207,6 +209,7 @@ describe('the test users sample mailbox', () => {
     d1.exec("CREATE TABLE IF NOT EXISTS hub_users (email TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', picture TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'staff', blocked INTEGER NOT NULL DEFAULT 0, pending INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')");
     for (const [e, n] of [['tester@favorintl.org', 'FavorOS Tester'], ['tester2@favorintl.org', 'FavorOS Tester Two'], ['bo@favorintl.org', 'Bo Builder']]) d1.db.prepare("INSERT INTO hub_users (email, name, role) VALUES (?, ?, 'admin')").run(e, n);
     d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('mail.enabled', 'group', 't', 'n'), ('mail.access', ?, 't', 'n'), ('chat.enabled', 'group', 't', 'n')").run(JSON.stringify({ emails: ['tester@favorintl.org'], teams: [] }));
+    d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('early_access', ?, 't', 'n')").run(JSON.stringify({ emails: ['tester@favorintl.org'], teams: [] }));
     env = { DB: d1 };
     pending = [];
   });

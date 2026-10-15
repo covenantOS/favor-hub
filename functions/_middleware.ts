@@ -3,7 +3,9 @@
 // X-Hub-* headers (see _lib/session.ts).
 import { json, type Env } from './_lib/http';
 import { crossSiteWrite, resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
-import { REDIRECTS } from '../src/data/areas';
+import { AREAS, REDIRECTS } from '../src/data/areas';
+import { earlyPaths } from '../src/data/early';
+import { isEarly } from './_lib/early';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
@@ -60,6 +62,7 @@ const RETIRED: Record<string, string> = {
 };
 
 const NAV_MOVED = new Map(REDIRECTS);
+const EARLY_PATHS = earlyPaths(AREAS);
 
 // A clip's share page and its video are reachable without sign-in at the middleware; each decides for
 // itself by the clip's share switch (functions/c/[id].ts, functions/api/clips/[id]/media.ts).
@@ -178,8 +181,13 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   // route's audience. A visitor with no session, and the token that opens it, keep the Astro page exactly as before.
   const openWebPage = open && WEB_OPEN_PAGES.has(path);
   if (user && (!open || openWebPage) && !path.startsWith('/api/')) {
+    // Pages held to Early access (Alpha and Beta features, Meetings, Chat, Mail, Clips): everyone else lands on Today, no error. Rooms people were invited to are not in this list.
+    if (!open && request.method === "GET" && user.role !== "field" && EARLY_PATHS.has(path.replace(/\/?$/, '/')) && !(await isEarly(env, user).catch(() => false))) {
+      return new Response(null, { status: 302, headers: { Location: new URL("/", url).toString(), "Cache-Control": "no-store" } });
+    }
     // The web app (web/, the favoros-web Worker) takes a route an admin turned on, for the people in its audience.
     const w = await decideWeb(env, request, url, user).catch((err) => { console.error('[web]', err); return { kind: 'pass', routes: [] as string[] } as const; });
+    if (w.kind === 'today') return new Response(null, { status: 302, headers: { Location: new URL('/', url).toString(), 'Cache-Control': 'no-store' } });
     if (w.kind === 'switch') return new Response(null, { status: 302, headers: { Location: new URL(w.to, url).toString(), 'Set-Cookie': w.cookie, 'Cache-Control': 'no-store' } });
     if (w.kind === 'web') {
       if (enforce) noteUse(ctx, user, request.method, path);

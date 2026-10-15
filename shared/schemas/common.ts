@@ -26,6 +26,8 @@ export const access = z
     clips: z.boolean().optional(),
     meetings: z.boolean().optional(),
     clipsRecord: z.boolean().optional(),
+    /** On the early_access list (or an admin): sees Alpha and Beta features, Meetings, Chat, Mail and Clips. */
+    early: z.boolean().optional(),
     chat: z.boolean().optional(),
     projects: z.boolean().optional(),
     tasks: z.boolean().optional(),

@@ -200,14 +200,18 @@ export function Account({ user, onSignOut, access = {}, classicHref = '/?app2=0'
             Evaluations
           </a>
         )}
-        <a role="menuitem" href="/clips/">
-          <Icon name="clips" />
-          My clips
-        </a>
-        <button type="button" role="menuitem" data-clip-record>
-          <Icon name="camera" />
-          Record a clip
-        </button>
+        {!!access.early && (
+          <>
+            <a role="menuitem" href="/clips/">
+              <Icon name="clips" />
+              My clips
+            </a>
+            <button type="button" role="menuitem" data-clip-record>
+              <Icon name="camera" />
+              Record a clip
+            </button>
+          </>
+        )}
         <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden={!connect}>
           <Icon name="clips" />
           Connect Favor Brain to Claude
@@ -217,6 +221,7 @@ export function Account({ user, onSignOut, access = {}, classicHref = '/?app2=0'
           <Icon name="mute" className="h-i h-sound__off" />
           Sounds
         </button>
+        <div className="h-menu__hd" role="presentation">Tools</div>
         {TOOL_LINKS.map((t) => (
           <a key={t.id} role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer">
             <Icon name="ext" />

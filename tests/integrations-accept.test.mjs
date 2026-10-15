@@ -60,6 +60,7 @@ test('a requester outside the Chat group gets one email; a closed gate tells nob
   const w = acceptWorld();
   w.set('chat.enabled', 'group');
   w.set('chat.access', JSON.stringify({ emails: [DESIGN.email], teams: [] }));
+  w.set('early_access', JSON.stringify({ emails: [DESIGN.email], teams: [] }));
   const id = addRequest(w, 'Fix the footer', OUTSIDER.email);
   const r = await call(w, WILL, 'POST', `${id}/accept`, { owner_email: DESIGN.email });
   assert.equal(r.data.told.via, 'email');

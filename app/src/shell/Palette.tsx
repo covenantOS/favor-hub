@@ -35,7 +35,8 @@ export function Palette({ access, kpiTeams }: Props) {
 
   const allowed = useCallback(
     (i: Hit) => {
-      if (!i.need && !i.team) return true;
+      if (i.early && !access.early) return false;
+      if (!i.need && !i.team && !i.early) return true;
       if (i.need && !access[i.need]) return false;
       if (i.team && !kpiTeams.includes(i.team)) return false;
       return true;

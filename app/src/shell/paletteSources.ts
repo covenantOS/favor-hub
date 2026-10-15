@@ -8,6 +8,7 @@ export interface Hit {
   group: string;
   tags?: string;
   need?: string;
+  early?: boolean;
   team?: string;
   searchOnly?: boolean;
 }

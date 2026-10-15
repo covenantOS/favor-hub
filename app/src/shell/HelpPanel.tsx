@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { TOOL_LINKS } from '@hub/data/areas';
 import { BodyPortal } from './BodyPortal';
 import { useQuery } from '@tanstack/react-query';
 import { Icon } from './Icon';
@@ -151,6 +152,13 @@ function QuestionMenu({ onHelp }: { onHelp: () => void }) {
           <Icon name="tools" />
           Keyboard shortcuts
         </button>
+        <div className="h-menu__hd" role="presentation">Tools</div>
+        {TOOL_LINKS.map((t) => (
+          <a key={t.id} role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer">
+            <Icon name="ext" />
+            {t.label}
+          </a>
+        ))}
       </div>
     </div>
   );

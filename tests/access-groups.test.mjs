@@ -21,6 +21,7 @@ function chatWorld(access) {
     w.d1.db.prepare('INSERT OR REPLACE INTO meet_directory (email, name, title, team, active) VALUES (?, ?, ?, ?, 1)').run(u.email, u.name, 'Staff', team);
   }
   set(w, 'chat.access', JSON.stringify(access));
+  set(w, 'early_access', JSON.stringify(access));
   return w;
 }
 
@@ -51,6 +52,7 @@ test('Chat in group mode: a named person and a named team get in, everyone else 
   assert.equal((await call(w, OTHER, 'GET', 'boot')).status, 200, 'in the Grants team');
   assert.equal((await call(w, ADMIN2, 'GET', 'boot')).status, 200, 'admin');
   set(w, 'chat.access', JSON.stringify({ emails: [], teams: ['Operations'] }));
+  set(w, 'early_access', JSON.stringify({ emails: [], teams: ['Operations'] }));
   assert.equal((await call(w, OTHER, 'GET', 'boot')).status, 403);
   assert.equal((await call(w, OTHER, 'GET', 'dock')).status, 403);
   assert.equal((await call(w, OTHER, 'GET', 'inbox')).status, 403);

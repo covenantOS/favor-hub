@@ -60,7 +60,7 @@ export const inWebAudience = (user: HubUser | null, s: WebSettings): boolean => 
 
 export const optedOut = (request: Request): boolean => new RegExp(`(?:^|;\\s*)${WEB_OFF_COOKIE}=1`).test(request.headers.get('Cookie') || '');
 
-export type WebDecision = { kind: 'web'; routes: string[] } | { kind: 'switch'; to: string; cookie: string } | { kind: 'pass'; routes: string[] };
+export type WebDecision = { kind: 'today' } | { kind: 'web'; routes: string[] } | { kind: 'switch'; to: string; cookie: string } | { kind: 'pass'; routes: string[] };
 
 /**
  * What to do with a signed-in page request. `?web=0` opts this person out (every page from Astro) and `?web=1` back in; both land on
@@ -79,10 +79,15 @@ export async function decideWeb(env: Env, request: Request, url: URL, user: HubU
   // A route with its own switch (Other gifts, hub setting gifts.other) is served to whoever that setting allows, with no web.routes entry.
   const own = user.role === 'field' ? [] : await ownRoutesFor(env, user);
   const s = await readWebSettings(env);
-  // A page with no Astro twin cannot fall back, so it ignores the audience and the opt-out: it is on for every staff sign-in the moment an admin lists it.
+  // A page with no Astro twin cannot fall back, so it ignores the opt-out. It still follows its audience (its entry, else web.audience):
+  // a person outside it is sent to Today. List a page open to staff as @all.
   const listed = s.routes.map((e) => e.route);
-  const only = listed.length > 0 && webServes(url.pathname, WEB_ONLY_ROUTES) && webServes(url.pathname, listed) && user.role !== 'field' && (user.via === 'google' || user.via === 'password');
-  const onlyMine = user.role === 'field' ? [] : listed.filter((r) => webServes(r, WEB_ONLY_ROUTES));
+  const signedIn = user.role !== 'field' && (user.via === 'google' || user.via === 'password');
+  const asked = listed.length > 0 && webServes(url.pathname, WEB_ONLY_ROUTES) && webServes(url.pathname, listed) && signedIn;
+  const mine = routesFor(user, s);
+  const only = asked && webServes(url.pathname, mine);
+  if (asked && !only && isPageLoad(request)) return { kind: 'today' };
+  const onlyMine = user.role === 'field' ? [] : mine.filter((r) => webServes(r, WEB_ONLY_ROUTES));
   const out = optedOut(request);
   // `routes` is every route this person gets from the web app. The web page carries it back in the hub_web cookie, so a link inside the web
   // app moves in the app only to a route that is on for this person, and a route held to testers or admins never opens for anyone else.

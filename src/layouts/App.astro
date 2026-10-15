@@ -353,6 +353,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           document.documentElement.classList.toggle('has-projects', !!access.projects); // projects hook
           document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);
           document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
+          document.querySelectorAll('[data-early]').forEach(function (el) { el.hidden = !(access.early && (!el.dataset.need || access[el.dataset.need])); });
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
           var counts = d.counts || {};
@@ -410,9 +411,10 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               <a role="menuitem" href="/expenses/" data-astro-prefetch="hover"><Fragment set:html={icon('receipt')} />Expenses</a>
               <a role="menuitem" href="/learn/" data-need="learn" hidden data-astro-prefetch="hover"><Fragment set:html={icon('book')} />My learning</a>
               <a role="menuitem" href="/evaluations/" data-need="hr" hidden data-astro-prefetch="hover"><Fragment set:html={icon('badge')} />Evaluations</a>
-              <a role="menuitem" href="/clips/" data-astro-prefetch="hover"><Fragment set:html={icon('clips')} />My clips</a>
-              <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
+              <a role="menuitem" href="/clips/" data-early hidden data-astro-prefetch="hover"><Fragment set:html={icon('clips')} />My clips</a>
+              <button type="button" role="menuitem" data-clip-record data-early hidden><Fragment set:html={icon('camera')} />Record a clip</button>
               <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
+              <div class="h-menu__hd" role="presentation">Tools</div>
               {TOOL_LINKS.map((t) => <a role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer"><Fragment set:html={icon('ext')} />{t.label}</a>)}
               <button type="button" role="menuitem" data-lite-open><Fragment set:html={icon('signal')} />Data saver<Rel k="lite" b={badgeFor('lite')} /></button>
               <button type="button" role="menuitem" class="h-sound" data-sound-switch data-hs-open aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>

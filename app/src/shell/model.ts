@@ -45,6 +45,7 @@ export interface NavView {
 }
 
 export const pageVisible = (p: NavPage, access: NavInput['access'], kpiTeams: string[]): boolean => {
+  if (p.early && !access.early) return false;
   if (p.need && !access[p.need]) return false;
   if (p.team && !kpiTeams.includes(p.team)) return false;
   return true;

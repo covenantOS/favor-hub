@@ -14,6 +14,7 @@ import { giftsResponse, mayGifts } from '../work/gifts-svc';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { groupMembers } from '../access';
+import { isEarly } from '../early';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
 // learn: begin
@@ -74,7 +75,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
   const admin = user.role === 'admin';
   // Every check reads on its own, all at once: the menu and the bell call this on every page, and one after another it was about a dozen
   // D1 round trips before either could start its own reads.
-  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM, otherGifts, movesOn] = await Promise.all([
+  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM, otherGifts, movesOn, early] = await Promise.all([
     user.via === 'google' ? approverEmails(env) : Promise.resolve(new Set<string>()),
     workAccessFor(env, email, admin).catch(() => null),
     admin ? Promise.resolve(true) : onAnyRequest(env, email),
@@ -89,6 +90,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     mailMode(env),
     mayUseOther(env, user).catch(() => false),
     mayUseMoves(env, user).catch(() => false),
+    isEarly(env, user).catch(() => false),
   ]);
   // The access groups (functions/_lib/access.ts): read only when a feature is in group mode.
   const [chatMembers, mailMembers] = await Promise.all([chatM === 'group' ? groupMembers(env, 'chat') : null, mailM === 'group' ? groupMembers(env, 'mail') : null]);
@@ -99,8 +101,10 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     approver,
     expenseLog: approver || expenseAdmin,
     workCenter: !!work && work.ok,
-    clips: true,
-    meetings: admin || String(meetRelease).toLowerCase() === 'staff',
+    // Meetings, Clips, Chat and Mail are held to the Early access list. The room an invited person opens stays open to them (meetUser).
+    clips: early,
+    meetings: early,
+    early,
     clipsRecord,
     chat: mayUse(chatM, user, chatMembers),
     projects,

@@ -2,6 +2,7 @@
 // the phone bottom bar, Ctrl K and the old-URL redirects all read this list. A new page is one entry
 // in a page list below. Nothing else in the layout changes.
 //
+
 // `need` is an access flag from /api/hub/nav (admin, kpi, expenseLog, workCenter, clips, meetings).
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
@@ -9,7 +10,7 @@
 // the tab row for those people and sits in the row's More menu for everyone else. Nothing is locked by a job: `need` alone decides access.
 // The rail has no More menu (Will, 2026-10-15): every area a person can open sits in the rail, in barRank order.
 
-export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'moves' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
+export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'moves' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin' | 'early';
 
 /** The jobs /api/hub/nav works out for a person (functions/_lib/hub/jobs.ts). Admins hold every job. */
 export type Job = 'admin' | 'rdd' | 'partner_care' | 'church' | 'grants' | 'support' | 'exec' | 'giftdesk' | 'hr' | 'approver';
@@ -43,6 +44,8 @@ export interface NavPage {
   desc: string;
   keywords?: string;
   need?: Need;
+  /** Held to Early access (admins and the early_access list). Set from src/data/early.ts. */
+  early?: boolean;
   team?: string;
   count?: string;
   also?: string[];
@@ -279,6 +282,11 @@ export const AREAS: NavArea[] = [
 export const TOOL_LINKS: Array<{ id: string; label: string; href: string; desc: string; keywords: string }> = [
   { id: 'tool-blackbaud', label: 'Blackbaud', href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/', desc: 'Partner records', keywords: 'crm donors blackbaud raisers edge' },
   { id: 'tool-paycom', label: 'Paycom', href: 'https://www.paycomonline.net/v4/ee/web.php/app/login', desc: 'Time sheet, time off and expenses cards', keywords: 'paycom timesheet punch clock in out pto vacation time off accruals cards reimbursement' },
+  { id: 'tool-ghl', label: 'GoHighLevel', href: 'https://my.favor.international', desc: 'Email and marketing', keywords: 'ghl gohighlevel leadconnector marketing automation email campaigns crm' },
+  { id: 'tool-timeoff', label: 'Time off', href: 'https://phx.us-west.paycomonline.net/v4/ee/web.php/accruals/time-off', desc: 'Submit PTO in Paycom', keywords: 'pto vacation time off accruals paycom' },
+  { id: 'tool-media', label: 'Media folder', href: 'https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU', desc: 'Photos and videos from the field', keywords: 'photos videos media drive field google' },
+  { id: 'tool-materials', label: 'Marketing materials', href: 'https://docs.google.com/spreadsheets/d/1voiT9f4oixPz0cRAJrQTyik-PqCwP3hGGhC-br1PjOU/edit?usp=sharing', desc: 'Live materials catalog', keywords: 'marketing materials sheet catalog' },
+  { id: 'tool-asana-form', label: 'Marketing request form', href: 'https://form.asana.com/?k=ZLVP4wa-hVh36WUjOH4FyQ&d=1200803238481574', desc: 'Asana form for a new marketing project', keywords: 'marketing project asana request brief form' },
 ];
 
 /** True when a person holding these jobs does this work. Admins hold every job; an empty list is everyone's. */
@@ -368,6 +376,11 @@ export const SWAP_PATHS = Array.from(new Set(AREAS.flatMap((a) => a.pages.filter
 /** Pages that always load whole, from any page: the Work Center keeps its state in globals other Work scripts read, and the dashboard keeps its own frame. */
 export const FULL_LOAD_PATHS = ['/work/', '/dashboard/'];
 
+// Pages held to Early access: Meetings, Chat, Mail, Clips and every page with its own Alpha or Beta badge (tests/early-access.test.mjs checks this list against src/data/release.ts).
+const EARLY_AREA_IDS = ['meet', 'chat', 'mail'];
+const EARLY_PAGE_IDS = ['clips', 'online-gifts', 'statements', 'lists', 'list-reports', 'list-credit', 'welcome'];
+for (const area of AREAS) for (const page of area.pages) if (EARLY_AREA_IDS.includes(area.id) || EARLY_PAGE_IDS.includes(page.id)) page.early = true;
+
 export const NAV_IDS = new Map<string, { area: NavArea; page: NavPage }>();
 for (const area of AREAS) {
   for (const page of area.pages) {
@@ -393,6 +406,7 @@ export function paletteItems() {
         external: !!p.ext,
         group: area.label,
         need: p.need || '',
+        early: !!p.early,
         team: p.team || '',
         area: area.id,
         page: p.id,

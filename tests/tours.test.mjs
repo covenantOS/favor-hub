@@ -13,9 +13,9 @@ const N = await import('../web/src/features/tour/news.ts');
 const S = await import('../src/scripts/tour-state.ts');
 const { AREAS } = await import('../src/data/areas.ts');
 
-const NO = { work: false, gifts: false, chat: false, mail: false, learn: false, meetings: false, projects: false, kpi: false, hr: false, approver: false, expenses: false, admin: false };
+const NO = { work: false, gifts: false, chat: false, mail: false, learn: false, meetings: false, projects: false, kpi: false, hr: false, approver: false, expenses: false, admin: false, early: false };
 const person = (over = {}, can = {}, counts = {}) => ({ email: 'pat@favorintl.org', first: 'Pat', role: 'staff', jobs: [], teams: [], can: { ...NO, ...can }, counts, ...over });
-const ALL = { work: true, gifts: true, chat: true, mail: true, learn: true, meetings: true, projects: true, kpi: true, hr: true, approver: true, expenses: true };
+const ALL = { work: true, gifts: true, chat: true, mail: true, learn: true, meetings: true, projects: true, kpi: true, hr: true, approver: true, expenses: true, early: true };
 
 const WHO = {
   admin: person({ role: 'admin', jobs: ['admin'], teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'] }, { ...ALL, admin: true }),

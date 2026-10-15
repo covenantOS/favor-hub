@@ -31,6 +31,8 @@ export type Can = {
   approver: boolean;
   expenses: boolean;
   admin: boolean;
+  /** On the Early access list (or an admin): Alpha and Beta stops show. */
+  early: boolean;
 };
 
 /** The person's own counts from the nav answer. */
@@ -88,6 +90,7 @@ export function whoFromNav(d: NavAnswer | null | undefined): Who {
       approver: flag(a.approver),
       expenses: flag(a.expenseLog) || flag(a.approver),
       admin,
+      early: flag(a.early) || admin,
     },
     counts,
   };
@@ -267,7 +270,7 @@ const TEAM: Record<TourId, StepDef[]> = {
       via: 'online-gifts',
       at: ['#og-app'],
       title: "This morning's online gifts",
-      need: 'gifts',
+      need: 'early',
       body: () => "Each morning's online gifts wait here with the partner's comment, ready for you to approve.",
       side: 'right',
     },

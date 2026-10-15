@@ -73,6 +73,8 @@ export async function accessList(env: Env, feature: Feature): Promise<AccessList
 
 /** Everyone the group names: the listed emails plus every active person on a listed team. Lowercase. */
 export async function groupMembers(env: Env, feature: Feature): Promise<Set<string>> {
+  // Chat and Mail follow the Early access list (hub setting early_access), so one list holds them back from staff.
+  if (feature === 'chat' || feature === 'mail') return (await import('./early')).earlyMembers(env as FullEnv);
   const list = await accessList(env, feature);
   const out = new Set(list.emails);
   if (list.teams.length) {

@@ -4,6 +4,7 @@
 // The page is read from body[data-nav] when pressed, so a page swapped in place opens its own article.
 // Pages with no article, or a help index that cannot load, get the help home.
 import { icon } from '../data/icons';
+import { TOOL_LINKS } from '../data/areas';
 ---
 <div class="h-qm" id="h-qm">
   <button type="button" class="h-top__cam h-qm__btn" id="h-qm-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="h-qmenu" aria-label="Help and feedback" title="Help and feedback"><Fragment set:html={icon('help')} /></button>
@@ -13,6 +14,8 @@ import { icon } from '../data/icons';
     <button type="button" role="menuitem" data-tour-start><Fragment set:html={icon('play')} />Tour and what is new<span class="h-nav__count" data-count="tours" hidden></span></button>
     <button type="button" role="menuitem" data-feedback="hub"><Fragment set:html={icon('chat')} />Feedback</button>
     <button type="button" role="menuitem" data-keys-open><Fragment set:html={icon('tools')} />Keyboard shortcuts</button>
+    <div class="h-menu__hd" role="presentation">Tools</div>
+    {TOOL_LINKS.map((t) => <a role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer"><Fragment set:html={icon('ext')} />{t.label}</a>)}
   </div>
 </div>
 <dialog class="lp" id="lp-dlg" aria-labelledby="lp-title">

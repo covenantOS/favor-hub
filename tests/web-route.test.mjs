@@ -118,8 +118,8 @@ describe('the classic pages cooperate', () => {
 
 describe('a page with no Astro twin (Churches)', () => {
   const C = '/churches/';
-  it('goes to every staff sign-in once it is turned on, whatever the audience or opt-out', async () => {
-    const env = world({ 'web.routes': C });
+  it('goes to every staff sign-in once it is listed @all, whatever the opt-out', async () => {
+    const env = world({ 'web.routes': C + '@all' });
     assert.equal((await go(env, C, staff)).kind, 'web');
     assert.equal((await go(env, C, staff, { cookie: 'hub_web_off=1' })).kind, 'web');
     assert.equal((await go(env, C, admin)).kind, 'web');
@@ -127,15 +127,15 @@ describe('a page with no Astro twin (Churches)', () => {
   it('stays off until an admin lists it, never reaches field staff, and ignores script reads', async () => {
     assert.equal((await go(world(), C, staff)).kind, 'pass');
     assert.equal((await go(world({ 'web.routes': '/web-check/' }), C, staff)).kind, 'pass');
-    assert.equal((await go(world({ 'web.routes': C }), C, field)).kind, 'pass');
-    assert.equal((await go(world({ 'web.routes': C }), C, staff, { dest: 'empty' })).kind, 'pass');
+    assert.equal((await go(world({ 'web.routes': C + '@all' }), C, field)).kind, 'pass');
+    assert.equal((await go(world({ 'web.routes': C + '@all' }), C, staff, { dest: 'empty' })).kind, 'pass');
   });
 });
 
 describe('routes only the web app has', () => {
-  it('reaches staff whatever the audience, once listed', async () => {
-    const env = world({ 'web.routes': '/data-care/', 'web.audience': 'testers' });
-    assert.equal((await go(env, '/data-care/', staff)).kind, 'web');
+  it('follows its audience: admin-only sends staff to Today', async () => {
+    const env = world({ 'web.routes': '/data-care/@admin', 'web.audience': 'testers' });
+    assert.equal((await go(env, '/data-care/', staff)).kind, 'today');
     assert.equal((await go(env, '/data-care/', admin)).kind, 'web');
     assert.equal((await go(env, '/data-care/', field)).kind, 'pass');
     assert.equal((await go(env, '/data-care/', null)).kind, 'pass');
