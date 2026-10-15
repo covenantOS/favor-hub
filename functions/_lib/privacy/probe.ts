@@ -30,6 +30,7 @@ import { onRequestGet as fglBatchesApi } from '../../api/gifts/first-gifts/batch
 import { onRequestGet as fglWordingApi } from '../../api/gifts/first-gifts/wording';
 import { onRequestGet as fglBatchApi } from '../../api/gifts/first-gifts/batches/[id]/index';
 import { onRequestGet as fglPdfApi } from '../../api/gifts/first-gifts/batches/[id]/pdf';
+import { onRequestGet as movesGet, onRequestPost as movesPost } from '../../api/moves/[[a]]';
 
 export type Who = 'staff' | 'field' | 'out';
 
@@ -133,6 +134,14 @@ export function probes(): Probe[] {
     { name: "Another person's hand-off", path: `/api/today/handoff/${M.handoff}`, who: ['staff', 'field', 'out'] },
     { name: 'Hand-offs given', path: '/api/today/handoffs', who: ['staff'] },
     { name: 'Partner mail on the partner page (no Work Center)', path: '/api/today/partner-mail?cid=27202', who: both },
+    // Moves board and relationship map (2026-10-15): the Work Center gate decides, so a probe reads nothing from any of these.
+    { name: 'Moves board', path: '/api/moves/', who: both },
+    { name: 'Moves stage rows', path: '/api/moves/cards?stage=pool&q=prvcnry', who: both },
+    { name: 'Moves partner by id', path: '/api/moves/card?cid=27202', who: both },
+    { name: 'Relationship map by id', path: '/api/moves/relations?cid=27202', who: both },
+    { name: 'Move a partner (write)', path: '/api/moves/card', method: 'POST', body: { cid: '27202', stage: 'ask' }, who: both },
+    { name: 'Add a relationship (write)', path: '/api/moves/relations', method: 'POST', body: { cid: '27202', otherCid: '27203', type: 'Friend' }, who: both },
+    { name: 'Edit the stages (write)', path: '/api/moves/stages', method: 'POST', body: { stages: [{ label: 'A' }, { label: 'B' }] }, who: both },
     // Signed out: nothing at all.
     ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry', '/api/tasks/intake/mine', `/api/tasks/intake/r/${M.request}`].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
   ];
@@ -142,7 +151,7 @@ export function probes(): Probe[] {
 type Handler = (ctx: { request: Request; env: Env; params: Record<string, string | string[]>; waitUntil: (p: Promise<unknown>) => void; next: () => Promise<Response>; data: Record<string, unknown> }) => Response | Promise<Response>;
 
 /** The function the browser's request reaches for this path, and its route parameters. */
-function handlerFor(path: string): { fn: Handler; params: Record<string, string | string[]> } | null {
+function handlerFor(path: string, method = 'GET'): { fn: Handler; params: Record<string, string | string[]> } | null {
   const p = path.split('?')[0];
   const rest = (prefix: string) => p.slice(prefix.length).split('/').filter(Boolean);
   if (p.startsWith('/api/meet/')) return { fn: ((c: Parameters<Handler>[0]) => meetRoute({ request: c.request, env: c.env as never, params: c.params, waitUntil: c.waitUntil }, false)) as Handler, params: { path: rest('/api/meet/') } };
@@ -167,6 +176,7 @@ function handlerFor(path: string): { fn: Handler; params: Record<string, string 
   if (p === '/api/gifts/first-gifts/batches') return { fn: fglBatchesApi as unknown as Handler, params: {} };
   if (p === '/api/gifts/first-gifts/wording') return { fn: fglWordingApi as unknown as Handler, params: {} };
   { const m = /^\/api\/gifts\/first-gifts\/batches\/([\w-]+)(\/pdf)?$/.exec(p); if (m) return { fn: (m[2] ? fglPdfApi : fglBatchApi) as unknown as Handler, params: { id: m[1] } }; }
+  if (p === '/api/moves/' || p.startsWith('/api/moves/')) return { fn: (method === 'POST' ? movesPost : movesGet) as unknown as Handler, params: { a: rest('/api/moves/') } };
   if (p.startsWith('/api/today/')) return { fn: todayApi as unknown as Handler, params: { path: rest('/api/today/') } };
   return null;
 }
@@ -183,7 +193,7 @@ export async function readCell(env: Env, origin: string, probe: Probe, who: Who)
   const base = { name: probe.name, who, path: probe.path };
   // Field staff reach only the field paths; everything else stops in the middleware before any route runs.
   if (who === 'field' && !fieldMayOpen(probe.path.split('?')[0])) return { ...base, status: 403, ok: !probe.must, ...(probe.must ? { why: 'control needs a path field staff may open' } : {}) };
-  const h = handlerFor(probe.path);
+  const h = handlerFor(probe.path, probe.method || 'GET');
   if (!h) return { ...base, status: 0, ok: false, why: 'no handler for this path' };
   // Signed out: only the open doors run their route; the middleware answers 401 for the rest.
   const open = /^\/api\/(book|meet-guest)\//.test(probe.path) || /^\/api\/clips\/[0-9a-f]{32}\/(info|media|views)$/.test(probe.path.split('?')[0]);

@@ -15,7 +15,7 @@ export const WEB_ROUTES = WEB_ROUTE_LIST;
 export const WEB_EXACT_ROUTES = ['/gifts/', '/brain/', '/admin/'] as const;
 
 /** Routes that have no Astro page. Anyone signed in who may use the hub gets them once an admin lists them in web.routes, whatever the audience. */
-export const WEB_ONLY_ROUTES = ['/churches/', '/data-care/'] as const;
+export const WEB_ONLY_ROUTES = ['/churches/', '/data-care/', '/moves/'] as const;
 
 /**
  * Routes that carry their own switch. The hub setting named here decides who gets the page (off, admins or on), so turning the feature on is one
