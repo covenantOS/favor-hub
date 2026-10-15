@@ -5,6 +5,7 @@
 /* ------------------------------------------------------------------ shared: the sheet, the table, the cells */
 .ptl-sheet { padding: 0; }
 .ptl-wrap { width: 100%; }
+.ptl-wrap.pt-wrap--fit { min-height: 120px; }
 .ptl-table { table-layout: auto; }
 .ptl-table tbody td.is-clip { max-width: 360px; }
 .ptl-table .c-acts { text-align: right; width: 1%; }

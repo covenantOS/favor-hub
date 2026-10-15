@@ -88,7 +88,7 @@ function view() {
         ${PT ? PT.densityHTML() : ''}
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="grants">${f.ic('sheet')}Open in Google Sheets</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-talk>Conversation</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgr-log>${f.ic('plus')}Log</button></div>
-      <div class="ptl-wrap">
+      <div class="ptl-wrap pt-wrap pt-wrap--fit" style="--pt-fit:360px">
         <table class="pt-table ptl-table ptl-grants">
           <thead><tr><th>${th('name', 'Foundation')}</th>${hide.has('kind') ? '' : `<th>${th('kind', 'Kind')}</th>`}${hide.has('sum') ? '' : '<th>Entry</th>'}${hide.has('award') ? '' : '<th>Award and file</th>'}${hide.has('date') ? '' : `<th>${th('date', 'Date')}</th>`}${hide.has('by') ? '' : `<th>${th('by', 'Fundraiser')}</th>`}<th><span class="sr-only">Actions</span></th></tr></thead>
           <tbody data-pt-list="grants">${pageList.map((r) => rowHTML(r, hide)).join('') || `<tr><td colspan="${n}"><div class="pt-empty"><b>${G.done ? 'Nothing logged yet' : 'No open grant tasks'}</b>${G.done ? 'Requests, LOIs and reports you log show here.' : 'A to-do you log with a due date shows here until it is done.'}</div></td></tr>`}</tbody>

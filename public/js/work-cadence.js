@@ -141,7 +141,7 @@ function view() {
         ${PT ? PT.densityHTML() : ''}
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wcd-print>${f.ic('print')}Print the three lists</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence">${f.ic('sheet')}Open in Google Sheets</button></div>
-      <div class="ptl-wrap">
+      <div class="ptl-wrap pt-wrap pt-wrap--fit" style="--pt-fit:390px">
         <table class="pt-table ptl-table ptl-cadence">
           <thead><tr><th>${th('name', 'Partner')}</th>${hide.has('rule') ? '' : `<th>${th('rule', 'Frequency')}</th>`}<th>${th('over', 'Due')}</th><th>Steps</th>${hide.has('last') ? '' : `<th>${th('last', 'Last contact')}</th>`}${hide.has('holder') ? '' : '<th>Held by</th>'}${hide.has('found') ? '' : '<th>Came in through</th>'}<th><span class="sr-only">Actions</span></th></tr></thead>
           <tbody data-pt-list="cadence">${pageList.map((r) => rowHTML(r, hide, n)).join('') || `<tr><td colspan="${n}"><div class="pt-empty"><b>${all.length ? 'Nothing matches' : 'Queue clear'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New partners come due after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div></td></tr>`}</tbody>

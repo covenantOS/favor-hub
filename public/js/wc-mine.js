@@ -127,7 +127,7 @@ function paint() {
         ${PT ? PT.densityHTML() : ''}
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="work-partners">${SHEET}Open in Google Sheets</button>
       </div>
-      <div class="ptl-wrap">
+      <div class="ptl-wrap pt-wrap pt-wrap--fit" style="--pt-fit:440px">
         <table class="pt-table ptl-table ptl-mine">
           <thead><tr><th class="pt-cb"><input type="checkbox" data-wm-pickall ${allOn ? 'checked' : ''} aria-label="Select every partner shown" /></th><th>${th('name', 'Partner')}</th>${hide.has('quiet') ? '' : `<th>${th('quiet', 'Last contact')}</th>`}${hide.has('gift') ? '' : `<th>${th('gift', 'Last gift')}</th>`}${hide.has('l12') ? '' : `<th class="is-num">${th('l12', '12 months', 'is-num')}</th>`}${hide.has('life') ? '' : `<th class="is-num">${th('life', 'Lifetime', 'is-num')}</th>`}${hide.has('next') ? '' : '<th>Next step</th>'}<th><span class="sr-only">Actions</span></th></tr></thead>
           <tbody data-pt-list="mine">${shown.map(rowHTML).join('') || `<tr><td colspan="${nCols}"><div class="pt-empty"><b>${M.f === 'all' && !M.q ? 'No partners held' : 'Nobody here'}</b>${M.f === 'q90' ? 'Every partner in this list has had a contact in the last 90 days.' : 'Change the filter or the search.'}</div></td></tr>`}</tbody>

@@ -240,7 +240,7 @@
     host.innerHTML = `<div class="pt-bar">
         <div class="pt-seg" role="group" aria-label="Show">${FILTERS.map((f) => `<button type="button" data-filter="${f[0]}" class="${state.filter === f[0] ? 'is-on' : ''}" aria-pressed="${state.filter === f[0]}">${f[1]}<span>${count(f[0]).toLocaleString('en-US')}</span></button>`).join('')}</div>
         <span class="pt-spacer"></span>${PT ? PT.colsHTML('fnd-prospects', PCOLS) : ''}${PT ? PT.densityHTML() : ''}${SHEET_BTN}</div>
-      <div class="ptl-wrap">
+      <div class="ptl-wrap pt-wrap pt-wrap--fit" style="--pt-fit:400px">
         <table class="pt-table ptl-table ptl-fnd">
           <thead><tr><th>${thFor('fnd-prospects', 'name', 'Foundation')}</th>${hide.has('contacts') ? '' : `<th class="is-num">${thFor('fnd-prospects', 'contacts', 'Contacts', 'is-num')}</th>`}${hide.has('last') ? '' : `<th>${thFor('fnd-prospects', 'last', 'Last contact')}</th>`}${hide.has('rdds') ? '' : `<th>${thFor('fnd-prospects', 'rdds', 'Fundraiser')}</th>`}${hide.has('status') ? '' : `<th>${thFor('fnd-prospects', 'status', 'Status')}</th>`}</tr></thead>
           <tbody data-pt-list="fnd-prospects">${
