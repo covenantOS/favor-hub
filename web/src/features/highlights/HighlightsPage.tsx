@@ -8,6 +8,7 @@ import '@hub/styles/brain.css';
 import './highlights.css';
 import { Boundary } from '../partners/record/Boundary';
 import { pinsQuery } from './api';
+import { loadDrill } from './drill';
 import { failText } from './format';
 import { PageToast } from './toast';
 import { Week, WeekWait } from './Week';
@@ -55,6 +56,7 @@ export function HighlightsPage({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => vo
   const [seen, setSeen] = useState<Record<Tab, boolean>>({ week: tab === 'week', mine: tab === 'mine' });
   useEffect(() => setSeen((s) => (s[tab] ? s : { ...s, [tab]: true })), [tab]);
   const mounted = useMounted();
+  useEffect(() => loadDrill(), []);
   const tabs = useRef<Record<Tab, HTMLButtonElement | null>>({ week: null, mine: null });
   const order: Tab[] = ['week', 'mine'];
   const show = (t: Tab) => {
