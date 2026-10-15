@@ -19,6 +19,7 @@ const ALLOWED = [
   /thank you letter donation/, // description sent to Blackbaud with the monthly reply code
   /\bLetter (paper|size)\b/, // 8.5 x 11 paper in a printing question
   /\bHQ\b/,
+  /first-gift letters?/i, // Gifts > First-gift letters: the page Receipts hands acquisition first gifts to
 ];
 const WORD = /\bletters?\b/i;
 

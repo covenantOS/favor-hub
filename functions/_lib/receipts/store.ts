@@ -20,6 +20,7 @@ import {
   type Verdict,
 } from './rules';
 import { queryThankedOn, queryWaiting, reportPrintFile, type PrintFileState } from './worker';
+import { fglHolds, type FglHold } from '../fgl/hold';
 
 export const DEFAULT_DAYS = 90;
 
@@ -59,6 +60,13 @@ export interface View {
 /** Today in Eastern time, YYYY-MM-DD. */
 export function todayEastern(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+/** The held-back reason for a gift that belongs to a first-gift letter. Receipts never offers it for adding. */
+function fglVerdict(h: FglHold): Verdict {
+  return h.kind === 'file'
+    ? { letter: false, key: 'first_gift_file', reason: `In the ${h.letterDate} first-gift letters print file`, canAdd: false }
+    : { letter: false, key: 'first_gift', reason: 'First gift from an acquisition mailing, thanked by a first-gift letter', canAdd: false };
 }
 
 function itemOf(g: Gift, v: Verdict): Item {
@@ -158,12 +166,20 @@ export async function waitingView(env: Env, days: number, fresh = false, defer?:
   const gifts = got.gifts;
   const at = got.at;
   const open = sample ? new Map<string, { id: string; letterDate: string }>() : await openBatchGifts(env);
+  // Acquisition first gifts get a first-gift letter (Gifts > First-gift letters), so Receipts holds them back, and so it does a gift in an open
+  // first-gift print file. Each gift is on one of the two pages, never both.
+  const holds = sample ? new Map<string, FglHold>() : await fglHolds(env, gifts.map((g) => g.id));
   const letters: Item[] = [];
   const held: Item[] = [];
-  const printing = gifts.filter((g) => verdict(g).letter);
+  const printing = gifts.filter((g) => !holds.has(g.id) && verdict(g).letter);
   const greeting = (await getCopy(env).catch(() => DEFAULT_COPY)).greeting;
   const flags = checkGifts(printing, greeting);
   for (const g of gifts) {
+    const hold = holds.get(g.id);
+    if (hold) {
+      held.push(itemOf(g, fglVerdict(hold)));
+      continue;
+    }
     const v = verdict(g);
     const item = itemOf(g, v);
     const inBatch = open.get(g.id);
@@ -504,6 +520,7 @@ export async function lettersFor(
   const gifts = await loadGifts(env, days);
   const byId = new Map(gifts.map((g) => [g.id, g]));
   const open = await openBatchGifts(env);
+  const holds = await fglHolds(env, [...ids, ...added]);
   const letters: Letter[] = [];
   const skipped: { id: string; why: string }[] = [];
   const want = new Set([...ids, ...added]);
@@ -511,6 +528,11 @@ export async function lettersFor(
     const g = byId.get(id);
     if (!g) {
       skipped.push({ id, why: 'no longer waiting in Blackbaud' });
+      continue;
+    }
+    const hold = holds.get(id);
+    if (hold) {
+      skipped.push({ id, why: fglVerdict(hold).reason });
       continue;
     }
     if (open.has(id)) {
