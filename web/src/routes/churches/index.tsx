@@ -157,7 +157,7 @@ function ChurchesBody() {
   const open = shown.find((r) => r.cid === sel) ?? slice[0] ?? null;
 
   const s = data?.stats;
-  const pct = s ? Math.min(100, Math.round((s.givingYtd / s.goal) * 100)) : 0;
+  const pct = s && s.goal > 0 ? Math.min(100, Math.round((s.givingYtd / s.goal) * 100)) : 0;
   const setFilter = (v: Region | 'All' | 'Due') => {
     setRegion(v);
     setPage(1);
@@ -169,7 +169,7 @@ function ChurchesBody() {
         <div className="ch-stat">
           <span>Church giving, {data ? data.today.slice(0, 4) : ''}</span>
           <b>{s ? money(s.givingYtd) : <i className="ch-sk" />}</b>
-          {s ? <small>of {money(s.goal)} goal</small> : null}
+          {s && s.goal > 0 ? <small>of {money(s.goal)} goal</small> : null}
           <div className="ch-meter" role="img" aria-label={`${pct} percent of the goal`}>
             <i style={{ width: pct + '%' }} />
           </div>

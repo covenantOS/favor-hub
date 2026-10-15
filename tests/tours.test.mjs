@@ -114,6 +114,15 @@ test('Mail, Chat, Learn, Meetings and Projects stops show only to people who can
   assert.deepEqual(out, ['today', 'actions', 'mine', 'week', 'brain', 'projects', 'request', 'help']);
 });
 
+test('the Church Engagement tour ends its team stops on Churches, not on My week', () => {
+  const steps = D.tourFor('church', WHO.church, 'desk');
+  const got = steps.map((s) => s.id);
+  assert.ok(got.includes('churches') && !got.includes('week'), got.join(','));
+  const c = steps.find((s) => s.id === 'churches');
+  assert.equal(c.page, '/churches/');
+  assert.doesNotMatch(c.body, /—/);
+});
+
 test('team stops need the access their screen needs', () => {
   const staffRdd = person({ jobs: ['rdd'] }, { work: false });
   const steps = D.tourFor('rdd', staffRdd, 'desk').map((s) => s.id);

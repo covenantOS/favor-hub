@@ -214,6 +214,12 @@ export async function favorosTeamGoals(env: Env): Promise<Record<TeamKey, number
   return teamGoals(rows.map((r) => ({ type: r.type, lead: r.lead, start: r.start, end: r.end, goal: r.goals.annual_goal })), year, todayEt());
 }
 
+/** Church Engagement's annual goal for a year, from fundraiser_goals (the team lead's row). 0 when no goal is saved. */
+export async function churchGoal(env: Env, year: number = currentYear()): Promise<number> {
+  const rows = await listGoals(env, year);
+  return teamGoals(rows.map((r) => ({ type: r.type, lead: r.lead, start: r.start, end: r.end, goal: r.goals.annual_goal })), year, todayEt()).ce;
+}
+
 /** The goals the hub reads when the source is FavorOS; null while the source is still the dashboard. */
 export async function activeTeamGoals(env: Env): Promise<Record<TeamKey, number> | null> {
   if ((await goalsSource(env)) !== 'favoros') return null;
