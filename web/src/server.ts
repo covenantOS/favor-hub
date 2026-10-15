@@ -4,12 +4,12 @@
 import handler from '@tanstack/react-start/server-entry';
 
 export default {
-  async fetch(request: Request, env: unknown, ctx: unknown): Promise<Response> {
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === '/_w/ping') return Response.json({ ok: true, at: new Date().toISOString() }, { headers: { 'cache-control': 'no-store' } });
     // Only the middleware calls this Worker, and it always names the person. Anything else is refused.
     if (!request.headers.get('X-Hub-Email')) return new Response('Not found', { status: 404 });
-    const res = await handler.fetch(request, env as never, ctx as never);
+    const res = await handler.fetch(request);
     const out = new Response(res.body, res);
     if ((out.headers.get('content-type') || '').includes('text/html')) {
       out.headers.set('Cache-Control', 'private, no-cache');
