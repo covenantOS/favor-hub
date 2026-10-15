@@ -487,7 +487,7 @@ describe('clip sharing levels (2026-10-14): private, specific people, anyone at 
     assert.equal(ok.status, 206);
     assert.match(ok.headers.get('Cache-Control'), /no-store/);
     assert.equal((await route('media', 'onRequestGet', w, 'out', '?dl=1&k=' + k)).status, 200, 'download works with the token');
-    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + k.slice(0, -1) + '0')).status, 401, 'a changed token');
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + k.slice(0, -1) + (k.endsWith('0') ? '1' : '0'))).status, 401, 'a changed token');
     assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + k, {}, OTHER)).status, 401, 'a token for another clip finds nothing');
     const lib = await import('../functions/_lib/clips.ts');
     const expired = await lib.publicToken(w.env, CID, 'v', -1000);
