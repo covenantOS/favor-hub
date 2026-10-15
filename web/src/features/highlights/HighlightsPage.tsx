@@ -29,7 +29,9 @@ function PinsWait() {
 
 function PinCount() {
   const { data } = useQuery(pinsQuery);
-  const n = data?.ok === false ? 0 : (data?.pins || []).length;
+  // The count depends on a read that may land between the server's page and the browser's first draw, so it is drawn after mount.
+  const mounted = useMounted();
+  const n = mounted && data?.ok !== false ? (data?.pins || []).length : 0;
   return (
     <span className="rg-count" id="rg-pin-count" hidden={!n}>
       {n ? String(n) : ''}
