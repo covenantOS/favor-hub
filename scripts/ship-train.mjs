@@ -169,7 +169,13 @@ function liveChecks(entries) {
   const r = (() => {
     try { return { ok: true, out: execSync('node scripts/live-front.mjs', { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CHECKS: checks.join(' ') } }) }; } catch (e) { return { ok: false, out: String(e.stdout || '') }; }
   })();
-  return (r.ok ? '' : 'LIVE CHECK FAILED\n') + r.out;
+  // The web routes among the checks are opened in a real browser too, for script and hydration errors a fetch cannot see.
+  const web = checks.filter((c) => c.endsWith('=web')).map((c) => c.split('=')[0]);
+  let seen = '';
+  if (web.length) {
+    try { seen = execSync('node scripts/live-console.mjs --loads 2', { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CONSOLE: [...new Set(web)].join(' ') } }); } catch (e) { seen = 'BROWSER ERRORS\n' + String(e.stdout || ''); }
+  }
+  return (r.ok ? '' : 'LIVE CHECK FAILED\n') + r.out + seen;
 }
 
 function meetingLive() {
