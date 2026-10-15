@@ -78,3 +78,6 @@
   .pd-bulk { left: 10px; right: 10px; transform: translateY(140%); flex-wrap: wrap; }
   .pd-bulk.is-on { transform: none; }
 }
+.pd-panelink { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px; font: 600 13.5px var(--h-font); color: var(--h-ink-3); text-decoration: none; }
+.pd-panelink:hover { color: var(--h-ink); }
+.pd-panelink span { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--h-gold-soft, #f4ebcd); color: #7a5d0b; font-size: 11.5px; }

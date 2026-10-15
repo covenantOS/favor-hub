@@ -140,8 +140,6 @@ export const pdKeys = {
   menus: ['partners', 'menus'] as const,
   views: ['partners', 'views'] as const,
   recent: ['partners', 'recent'] as const,
-  dups: ['partners', 'dups'] as const,
-  merges: (state: string) => ['partners', 'merges', state] as const,
 };
 
 export const dirQuery = (s: DirSearch, size: number) => {
@@ -194,27 +192,6 @@ export const recentQuery = queryOptions({
   queryFn: async () => ((await hubGet('/api/partners/recent')) as { rows: Card[] }).rows,
   staleTime: 15_000,
 });
-export const dupsQuery = queryOptions({
-  queryKey: pdKeys.dups,
-  queryFn: async () => ((await hubGet('/api/partners/duplicates')) as { pairs: { a: Card; b: Card; why: string[] }[] }).pairs,
-  staleTime: 60_000,
-});
-export interface MergeRow {
-  id: string;
-  keep: Card;
-  other: Card;
-  note: string;
-  by: string;
-  at: string;
-  state: string;
-}
-export const mergesQuery = (state: 'open' | 'done' = 'open') =>
-  queryOptions({
-    queryKey: pdKeys.merges(state),
-    queryFn: async () => ((await hubGet('/api/partners/merges?state=' + state)) as { merges: MergeRow[] }).merges,
-    staleTime: 15_000,
-  });
-
 /** A write to /api/partners: POST with the hub's request header, the answer's message on failure. */
 export async function pdPost<T = Record<string, unknown>>(path: string, body: unknown = {}): Promise<T> {
   const res = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'X-Hub-Request': '1', 'content-type': 'application/json' }, body: JSON.stringify(body) });

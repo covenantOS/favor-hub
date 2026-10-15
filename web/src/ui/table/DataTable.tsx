@@ -354,7 +354,9 @@ export function useListKeys(listKey: string, opts: { search?: string } = {}) {
         if (e.key === 'Escape') (e.target as HTMLElement).blur();
         return;
       }
-      if (document.querySelector('[role="dialog"][aria-modal="true"], .pt-side.is-on')) return;
+      // An open dialog or side panel takes the keys (the search palette stays in the page while closed, so only a visible one counts).
+      const open = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"], .pt-side.is-on')).some((d) => d.getClientRects().length > 0 && getComputedStyle(d).visibility !== 'hidden');
+      if (open) return;
       const list = document.querySelector(`[data-pt-list="${CSS.escape(listKey)}"]`);
       if (!list || !(list as HTMLElement).offsetParent) return;
       const rows = Array.from(list.querySelectorAll<HTMLElement>('[data-pt-row]'));
