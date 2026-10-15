@@ -54,6 +54,13 @@ step('no conflict markers', () => {
   if (out.trim()) throw new Error(out);
 });
 step('npm install', () => sh('npm install --no-audit --no-fund && npm --prefix web install --no-audit --no-fund'));
+// The Pages build comes before the tests: some tests read dist/ (the changelog page), and a stale dist fails them.
+if (!has('--no-pages')) {
+  step('pages build', () => {
+    sh('npm run build');
+    if (!existsSync('dist/images/favor-icon.png')) throw new Error('dist is incomplete');
+  });
+}
 step('hub tests', () => {
   let out = '';
   try {
@@ -75,12 +82,6 @@ step('no live meeting', () => {
   const n = Number((out.match(/"n":\s*(\d+)/) || [])[1]);
   if (!(n === 0)) throw new Error('someone is in a meeting (' + n + '), wait');
 });
-if (!has('--no-pages')) {
-  step('pages build', () => {
-    sh('npm run build');
-    if (!existsSync('dist/images/favor-icon.png')) throw new Error('dist is incomplete');
-  });
-}
 step('push', () => sh('git push origin HEAD:main'));
 // The Worker deploy is cheap and idempotent, so it always goes out with the pages; a page and the Worker never drift apart.
 step('deploy favoros-web', () => sh('npx wrangler deploy', { cwd: 'web' }));
