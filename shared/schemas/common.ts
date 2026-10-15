@@ -34,6 +34,7 @@ export const access = z
     learnAdmin: z.boolean().optional(),
     hr: z.boolean().optional(),
     giftEntry: z.boolean().optional(),
+    otherGifts: z.boolean().optional(),
     mail: z.boolean().optional(),
   })
   .passthrough();

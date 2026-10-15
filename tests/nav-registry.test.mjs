@@ -50,7 +50,7 @@ test('every page the layout receives as nav resolves to an area', () => {
 });
 
 test('gated pages carry a flag the nav answer returns', () => {
-  const flags = new Set(['admin', 'kpi', 'expenseLog', 'workCenter', 'clips', 'meetings', 'chat', 'projects', 'hr', 'mail', 'giftEntry', 'learn', 'learnAdmin']);
+  const flags = new Set(['admin', 'kpi', 'expenseLog', 'workCenter', 'clips', 'meetings', 'chat', 'projects', 'hr', 'mail', 'giftEntry', 'otherGifts', 'learn', 'learnAdmin']);
   for (const { p } of pages) if (p.need) assert.ok(flags.has(p.need), `${p.id} needs ${p.need}`);
 });
 

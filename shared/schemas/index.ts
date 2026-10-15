@@ -5,3 +5,4 @@ export * from './app2';
 export * from './entity';
 export * from './notifications';
 export * from './recurring';
+export * from './other-gifts';

@@ -57,7 +57,7 @@ describe('who gets the web app', () => {
   it('a pass tells classic pages which routes are on (for hub-swap.js)', async () => {
     const d = await go(world({ 'web.routes': '*', 'web.audience': 'all' }), '/gifts/', staff);
     assert.equal(d.kind, 'pass');
-    assert.deepEqual(d.routes, WEB_ROUTES.map((r) => r));
+    assert.deepEqual(d.routes, WEB_ROUTES.filter((r) => r !== '/gifts/other/'));
     assert.match(webCookie(d.routes), /^hub_web=/);
     assert.match(webCookie([]), /Max-Age=0/);
   });
@@ -135,5 +135,33 @@ describe('routes only the web app has', () => {
   it('does not open the other web routes to the audience', async () => {
     const env = world({ 'web.routes': '/web-check/,/data-care/', 'web.audience': 'testers' });
     assert.equal((await go(env, '/web-check/', staff)).kind, 'pass');
+  });
+});
+
+describe('Other gifts carries its own switch', () => {
+  const OG = '/gifts/other/';
+  it('is not turned on by web.routes, not even by *', async () => {
+    assert.deepEqual(parseWebRoutes('*').includes(OG), false);
+    assert.deepEqual(parseWebRoutes(OG), []);
+  });
+  it('is served to Will and the testers with every switch empty, and to nobody else while gifts.other is off', async () => {
+    const env = world();
+    assert.equal((await go(env, OG, will)).kind, 'web');
+    assert.equal((await go(env, OG, tester)).kind, 'web');
+    assert.equal((await go(env, OG, admin)).kind, 'pass');
+    assert.equal((await go(env, OG, staff)).kind, 'pass');
+  });
+  it('gifts.other = admins serves admins; field staff and ?classic=1 and a script read keep Astro', async () => {
+    const env = world({ 'gifts.other': 'admins' });
+    assert.equal((await go(env, OG, admin)).kind, 'web');
+    assert.equal((await go(env, OG, staff)).kind, 'pass');
+    assert.equal((await go(env, OG, field)).kind, 'pass');
+    assert.equal((await go(env, OG + '?classic=1', admin)).kind, 'pass');
+    assert.equal((await go(env, OG, admin, { dest: 'empty' })).kind, 'pass');
+    assert.equal((await go(env, OG, admin, { cookie: 'hub_web_off=1' })).kind, 'pass');
+  });
+  it('tells classic pages the route is theirs to load whole', async () => {
+    const d = await go(world({ 'gifts.other': 'admins' }), '/gifts/', admin);
+    assert.deepEqual(d.routes, [OG]);
   });
 });

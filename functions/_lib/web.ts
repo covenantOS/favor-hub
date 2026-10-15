@@ -6,7 +6,8 @@
 //   4. the request is a page load (hub-swap.js reads classic pages with fetch and must keep getting them),
 //   5. the WEB binding exists (a preview without it keeps every Astro page).
 // Everyone else gets the Astro page, unchanged. See the plan: Obsidian Projects/FavorOS React migration plan.md.
-import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebRoutes, webServes, type WebAudience } from '../../shared/web';
+import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_OWN_SWITCH, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebRoutes, webServes, type WebAudience } from '../../shared/web';
+import { mayUseOther } from './other-gifts/access';
 import { isPageLoad } from './app2';
 import { hubSettings } from './admin/hubcache';
 import { isTester } from './testuser';
@@ -59,13 +60,27 @@ export async function decideWeb(env: Env, request: Request, url: URL, user: HubU
     return { kind: 'switch', to: clean.pathname + clean.search, cookie };
   }
   if (!env.WEB) return { kind: 'pass', routes: [] };
+  // A route with its own switch (Other gifts, hub setting gifts.other) is served to whoever that setting allows, with no web.routes entry.
+  const own = user.role === 'field' ? [] : await ownRoutesFor(env, user);
   const s = await readWebSettings(env);
   // A page with no Astro twin cannot fall back, so it ignores the audience and the opt-out: it is on for every staff sign-in the moment an admin lists it.
   const only = s.routes.length > 0 && webServes(url.pathname, WEB_ONLY_ROUTES) && webServes(url.pathname, s.routes) && user.role !== 'field' && (user.via === 'google' || user.via === 'password');
   if (only && url.searchParams.get('classic') !== '1' && isPageLoad(request)) return { kind: 'web' };
-  if (!s.routes.length || !inWebAudience(user, s) || optedOut(request)) return { kind: 'pass', routes: [] };
-  if (url.searchParams.get('classic') === '1' || !isPageLoad(request) || !webServes(url.pathname, s.routes)) return { kind: 'pass', routes: s.routes };
+  if (optedOut(request)) return { kind: 'pass', routes: [] };
+  const generic = s.routes.length && inWebAudience(user, s) ? s.routes : [];
+  const routes = [...generic, ...own.filter((r) => !generic.includes(r))];
+  if (!routes.length) return { kind: 'pass', routes: [] };
+  if (url.searchParams.get('classic') === '1' || !isPageLoad(request) || !webServes(url.pathname, routes)) return { kind: 'pass', routes };
   return { kind: 'web' };
+}
+
+/** The own-switch routes this person may open: their setting is on for them. */
+async function ownRoutesFor(env: Env, user: HubUser): Promise<string[]> {
+  const out: string[] = [];
+  for (const route of Object.keys(WEB_OWN_SWITCH)) {
+    if (route === '/gifts/other/' && (await mayUseOther(env, user).catch(() => false))) out.push(route);
+  }
+  return out;
 }
 
 /** The cookie classic pages read (hub-swap.js) so a link to a web route loads the page whole instead of swapping the Astro body in. */

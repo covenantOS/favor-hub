@@ -9,7 +9,7 @@
 // jobs sits in the rail for those people and under More for everyone else; a page with jobs comes first in the tab row for
 // those people and sits in the row's More menu for everyone else. Nothing is locked by a job: `need` alone decides access.
 
-export type Need = 'admin' | 'giftEntry' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
+export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
 
 /** The jobs /api/hub/nav works out for a person (functions/_lib/hub/jobs.ts). Admins hold every job. */
 export type Job = 'admin' | 'rdd' | 'partner_care' | 'church' | 'grants' | 'support' | 'exec' | 'giftdesk' | 'hr' | 'approver';
@@ -134,6 +134,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'gifts-home', label: 'Overview', href: '/gifts/', desc: 'The gift day on one screen: the mail, online gifts, review, Blackbaud, receipts and thank-you letters', keywords: 'gifts overview gift day deposits mail online review blackbaud receipts letters chart month', need: 'giftEntry', learn: 'gift-entry', swap: true, jobs: GIFT_JOBS },
       { id: 'gift-entry', label: 'Gift entry', href: '/gift-entry/', desc: 'Photograph checks and reply slips, review each gift, approve, and send the batch to Blackbaud', keywords: 'gift entry check checks photo photograph reply slip deposit tape batch approve mail day white mail', need: 'giftEntry', learn: 'gift-entry', jobs: ['giftdesk', 'support'], was: 'Work > Gift entry', swap: true },
+      { id: 'other-gifts', label: 'Other gifts', href: '/gifts/other/', desc: 'DAF, foundation, wire, stock and phone gifts: enter each with the soft credit, send the batch, and a second person approves it and posts it to Blackbaud', keywords: 'other gifts daf donor advised fund foundation wire stock phone soft credit recommended batch second approval approve letter grant', need: 'otherGifts', learn: 'other-gifts', jobs: ['giftdesk', 'support'] },
       { id: 'online-gifts', label: 'Online gifts', href: '/online-gifts/', desc: "Each morning's online gifts with the partner's comment and designation, approved by Partner Care", keywords: 'online gifts website giving form fundraise up international comment comments designation designate fund approve batch partner care morning', need: 'giftEntry', learn: 'online-gifts', jobs: ['partner_care'], was: 'Work > Online gifts', swap: true },
       { id: 'recurring', label: 'Recurring', href: '/gifts/recurring/', desc: 'Every monthly and recurring gift schedule with declines, past-due charges and stopped schedules. Change an amount, how often it runs or its status', keywords: 'recurring monthly gifts schedule schedules declined decline past due stopped held amount frequency card bank win back partner care sustaining', need: 'workCenter', learn: 'work-center', jobs: ['giftdesk', 'support', 'partner_care'], was: 'New in Gifts' },
       { id: 'receipts', label: 'Receipts', href: '/receipts/', desc: 'Printed receipts for every gift Blackbaud has waiting', keywords: 'receipt receipts ty acknowledgement print mail printed', need: 'giftEntry', count: 'receiptsLeft', learn: 'thank-you-receipts', swap: true, jobs: ['giftdesk', 'partner_care'], was: 'Work > Receipts' },

@@ -1,0 +1,11 @@
+---
+// Gifts > Other gifts lives in the FavorOS web app (web/src/routes/gifts/other, served by the hub setting gifts.other). This Astro page answers only
+// when the web app does not: a person it is not switched on for, or ?classic=1. It carries no gift code and reads no data.
+import App from '../../../layouts/App.astro';
+---
+<App title="Other gifts" crumb="Gifts" nav="other-gifts" description="DAF, foundation, wire, stock and phone gifts, entered with the soft credit and approved by a second person.">
+  <section class="h-card" style="padding: 24px; max-width: 640px;">
+    <h1 style="font-size: 20px; margin: 0 0 8px;">Other gifts is not switched on for you yet</h1>
+    <p style="margin: 0;">DAF, foundation, wire, stock and phone gifts still go in through Gift entry and Blackbaud until an admin turns this page on.</p>
+  </section>
+</App>

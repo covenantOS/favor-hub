@@ -1081,6 +1081,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'other-gifts',
+    page: '/gifts/other/',
+    via: 'other-gifts',
+    at: '#og-root',
+    title: 'Other gifts',
+    body: 'DAF grants, foundation transfers, wires, stock and phone gifts. Pick the kind, find the sponsor, name who recommended the gift so the soft credit lands on their giving, and save it to your batch. Send the batch for a second look. A second person approves it, and approving posts every gift to Blackbaud with its soft credit and letter.',
+    for: (w) => w.admin,
+    added: '2026-10-15',
+    side: 'bottom',
+  },
+  {
     id: 'online-gifts',
     page: '/online-gifts/',
     via: 'online-gifts',
