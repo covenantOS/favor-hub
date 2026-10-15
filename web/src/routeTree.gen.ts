@@ -23,6 +23,7 @@ import { Route as GiftsIndexRouteImport } from './routes/gifts/index'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
+import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as OnlineGiftsIndexRouteImport } from './routes/online-gifts/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
@@ -43,6 +44,7 @@ import { Route as LearnCatalogIndexRouteImport } from './routes/learn/catalog/in
 import { Route as LearnCertificateIndexRouteImport } from './routes/learn/certificate/index'
 import { Route as LearnPIndexRouteImport } from './routes/learn/p/index'
 import { Route as LearnPracticeIndexRouteImport } from './routes/learn/practice/index'
+import { Route as OnboardingRunIndexRouteImport } from './routes/onboarding/run/index'
 import { Route as ProjectsPIndexRouteImport } from './routes/projects/p/index'
 import { Route as WorkPartnerIdRouteImport } from './routes/work/partner/$id'
 import { Route as LearnAdminCourseIndexRouteImport } from './routes/learn/admin/course/index'
@@ -115,6 +117,11 @@ const HelpSlugRoute = HelpSlugRouteImport.update({
 const LearnIndexRoute = LearnIndexRouteImport.update({
   id: '/learn/',
   path: '/learn/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
+  id: '/onboarding/',
+  path: '/onboarding/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnlineGiftsIndexRoute = OnlineGiftsIndexRouteImport.update({
@@ -217,6 +224,11 @@ const LearnPracticeIndexRoute = LearnPracticeIndexRouteImport.update({
   path: '/learn/practice/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingRunIndexRoute = OnboardingRunIndexRouteImport.update({
+  id: '/onboarding/run/',
+  path: '/onboarding/run/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsPIndexRoute = ProjectsPIndexRouteImport.update({
   id: '/projects/p/',
   path: '/projects/p/',
@@ -248,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/gifts/': typeof GiftsIndexRoute
   '/help/': typeof HelpIndexRoute
   '/learn/': typeof LearnIndexRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -269,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/learn/certificate/': typeof LearnCertificateIndexRoute
   '/learn/p/': typeof LearnPIndexRoute
   '/learn/practice/': typeof LearnPracticeIndexRoute
+  '/onboarding/run/': typeof OnboardingRunIndexRoute
   '/projects/p/': typeof ProjectsPIndexRoute
   '/learn/admin/course/': typeof LearnAdminCourseIndexRoute
 }
@@ -287,6 +301,7 @@ export interface FileRoutesByTo {
   '/gifts': typeof GiftsIndexRoute
   '/help': typeof HelpIndexRoute
   '/learn': typeof LearnIndexRoute
+  '/onboarding': typeof OnboardingIndexRoute
   '/online-gifts': typeof OnlineGiftsIndexRoute
   '/partners': typeof PartnersIndexRoute
   '/projects': typeof ProjectsIndexRoute
@@ -308,6 +323,7 @@ export interface FileRoutesByTo {
   '/learn/certificate': typeof LearnCertificateIndexRoute
   '/learn/p': typeof LearnPIndexRoute
   '/learn/practice': typeof LearnPracticeIndexRoute
+  '/onboarding/run': typeof OnboardingRunIndexRoute
   '/projects/p': typeof ProjectsPIndexRoute
   '/learn/admin/course': typeof LearnAdminCourseIndexRoute
 }
@@ -327,6 +343,7 @@ export interface FileRoutesById {
   '/gifts/': typeof GiftsIndexRoute
   '/help/': typeof HelpIndexRoute
   '/learn/': typeof LearnIndexRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -348,6 +365,7 @@ export interface FileRoutesById {
   '/learn/certificate/': typeof LearnCertificateIndexRoute
   '/learn/p/': typeof LearnPIndexRoute
   '/learn/practice/': typeof LearnPracticeIndexRoute
+  '/onboarding/run/': typeof OnboardingRunIndexRoute
   '/projects/p/': typeof ProjectsPIndexRoute
   '/learn/admin/course/': typeof LearnAdminCourseIndexRoute
 }
@@ -368,6 +386,7 @@ export interface FileRouteTypes {
     | '/gifts/'
     | '/help/'
     | '/learn/'
+    | '/onboarding/'
     | '/online-gifts/'
     | '/partners/'
     | '/projects/'
@@ -389,6 +408,7 @@ export interface FileRouteTypes {
     | '/learn/certificate/'
     | '/learn/p/'
     | '/learn/practice/'
+    | '/onboarding/run/'
     | '/projects/p/'
     | '/learn/admin/course/'
   fileRoutesByTo: FileRoutesByTo
@@ -407,6 +427,7 @@ export interface FileRouteTypes {
     | '/gifts'
     | '/help'
     | '/learn'
+    | '/onboarding'
     | '/online-gifts'
     | '/partners'
     | '/projects'
@@ -428,6 +449,7 @@ export interface FileRouteTypes {
     | '/learn/certificate'
     | '/learn/p'
     | '/learn/practice'
+    | '/onboarding/run'
     | '/projects/p'
     | '/learn/admin/course'
   id:
@@ -446,6 +468,7 @@ export interface FileRouteTypes {
     | '/gifts/'
     | '/help/'
     | '/learn/'
+    | '/onboarding/'
     | '/online-gifts/'
     | '/partners/'
     | '/projects/'
@@ -467,6 +490,7 @@ export interface FileRouteTypes {
     | '/learn/certificate/'
     | '/learn/p/'
     | '/learn/practice/'
+    | '/onboarding/run/'
     | '/projects/p/'
     | '/learn/admin/course/'
   fileRoutesById: FileRoutesById
@@ -486,6 +510,7 @@ export interface RootRouteChildren {
   GiftsIndexRoute: typeof GiftsIndexRoute
   HelpIndexRoute: typeof HelpIndexRoute
   LearnIndexRoute: typeof LearnIndexRoute
+  OnboardingIndexRoute: typeof OnboardingIndexRoute
   OnlineGiftsIndexRoute: typeof OnlineGiftsIndexRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -507,6 +532,7 @@ export interface RootRouteChildren {
   LearnCertificateIndexRoute: typeof LearnCertificateIndexRoute
   LearnPIndexRoute: typeof LearnPIndexRoute
   LearnPracticeIndexRoute: typeof LearnPracticeIndexRoute
+  OnboardingRunIndexRoute: typeof OnboardingRunIndexRoute
   ProjectsPIndexRoute: typeof ProjectsPIndexRoute
   LearnAdminCourseIndexRoute: typeof LearnAdminCourseIndexRoute
 }
@@ -609,6 +635,13 @@ declare module '@tanstack/react-router' {
       path: '/learn'
       fullPath: '/learn/'
       preLoaderRoute: typeof LearnIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/': {
+      id: '/onboarding/'
+      path: '/onboarding'
+      fullPath: '/onboarding/'
+      preLoaderRoute: typeof OnboardingIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/online-gifts/': {
@@ -751,6 +784,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnPracticeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/run/': {
+      id: '/onboarding/run/'
+      path: '/onboarding/run'
+      fullPath: '/onboarding/run/'
+      preLoaderRoute: typeof OnboardingRunIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/p/': {
       id: '/projects/p/'
       path: '/projects/p'
@@ -790,6 +830,7 @@ const rootRouteChildren: RootRouteChildren = {
   GiftsIndexRoute: GiftsIndexRoute,
   HelpIndexRoute: HelpIndexRoute,
   LearnIndexRoute: LearnIndexRoute,
+  OnboardingIndexRoute: OnboardingIndexRoute,
   OnlineGiftsIndexRoute: OnlineGiftsIndexRoute,
   PartnersIndexRoute: PartnersIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
@@ -811,6 +852,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnCertificateIndexRoute: LearnCertificateIndexRoute,
   LearnPIndexRoute: LearnPIndexRoute,
   LearnPracticeIndexRoute: LearnPracticeIndexRoute,
+  OnboardingRunIndexRoute: OnboardingRunIndexRoute,
   ProjectsPIndexRoute: ProjectsPIndexRoute,
   LearnAdminCourseIndexRoute: LearnAdminCourseIndexRoute,
 }

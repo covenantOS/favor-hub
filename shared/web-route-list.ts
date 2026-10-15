@@ -26,4 +26,5 @@ export const WEB_ROUTE_LIST = [
   '/receipts/',
   '/statements/',
   '/gift-entry/',
+  '/onboarding/',
 ] as const;
