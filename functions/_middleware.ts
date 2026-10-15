@@ -7,7 +7,7 @@ import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
-import { decideWeb, serveWeb, webCookie } from './_lib/web';
+import { decideWeb, serveWeb, webCookie, WEB_OPEN_PAGES } from './_lib/web';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
 import { withAssetCache } from './_lib/assetcache';
@@ -165,7 +165,10 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   };
 
   let webRoutes: string[] | null = null;
-  if (user && !open && !path.startsWith('/api/')) {
+  // A page that stays open without sign-in (the approver's emailed link) still goes to the web app for a person who is signed in and in the
+  // route's audience. A visitor with no session, and the token that opens it, keep the Astro page exactly as before.
+  const openWebPage = open && WEB_OPEN_PAGES.has(path);
+  if (user && (!open || openWebPage) && !path.startsWith('/api/')) {
     // The web app (web/, the favoros-web Worker) takes a route an admin turned on, for the people in its audience.
     const w = await decideWeb(env, request, url, user).catch((err) => { console.error('[web]', err); return { kind: 'pass', routes: [] as string[] } as const; });
     if (w.kind === 'switch') return new Response(null, { status: 302, headers: { Location: new URL(w.to, url).toString(), 'Set-Cookie': w.cookie, 'Cache-Control': 'no-store' } });
@@ -178,9 +181,11 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
     }
     webRoutes = w.routes;
     // The React app takes a page only for an admin-enabled route and a person who opted in; any other page falls through unchanged.
-    const d = await decide(env, request, url, user).catch((err) => { console.error('[app2]', err); return { kind: 'pass' } as const; });
-    if (d.kind === 'redirect') return new Response(null, { status: 302, headers: { Location: new URL(d.to, url).toString(), 'Set-Cookie': d.cookie, 'Cache-Control': 'no-store' } });
-    if (d.kind === 'app') return serveApp(env, url);
+    if (!open) {
+      const d = await decide(env, request, url, user).catch((err) => { console.error('[app2]', err); return { kind: 'pass' } as const; });
+      if (d.kind === 'redirect') return new Response(null, { status: 302, headers: { Location: new URL(d.to, url).toString(), 'Set-Cookie': d.cookie, 'Cache-Control': 'no-store' } });
+      if (d.kind === 'app') return serveApp(env, url);
+    }
   }
 
   if (user || open || !enforce) {
