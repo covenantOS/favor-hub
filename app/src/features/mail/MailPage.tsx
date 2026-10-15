@@ -1342,9 +1342,11 @@ export function MailPage() {
       startReply(d.kind || 'reply', undefined, undefined, false, d.items || []);
     };
     window.addEventListener('favor-compose:sent', sent);
+    window.addEventListener('favor-compose:discarded', sent);
     window.addEventListener('favor-mail:reply', reply);
     return () => {
       window.removeEventListener('favor-compose:sent', sent);
+      window.removeEventListener('favor-compose:discarded', sent);
       window.removeEventListener('favor-mail:reply', reply);
     };
   });

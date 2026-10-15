@@ -801,13 +801,19 @@
     writeStore();
     emit('close', { id: w.id, threadId: w.o.threadId || '' });
   }
+  // Discard deletes the Gmail draft at once (waiting for a save still on its way), clears this browser's copy and closes the
+  // window. Undo writes it back as a new draft.
   function discard(w) {
-    var snap = snapOf(w), did = w.draftId, mb = w.mb, pend = w.saving, files = w.files.slice();
+    var snap = snapOf(w), mb = w.mb, pend = w.saving, files = w.files.slice(), threadId = w.o.threadId || '';
     w.sent = true;
+    clearTimeout(w.saveT);
     finish(w);
-    var drop = function () { if (did) api.dropDraft(did, mb).catch(function () {}); else if (pend) pend.then(function () { if (w.draftId) api.dropDraft(w.draftId, mb).catch(function () {}); }); };
-    var t = setTimeout(drop, 6000);
-    toast('Draft discarded', { undo: function () { clearTimeout(t); snap.draftId = did; reopen(snap, files); }, ms: 6000 });
+    var gone = (pend || Promise.resolve()).catch(function () {}).then(function () {
+      var id = w.draftId || snap.draftId;
+      return id ? api.dropDraft(id, mb).catch(function (e) { if (e.status !== 404) throw e; }) : null;
+    });
+    gone.then(function () { emit('discarded', { threadId: threadId }); }).catch(function (e) { toast(e.message || 'The draft was not deleted. Try again.'); });
+    toast('Draft discarded', { undo: function () { gone.then(function () { snap.draftId = ''; snap.dirty = true; reopen(snap, files).then(function (id) { var x = byId(id); if (x) changed(x); }); }); }, ms: 8000 });
   }
   function reopen(snap, files) {
     var o = Object.assign({}, snap, { id: uid(), mode: 'float', files: files || [], noSig: true, title: snap.title, kind: snap.kind });

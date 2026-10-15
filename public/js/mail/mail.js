@@ -1558,6 +1558,13 @@
     }, 600);
   });
   addEventListener('favor-compose:draft', function () { if (root.isConnected && S.label === 'DRAFT' && !S.open) loadList({ quiet: true }); });
+  // A discarded draft leaves the conversation and the Drafts list at once.
+  addEventListener('favor-compose:discarded', function (e) {
+    if (!root.isConnected) return;
+    var d = e.detail || {};
+    if (S.open && d.threadId === S.open) openThread(S.open);
+    else if (S.label === 'DRAFT') loadList({ quiet: true });
+  });
   // Another part of FavorOS asks for a reply in this conversation with something in it (a clip, a Brain answer).
   addEventListener('favor-mail:reply', function (e) {
     var d = e.detail || {};
