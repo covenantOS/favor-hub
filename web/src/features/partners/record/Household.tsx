@@ -1,6 +1,7 @@
 // Household giving on the partner page: each member's own credited giving, the combined figures, and the years side by side.
 // The server computes every figure by the shared rule (shared/giving.ts), so a gift that credits both spouses counts once in the combined line.
 import { Term } from './Ic';
+import { useIsAdmin } from './admin';
 import { fd, href, whole, type Partner } from './lib';
 
 interface Member {
@@ -18,9 +19,10 @@ interface Member {
 }
 
 export function HouseholdGiving({ p, className = '' }: { p: Partner; className?: string }) {
+  const admin = useIsAdmin();
   const g = p.giving;
   const members: Member[] = g.members || [];
-  if (members.length < 2) return null;
+  if (!admin || members.length < 2) return null;
   const once: number = g.sharedOnce || 0;
   const years: { year: string; total: number; count: number }[] = (g.years || []).slice(0, 6);
   const cell = (m: Member, y: string) => m.years.find((x) => x.year === y)?.total || 0;
