@@ -149,7 +149,7 @@ function fundShare(rows: { k: number; splits: string | null; d: string }[], name
   return { fund, share: top[1].amt / total, since: top[1].since };
 }
 
-export async function briefFor(env: Env, id: string, o: { today: string; owed: Owed[]; notes: NoteIn[] | null; q?: Q; partner?: PartnerView }): Promise<Brief | null> {
+export async function briefFor(env: Env, id: string, o: { today: string; owed: Owed[]; notes: NoteIn[] | null; q?: Q; partner?: PartnerView; preview?: boolean }): Promise<Brief | null> {
   const q = o.q || mirrorQ(env);
   const p = o.partner || (await loadPartner(q, id, o.today));
   if (!p) return null;
@@ -183,8 +183,8 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
   const flags = [
     ...new Set(
       [p.deceased ? 'Deceased' : '', p.inactive ? 'Inactive' : '', p.flags.doNotCall ? 'Do not call' : '', p.flags.doNotEmail ? 'Do not email' : '', p.flags.doNotMail ? 'Do not mail' : '']
-        .concat(p.comm.banner.blocked.map(blockedWord))
-        .concat(p.comm.channels.filter((c) => c.state === 'limited').flatMap((c) => c.reasons.map((r) => r.text)))
+        .concat(o.preview ? p.comm.banner.blocked.map(blockedWord) : [])
+        .concat(o.preview ? p.comm.channels.filter((c) => c.state === 'limited').flatMap((c) => c.reasons.map((r) => r.text)) : [])
         .filter(Boolean)
     ),
   ];
@@ -229,7 +229,7 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
     text: mobile ? { number: mobile.number } : null,
     email: mail ? mail.address : null,
     flags,
-    comm: { channels: p.comm.channels, banner: p.comm.banner },
+    comm: o.preview ? { channels: p.comm.channels, banner: p.comm.banner } : { channels: [], banner: { show: false, lines: [], blocked: [] } },
     ...base,
     steps: stepsOf(base, o.today),
     iwave: p.iwave ? { overall: p.iwave.overall, band: p.iwave.capacityBand, source: p.iwave.source } : null,

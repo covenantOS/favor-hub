@@ -4,11 +4,12 @@ import { can } from '../../../_lib/work/role';
 import { param, work } from '../../../_lib/work/route';
 import { giftsForPartner } from '../../../_lib/work/gifts-svc';
 import { recordRights } from '../../../_lib/work/records-rights';
+import { recordPreview } from '../../../_lib/work/preview';
 import { careFor } from '../../../_lib/datacare/service';
 
 // One partner, read only from the D1 mirror. The Work Center's partner page, its side panel and the iPhone route (mobile-v1.yaml,
 // /api/mobile/partners/{id}) all read this one answer; `card` is the iPhone contract's Partner object.
-export const onRequestGet = work(async ({ env, params, ctx }) => {
+export const onRequestGet = work(async ({ env, params, ctx, wu }) => {
   const id = param(params, 'id');
   if (!SYSTEM_ID.test(id)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
   const partner = await loadPartner(mirrorQ(env), id);
@@ -25,5 +26,7 @@ export const onRequestGet = work(async ({ env, params, ctx }) => {
   // Data care flags: no mailing address, and any possible duplicate. A missing table (before db/datacare.sql) leaves them out.
   const dataCare = await careFor(env, id).catch(() => null);
   const rights = await recordRights(ctx, id).catch(() => ({ contact: false, codes: false }));
-  return { partner: { ...partner, canEdit, canCodes: rights.codes, toThank, dataCare } };
+  const preview = recordPreview(wu);
+  const shown = preview ? partner : { ...partner, comm: undefined, giving: { ...partner.giving, members: [], sharedOnce: 0 } };
+  return { partner: { ...shown, preview, canEdit, canCodes: rights.codes, toThank, dataCare } };
 });
