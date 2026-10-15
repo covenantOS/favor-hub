@@ -14,6 +14,7 @@ import { WorkToast, showToast } from './lists/toast';
 import { partnerHref } from './lists/nav';
 import { contextQuery, useHeld, workGet, type WorkMe } from './lists/core';
 import { fd as fdShort, money as moneyR, reportSubject, reportText, short as shortR, whatsappText, type ReportOpts, type WeekData, type WeekRow } from './lists/weekReport';
+import { useMounted } from '../record/lib';
 
 // The WorkHeader (the page bar, the view chips) is built on branch pr-actions; render it here when ./WorkHeader exists.
 // TODO: <WorkHeader view="week" search={search} />, and <WeekStrip /> on every other tab for a regional director.
@@ -76,9 +77,13 @@ const meter = (label: string, short: string, n: number, goal: number) => (
 
 /** The goals strip a regional director sees above every tab but My week. Renders nothing for anyone else. */
 export function WeekStrip({ as = '' }: { as?: string }) {
-  const me = useQuery(contextQuery(as)).data?.me;
+  // Data that streams in after the server draws is used only after mount, so the server HTML matches the first browser frame (React 418).
+  const mounted = useMounted();
+  const meQ = useQuery(contextQuery(as));
+  const me = mounted ? meQ.data?.me : undefined;
   const eligible = mayStrip(me);
-  const ans = useQuery({ ...weekQuery('', 0, as), enabled: eligible }).data;
+  const ansQ = useQuery({ ...weekQuery('', 0, as), enabled: eligible });
+  const ans = mounted ? ansQ.data : undefined;
   if (!eligible || !me) return null;
   if (!ans) return <div className="h-card wwk-strip wwk-strip--wait" aria-hidden="true" />;
   const d = ans.week;
