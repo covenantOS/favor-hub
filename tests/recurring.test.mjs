@@ -30,7 +30,7 @@ function sched(id, cid, o = {}) {
     id, o.amount ?? 50, (o.start || day(-400)) + 'T00:00:00', 'RecurringGift', status, o.pm || 'CreditCard', cid, JSON.stringify([{ fund_id: '79' }]), '{}'
   );
   mirror.prepare('INSERT INTO recurring_schedules (gift_id, constituent_record_id, gift_status, amount, frequency, start_date, end_date, next_transaction_date, status_date, synced_at) VALUES (?,?,?,?,?,?,?,?,?,?)').run(
-    id, cid, status, o.amount ?? 50, o.freq || 'MONTHLY', o.start || day(-400), o.end || null, o.next === undefined ? day(20) : o.next, o.sdate || null, o.synced || TODAY + ' 05:00:00'
+    id, cid, status, o.amount ?? 50, o.freq || 'MONTHLY', o.start || day(-400), o.end || null, o.next === undefined ? day(20) : o.next, o.sdate || null, o.synced || day(-2) + ' 05:00:00'
   );
 }
 let gid = 5000;
