@@ -158,7 +158,7 @@ step('hub tests', () => {
   console.log('pass ' + pass);
 });
 step('typecheck and app tests', () => sh('npm run typecheck && npm run app:test'));
-step('web typecheck and build', () => sh('npm --prefix web exec -- tsc --noEmit -p web && npm --prefix web run build'));
+step('web typecheck and build', () => sh('npm --prefix web run build && npm --prefix web exec -- tsc --noEmit -p web'));
 step('no live meeting', () => {
   // A real person seen in a room in the last two minutes. Test accounts (meeting suites run at night) do not count.
   const out = sh(`npx wrangler d1 execute favor-requests --remote --json --command "SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND seen > (strftime('%s','now') - 120) * 1000 AND lower(email) NOT IN ('tester@favorintl.org','tester2@favorintl.org','privacy-probe@favorintl.org','privacy-probe@favourafrica.org')"`, { capture: true });

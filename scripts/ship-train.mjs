@@ -121,7 +121,7 @@ function gates() {
   }
   r = trySh('npm run typecheck && npm run app:test');
   if (!r.ok) return { ok: false, reason: 'typecheck or app tests: ' + why(r.out) };
-  r = trySh('npm --prefix web exec -- tsc --noEmit -p web && npm --prefix web run build');
+  r = trySh('npm --prefix web run build && npm --prefix web exec -- tsc --noEmit -p web');
   if (!r.ok) return { ok: false, reason: 'web typecheck or build: ' + why(r.out) };
   return { ok: true };
 }

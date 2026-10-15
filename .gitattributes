@@ -1,4 +1,3 @@
 # Generated route trees are written with LF by the router plugin; keep them LF in every checkout so a build never leaves them modified.
 app/src/routeTree.gen.ts text eol=lf
-web/src/routeTree.gen.ts text eol=lf
 shared/web-route-list.ts merge=union

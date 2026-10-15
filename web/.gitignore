@@ -3,3 +3,4 @@ dist/
 .wrangler/
 src/styles/layout.css
 .dev.vars
+src/routeTree.gen.ts
