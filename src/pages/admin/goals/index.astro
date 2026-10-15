@@ -1,0 +1,12 @@
+---
+// Admin > Fundraiser goals is built in the React app (web/src/routes/admin/goals). The middleware serves it to the people the web app
+// is switched on for (hub settings web.routes and web.audience). Everyone else lands here until it opens to them.
+import App from '../../../layouts/App.astro';
+---
+<App title="Fundraiser goals" crumb="Admin" nav="admin-goals" description="Each fundraiser's annual and quarterly goals, kept in FavorOS.">
+  <div class="h-card h-note">
+    <h2 style="font-size:18px;font-weight:800">Fundraiser goals is not open to you yet</h2>
+    <p class="h-lede" style="margin:6px 0 14px">It opens to admins when the new FavorOS release reaches them.</p>
+    <a class="h-btn h-btn--primary h-btn--sm" href="/admin/">Back to Admin</a>
+  </div>
+</App>
