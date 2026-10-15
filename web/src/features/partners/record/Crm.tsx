@@ -130,6 +130,25 @@ const PL = ({ id, name, cls }: { id: string; name: string; cls?: string }) => (
   </a>
 );
 
+/** A tribute kept in FavorOS (GET /api/tributes): in honor of or in memory of someone, on one Blackbaud gift. */
+interface Tribute { id: string; giftId: string; partnerId: string; kind: 'honor' | 'memorial'; honoree: string; notify: string; source: string; comment: string; giftDate: string }
+const tributeWords = (t: Tribute) => (t.kind === 'memorial' ? 'In memory of ' : 'In honor of ') + t.honoree;
+// Tributes share the Other gifts audience; anyone outside it gets none (the read answers 403), and the page draws as before.
+const tributesQuery = (id: string, as: string) =>
+  queryOptions({
+    queryKey: ['pr', 'crm', id, 'tributes', as],
+    queryFn: async () => (((await rGet('/api/tributes?partner=' + encodeURIComponent(id), as).catch(() => ({ tributes: [] }))) as { tributes?: Tribute[] }).tributes || []),
+    staleTime: 60_000,
+  });
+// The gifts on the page that carry a tribute but sit on another record (a soft credit) are found by gift id.
+const giftTributesQuery = (ids: string[], as: string) =>
+  queryOptions({
+    queryKey: ['pr', 'crm', 'tributes-by-gift', ids.join(','), as],
+    queryFn: async () => (((await rGet('/api/tributes?gift=' + ids.map(encodeURIComponent).join(','), as).catch(() => ({ tributes: [] }))) as { tributes?: Tribute[] }).tributes || []),
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  });
+
 const giftsQuery = (id: string, page: number, size: number, sort: string, dir: string, as: string) =>
   queryOptions({
     queryKey: ['pr', 'crm', id, 'gifts', page, size, sort, dir, as],
@@ -137,7 +156,7 @@ const giftsQuery = (id: string, page: number, size: number, sort: string, dir: s
     staleTime: 30_000,
   });
 
-const giftCols: Column<GiftRow>[] = [
+const giftColsWith = (tribute: (g: GiftRow) => Tribute | undefined): Column<GiftRow>[] => [
   { key: 'date', label: 'Date', sort: 'date', firstDir: 'desc', fixed: true, cell: (g) => fdY(g.date) },
   {
     key: 'amount',
@@ -153,7 +172,25 @@ const giftCols: Column<GiftRow>[] = [
     ),
   },
   { key: 'type', label: 'Type', sort: 'type', firstDir: 'asc', fixed: true, cell: (g) => (g.type === 'RecurringGiftPayment' ? 'Recurring payment' : g.type) },
-  { key: 'fund', label: 'Fund', className: 'is-clip', fixed: true, cell: (g) => g.fund },
+  {
+    key: 'fund',
+    label: 'Fund',
+    className: 'is-clip',
+    fixed: true,
+    cell: (g) => {
+      const t = tribute(g);
+      return (
+        <>
+          {g.fund}
+          {t ? (
+            <div className="pt-sub pc-tribute" title={t.comment || undefined}>
+              {tributeWords(t)}
+            </div>
+          ) : null}
+        </>
+      );
+    },
+  },
   { key: 'appeal', label: 'Appeal', fixed: true, cell: (g) => g.appeal },
   {
     key: 'how',
@@ -239,6 +276,26 @@ function Recurring({ x }: { x: any }) {
   );
 }
 
+function Tributes({ list }: { list: Tribute[] }) {
+  if (!list.length) return null;
+  return (
+    <section className="pc-sec pc-tributes">
+      <h3>Tributes</h3>
+      <ul className="pc-tlist">
+        {list.map((t) => (
+          <li key={t.id} title={t.comment || undefined}>
+            <b>{tributeWords(t)}</b>
+            <span className="pt-sub">
+              {t.giftDate ? ' · gift of ' + fdY(t.giftDate) : ''}
+              {t.notify ? ' · tell ' + t.notify : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function Ask({ x }: { x: any }) {
   const r: any[] = (x && x.ratings) || [];
   const pick = (cat: string) => r.find((y) => y.category === cat);
@@ -271,10 +328,21 @@ function GiftsBody({ id }: { id: string }) {
   const mounted = useMounted();
   const xq = useQuery(extrasQuery(id));
   const x = mounted ? xq.data : undefined;
+  const tq = useQuery(tributesQuery(id, as));
+  const own = useMemo(() => (mounted && tq.data) || [], [mounted, tq.data]);
+  const missing = useMemo(() => (tq.data ? d.rows.map((g) => g.id).filter((gid) => gid && !own.some((t) => t.giftId === gid)) : []), [tq.data, d.rows, own]);
+  const gq = useQuery(giftTributesQuery(missing, as));
+  const byGift = useMemo(() => {
+    const m = new Map<string, Tribute>();
+    for (const t of [...own, ...((mounted && gq.data) || [])]) if (t.giftId) m.set(t.giftId, t);
+    return m;
+  }, [own, gq.data, mounted]);
+  const cols = useMemo(() => giftColsWith((g) => byGift.get(g.id)), [byGift]);
   return (
     <>
       <Ask x={x} />
       <Recurring x={x} />
+      <Tributes list={own} />
       <div className="pc-bar">
         <b>
           {N(d.total)} {d.total === 1 ? 'gift' : 'gifts'}
@@ -284,7 +352,7 @@ function GiftsBody({ id }: { id: string }) {
       <DataTable<GiftRow>
         listKey="pc-gifts"
         label="Gifts"
-        columns={giftCols}
+        columns={cols}
         rows={d.rows}
         rowKey={(g) => g.id + ':' + g.date + ':' + g.amount}
         rowTitle={(g) => g.comment || undefined}
