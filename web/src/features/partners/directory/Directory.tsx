@@ -16,6 +16,8 @@ import {
 } from '../api';
 import { Boundary } from '../record/Boundary';
 import { RecentPane, useMergeCount } from './Panes';
+import { gateQuery } from '../work/actions/queries';
+import { GateScreen } from '../work/GateScreen';
 import { SheetMark } from '../work/lists/icons';
 import { useMounted } from '../record/lib';
 
@@ -68,7 +70,24 @@ function useToast(): [ReactNode, (m: string) => void] {
   return [BodyPortal(<div className={'pd-toast' + (on ? ' is-on' : '')} role="status">{msg}</div>), show];
 }
 
+/** The lists are for the people the Work Center is open to. Ask that first (as /work/ does) so a person it is closed to sees the closed card, never the
+ *  tabs or a failed read. A gate read that itself fails falls through to the lists, which then say what went wrong. */
 export function Directory({ search }: { search: DirSearch }) {
+  return (
+    <Boundary fallback={() => <DirectoryBody search={search} />}>
+      <Suspense fallback={<PaneSkeleton />}>
+        <GateFirst search={search} />
+      </Suspense>
+    </Boundary>
+  );
+}
+
+function GateFirst({ search }: { search: DirSearch }) {
+  const gate = useSuspenseQuery(gateQuery()).data;
+  return gate.open ? <DirectoryBody search={search} /> : <GateScreen reason={gate.reason} />;
+}
+
+function DirectoryBody({ search }: { search: DirSearch }) {
   const pane = search.pane || 'all';
   const navigate = useNavigate();
   const go = useCallback((next: DirSearch) => navigate({ to: '/partners/', search: next as never, replace: true }), [navigate]);

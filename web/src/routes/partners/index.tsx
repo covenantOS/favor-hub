@@ -2,6 +2,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Directory } from '../../features/partners/directory/Directory';
 import { dirQuery, menusQuery, recentQuery } from '../../features/partners/api';
+import { gateQuery } from '../../features/partners/work/actions/queries';
 import { validateDirSearch, type DirSearch } from '../../lib/route-search';
 
 export const Route = createFileRoute('/partners/')({
@@ -10,6 +11,7 @@ export const Route = createFileRoute('/partners/')({
   staticData: { nav: 'partners-all', title: 'All partners', layout: 'full' },
   loader: ({ context, deps }) => {
     const pane = deps.search.pane;
+    void context.queryClient.prefetchQuery(gateQuery());
     if (pane === 'recent') void context.queryClient.prefetchQuery(recentQuery);
     else if (!pane) {
       void context.queryClient.prefetchQuery(dirQuery(deps.search, 50));
