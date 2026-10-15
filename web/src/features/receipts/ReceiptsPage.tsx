@@ -288,11 +288,11 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
   const [loadError, setLoadError] = useState('');
-  const [downloadedHere, setDownloadedHere] = useState<Record<string, boolean>>({});
+  const [downloadedHere, setDownloadedHere] = useState<Record<string, string>>({});
 
   // The latest values, for handlers that run after an await.
-  const S = useRef({ view, batches, days, letterDate, busy, left, added });
-  S.current = { view, batches, days, letterDate, busy, left, added };
+  const S = useRef({ view, batches, days, letterDate, busy, left, added, downloadedHere });
+  S.current = { view, batches, days, letterDate, busy, left, added, downloadedHere };
   const markingRef = useRef(false);
   const resumedRef = useRef(false);
   const busyRef = useRef(false);
@@ -428,7 +428,7 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
       let ask = '';
       if (file && !file.marked) {
         const gifts = plural(file.gifts || file.count, 'gift');
-        ask = file.downloadedAt ? `Were all ${plural(file.count, 'receipt')} printed? This marks ${gifts} as thanked in Blackbaud.` : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the receipts were printed some other way.`;
+        ask = file.downloadedAt || S.current.downloadedHere[file.id] ? `Were all ${plural(file.count, 'receipt')} printed? This marks ${gifts} as thanked in Blackbaud.` : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the receipts were printed some other way.`;
       }
       const yes = file && file.marked ? 'Finish marking' : 'Yes, mark them thanked';
       if (!(await askFirst({ anchor: 'mark', question: ask, yes, no: 'Cancel' }))) return;
@@ -588,11 +588,11 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
           <BatchSteps
             b={open}
             busy={busy}
-            downloadedHere={Boolean(downloadedHere[open.id])}
+            downloadedHere={downloadedHere[open.id] || ''}
             onDownloadClick={() => {
               if (open.downloadedAt || downloadedHere[open.id]) return;
               // The server notes the first download. Show it here at once, so the marking step lights up.
-              setTimeout(() => setDownloadedHere((m) => ({ ...m, [open.id]: true })), 900);
+              setTimeout(() => setDownloadedHere((m) => ({ ...m, [open.id]: new Date().toISOString() })), 900);
             }}
             onMark={() => void markBatch(open.id)}
             onCancel={() => void cancelBatch(open)}

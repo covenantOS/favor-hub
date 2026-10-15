@@ -170,7 +170,8 @@ function Step({ n, title, done, next, children }: { n: number; title: string; do
 export function BatchSteps(p: {
   b: Batch;
   busy: boolean;
-  downloadedHere: boolean;
+  /** When this page saw the first download (the server notes it too), as an ISO time; empty until then. */
+  downloadedHere: string;
   onDownloadClick: () => void;
   onMark: () => void;
   onCancel: () => void;
@@ -182,10 +183,10 @@ export function BatchSteps(p: {
   const marking = b.status === 'marking';
   const total = b.gifts || b.count;
   const pct = total ? Math.round((b.marked / total) * 100) : 0;
-  const printed = Boolean(b.downloadedAt) || p.downloadedHere;
+  const downloadedAt = b.downloadedAt || p.downloadedHere || null;
+  const printed = Boolean(downloadedAt);
   const madeDay = etDay(b.createdAt);
   const waited = Boolean(madeDay) && madeDay < today();
-  const downloadedAt = b.downloadedAt;
   return (
     <>
       <div className="rcp-make__row">
@@ -225,7 +226,7 @@ export function BatchSteps(p: {
           <a className="fnd-textbtn" id="rcp-open" href={base} target="_blank" rel="noopener" onClick={p.onDownloadClick}>
             or open it in a tab
           </a>
-          {printed ? <p className="rcp-fine rcp-step__when">{downloadedAt ? `Downloaded ${stamp(downloadedAt)}.` : 'Downloaded just now.'}</p> : null}
+          {printed ? <p className="rcp-fine rcp-step__when">Downloaded {stamp(downloadedAt)}.</p> : null}
         </Step>
         <Step n={3} title="Mark as thanked in Blackbaud" done={false} next={printed || waited || marking}>
           <p>
@@ -243,7 +244,7 @@ export function BatchSteps(p: {
           ) : null}
           <button type="button" className="req-submit exp-green rcp-btn" id="rcp-mark" disabled={p.busy} onClick={p.onMark}>
             {b.marked ? 'Finish marking' : `Mark ${plural(total, 'gift')} as thanked`}
-          </button>
+          </button>{' '}
           {p.askMark}
           {b.marked ? null : (
             <button type="button" className="fnd-textbtn is-danger" id="rcp-cancel" onClick={p.onCancel}>

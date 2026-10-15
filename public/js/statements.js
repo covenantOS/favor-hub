@@ -431,10 +431,12 @@
 
   async function makeYearEnd() {
     if (state.busy) return;
+    // Read the list and the fund box before the page is drawn again, which puts both back to their defaults.
+    const ask = { year: Number(state.year), list: $('stm-list').value, includeSoft: $('stm-yesoft').checked };
     state.busy = true;
     renderYear();
     try {
-      const d = await post('/api/statements/yearend', { year: Number(state.year), list: $('stm-list').value, includeSoft: $('stm-yesoft').checked });
+      const d = await post('/api/statements/yearend', ask);
       toast(d.mismatches ? `File made. ${plural(d.mismatches, 'partner')} differ from the tax list, see below.` : 'The print file is ready.');
     } catch (err) {
       toast(err.message);

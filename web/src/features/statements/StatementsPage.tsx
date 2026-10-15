@@ -561,8 +561,14 @@ function TieRow({ t }: { t: Tie }) {
 function YearEnd({ me, year, setYear, bump, refresh }: { me: Me; year: string; setYear: (y: string) => void; bump: number; refresh: () => void }) {
   const { data: p } = useSuspenseQuery(planQuery(year, bump));
   const [busy, setBusy] = useState(false);
-  const [list, setList] = useState('mail');
+  // Every fresh read of the lists puts the list and the fund box back to their defaults, as the classic page does: the first list with statements left.
+  const firstList = (['mail', 'email', 'other'] as const).find((k) => p.lists[k].remaining > 0) || 'mail';
+  const [list, setList] = useState<string>(firstList);
   const [withSoft, setWithSoft] = useState(false);
+  useEffect(() => {
+    setList(firstList);
+    setWithSoft(false);
+  }, [p, firstList]);
   const years: number[] = [];
   for (let y = me.thisYear; y >= me.thisYear - 6; y--) years.push(y);
   const open = p.open;
@@ -732,6 +738,7 @@ function OpenFile({ b, onPrinted, onDiscard, onDownload }: { b: Batch; onPrinted
             <button type="button" className="req-submit exp-green rcp-btn" id="stm-printed" onClick={onPrinted}>
               Mark {plural(b.count, 'statement')} printed
             </button>
+            {' '}
             <button type="button" className="fnd-textbtn is-danger" id="stm-discard" onClick={onDiscard}>
               Throw this print file away
             </button>
