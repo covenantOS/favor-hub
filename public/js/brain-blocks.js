@@ -528,68 +528,240 @@
       <div class="frow__side"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(f.link))}" target="_blank" rel="noopener" aria-label="Open ${esc(f.title)} in Drive">${ic('ext')}Open in Drive</a>${idx ? `<span class="fidx">Indexed <time datetime="${esc(String(f.indexed).slice(0, 10))}">${esc(idx)}</time></span>` : ''}</div>
       ${ps || hint ? `<div class="frow__b">${ps}${hint}</div>` : ''}</div>`;
   }
-  // ---- Photo cards: the picture itself (through /api/brain/drive/thumb, which checks the person's own Google access),
-  // its size and grade, the stored description, and Open, Download and More like this. A press on the picture opens it large.
+  // ---- Photos and videos: a dense grid, a large view, a player ----
+  // Pictures come through /api/brain/drive/thumb and video through /api/brain/drive/stream. The Brain serves either only after
+  // the person's own Google account opens the file. A photo answer is a justified grid (rows of equal height, each picture at
+  // its own shape); a video answer is a grid of 16:9 tiles with the length and the matched moment. "Show more" and the
+  // filters ask /api/brain/drive/media for the same question again with an offset or a filter.
   const THUMB = (id, s) => `/api/brain/drive/thumb?id=${encodeURIComponent(id)}&s=${s}`;
+  const STREAM = (id) => `/api/brain/drive/stream?id=${encodeURIComponent(id)}`;
   const mb = (b) => (b >= 10485760 ? Math.round(b / 1048576) + ' MB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
   const GRADE = { high: 'High quality', medium: 'Medium quality', low: 'Low quality' };
   B.photoDetail = (im) => {
     if (!im) return '';
     const parts = [];
-    if (im.width && im.height) parts.push(`${im.width} \u00d7 ${im.height}`);
+    if (im.width && im.height) parts.push(`${im.width} × ${im.height}`);
     if (im.bytes) parts.push(mb(im.bytes));
     return parts.join(', ');
   };
   const dlUrl = (id) => `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
-  function photoHTML(f) {
-    const im = f.image || null;
-    const det = B.photoDetail(im);
-    const g = im && im.grade ? `<span class="pg pg--${esc(im.grade)}">${esc(GRADE[im.grade])}</span>` : '';
-    const data = `data-pid="${esc(f.id)}" data-ptitle="${esc(f.title)}" data-plink="${esc(f.link)}" data-pdet="${esc(det)}" data-pgrade="${esc(im && im.grade ? GRADE[im.grade] : '')}" data-pdesc="${esc(f.description || '')}" data-pfolder="${esc(f.folder || '')}" data-plike="${esc(f.like || '')}"`;
-    return `<div class="ph" role="listitem">
-      <button type="button" class="ph__img" data-act="photo" ${data} aria-label="Show ${esc(f.title)} larger"><span class="ph__ph">${ic('fimage')}</span><img class="ph__thumb" src="${esc(THUMB(f.id, 400))}" alt="" loading="lazy" decoding="async"></button>
-      <div class="ph__b"><b class="ph__n">${esc(f.title)}</b>
-        <div class="ph__m">${g}${det ? `<span>${esc(det)}</span>` : ''}</div>
-        ${f.folder ? `<div class="ph__f">${esc(f.folder)}</div>` : ''}
-        ${f.description ? `<p class="ph__d">${esc(f.description)}</p>` : '<p class="ph__d ph__d--none">No description yet</p>'}
-        <div class="ph__a"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(f.link))}" target="_blank" rel="noopener">${ic('ext')}Open in Drive</a><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(dlUrl(f.id))}" target="_blank" rel="noopener">Download original</a>${f.like ? `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="ask" data-q="${esc(f.like)}" data-intent="find_file">More like this</button>` : ''}</div>
+  const clock = (s) => {
+    const t = Math.max(0, Math.floor(Number(s) || 0));
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = String(t % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+  };
+  const secs = (c) => String(c || '').split(':').reduce((a, x) => a * 60 + (Number(x) || 0), 0);
+  const ratioOf = (f) => (f.image && f.image.width && f.image.height ? Math.min(2.6, Math.max(0.45, f.image.width / f.image.height)) : 1.4);
+  // A video answer stored before the grid carries only the raw scene text: the time and a short line are read from it here.
+  const SCENE = /^\s*\[Scene at ([\d:]+)\]\s*/i;
+  function videoOf(f) {
+    if (f.video) return f.video;
+    const p = (f.passages || [])[0];
+    const m = p && String(p.text || '').match(SCENE);
+    if (!m) return {};
+    let s = String(p.text).replace(SCENE, '').replace(/^(the|this) (image|photo|picture|frame) (shows|is|depicts|features)\s+/i, '');
+    s = (s.split(/(?<=[.!?])\s+/)[0] || s).replace(/[.!?]+$/, '').replace(/\s+(?:in|with) (?:his|her|their) hands?\b/i, '');
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (s.length > 72) s = s.slice(0, 72).replace(/\s+\S*$/, '') + '...';
+    return { at: secs(m[1]), line: s };
+  }
+  // Each picture says when it has loaded. The handlers sit on the element itself, so they work wherever the answer is drawn
+  // (the Brain page, the side dock, after moving between pages) with no page-wide listener to lose.
+  const IMG_ON = `onload="this.parentNode.classList.add('is-ready')" onerror="this.parentNode.classList.add('is-broken')"`;
+  const DRAG_ON = `draggable="true" ondragstart="window.BrainBlocks&&window.BrainBlocks.mdrag(event,this)"`;
+
+  // The media answers on screen, by key, so the grid's buttons and filters find their block (kept on the turn, so a redraw
+  // keeps every page already shown).
+  const MEDIA = {};
+  let mseq = 0;
+  const mediaKey = (b) => b._mk || Object.defineProperty(b, '_mk', { value: 'm' + ++mseq, enumerable: false })._mk;
+
+  function photoTile(f) {
+    const r = ratioOf(f);
+    const g = f.image && f.image.grade;
+    const meta = [g ? GRADE[g] : '', B.photoDetail(f.image)].filter(Boolean).join(', ');
+    return `<button type="button" class="mg__t${g === 'high' ? ' is-hq' : ''}" role="listitem" data-act="media" data-mid="${esc(f.id)}" style="--r:${r.toFixed(3)}" aria-label="${esc(f.title)}${meta ? ', ' + esc(meta) : ''}. Open large" ${DRAG_ON}><img src="${esc(THUMB(f.id, 400))}" alt="" loading="lazy" decoding="async" ${IMG_ON}><span class="mg__ov"><b>${esc(f.title)}</b>${f.folder ? `<em>${esc(f.folder)}</em>` : ''}</span>${g === 'high' ? '<span class="mg__q">HQ</span>' : ''}</button>`;
+  }
+  function videoTile(f) {
+    const v = videoOf(f);
+    const at = v.line && v.at != null ? clock(v.at) : '';
+    const det = (f.passages || []).map((p) => String(p.text || '').replace(SCENE, '')).filter(Boolean).join(' ');
+    return `<div class="vg__c" role="listitem">
+      <button type="button" class="vg__t" data-act="media" data-mid="${esc(f.id)}" aria-label="Play ${esc(f.title)}${at ? ' from ' + at : ''}" ${DRAG_ON}><img src="${esc(THUMB(f.id, 400))}" alt="" loading="lazy" decoding="async" ${IMG_ON}><span class="vg__play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span>${v.duration ? `<span class="vg__dur">${clock(v.duration)}</span>` : ''}</button>
+      <div class="vg__b"><b class="vg__n" title="${esc(f.title)}">${esc(f.title)}</b>
+        ${v.line ? `<button type="button" class="vg__l" data-act="media" data-mid="${esc(f.id)}">${esc(v.line)}${at ? `, <time>${at}</time>` : ''}</button>` : ''}
+        <div class="vg__m">${[f.modified ? dlong(f.modified) : '', f.folder || ''].filter(Boolean).map(esc).join(' &middot; ')}</div>
+        <div class="vg__a">${f.like ? `<button type="button" class="vg__x" data-act="ask" data-q="${esc(f.like)}" data-intent="find_file">More like this</button>` : ''}${det ? `<details class="vg__d"><summary>Details</summary><p>${esc(det)}</p></details>` : ''}</div>
       </div></div>`;
   }
-  // A picture that will not load shows the photo icon in its place.
-  document.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('ph__thumb')) t.closest('.ph__img').classList.add('is-broken'); }, true);
-  document.addEventListener('load', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('ph__thumb')) t.closest('.ph__img').classList.add('is-ready'); }, true);
+  const skeletons = (kind, n) => Array.from({ length: n }, (_, i) => (kind === 'video' ? '<div class="vg__c is-sk" aria-hidden="true"><span class="vg__t"></span><div class="vg__b"><i></i><i></i></div></div>' : `<span class="mg__t is-sk" aria-hidden="true" style="--r:${[1.5, 0.75, 1.33, 1.5, 1, 1.78][i % 6]}"></span>`)).join('');
 
-  // ---- The large view: one photo over the page, arrows for the others in the same answer, Esc closes ----
+  function filterBar(b, k) {
+    const m = b.media, q = m.query || {}, fc = m.facets || {};
+    const sel = (key, label, opts) => (opts.length ? `<label class="mf__s"><span>${label}</span><select data-mk="${k}" data-key="${key}" onchange="window.BrainBlocks&&window.BrainBlocks.mfilter(this)"><option value="">${key === 'sort' ? 'Best match' : 'Any'}</option>${opts.map((o) => `<option value="${esc(o.value)}"${String(q[key] || '') === o.value ? ' selected' : ''}>${esc(o.label)}${o.n != null ? ` (${int(o.n)})` : ''}</option>`).join('')}</select></label>` : '');
+    const keep = (key, list) => (q[key] && !(list || []).some((o) => o.value === q[key]) ? [{ value: q[key], label: q[key] }].concat(list || []) : list || []);
+    return `<div class="mf" role="group" aria-label="Filter">${sel('place', 'Place', keep('place', fc.place))}${sel('year', 'Year', keep('year', fc.year))}${m.kind === 'image' ? sel('grade', 'Quality', [{ value: 'high', label: 'High quality' }, { value: 'medium', label: 'Medium or better' }]) : ''}${sel('folder', 'Folder', keep('folder', fc.folder))}${sel('sort', 'Order', m.kind === 'image' ? [{ value: 'newest', label: 'Newest' }, { value: 'largest', label: 'Largest' }] : [{ value: 'newest', label: 'Newest' }])}</div>`;
+  }
+  const countLine = (b) => {
+    const m = b.media, shown = (b.files || []).length;
+    return m ? `Showing ${int(shown)} of ${int(Math.max(m.total, shown))}${m.exact ? '' : '+'}` : '';
+  };
+  function moreBtn(b, k) {
+    const m = b.media;
+    return m && m.next != null ? `<div class="mmore"><button type="button" class="h-btn h-btn--ghost" data-act="mmore" data-mk="${k}">Show more</button><span>${countLine(b)}</span></div>` : m && (b.files || []).length > 12 ? `<div class="mmore"><span>${countLine(b)}</span></div>` : '';
+  }
+  function mediaHTML(b, ctx) {
+    const k = mediaKey(b);
+    MEDIA[k] = b;
+    const files = (b.files || []).concat(b.more || []);
+    const kind = (b.media && b.media.kind) || (files.every((f) => f.kind === 'image') ? 'image' : 'video');
+    const tiles = kind === 'image' ? files.map(photoTile).join('') : files.map(videoTile).join('');
+    const empty = !files.length ? `<p class="mempty">Nothing here with these filters. Clear one to see more.</p>` : '';
+    return `<div class="card fcards fcards--media" data-mk="${k}"${ctx && ctx.ti != null ? ` data-turn="${ctx.ti}"` : ''}><div class="card__h"><div><div class="card__t" data-mtitle>${esc(b.title)}</div><div class="card__s">${ic('lock')} Only files your Google account can open</div></div></div>${b.media ? filterBar(b, k) : ''}<div class="${kind === 'image' ? 'mg' : 'vg'}" role="list" data-mgrid>${tiles}</div>${empty}${moreBtn(b, k)}</div>`;
+  }
+  const NOUN_M = { image: ['photo', 'photos'], video: ['video', 'videos'] };
+  const mediaTitle = (m) => (m.total === 1 ? `I found this ${NOUN_M[m.kind][0]}` : `I found ${int(m.total)}${m.exact ? '' : '+'} ${NOUN_M[m.kind][1]}`);
+  async function mediaFetch(query, offset) {
+    const res = await fetch('/api/brain/drive/media', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, offset }) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.ok) throw new Error(d.message || 'That did not load. Try again.');
+    return d;
+  }
+  const rootOf = (k) => document.querySelector(`.fcards--media[data-mk="${k}"]`);
+  /** Draws a media answer again in place (a filter changed): the card keeps its place and the page does not jump. */
+  function redrawMedia(k) {
+    const b = MEDIA[k], el = rootOf(k);
+    if (!b || !el) return;
+    const ti = el.dataset.turn;
+    el.outerHTML = mediaHTML(b, ti != null ? { ti } : null);
+  }
+  B.mfilter = async (sel) => {
+    const k = sel.dataset.mk, b = MEDIA[k];
+    if (!b || !b.media) return;
+    const query = { ...b.media.query, [sel.dataset.key]: sel.value || undefined };
+    const el = rootOf(k);
+    const grid = el && el.querySelector('[data-mgrid]');
+    if (grid) { grid.innerHTML = skeletons(b.media.kind, Math.min(12, Math.max(6, (b.files || []).length))); grid.setAttribute('aria-busy', 'true'); }
+    el && el.querySelectorAll('select').forEach((s) => (s.disabled = true));
+    try {
+      const d = await mediaFetch(query, 0);
+      b.files = d.files || [];
+      b.more = [];
+      b.media = { ...b.media, total: d.total, exact: d.exact, next: d.next, query: d.query || query, facets: d.facets || b.media.facets };
+      b.title = mediaTitle(b.media);
+    } catch (err) {
+      b.media = { ...b.media };
+      toastMsg(err.message);
+    }
+    redrawMedia(k);
+  };
+  function toastMsg(m) {
+    if (window.hubToast) window.hubToast(m);
+  }
+  async function mediaMore(el, host) {
+    const k = el.dataset.mk, b = MEDIA[k];
+    if (!b || !b.media || b.media.next == null) return;
+    const root = rootOf(k), grid = root && root.querySelector('[data-mgrid]');
+    el.disabled = true;
+    el.textContent = 'Loading';
+    if (grid) grid.insertAdjacentHTML('beforeend', `<span class="msk" data-msk style="display:contents">${skeletons(b.media.kind, 12)}</span>`);
+    try {
+      const d = await mediaFetch(b.media.query, b.media.next);
+      const add = (d.files || []).filter((f) => !(b.files || []).some((x) => x.id === f.id));
+      b.files = (b.files || []).concat(add);
+      b.media = { ...b.media, total: d.total, exact: d.exact, next: d.next };
+      b.title = mediaTitle(b.media);
+      if (grid) {
+        grid.querySelectorAll('[data-msk]').forEach((x) => x.remove());
+        grid.insertAdjacentHTML('beforeend', add.map(b.media.kind === 'image' ? photoTile : videoTile).join(''));
+      }
+      const t = root && root.querySelector('[data-mtitle]');
+      if (t) t.textContent = b.title;
+      const mm = root && root.querySelector('.mmore');
+      if (mm) mm.outerHTML = moreBtn(b, k) || '';
+    } catch (err) {
+      if (grid) grid.querySelectorAll('[data-msk]').forEach((x) => x.remove());
+      el.disabled = false;
+      el.textContent = 'Show more';
+      (host && host.toast ? host.toast : toastMsg)(err.message);
+    }
+  }
+
+  // ---- Drag a photo or video into what you are writing, or send it to an email ----
+  const fileOf = (k, id) => { const b = MEDIA[k]; return b ? (b.files || []).concat(b.more || []).find((f) => f.id === id) : null; };
+  const itemOf = (f) => {
+    const v = f.kind === 'video' ? videoOf(f) : null;
+    const sub = f.kind === 'video' ? ['Video', v && v.duration ? clock(v.duration) : '', f.folder || ''].filter(Boolean).join(', ') : ['Photo', B.photoDetail(f.image), f.folder || ''].filter(Boolean).join(', ');
+    return { kind: 'drive', title: f.title, url: f.link, sub };
+  };
+  function sendToEmail(f) {
+    if (!window.FavorCompose || !window.FavorCompose.add) { toastMsg('Open Mail to write an email first.'); return; }
+    window.FavorCompose.add(itemOf(f));
+  }
+
+  // ---- The large view: one photo or video over the page, arrows for the others in the same answer, Esc closes ----
   let LB = null;
-  function lbClose() { if (!LB) return; LB.classList.remove('is-open'); document.documentElement.classList.remove('plb-on'); if (LB._from) LB._from.focus(); }
+  function lbClose() {
+    if (!LB) return;
+    const v = LB.querySelector('video');
+    if (v) { try { v.pause(); } catch (e) { /* gone */ } v.removeAttribute('src'); v.load(); }
+    LB.classList.remove('is-open');
+    document.documentElement.classList.remove('plb-on');
+    if (LB._from && LB._from.isConnected) LB._from.focus();
+  }
+  const ico = (p) => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+  const I_DL = ico('<path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/>'), I_MAIL = ico('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'), I_DRAG = ico('<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>');
   function lbShow(i) {
     const list = LB._all;
     if (!list.length) return;
     LB._k = (i + list.length) % list.length;
-    const d = list[LB._k].dataset;
+    const f = list[LB._k];
     const pic = LB.querySelector('.plb__pic');
-    const img = pic.querySelector('img');
+    const old = pic.querySelector('video');
+    if (old) { try { old.pause(); } catch (e) { /* gone */ } }
     pic.classList.remove('is-ready');
-    img.onload = () => pic.classList.add('is-ready');
-    img.src = THUMB(d.pid, 1600);
-    img.alt = d.pdesc || d.ptitle;
-    LB.querySelector('.plb__t').textContent = d.ptitle;
-    LB.querySelector('.plb__m').textContent = [d.pgrade, d.pdet].filter(Boolean).join(' \u00b7 ');
-    LB.querySelector('.plb__f').textContent = d.pfolder;
-    LB.querySelector('.plb__d').textContent = d.pdesc || 'No description yet';
-    LB.querySelector('.plb__a').innerHTML = `<a class="h-btn h-btn--primary h-btn--sm" href="${esc(dlUrl(d.pid))}" target="_blank" rel="noopener">Download original</a><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(href(d.plink))}" target="_blank" rel="noopener">${ic('ext')}Open in Drive</a>${d.plike ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-lb="like" data-q="${esc(d.plike)}">More like this</button>` : ''}`;
+    const vid = f.kind === 'video';
+    const v = vid ? videoOf(f) : null;
+    if (vid) {
+      const at = v && v.at ? Math.max(0, v.at) : 0;
+      pic.innerHTML = `<span class="spin"></span><video controls playsinline preload="metadata" poster="${esc(THUMB(f.id, 1600))}" src="${esc(STREAM(f.id))}${at ? '#t=' + at : ''}"></video>`;
+      const el = pic.querySelector('video');
+      el.addEventListener('loadedmetadata', () => { if (at && Math.abs(el.currentTime - at) > 1.5) { try { el.currentTime = at; } catch (e) { /* seek later */ } } pic.classList.add('is-ready'); el.play().catch(() => undefined); }, { once: true });
+      el.addEventListener('error', () => { pic.classList.add('is-ready'); pic.insertAdjacentHTML('beforeend', `<p class="plb__err">This video will not play here. <a href="${esc(href(f.link))}" target="_blank" rel="noopener">Open it in Drive</a></p>`); }, { once: true });
+    } else {
+      pic.innerHTML = `<span class="spin"></span><img alt="${esc(f.description || f.title)}">`;
+      const img = pic.querySelector('img');
+      img.onload = () => pic.classList.add('is-ready');
+      img.onerror = () => { pic.classList.add('is-ready'); pic.insertAdjacentHTML('beforeend', `<p class="plb__err">This picture will not load. <a href="${esc(href(f.link))}" target="_blank" rel="noopener">Open it in Drive</a></p>`); };
+      img.src = THUMB(f.id, 1600);
+    }
+    LB.querySelector('.plb__t').textContent = f.title;
+    LB.querySelector('.plb__m').textContent = vid ? [v && v.duration ? clock(v.duration) : '', f.modified ? dlong(f.modified) : ''].filter(Boolean).join(' · ') : [f.image && f.image.grade ? GRADE[f.image.grade] : '', B.photoDetail(f.image)].filter(Boolean).join(' · ');
+    LB.querySelector('.plb__f').textContent = f.folder || '';
+    const d = LB.querySelector('.plb__d');
+    if (vid) {
+      const raw = (f.passages || []).map((p) => String(p.text || '').replace(SCENE, '')).filter(Boolean).join(' ');
+      d.innerHTML = v && v.line ? `<button type="button" class="plb__jump" data-lb="jump" data-at="${v.at || 0}">${ic('play')}${esc(v.line)}, ${clock(v.at || 0)}</button>${raw ? `<details class="plb__det"><summary>Details</summary><p>${esc(raw)}</p></details>` : ''}` : '';
+    } else d.textContent = f.description || 'No description yet';
+    LB.querySelector('.plb__a').innerHTML = `<a class="h-btn h-btn--primary h-btn--sm" href="${esc(dlUrl(f.id))}" target="_blank" rel="noopener">${I_DL}Download original</a><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(href(f.link))}" target="_blank" rel="noopener">${ic('ext')}Open in Drive</a>${window.FavorCompose && window.FavorCompose.add ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-lb="email">${I_MAIL}Send to email</button>` : ''}<span class="h-btn h-btn--ghost h-btn--sm plb__drag" data-mid="${esc(f.id)}" ${DRAG_ON} title="Drag into a message, a task or an email">${I_DRAG}Drag</span>${f.like ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-lb="like" data-q="${esc(f.like)}">More like this</button>` : ''}`;
+    LB.querySelector('.plb__n').textContent = list.length > 1 ? `${LB._k + 1} of ${list.length}` : '';
     LB.querySelectorAll('.plb__nav').forEach((n) => (n.hidden = list.length < 2));
+    LB.classList.toggle('is-video', vid);
   }
   function lightbox(btn, host) {
-    const grid = btn.closest('.fcards');
-    const all = grid ? [...grid.querySelectorAll('[data-act="photo"]')] : [btn];
-    if (!LB) {
+    const root = btn.closest('[data-mk]');
+    const k = root && root.dataset.mk;
+    const b = k && MEDIA[k];
+    const all = b ? (b.files || []).concat(b.more || []) : [];
+    if (!all.length) return;
+    // The view is rebuilt when a page change took it off the page.
+    if (!LB || !LB.isConnected) {
       LB = document.createElement('div');
       LB.className = 'plb';
       LB.setAttribute('role', 'dialog');
       LB.setAttribute('aria-modal', 'true');
-      LB.setAttribute('aria-label', 'Photo');
-      LB.innerHTML = `<div class="plb__bg" data-lb="close"></div><div class="plb__box"><div class="plb__pic"><span class="spin"></span><img alt=""></div><div class="plb__side"><button type="button" class="plb__x" data-lb="close" aria-label="Close">\u00d7</button><b class="plb__t"></b><div class="plb__m"></div><div class="plb__f"></div><p class="plb__d"></p><div class="plb__a"></div></div><button type="button" class="plb__nav plb__nav--p" data-lb="prev" aria-label="Previous photo">\u2039</button><button type="button" class="plb__nav plb__nav--n" data-lb="next" aria-label="Next photo">\u203a</button></div>`;
+      LB.setAttribute('aria-label', 'Photo or video');
+      LB.innerHTML = `<div class="plb__bg" data-lb="close"></div><div class="plb__box"><div class="plb__pic"></div><div class="plb__side"><button type="button" class="plb__x" data-lb="close" aria-label="Close">×</button><span class="plb__n"></span><b class="plb__t"></b><div class="plb__m"></div><div class="plb__f"></div><div class="plb__d"></div><div class="plb__a"></div></div><button type="button" class="plb__nav plb__nav--p" data-lb="prev" aria-label="Previous">‹</button><button type="button" class="plb__nav plb__nav--n" data-lb="next" aria-label="Next">›</button></div>`;
       document.body.appendChild(LB);
       LB.addEventListener('click', (e) => {
         const a = e.target.closest('[data-lb]');
@@ -598,33 +770,48 @@
         if (w === 'close') lbClose();
         else if (w === 'prev') lbShow(LB._k - 1);
         else if (w === 'next') lbShow(LB._k + 1);
+        else if (w === 'email') sendToEmail(LB._all[LB._k]);
+        else if (w === 'jump') { const v = LB.querySelector('video'); if (v) { try { v.currentTime = Number(a.dataset.at) || 0; v.play().catch(() => undefined); } catch (err) { /* not ready */ } } }
         else if (w === 'like') { const q = a.dataset.q; const h = LB._host; lbClose(); if (h && q) h.ask(q, { intent: 'find_file' }); }
       });
-      document.addEventListener('keydown', (e) => {
-        if (!LB || !LB.classList.contains('is-open')) return;
+      LB.addEventListener('keydown', (e) => {
+        if (!LB.classList.contains('is-open')) return;
+        if (e.target && /^(VIDEO|INPUT|TEXTAREA)$/.test(e.target.tagName) && e.key !== 'Escape') return;
         if (e.key === 'Escape') lbClose();
         else if (e.key === 'ArrowLeft') lbShow(LB._k - 1);
         else if (e.key === 'ArrowRight') lbShow(LB._k + 1);
       });
+      // A swipe on a phone moves to the next or the previous one.
+      let sx = null;
+      LB.addEventListener('touchstart', (e) => { sx = e.touches.length === 1 && !e.target.closest('video, .plb__side') ? e.touches[0].clientX : null; }, { passive: true });
+      LB.addEventListener('touchend', (e) => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) lbShow(LB._k + (dx < 0 ? 1 : -1)); });
     }
     LB._all = all;
+    LB._mk = k;
     LB._host = host;
     LB._from = btn;
-    lbShow(Math.max(0, all.indexOf(btn)));
     LB.classList.add('is-open');
     document.documentElement.classList.add('plb-on');
+    lbShow(Math.max(0, all.findIndex((f) => f.id === btn.dataset.mid)));
     LB.querySelector('.plb__x').focus();
   }
   B.lightbox = lightbox;
-
+  /** A tile or the large view's Drag handle: the file goes into a message, a task or an email as a Drive link. */
+  B.mdrag = (e, el) => {
+    const inLb = el.closest('.plb');
+    const root = el.closest('[data-mk]');
+    const f = inLb ? (LB && LB._all ? LB._all.find((x) => x.id === el.dataset.mid) : null) : fileOf(root && root.dataset.mk, el.dataset.mid);
+    if (!f || !e.dataTransfer) return;
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', f.title + ' ' + f.link);
+    e.dataTransfer.setData('text/uri-list', f.link);
+    try { e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(itemOf(f))); } catch (err) { /* text only */ }
+  };
   // The weaker matches wait behind a quiet "N more matches" line. A native disclosure opens them in place, with no script.
-  function filesHTML(b) {
+  function filesHTML(b, ctx) {
     const more = b.more || [];
-    const pics = (b.files || []).length && (b.files || []).concat(more).every((f) => f.kind === 'image');
-    if (pics) {
-      const moreP = more.length ? `<details class="fmore"><summary>${more.length} more ${more.length === 1 ? 'photo' : 'photos'}${ic('caret')}</summary><div class="pgrid" role="list">${more.map(photoHTML).join('')}</div></details>` : '';
-      return `<div class="card fcards fcards--photos"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s">${ic('lock')} Only files your Google account can open</div></div></div><div class="pgrid" role="list">${b.files.map(photoHTML).join('')}</div>${moreP}</div>`;
-    }
+    const all = (b.files || []).concat(more);
+    if (b.media || (all.length && (all.every((f) => f.kind === 'image') || all.every((f) => f.kind === 'video')))) return mediaHTML(b, ctx);
     const moreHTML = more.length
       ? `<details class="fmore"><summary>${more.length} more ${more.length === 1 ? 'match' : 'matches'}${ic('caret')}</summary><div class="frows" role="list">${more.map(fileRowHTML).join('')}</div></details>`
       : '';
@@ -758,7 +945,7 @@
       case 'sheet': return sheetHTML(b);
       case 'sources': return sourcesHTML(b);
       case 'consent': return consentHTML(b, ctx);
-      case 'files': return filesHTML(b);
+      case 'files': return filesHTML(b, ctx);
       case 'calendar': return calendarHTML(b);
       case 'mail': return mailHTML(b);
       case 'filelist': return filelistHTML(b);
@@ -1014,6 +1201,8 @@
       box.setSelectionRange(box.value.length, box.value.length);
     },
     photo: (el, host) => lightbox(el, host),
+    media: (el, host) => lightbox(el, host),
+    mmore: (el, host) => mediaMore(el, host),
     'ask-again': (el, host) => { const t = host.turn(el); if (t) host.ask(t.asked_as || t.q, { again: true, el }); },
     choose: (el, host) => {
       const t = host.turn(el), b = blockOf(t, el);
