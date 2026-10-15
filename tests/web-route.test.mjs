@@ -195,3 +195,15 @@ describe('the hub_web cookie a web page carries', () => {
     assert.ok(!cookieRoutes(off).includes('/projects/'));
   });
 });
+
+describe('live-front.mjs judges a check by web.routes as it stands', () => {
+  it('keeps its copies of the full-load, exact and own-switch lists the same as shared/', async () => {
+    const { FULL_LOAD } = await import('../shared/app2.ts');
+    const { WEB_EXACT_ROUTES, WEB_OWN_SWITCH } = await import('../shared/web.ts');
+    const src = readFileSync(new URL('../scripts/live-front.mjs', import.meta.url), 'utf8');
+    const copy = (name) => JSON.parse(src.match(new RegExp(`const ${name} = (\\[[^\\]]*\\]);`))[1].replace(/'/g, '"'));
+    assert.deepEqual(copy('FULL_LOAD'), [...FULL_LOAD]);
+    assert.deepEqual(copy('EXACT'), [...WEB_EXACT_ROUTES]);
+    assert.deepEqual(copy('OWN_SWITCH'), Object.keys(WEB_OWN_SWITCH));
+  });
+});
