@@ -2,6 +2,7 @@
 title: Intake and My requests
 summary: Where every request stands, for the person who asked and for the team that works it.
 topic: work
+for: [admin]
 order: 2
 related: [make-a-request, projects]
 tool: /projects/?tab=requests
