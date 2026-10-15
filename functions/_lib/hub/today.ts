@@ -75,7 +75,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
   const admin = user.role === 'admin';
   // Every check reads on its own, all at once: the menu and the bell call this on every page, and one after another it was about a dozen
   // D1 round trips before either could start its own reads.
-  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM, otherGifts, movesOn, early] = await Promise.all([
+  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM, otherGifts, movesOn, early, marketing] = await Promise.all([
     user.via === 'google' ? approverEmails(env) : Promise.resolve(new Set<string>()),
     workAccessFor(env, email, admin).catch(() => null),
     admin ? Promise.resolve(true) : onAnyRequest(env, email),
@@ -102,7 +102,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     expenseLog: approver || expenseAdmin,
     workCenter: !!work && work.ok,
     // Meetings, Clips, Chat and Mail are held to the Early access list. The room an invited person opens stays open to them (meetUser).
-    clips: early,
+    clips: true,
     meetings: early,
     early,
     clipsRecord,

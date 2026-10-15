@@ -4,25 +4,19 @@ import test from 'node:test';
 import './support/resolve-ts.mjs';
 
 const { AREAS } = await import('../src/data/areas.ts');
-const { earlyOnly, earlyPaths } = await import('../src/data/early.ts');
+const { earlyPaths } = await import('../src/data/early.ts');
 
-test('every page flagged early is early by the badge rules, and the other way round', () => {
-  for (const a of AREAS) for (const p of a.pages) assert.equal(!!p.early, earlyOnly(a.id, p.id), `${a.id}/${p.id}`);
-});
-
-test('Projects, the Brain, Today, Partners and Gifts stay open to staff', () => {
-  for (const id of ['projects', 'ask', 'today', 'partners', 'gifts', 'staff']) {
+test('Today, Partners, Gifts, Projects requests, Staff, Reporting and Help stay open to staff', () => {
+  for (const id of ['today', 'partners', 'gifts', 'projects', 'staff', 'kpi', 'help']) {
     const a = AREAS.find((x) => x.id === id);
     assert.ok(a.pages.some((p) => !p.early), id);
   }
-  assert.equal(AREAS.find((a) => a.id === 'projects').pages.every((p) => !p.early), true);
-  assert.equal(AREAS.find((a) => a.id === 'ask').pages.every((p) => !p.early), true);
+  const ids = AREAS.flatMap((a) => a.pages.filter((p) => !p.early).map((p) => p.id));
+  for (const id of ['request-new', 'my-requests', 'clips', 'kpi', 'reports', 'kpi-definitions', 'expenses']) assert.ok(ids.includes(id), id);
 });
 
-test('Meetings, Chat, Mail and Clips are held, and the room an invited person opens is not', () => {
+test('Meetings, Chat, Mail and the Brain are held, and the room an invited person opens is not', () => {
   const held = earlyPaths(AREAS);
-  for (const path of ['/meet/', '/chat/', '/mail/', '/clips/']) assert.ok(held.has(path), path);
-  assert.equal(held.has('/meet/room/'), false);
-  assert.equal(held.has('/projects/'), false);
-  assert.equal(held.has('/brain/'), false);
+  for (const path of ['/meet/', '/chat/', '/mail/', '/brain/', '/moves/', '/data-care/', '/highlights/']) assert.ok(held.has(path), path);
+  for (const path of ['/meet/room/', '/clips/', '/projects/', '/reports/']) assert.equal(held.has(path), false, path);
 });

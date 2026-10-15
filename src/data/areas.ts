@@ -10,7 +10,7 @@
 // the tab row for those people and sits in the row's More menu for everyone else. Nothing is locked by a job: `need` alone decides access.
 // The rail has no More menu (Will, 2026-10-15): every area a person can open sits in the rail, in barRank order.
 
-export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'moves' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin' | 'early';
+export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'moves' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin' | 'early' | 'projectsNav';
 
 /** The jobs /api/hub/nav works out for a person (functions/_lib/hub/jobs.ts). Admins hold every job. */
 export type Job = 'admin' | 'rdd' | 'partner_care' | 'church' | 'grants' | 'support' | 'exec' | 'giftdesk' | 'hr' | 'approver';
@@ -151,7 +151,9 @@ export const AREAS: NavArea[] = [
     key: 'j',
     barRank: 4,
     pages: [
-      { id: 'projects', label: 'Projects', href: '/projects/', desc: 'My tasks, projects, requests, task lists, boards, calendar and timeline', keywords: 'projects project tasks task my tasks list board calendar timeline gantt assign due asana todo request requests intake triage ask need', need: 'projects', count: 'projectsMine', also: ['project', 'board', 'new'], learn: 'projects', note: 'Synced with Asana', was: 'Work > Projects', swap: true },
+      { id: 'projects', label: 'Projects', href: '/projects/', desc: 'My tasks, projects, requests, task lists, boards, calendar and timeline', keywords: 'projects project tasks task my tasks list board calendar timeline gantt assign due asana todo request requests intake triage ask need', need: 'projectsNav', count: 'projectsMine', also: ['project', 'board', 'new'], learn: 'projects', note: 'Synced with Asana', was: 'Work > Projects', swap: true },
+      { id: 'request-new', label: 'Make a request', href: '/projects/?compose=1', desc: 'Ask the team for a fix, a design, a post or a change', keywords: 'request make a request new ask submit marketing website design help', need: 'projects', learn: 'projects', swap: false },
+      { id: 'my-requests', label: 'My requests', href: '/projects/?tab=intake', desc: 'The requests you sent and where each one stands', keywords: 'my requests status sent submitted waiting done', need: 'projects', learn: 'projects', swap: false },
     ],
   },
   {
@@ -378,8 +380,8 @@ export const FULL_LOAD_PATHS = ['/work/', '/dashboard/'];
 
 // Pages held to Early access: Meetings, Chat, Mail, Clips and every page with its own Alpha or Beta badge (tests/early-access.test.mjs checks this list against src/data/release.ts).
 const EARLY_AREA_IDS = ['meet', 'chat', 'mail'];
-const EARLY_PAGE_IDS = ['clips', 'online-gifts', 'statements', 'lists', 'list-reports', 'list-credit', 'welcome'];
-for (const area of AREAS) for (const page of area.pages) if (EARLY_AREA_IDS.includes(area.id) || EARLY_PAGE_IDS.includes(page.id)) page.early = true;
+const EARLY_PAGE_IDS = ['online-gifts', 'statements', 'lists', 'list-reports', 'list-credit', 'welcome', 'brain', 'connect-ai', 'partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting'];
+for (const area of AREAS) for (const page of area.pages) if ((EARLY_AREA_IDS.includes(area.id) && page.id !== 'clips') || EARLY_PAGE_IDS.includes(page.id)) page.early = true;
 
 export const NAV_IDS = new Map<string, { area: NavArea; page: NavPage }>();
 for (const area of AREAS) {

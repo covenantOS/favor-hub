@@ -91,6 +91,7 @@ export function whoFromNav(d: NavAnswer | null | undefined): Who {
       expenses: flag(a.expenseLog) || flag(a.approver),
       admin,
       early: flag(a.early) || admin,
+      projectsNav: flag(a.projectsNav) || admin,
     },
     counts,
   };
@@ -426,6 +427,7 @@ const TEAM: Record<TourId, StepDef[]> = {
 const SHARED: Record<string, StepDef> = {
   brain: {
     id: 'brain',
+    need: 'early',
     page: '/brain/',
     via: 'brain',
     at: ['.bc-compose', '#bc-compose', '.bc-starters', '.bc-pane'],
@@ -470,7 +472,7 @@ const SHARED: Record<string, StepDef> = {
     via: 'projects',
     at: ['.pj-seg', '.pj-ph', '#pj-root'],
     title: 'Projects',
-    need: 'projects',
+    need: 'projectsNav',
     body: (w) => (n(w.counts.projectsMine) ? `Projects has ${w.counts.projectsMine} ${plural(w.counts.projectsMine!, 'item', 'items')} waiting on you, and My tasks lists your own work.` : 'My tasks, your projects, boards and the calendar are all here, and requests you send are one tab over.'),
     side: 'bottom',
   },

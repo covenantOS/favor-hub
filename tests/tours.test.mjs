@@ -13,9 +13,9 @@ const N = await import('../web/src/features/tour/news.ts');
 const S = await import('../src/scripts/tour-state.ts');
 const { AREAS } = await import('../src/data/areas.ts');
 
-const NO = { work: false, gifts: false, chat: false, mail: false, learn: false, meetings: false, projects: false, kpi: false, hr: false, approver: false, expenses: false, admin: false, early: false };
+const NO = { work: false, gifts: false, chat: false, mail: false, learn: false, meetings: false, projects: false, kpi: false, hr: false, approver: false, expenses: false, admin: false, early: false, projectsNav: false };
 const person = (over = {}, can = {}, counts = {}) => ({ email: 'pat@favorintl.org', first: 'Pat', role: 'staff', jobs: [], teams: [], can: { ...NO, ...can }, counts, ...over });
-const ALL = { work: true, gifts: true, chat: true, mail: true, learn: true, meetings: true, projects: true, kpi: true, hr: true, approver: true, expenses: true, early: true };
+const ALL = { work: true, gifts: true, chat: true, mail: true, learn: true, meetings: true, projects: true, kpi: true, hr: true, approver: true, expenses: true, early: true, projectsNav: true };
 
 const WHO = {
   admin: person({ role: 'admin', jobs: ['admin'], teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'] }, { ...ALL, admin: true }),
@@ -87,7 +87,7 @@ test('Mail, Chat, Learn, Meetings and Projects stops show only to people who can
   assert.ok(ids({ ...wide, can: { ...wide.can, mail: true } }).includes('mail'));
   assert.ok(!ids({ ...wide, can: { ...wide.can, mail: false } }).includes('mail'), 'no Mail stop without Mail');
   const grants = person({ jobs: ['grants'] }, { ...ALL, admin: false, gifts: false });
-  for (const [need, id] of [['chat', 'chat'], ['mail', 'mail'], ['learn', 'learn'], ['meetings', 'meetings'], ['projects', 'projects']]) {
+  for (const [need, id] of [['chat', 'chat'], ['mail', 'mail'], ['learn', 'learn'], ['meetings', 'meetings'], ['projectsNav', 'projects']]) {
     for (const tour of D.TOUR_IDS) {
       const without = person({ jobs: ['grants'] }, { ...ALL, admin: false, [need]: false });
       assert.ok(!ids(without, tour).includes(id), `${tour}: ${id} stop without ${need}`);
@@ -105,7 +105,7 @@ test('Mail, Chat, Learn, Meetings and Projects stops show only to people who can
   assert.equal(need.chat, 'chat');
   assert.equal(need.learn, 'learn');
   assert.equal(need.meetings, 'meetings');
-  assert.equal(need.projects, 'projects');
+  assert.equal(need.projects, 'projectsNav');
   // A person in the Mail, Chat and Learn group who is on the RDD team keeps what fits in 8 stops, in the shared order.
   const full = ids(person({ jobs: ['rdd'], teams: ['rdd'] }, { ...ALL, admin: false }), 'rdd');
   assert.deepEqual(full, ['today', 'actions', 'mine', 'week', 'chat', 'mail', 'projects', 'help']);
@@ -212,15 +212,15 @@ const NEWS = {
 test("What's new: entries newer than the last visit, one stop per area, only for areas the person can open", () => {
   const staff = person({}, { kpi: true });
   const steps = N.newsSteps(staff, NEWS, '2026-10-13T00:00');
-  // Gifts needs gift entry access, Mail needs Mail, Chat needs Chat: a plain staff member sees Favor Brain only.
-  assert.deepEqual(steps.map((s) => s.title), ['New in Favor Brain']);
-  const rich = person({}, { gifts: true, mail: true, chat: true });
+  // Gifts needs gift entry access, Mail needs Mail, Chat needs Chat: the Brain needs Early access.
+  assert.deepEqual(steps.map((s) => s.title), [], 'the Brain is for Early access, so a plain staff member sees none of these');
+  const rich = person({}, { gifts: true, mail: true, chat: true, early: true });
   const all = N.newsSteps(rich, NEWS, '2026-10-13T00:00');
   assert.deepEqual(all.map((s) => s.title), ['New in Gifts', 'New in Chat', 'New in Favor Brain', 'New in Mail'], 'new before improved, then newest first');
   assert.equal(N.newsSteps(rich, NEWS, '2026-10-14T22:45').length, 0, 'nothing is newer than the newest');
   assert.equal(N.newsSteps(rich, NEWS, '').length, 0, 'a first visit is shown nothing');
   assert.equal(N.newsCount(rich, NEWS, '2026-10-13T00:00'), 4);
-  assert.equal(N.newsCount(staff, NEWS, '2026-10-13T00:00'), 1);
+  assert.equal(N.newsCount(staff, NEWS, '2026-10-13T00:00'), 0);
   // An admin-only area shows to admins only; an area with no page shows as a card with nothing to point at.
   const adm = person({ role: 'admin' }, { admin: true });
   const a = N.newsSteps(adm, NEWS, '2026-10-10T00:00');
