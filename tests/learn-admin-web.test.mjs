@@ -95,8 +95,8 @@ describe('quiz editor', () => {
 });
 
 describe('route', () => {
-  it('owns /learn/admin/ and not /learn/', () => {
+  it('is listed with the learner pages', () => {
     assert.ok(WEB_ROUTES.includes('/learn/admin/'));
-    assert.ok(!WEB_ROUTES.includes('/learn/'));
+    assert.ok(WEB_ROUTES.includes('/learn/'));
   });
 });
