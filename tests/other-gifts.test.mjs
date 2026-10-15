@@ -98,7 +98,7 @@ describe('rules', () => {
     assert.deepEqual(rules.cleanEdit({ gift_date: '2026-10-20' }, TODAY), {});
     assert.deepEqual(rules.cleanEdit({ kind: 'card' }, TODAY), {});
   });
-  it('the Blackbaud gift carries the soft credit for the full amount, an Other payment, the hub id and who entered and approved', () => {
+  it('the Blackbaud gift carries the soft credit for the full amount, an Other payment, FavorOS id and who entered and approved', () => {
     const g = { ...base, kind: 'daf', partner_id: '18698', amount_cents: 100000, gift_date: '2026-10-13', fund_id: '79', appeal_id: '2298', fund_named: 'Sample Fund', soft_partner_id: '16269', created_by: 'Alex Entry' };
     const body = rules.giftBody(g, { batchName: 'Other gifts Oct 14', enteredBy: 'Alex Entry', approvedBy: 'Blake Second' });
     assert.equal(body.type, 'Donation');
@@ -110,7 +110,7 @@ describe('rules', () => {
     assert.ok(!('constituency' in body) && !('fundraisers' in body));
     assert.ok(body.reference.length <= 255);
   });
-  it('a long memo is cut to fit 255 characters and the hub id stays', () => {
+  it('a long memo is cut to fit 255 characters and FavorOS id stays', () => {
     const r = rules.referenceFor({ id: 'og_abc', kind: 'wire', fund_named: null, ref_text: 'W'.repeat(100), memo: 'm'.repeat(400) }, 'Other gifts Oct 14', 'A', 'B');
     assert.equal(r.length, 255);
     assert.match(r, /hub og_abc$/);
@@ -202,7 +202,7 @@ describe('posting to Blackbaud', () => {
     assert.equal(s.calls.filter((c) => c.method === 'POST').length, 2);
   });
 
-  it('a lost answer is looked up by the hub id before anything is sent again', async () => {
+  it('a lost answer is looked up by FavorOS id before anything is sent again', async () => {
     fresh(['lost']);
     const g = await enterAndSend();
     await acts.approve(ctx, B, g.batch_id);
