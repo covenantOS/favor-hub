@@ -560,7 +560,7 @@ function MineBody({ as }: { as: string }) {
           <span>
             {list.length.toLocaleString('en-US')} of {plural(st.held, 'partner')} held by {who} as RDD, Prospect Steward or Church Engagement Director. A contact is a completed call, visit or email. A mailed letter is not one.
           </span>
-          <span className="copy-stamp" data-copy-stamp="" data-iso={ctx.synced || ''} />
+          <span className="copy-stamp" data-copy-stamp="" data-iso={ctx.synced || ''} suppressHydrationWarning />
         </div>
       </section>
 
