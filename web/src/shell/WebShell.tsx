@@ -30,7 +30,10 @@ type RailState = ReturnType<typeof useRail>;
 
 function useMeta() {
   const meta = useMatches({ select: (m) => m.map((x) => x.staticData).filter(Boolean).at(-1) }) ?? {};
-  return { navId: meta.nav || '', title: meta.title || 'FavorOS', layout: meta.layout };
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  // A page whose tabs live in its address names the menu entry and title for the tab shown.
+  const by = meta.navOf ? meta.navOf(search) : null;
+  return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || 'FavorOS', layout: meta.layout };
 }
 
 function useView() {
