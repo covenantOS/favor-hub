@@ -32,19 +32,16 @@ test('jobs never gate: a job match is only an order', () => {
 });
 
 const tab = (id, jobs, on) => ({ id, jobs, on: !!on });
-test('the tab row: your job pages first, at most six, the rest under More; an open page under More lights More', () => {
+test('the tab row: your job pages first, then every other page; no More menu', () => {
   const tabs = [tab('ov', ['giftdesk', 'support', 'partner_care']), tab('ge', ['giftdesk', 'support']), tab('og', ['partner_care']), tab('rc', ['giftdesk', 'partner_care']), tab('ty', ['support']), tab('st', ['giftdesk', 'partner_care']), tab('dc', ['giftdesk', 'support', 'partner_care'])];
   const morgan = arrangeTabs(tabs, ['giftdesk', 'hr']);
-  assert.deepEqual(morgan.row.map((t) => t.id), ['ov', 'ge', 'rc', 'st', 'dc']);
-  assert.deepEqual(morgan.more.map((t) => t.id), ['og', 'ty']);
+  assert.deepEqual(morgan.row.map((t) => t.id), ['ov', 'ge', 'rc', 'st', 'dc', 'og', 'ty']);
+  assert.deepEqual(morgan.more, []);
   const admin = arrangeTabs(tabs, ['admin']);
-  assert.equal(admin.row.length, TAB_CAP);
-  assert.deepEqual(admin.more.map((t) => t.id), ['dc']);
+  assert.equal(admin.row.length, tabs.length);
+  assert.deepEqual(admin.more, []);
   const danny = arrangeTabs(tabs, []);
-  assert.deepEqual(danny.row.map((t) => t.id), ['ov', 'ge', 'og', 'rc', 'ty', 'st'], 'no job in the area: registry order');
-  const onMore = arrangeTabs(tabs.map((t) => ({ ...t, on: t.id === 'og' })), ['giftdesk']);
-  assert.deepEqual(onMore.row.map((t) => t.id), morgan.row.map((t) => t.id), 'the row keeps its shape');
-  assert.equal(onMore.moreOn, true);
+  assert.deepEqual(danny.row.map((t) => t.id), ['ov', 'ge', 'og', 'rc', 'ty', 'st', 'dc'], 'no job in the area: registry order');
   assert.equal(morgan.moreOn, false);
 });
 
@@ -52,8 +49,8 @@ test('the tab row: your job pages first, at most six, the rest under More; an op
 test('the layout arranges the tab row by the same rule', () => {
   const src = fs.readFileSync('src/layouts/App.astro', 'utf8');
   assert.match(src, /window\.hubTabsLayout = function/);
-  assert.match(src, /var CAP = 6;/);
-  assert.equal(TAB_CAP, 6);
+  assert.match(src, /var CAP = 99;/);
+  assert.equal(TAB_CAP, 99);
   const m = src.match(/window\.hubJobMatch = (function \(jobs, mine\) \{[\s\S]*?\n {8}\});/);
   assert.ok(m, 'hubJobMatch is in the layout');
   const fn = vm.runInNewContext('(' + m[1] + ')');
