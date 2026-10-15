@@ -3,7 +3,7 @@
 import { HttpError, type Env } from '../http';
 import { hubUserOf, type HubUser } from '../session';
 import { getRelease, staffByEmail, type Release, type StaffRow } from './db';
-import { scopeFor, type Scope } from './role';
+import { roleOfTeam, scopeFor, type Scope } from './role';
 
 export interface WorkAccess {
   ok: boolean;
@@ -17,7 +17,9 @@ export interface WorkAccess {
 export async function workAccessFor(env: Env, email: string, admin: boolean, opts: { ignoreRelease?: boolean } = {}): Promise<WorkAccess> {
   const release = await getRelease(env).catch(() => 'admins' as Release);
   const staff = await staffByEmail(env, email).catch(() => null);
-  const listed = !!staff && staff.work_center === 1 && staff.active === 1;
+  // Listed means on the staff list, switched on for the Work Center, active, and on a team that carries a Work Center role.
+  // A row with no team (or a team with no role) opens nothing: only the hub's admin flag gives all-access.
+  const listed = !!staff && staff.work_center === 1 && staff.active === 1 && roleOfTeam(String(staff.team || '')) !== null;
   if (admin) return { ok: true, admin: true, release, staff, reason: 'open' };
   if ((release === 'support' || opts.ignoreRelease) && listed) return { ok: true, admin: false, release, staff, reason: 'open' };
   return { ok: false, admin: false, release, staff, reason: listed ? 'before_release' : 'not_support' };
@@ -74,7 +76,9 @@ export async function requireWork(env: Env, request: Request, opts: { adminOnly?
         : 'The Work Center is for the people whose job touches it. If yours does, tell the technology team through Feedback.';
     throw new HttpError(403, 'admin_only', msg);
   }
-  const scope = (await scopeFor(env, email, admin)) || { role: 'admin' as const, email, name, fid: null, team: '', all: false, fids: new Set<string>() };
+  // No role, no scope, no access. There is no fallback to an admin-level scope for a person the staff list gives no role.
+  const scope = await scopeFor(env, email, admin);
+  if (!scope) throw new HttpError(403, 'admin_only', 'The Work Center is for the people whose job touches it. If yours does, tell the technology team through Feedback.');
   // An admin using ?as= is only looking at the gate screens and lists: changes stay the admin's own.
   const viewing = !!as && user.role === 'admin' && !actAs;
   return { user, access, actor: viewing ? user.name || user.email : name, email: viewing ? user.email : email, scope: viewing ? { ...scope, all: true } : scope, testCid };
