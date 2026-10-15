@@ -1,41 +1,38 @@
 ---
-title: The tour and New in FavorOS
-summary: A two-minute tour of FavorOS for your role, and a short walkthrough of each new feature when it ships.
+title: The tour and What's new
+summary: A two-minute tour of FavorOS for your job, and a short tour of what changed since your last visit.
 topic: help
 order: 2
 related: [getting-started, whats-new]
-updated: 2026-10-11
+updated: 2026-10-15
 ---
 
 FavorOS shows you around in two ways. Both run on the real screen: a frame goes around the thing being shown and a card explains it. Nothing is sent, saved or changed.
 
-## The tour of FavorOS
+## The tour
 
-The first time you open FavorOS, the tour starts on your first page. It has 8 to 10 stops and takes about two minutes: Today, the menu, search, requests, Favor Brain, help, and one stop for your own work. An RDD sees the Work Center, Grants sees foundation prospects, the admin desk sees receipts.
+The first time you open FavorOS, it offers a tour. It has five to eight stops and follows a working day. It opens on Today, goes to the two or three screens your job uses most, then shows the tools everyone shares, and ends on Help. A regional director sees actions and partners, Partner Care sees cadence and online gifts, Grants sees foundations and grant reports, the Support Team sees gift entry and receipts, leadership sees the year's numbers, and an admin sees the jobs behind FavorOS.
+
+Mail, Chat and Learn show up only when you can open them. A number in a stop, such as the actions waiting on you, is your own and comes from the same count as the badge in the menu.
 
 - **Next** goes forward and **Back** goes back. On a computer the arrow keys do the same.
-- The tour keeps its place while it moves from page to page.
+- The tour keeps its place while it moves from page to page, and between visits.
+- **Skip for now** closes it and picks up at the same stop the next working day.
 
-## New in FavorOS
+## What's new
 
-When new features ship, FavorOS opens **New in FavorOS** on your next page. It lists what is new for you, and only features you can open. Each one has a walkthrough of one to four steps, its help article, and its training video when there is one.
-
-- **Show me** plays the walkthroughs one feature at a time.
-- Press one feature to play only that one.
-- A feature you have seen says **Done**. It plays again any time.
+When FavorOS changes after your last visit, it offers a short tour of what is new for you. It has one stop for each area that changed, and only areas you can open. Press **Help**, then **What's new and tour**, to start it whenever you want. [What's new](/help/whats-new/) lists every change by date.
 
 ## Closing it
 
-Press the X, **Skip for now**, Escape or Back, and FavorOS asks once before it closes. **Show me** carries on. **Skip for now** closes it until the next working day.
-
-It comes back three times. After that it stops opening by itself and waits in two places until you finish it: a number beside **Help**, and a card on Today.
+Press the X, **Skip for now**, Escape or Back. The tour comes back three times, one working day apart. After that it stops opening by itself and waits in two places until you finish it: a number beside **Help**, and a card on Today.
 
 FavorOS never opens it while you are typing, filling a form, in a meeting or recording a clip. It waits for your next page.
 
-## Any time
+## Replay it
 
-Press **Help**, then **What's new and tour**. The list has the tour, every walkthrough, and **Show me this page** for the page you are on. [What's new](/help/whats-new/) lists every change by date.
+On **Help**, press **Replay the tour**. It always starts at the first stop.
 
 ## For admins
 
-**Admin**, then **Tours**, shows who has finished the tour and each release. **Send again** opens it once more for one person or a whole team. **See a tour as a role** plays what an RDD, Partner Care, Grants or any other role sees.
+**Admin**, then **Tours**, shows who has finished the tour. **Send again** opens it once more for one person or a whole team. **See a tour as a role** plays what a regional director, Partner Care, Grants, the Support Team, Marketing, leadership or any other job sees.
