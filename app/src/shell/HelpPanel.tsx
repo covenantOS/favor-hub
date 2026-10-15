@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { BodyPortal } from './BodyPortal';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Icon } from './Icon';
@@ -58,7 +58,7 @@ export function HelpPanel({ navId }: { navId: string }) {
       <button type="button" className="h-top__cam lp-btn" id="lp-btn" aria-haspopup="dialog" aria-label="Help for this page" title="Help for this page" onClick={open}>
         <Icon name="help" />
       </button>
-      {createPortal(
+      {BodyPortal(
       <dialog
         className="lp"
         id="lp-dlg"
@@ -119,9 +119,7 @@ export function HelpPanel({ navId }: { navId: string }) {
             )}
           </div>
         </div>
-      </dialog>,
-      document.body
-      )}
+      </dialog>)}
     </>
   );
 }

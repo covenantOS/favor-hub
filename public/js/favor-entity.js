@@ -214,7 +214,7 @@
   var shareP = null;
   function withShare(fn) {
     if (window.FavorShare) { fn(window.FavorShare); return; }
-    if (!shareP) shareP = new Promise(function (ok, no) { var s = document.createElement('script'); s.src = '/js/favor-share.js?v=1'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+    if (!shareP) shareP = new Promise(function (ok, no) { var s = document.createElement('script'); s.src = '/js/favor-share.js?v=2'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
     shareP.then(function () { fn(window.FavorShare); }, function () { if (UI) UI.toast('Send to did not load. Reload the page and try again.'); });
   }
 

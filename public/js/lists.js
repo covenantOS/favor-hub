@@ -318,7 +318,7 @@
     var tie = S.tie
       ? '<div class="ls-tie ' + (S.tie.status === 'match' ? 'is-ok' : S.tie.status === 'differs' ? 'is-warn' : 'is-off') + '"><span class="ls-tie__i" aria-hidden="true">' + (S.tie.status === 'match' ? '✓' : '≠') + '</span><div><b>' + (S.tie.status === 'match' ? 'Ties to the KPI dashboard' : S.tie.status === 'differs' ? 'Differs from the KPI dashboard' : 'KPI dashboard not answering') + '</b><span>' + esc(S.tie.label) + ': ' + (S.tie.kpi == null ? '—' : num(S.tie.kpi)) + (S.tie.status === 'differs' ? ' · this list ' + num(S.tie.mine) + (S.tie.note ? ' · ' + esc(S.tie.note) : '') : '') + '</span></div></div>'
       : '';
-    host.innerHTML = '<div class="ls-big"><b>' + w[0] + '</b><span>' + w[1] + '</span></div><div class="ls-facts">' + (err ? esc(err) : esc(facts.join(' · '))) + '</div>' + tie;
+    host.innerHTML = '<div class="ls-big"><b data-flow="lists-count">' + w[0] + '</b><span>' + w[1] + '</span></div><div class="ls-facts">' + (err ? esc(err) : esc(facts.join(' · '))) + '</div>' + tie;
   }
 
   function cell(col, v, row) {

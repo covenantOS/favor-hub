@@ -516,6 +516,12 @@ textarea.ml-input { resize: vertical; }
 .ml-brief__i em { grid-area: c; font: 600 12px var(--h-font, Inter, sans-serif); font-style: normal; color: var(--tc-sky-ink); }
 .ml-addbox--sub { margin-left: 22px; padding-left: 14px; }
 .ml-lab--btn { border: 0; background: none; width: 100%; text-align: left; font: inherit; }
+.ml-team { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 4px 4px 12px; border-radius: 12px; background: var(--tc-sky-tint); color: var(--tc-sky-ink); font-size: 13px; }
+.ml-team__t { flex: 1; min-width: 200px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.ml-team .ml-btn { min-height: 32px; }
+.ml-menu__i.ml-check--wrap { align-items: flex-start; padding-top: 10px; padding-bottom: 10px; }
+.ml-menu__i.ml-check--wrap span { overflow: visible; text-overflow: clip; white-space: normal; }
+.ml-team .ml-iconbtn { width: 32px; height: 32px; color: inherit; }
 .ml-prof { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 1px solid var(--r-line-2); border-radius: 12px; background: #fff; }
 .ml-prof__t { flex: 1; min-width: 180px; display: flex; flex-direction: column; font-size: 13px; color: var(--r-ink-2); }
 .ml-prof__t b { color: var(--r-ink); font-size: 14px; }
@@ -532,6 +538,7 @@ textarea.ml-input { resize: vertical; }
 .ml-askbox:focus-within { background: #fff; box-shadow: 0 0 0 1px var(--tc-sky); }
 .ml-askbox input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 14px var(--h-font, Inter, sans-serif); color: var(--r-ink); }
 .ml-askrow .ml-btn { min-height: 36px; }
+.ml-askcap { margin: -4px 2px 0; font-size: 12px; line-height: 1.3; color: var(--r-ink-3); }
 .ml-answer { padding: 10px 14px; border-radius: 12px; background: var(--r-canvas); font-size: 14px; line-height: 1.5; }
 .ml-tl { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--r-line); padding-top: 8px; }
 .ml-tl__i { display: grid; grid-template-columns: 76px 64px 1fr; gap: 8px; font-size: 13px; color: var(--r-ink-2); }
@@ -549,9 +556,48 @@ textarea.ml-input { resize: vertical; }
 .ml-ent-side { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .ml-c__later { width: 36px; }
 @media (max-width: 860px) { .ml-brief { margin: 8px; } .ml-prof { padding: 8px 10px; } }
+@media (max-width: 860px) { .ml-team { flex-wrap: nowrap; padding-left: 12px; } .ml-team__t { min-width: 0; } }
 .ml-fk { flex-basis: 100%; padding: 0 4px 2px; }
 .ml-pick { display: flex; flex-direction: column; gap: 2px; }
 
 .ml-brief--wait { height: 176px; display: flex; flex-direction: column; gap: 12px; padding-top: 18px; }
 .ml-brief--wait i { display: block; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.7); animation: ml-pulse 1.2s ease-in-out infinite; }
 .ml-brief--wait i:nth-child(2) { width: 80%; } .ml-brief--wait i:nth-child(3) { width: 55%; }
+
+/* ------------------------------------------------------------ 2026-10-14: reader and inline reply (shared composer, public/js/compose)
+   Each message header holds who, when and the same actions (star, reply, more) on the right. The reply is written inline under
+   the conversation, so the reading pane scrolls through the whole thread and the reply together; a docked window over the pane
+   leaves room to scroll the last line above it (--fc-cover, set by the composer). */
+.ml-msg__head { padding: 0; gap: 0; }
+.ml-msg__tog { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 8px 12px 14px; border: 0; background: none; text-align: left; border-radius: 14px 0 0 0; }
+.ml-msg:not(.is-open) .ml-msg__tog { padding-right: 14px; border-radius: 14px; }
+.ml-msg:not(.is-open) .ml-msg__head:hover { background: var(--r-hover); }
+.ml-msg__tog time { flex: none; font-size: 13px; color: var(--r-ink-3); }
+.ml-msg__tools { flex: none; display: inline-flex; align-items: center; gap: 2px; padding-right: 8px; }
+.ml-msg__tools .ml-iconbtn { width: 34px; height: 34px; }
+.ml-msg__tools .ml-star { position: static; color: var(--r-ink-3); }
+.ml-msg__tools .ml-star.is-on { color: #c98a12; }
+.ml-thread__chips:empty { display: none; }
+.ml-thread__top { padding-bottom: 10px; }
+.ml-thread__scroll { padding-bottom: calc(32px + var(--fc-cover, 0px)); scroll-padding-bottom: calc(16px + var(--fc-cover, 0px)); }
+.ml-inline { max-width: 920px; padding: 0 16px; }
+.ml-inline:empty { display: none; }
+.ml-inline.has-c ~ .ml-thread__foot { display: none; }
+.ml-ext { display: inline-flex; gap: 8px; }
+.ml-ext:empty { display: none; }
+.ml-frame.is-long { position: relative; max-height: 2400px; overflow: hidden; }
+.ml-frame.is-long::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 120px; background: linear-gradient(rgba(255, 255, 255, 0), #fff 75%); pointer-events: none; }
+.ml-longbtn { position: absolute; left: 50%; bottom: 12px; z-index: 1; transform: translateX(-50%); min-height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--r-line-2); background: #fff; font: 600 14px var(--h-font, Inter, sans-serif); color: var(--tc-sky-ink); box-shadow: 0 6px 16px -10px rgba(20, 24, 18, 0.4); }
+.ml-longbtn:hover { background: var(--r-hover); }
+@media (max-width: 860px) {
+  .ml-msg__tog { padding: 12px 6px 12px 12px; min-height: 64px; }
+  .ml-msg__tools .ml-iconbtn { width: 44px; height: 44px; }
+  .ml-msg__tools [data-act='msg-more'] { display: none; }
+  .ml-inline { padding: 0 8px; }
+}
+.ml-msg__tools { position: relative; }
+.ml-msgmenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 220px; display: flex; flex-direction: column; padding: 4px; background: #fff; border: 1px solid var(--r-line-2); border-radius: 12px; box-shadow: 0 16px 40px -16px rgba(20, 24, 18, 0.4); animation: ml-pop var(--m-base, 180ms) var(--m-out, cubic-bezier(0.22, 1, 0.36, 1)); }
+.ml-msgmenu button { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; background: none; text-align: left; font-weight: 500; }
+.ml-msgmenu button:hover { background: var(--r-hover); }
+.ml-msgmenu .ml-i { color: var(--r-ink-3); }
+@keyframes ml-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

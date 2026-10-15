@@ -87,6 +87,7 @@ export const firstName = (p) => String((p && p.name) || '').split(/\s+/)[0] || '
 let toastEl = null;
 let toastT = 0;
 export function toast(msg, opts = {}) {
+  if (window.hubToast) { const fn = opts.action ? opts.action.fn : opts.undo; window.hubToast(msg, { tone: opts.error ? 'bad' : '', ms: opts.ms, action: fn ? { label: opts.action ? opts.action.label : 'Undo', fn: fn } : null }); return; }
   if (!toastEl) {
     toastEl = document.createElement('div');
     toastEl.className = 'pj-toast';

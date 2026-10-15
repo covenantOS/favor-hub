@@ -8,7 +8,8 @@ const wideMq = () => window.matchMedia('(min-width: 1280px)');
 const phoneMq = () => window.matchMedia('(max-width: 860px)');
 
 function useMq(make: () => MediaQueryList): boolean {
-  const [on, setOn] = useState(() => make().matches);
+  // Starts false so the server and the first browser render agree (the React app is drawn on the server since 2026-10-15); read after mount.
+  const [on, setOn] = useState(false);
   useEffect(() => {
     const m = make();
     const f = () => setOn(m.matches);
@@ -27,7 +28,7 @@ const typing = (t: EventTarget | null) => {
 export function useRail(email: string, curArea: string) {
   const wideOk = useMq(wideMq);
   const phone = useMq(phoneMq);
-  const [prefs, setPrefs] = useState(() => readPrefs(email));
+  const [prefs, setPrefs] = useState(() => (typeof window === 'undefined' ? ({} as ReturnType<typeof readPrefs>) : readPrefs(email)));
   const [peek, setPeek] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [pop, setPop] = useState<string | null>(null);

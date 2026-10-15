@@ -167,6 +167,7 @@
     },
     sender: function (email, name, mb) { return req('GET', pathMb('smart/sender?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name || ''), mb)); },
     briefing: function (fresh, mb) { return req('GET', pathMb('smart/briefing' + (fresh ? '?fresh=1' : ''), mb)); },
+    briefClose: function (key, mb) { return req('POST', pathMb('smart/briefing/close', mb), { key: key || '' }); },
     categories: function () { return req('GET', 'smart/categories'); },
     newCategory: function (name, description) { return req('POST', 'smart/categories', { name: name, description: description }); },
     dropCategory: function (id) { return req('DELETE', 'smart/categories/' + encodeURIComponent(id)); },
@@ -218,6 +219,9 @@
     owners: function () { return req('GET', 'log-owners'); },
     task: function (b) { return req('POST', '/api/tasks', b); },
     chatBoot: function () { return req('GET', '/api/chat/boot'); },
+    moveToChat: function (id, note) { delete PRE[id]; DEV.drop(id); return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat', boxOf(id)), { note: !!note }); },
+    chatNote: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat/note', boxOf(id)), {}); },
+    chatDismiss: function (id) { delete PRE[id]; DEV.drop(id); return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat/dismiss', boxOf(id)), {}); },
     chatSend: function (ch, body) { return req('POST', '/api/chat/channels/' + encodeURIComponent(ch) + '/messages', { body: body }); },
     logAction: function (b) { return req('POST', '/api/work/entry/many', b); },
     fileUrl: function (mid, f, dl) { return '/api/mail/messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + (dl ? '&dl=1' : '') + (S.threadBox ? '&mb=' + encodeURIComponent(S.threadBox) : ''); }
@@ -238,7 +242,7 @@
     open: '', thread: null, partners: {}, drafts: {}, view: 'list', ro: false, nav: {}, exp: {},
     v: '', flags: {}, sort: '', picked: {}, anchor: '', ov: null, ovTry: 0,
     boxes: [], box: '', counts: {}, mbOf: {}, nexts: {}, threadBox: '', fromOpts: null,
-    brief: null, customs: [], names: null, assist: null, profile: null, later: []
+    brief: null, customs: [], names: null, assist: null, profile: null, later: [], team: null
   };
   try { S.ro = localStorage.getItem('favor.mail.ro') === '1'; } catch (e) { /* private mode */ }
   try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); S.nav = (nv && nv.access) || {}; } catch (e) { /* none */ }
@@ -589,14 +593,18 @@
     });
   }
   var ovSeq = 0;
+  // Closing the briefing keeps the date of the newest important message (people, partners, staff) in this browser and, through the
+  // server, for the person on every device. The card comes back only when something newer and important arrives.
+  function briefClosedKey() { try { return localStorage.getItem('favor.mail.briefoff:' + (S.me || '')); } catch (e) { return null; } }
   function briefHtml() {
     var b = S.brief;
     if (!inboxPlain() || S.v || !S.threads.length || S.briefFailed || !S.level.read) return '';
-    try { if (sessionStorage.getItem('favor.mail.brief') === ET()) return ''; } catch (e) { /* private mode */ }
-    // While the briefing loads its place is held open, so the list below does not jump when it arrives.
-    if (!b) return '<div class="ml-brief ml-brief--wait" aria-hidden="true"><i></i><i></i><i></i></div>';
+    var closed = briefClosedKey();
+    // While the briefing loads its place is held open, so the list below does not jump when it arrives. A closed card holds nothing.
+    if (!b) return closed !== null ? '' : '<div class="ml-brief ml-brief--wait" aria-hidden="true"><i></i><i></i><i></i></div>';
+    if (b.off || (closed !== null && String(b.key || '') <= closed)) return '';
     var items = (b.items || []).map(function (i) { return '<button type="button" class="ml-brief__i" data-act="brief-open" data-id="' + esc(i.id) + '"><b>' + esc(i.from) + '</b><span>' + esc(i.subject) + '</span><em>' + esc(i.why) + '</em></button>'; }).join('');
-    return '<div class="ml-brief"><div class="ml-brief__h">' + ic('bolt') + '<b>This morning</b><button type="button" class="ml-iconbtn" data-act="brief-fresh" aria-label="Refresh the briefing">' + ic('refresh') + '</button><button type="button" class="ml-iconbtn" data-act="brief-hide" aria-label="Hide until tomorrow">' + ic('x') + '</button></div><p>' + esc(b.text) + '</p>' + (items ? '<div class="ml-brief__l">' + items + '</div>' : '') + '</div>';
+    return '<div class="ml-brief"><div class="ml-brief__h">' + ic('bolt') + '<b>This morning</b><button type="button" class="ml-iconbtn" data-act="brief-fresh" aria-label="Refresh the briefing">' + ic('refresh') + '</button><button type="button" class="ml-iconbtn" data-act="brief-hide" aria-label="Close the briefing">' + ic('x') + '</button></div><p>' + esc(b.text) + '</p>' + (items ? '<div class="ml-brief__l">' + items + '</div>' : '') + '</div>';
   }
   function nudgeHtml() {
     var n = S.ov && S.ov.unlogged;
@@ -900,7 +908,7 @@
     var groups = {}; want.forEach(function (id) { var a = boxOf(id); (groups[a] = groups[a] || []).push(id); });
     var jobs = Object.keys(groups).map(function (a) {
       return api.batch(groups[a].slice(0, 5), a).then(function (d) {
-        (d.threads || []).forEach(function (t) { var data = { thread: t.thread, partners: t.partners, drafts: t.drafts }; PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) }; DEV.put(t.id, data); });
+        (d.threads || []).forEach(function (t) { var data = { thread: t.thread, partners: t.partners, drafts: t.drafts, teamChat: t.teamChat }; PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) }; DEV.put(t.id, data); });
       }).catch(function () { /* opened the ordinary way */ });
     });
     Promise.all(jobs).then(function () { batching = false; });
@@ -1014,14 +1022,14 @@
     if (!(PRE[id] && Date.now() - PRE[id].at < 90000)) DEV.get(id).then(function (c) {
       if (!c || seq !== threadSeq || shown) return;
       var d0 = c.data; shown = sigOf(d0);
-      S.thread = d0.thread; S.partners = d0.partners || {}; S.drafts = d0.drafts || {}; S.headersOnly = false;
+      S.thread = d0.thread; S.partners = d0.partners || {}; S.drafts = d0.drafts || {}; S.headersOnly = false; S.team = null;
       read.innerHTML = threadFrame(d0.thread, false);
       drawBodies();
     });
     neighbors(id);
     return api.thread(id).then(function (d) {
       if (seq !== threadSeq) return;
-      S.thread = d.thread; S.partners = d.partners || {}; S.drafts = d.drafts || {}; S.headersOnly = !!d.headersOnly;
+      S.thread = d.thread; S.partners = d.partners || {}; S.drafts = d.drafts || {}; S.headersOnly = !!d.headersOnly; S.team = d.teamChat && d.teamChat.ok ? d.teamChat : null;
       // Nothing changed since the device copy: leave what is on screen alone.
       if (!shown || shown !== sigOf(d) || S.headersOnly) { read.innerHTML = threadFrame(d.thread, false); drawBodies(); }
       if (S.headersOnly) renderConnect('read');
@@ -1068,6 +1076,8 @@
         '<button type="button" class="ml-iconbtn ml-dt" data-act="toggle-read" aria-label="Mark as unread" title="Mark as unread (Shift U)">' + ic('unread') + '</button>' +
         '<button type="button" class="ml-iconbtn ml-dt" data-act="snooze" aria-label="Snooze" title="Snooze">' + ic('clock') + '</button>' +
         '<button type="button" class="ml-iconbtn ml-dt" data-act="labels" aria-label="Labels" title="Labels">' + ic('tag') + '</button>' +
+        (window.FavorHandoff ? '<button type="button" class="ml-iconbtn ml-dt" data-act="handoff" aria-label="Hand off" title="Hand this to someone">' + ic('person') + '</button>' : '') +
+        '<span class="ml-ext" data-mail-ext></span>' +
         '<button type="button" class="ml-iconbtn" data-act="thread-more" aria-label="More" title="More" aria-haspopup="dialog">' + ic('more') + '</button>' +
       '</span>' +
       '<span class="ml-nav"><button type="button" class="ml-iconbtn ml-dt" data-act="prev" aria-label="Newer conversation" title="Newer (k)">' + ic('up') + '</button><button type="button" class="ml-iconbtn ml-dt" data-act="next" aria-label="Older conversation" title="Older (j)">' + ic('down') + '</button></span>';
@@ -1075,10 +1085,13 @@
       '<div class="ml-thread__chips">' + own.map(function (l) { return '<span class="ml-chip">' + esc(labelName(l)) + '</span>'; }).join('') +
       (t.snoozed ? '<span class="ml-chip ml-chip--sun">' + ic('clock') + 'Snoozed until ' + esc(when(t.snoozed, true)) + '</span>' : '') +
       (partner ? '<a class="ml-chip ml-chip--leaf" href="/work/partner/' + encodeURIComponent(partner.id) + '">' + ic('person') + esc(partner.name || 'Partner') + '</a>' : '') +
-      '<button type="button" class="ml-star ml-star--h' + (st.starred ? ' is-on' : '') + '" data-act="star" aria-pressed="' + (st.starred ? 'true' : 'false') + '" aria-label="' + (st.starred ? 'Remove star' : 'Star') + '">' + ic('star') + '</button></div></div><div class="ml-assist" data-assist hidden></div>';
-    var body = loading ? '<div class="ml-msg ml-msg--skel"><span class="ml-av"></span><span class="ml-row__t"><i style="width:40%"></i><i style="width:85%"></i><i style="width:70%"></i></span></div>' : msgs.map(msgHtml).join('');
+      '</div></div><div class="ml-assist" data-assist hidden></div>';
+    // A draft being written in the composer shows there, not twice.
+    var editing = {}; if (window.FavorCompose) window.FavorCompose.list().forEach(function (x) { if (x.draftId) editing[x.draftId] = 1; });
+    var shownMsgs = msgs.filter(function (m) { return !(m.draft && editing[S.drafts[m.id]]); });
+    var body = loading ? '<div class="ml-msg ml-msg--skel"><span class="ml-av"></span><span class="ml-row__t"><i style="width:40%"></i><i style="width:85%"></i><i style="width:70%"></i></span></div>' : shownMsgs.map(function (m, i) { return msgHtml(m, msgs.indexOf(m), msgs); }).join('');
     var last = msgs.filter(function (m) { return !m.draft; }).slice(-1)[0];
-    var foot = !loading && last ? '<div class="ml-sugg" data-sugg hidden></div><div class="ml-thread__foot">' +
+    var foot = !loading && last ? '<div class="ml-sugg" data-sugg hidden></div><div class="ml-inline" data-inline-host></div><div class="ml-thread__foot">' +
       '<button type="button" class="ml-btn" data-act="reply">' + ic('reply') + 'Reply</button>' +
       (replyAllList(last).length > 1 ? '<button type="button" class="ml-btn" data-act="replyall">' + ic('replyall') + 'Reply all</button>' : '') +
       '<button type="button" class="ml-btn" data-act="forward">' + ic('fwd') + 'Forward</button></div>' : '';
@@ -1088,7 +1101,7 @@
       '<button type="button" data-act="labels" aria-label="Labels">' + ic('tag') + '</button>' +
       '<button type="button" data-act="reply-menu" aria-label="Reply, reply all or forward">' + ic('reply') + '</button>' +
       '<button type="button" data-act="compose" aria-label="New message">' + ic('pen') + '</button></div>';
-    return '<div class="ml-thread" data-thread="' + esc(t.id) + '"><div class="ml-thread__bar">' + bar + '</div><div class="ml-thread__scroll">' + head + '<div class="ml-thread__msgs">' + body + '</div>' + foot + '</div>' + pbar + '</div>';
+    return '<div class="ml-thread" data-thread="' + esc(t.id) + '"><div class="ml-thread__bar">' + bar + '</div><div class="ml-thread__scroll">' + head + '<div class="ml-thread__msgs" data-brain-context="mail">' + body + '</div>' + foot + '</div>' + pbar + '</div>';
   }
   var money = function (n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); };
   var shortDay = function (iso) { return iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
@@ -1125,8 +1138,8 @@
   }
   function profileHtml(p, hasCard) {
     if (!p || (hasCard && p.kind === 'partner')) return '';
-    var hist = p.history && p.history.n ? p.history.n + (p.history.more ? '+' : '') + ' conversation' + (p.history.n === 1 ? '' : 's') + (p.history.lastDate ? ', last ' + esc(shortDay(p.history.lastDate)) : '') : 'First email';
-    return '<div class="ml-prof"><span class="ml-prof__t"><b>' + esc(p.name || p.email) + '</b><span>' + esc(p.role) + '. ' + hist + '.</span></span>' +
+    var facts = (p.facts || []).map(esc).join('. ');
+    return '<div class="ml-prof"><span class="ml-prof__t"><b>' + esc(p.name || p.email) + '</b><span>' + esc(p.role) + '</span>' + (facts ? '<span>' + facts + '.</span>' : '') + '</span>' +
       (p.partner ? '<a class="ml-btn" href="/work/partner/' + encodeURIComponent(p.partner.id) + '">Open partner</a>' : '') +
       (p.canProspect ? '<button type="button" class="ml-btn" data-act="prospect">Add as prospect</button>' : '') + '</div>';
   }
@@ -1150,15 +1163,51 @@
       cell('Open actions', c.openActions ? String(c.openActions) : '') + '</dl>' +
       '<div class="ml-pcard__acts"><a class="ml-btn" href="/work/partner/' + encodeURIComponent(c.id) + '">Open partner</a><button type="button" class="ml-btn" data-act="log-one">' + ic('log') + (S.assist && S.assist.logged ? 'Logged' : 'Log as an action') + '</button><button type="button" class="ml-btn" data-act="timeline">Timeline</button></div><div class="ml-tl" data-tl hidden></div></div>';
   }
+  // Move to Chat: a quiet line when every person on the conversation is FavorOS staff with Chat (the server decides, GET threads/:id teamChat).
+  function teamHtml() {
+    var t = S.team; if (!t || !t.ok || t.state === 'dismissed') return '';
+    if (t.state === 'moved') return '<div class="ml-team"><span class="ml-team__t">' + ic('chat') + '<span>This conversation moved to Chat.</span></span><a class="ml-btn" href="' + esc(t.link) + '">Open in Chat</a></div>';
+    return '<div class="ml-team"><span class="ml-team__t">' + ic('chat') + '<span>This is a team conversation. Continue in Chat?</span></span><button type="button" class="ml-btn" data-act="team-move">Move to Chat</button><button type="button" class="ml-iconbtn" data-act="team-dismiss" aria-label="Hide this suggestion" title="Hide this suggestion">' + ic('x') + '</button></div>';
+  }
+  function teamMove(btn) {
+    var t = S.thread, tm = S.team; if (!t || !tm || btn.disabled) return;
+    var id = t.id; btn.disabled = true; btn.textContent = 'Moving';
+    api.moveToChat(id, false).then(function (d) {
+      if (S.team) { S.team.state = 'moved'; S.team.link = d.link; S.team.channel = d.channel; }
+      if (S.thread && S.thread.id === id) drawAssist();
+      var others = (tm.people || []).filter(function (x) { return x.email !== S.me; }).map(function (x) { return x.name || x.email; });
+      var el = openSheet('Moved to Chat', '<p class="ml-p">The email history is posted and pinned in Chat with ' + esc(others.join(', ')) + '.</p>' +
+        '<label class="ml-menu__i ml-check ml-check--wrap"><input type="checkbox" data-team-note /><span>Post a note in the email thread that this moved to Chat</span></label>' +
+        '<div class="ml-sheet__acts"><button type="button" class="ml-btn" data-team-done>Done</button><a class="ml-btn ml-btn--primary" data-team-open href="' + esc(d.link) + '">Open in Chat</a></div>');
+      var sent = false;
+      var finish = function (then) {
+        var want = el.querySelector('[data-team-note]').checked;
+        if (!want || sent) return then();
+        sent = true;
+        api.chatNote(id).then(function () { toast('Note posted in the email thread'); then(); }).catch(function (er) { sent = false; failed(er, 'send'); then(); });
+      };
+      el.querySelector('[data-team-done]').addEventListener('click', function () { finish(function () { closeSheet(); }); });
+      el.querySelector('[data-team-open]').addEventListener('click', function (e) { e.preventDefault(); var href = this.getAttribute('href'); finish(function () { location.href = href; }); });
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = 'Move to Chat';
+      if (e && e.code === 'not_team') { S.team = null; drawAssist(); }
+      toast(e && e.message ? e.message : 'That did not work. Try again.');
+    });
+  }
+  function teamDismiss() {
+    var t = S.thread; if (!t || !S.team) return;
+    S.team.state = 'dismissed'; drawAssist();
+    api.chatDismiss(t.id).catch(function () { /* hidden for now */ });
+  }
   function drawAssist() {
     var a = S.assist, box = $('[data-assist]'), sg = $('[data-sugg]');
     if (!a || !box) return;
     var p = partnerOf(S.thread);
-    var html = '';
+    var html = teamHtml();
     if (a.ask || a.summary) html += '<div class="ml-sum">' + (a.ask ? '<em class="ml-chip ml-chip--sun">' + ic('bolt') + 'Waiting on you</em>' : '') + (a.summary ? '<p><b>In short</b> ' + esc(a.summary) + '</p>' : '') + '</div>';
     if (a.card && p) html += partnerCardHtml(a.card, p);
     html += profileHtml(a.profile, !!(a.card && p)) + giftHtml(a, p) + commitHtml(a);
-    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button><button type="button" class="ml-btn" data-act="ask-brain">' + ic('q') + 'Ask Favor Brain</button></div>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
+    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button><button type="button" class="ml-btn" data-act="ask-brain">' + ic('q') + 'Ask Favor Brain</button></div><p class="ml-askcap">Answered by Favor Brain from this email</p>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
     var keep = box.querySelector('[data-ask]') ? box.querySelector('[data-ask]').value : '';
     box.innerHTML = html; box.hidden = !html;
     var ai2 = box.querySelector('[data-ask]'); if (ai2 && keep) ai2.value = keep;
@@ -1279,18 +1328,26 @@
     var p = S.partners[(m.from || {}).email];
     var files = (m.attachments || []).filter(function (f) { return !f.inline || !/^image\//.test(f.mime); });
     return '<article class="ml-msg' + (open ? ' is-open' : '') + (m.draft ? ' is-draft' : '') + '" data-mid="' + esc(m.id) + '">' +
-      '<button type="button" class="ml-msg__head" data-act="toggle-msg" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+      // One row per message: who and when on the left, then the same four actions on every open message (star, reply, reply all
+      // or forward, more), aligned on the right as in Gmail.
+      '<div class="ml-msg__head">' +
+      '<button type="button" class="ml-msg__tog" data-act="toggle-msg" aria-expanded="' + (open ? 'true' : 'false') + '">' +
         '<span class="ml-av" data-h="' + hue((m.from || {}).email || '') + '">' + esc(initials(m.from && m.from.email === S.me ? S.name : who(m.from))) + '</span>' +
         '<span class="ml-msg__who"><span class="ml-msg__l1"><b>' + esc(m.draft ? 'Draft' : who(m.from) || '(no sender)') + '</b>' + (open && m.from && m.from.name ? '<small>' + esc(m.from.email) + '</small>' : '') + '</span>' +
           '<span class="ml-msg__l2">' + (open ? esc(recipLine(m)) : esc(m.snippet || '')) + '</span></span>' +
         '<time datetime="' + esc(m.date) + '" title="' + esc(when(m.date, true)) + '">' + esc(when(m.date)) + '</time>' +
       '</button>' +
+      (open && !m.draft ? '<span class="ml-msg__tools">' +
+        '<button type="button" class="ml-iconbtn ml-star' + (threadTools().starred ? ' is-on' : '') + '" data-act="star" aria-pressed="' + (threadTools().starred ? 'true' : 'false') + '" aria-label="' + (threadTools().starred ? 'Remove star' : 'Star') + '" title="Star (s)">' + ic('star') + '</button>' +
+        '<button type="button" class="ml-iconbtn" data-act="reply-one" aria-label="Reply" title="Reply (r)">' + ic('reply') + '</button>' +
+        '<button type="button" class="ml-iconbtn" data-act="msg-more" aria-label="More for this message" title="Reply all, forward" aria-haspopup="dialog">' + ic('more') + '</button>' +
+      '</span>' : '') +
+      '</div>' +
       (open ? '<div class="ml-msg__body">' +
         (p ? '<a class="ml-partner" href="/work/partner/' + encodeURIComponent(p.id) + '">' + ic('person') + '<span>' + esc(p.name || 'Partner') + '</span><em>Partner in Blackbaud</em></a>' : '') +
         (S.headersOnly ? '<div class="ml-hdronly">' + esc(m.snippet || '') + '</div>' : '<div class="ml-frame" data-frame></div>') +
         (files.length ? '<div class="ml-files">' + files.map(function (f, k) { return fileCard(m, f, k); }).join('') + '</div>' : '') +
-        '<div class="ml-msg__acts">' + (m.draft ? '<button type="button" class="ml-btn ml-btn--primary" data-act="edit-draft">' + ic('pen') + 'Edit draft</button><button type="button" class="ml-btn" data-act="drop-draft">' + ic('trash') + 'Discard</button>' :
-          '<button type="button" class="ml-iconbtn" data-act="reply-one" aria-label="Reply" title="Reply">' + ic('reply') + '</button><button type="button" class="ml-iconbtn" data-act="fwd-one" aria-label="Forward" title="Forward">' + ic('fwd') + '</button>') + '</div>' +
+        (m.draft ? '<div class="ml-msg__acts"><button type="button" class="ml-btn ml-btn--primary" data-act="edit-draft">' + ic('pen') + 'Edit draft</button><button type="button" class="ml-btn" data-act="drop-draft">' + ic('trash') + 'Discard</button></div>' : '') +
       '</div>' : '') +
     '</article>';
   }
@@ -1307,7 +1364,7 @@
     var o = location.origin;
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https: http: data: ' + o + '; style-src \'unsafe-inline\' https:; font-src https: data:; media-src https: ' + o + '">' +
-      '<base target="_blank"><style>html,body{margin:0;padding:0;background:transparent}body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:#1d211b;overflow-wrap:anywhere;word-break:break-word}' +
+      '<base target="_blank"><style>html,body{margin:0;padding:0;background:transparent}body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:#1d211b;overflow-wrap:anywhere;word-break:break-word;display:flow-root}' +
       'img{max-width:100%;height:auto}pre{white-space:pre-wrap}a{color:#235578}blockquote{margin:6px 0 6px 2px;padding-left:12px;border-left:3px solid #e4e0d4;color:#464c42}' +
       'html.fos-fold .fos-q{display:none!important}table{max-width:100%}</style></head><body>' + html + '</body></html>';
   }
@@ -1327,6 +1384,19 @@
       box.appendChild(f);
       f.addEventListener('load', function () { fitFrame(f, box, t.messages.indexOf(m) > 0); });
     });
+    threadHooks(t);
+  }
+  /* Once per drawn conversation: the composer learns where this conversation's inline reply goes (a reply being written comes
+     back into place), and other FavorOS parts get the toolbar slot (event favor-mail:thread). */
+  function threadHooks(t) {
+    var th = root.querySelector('.ml-thread[data-thread]');
+    if (!th || th.dataset.hooked === t.id) return;
+    th.dataset.hooked = t.id;
+    var host = th.querySelector('[data-inline-host]');
+    if (host && window.FavorCompose) window.FavorCompose.host(t.id, host);
+    var people = {}; (t.messages || []).forEach(function (m) { [m.from].concat(m.to || [], m.cc || []).forEach(function (a) { if (a && a.email) people[a.email] = a.name || people[a.email] || ''; }); });
+    var slot = th.querySelector('[data-mail-ext]');
+    try { window.dispatchEvent(new CustomEvent('favor-mail:thread', { detail: { threadId: t.id, subject: t.subject || '', mb: S.threadBox || '', participants: Object.keys(people).map(function (e) { return { email: e, name: people[e] }; }), el: slot } })); } catch (e) { /* old browser */ }
   }
   /* Hover cards for what a message mentions: appeal codes, Lookup IDs and fund names. A shared module (window.FavorEntity) takes
      over when the app has one; until then this adapter asks /api/mail/entity. */
@@ -1403,16 +1473,36 @@
       });
     });
   }
+  /* Sizes a message frame to its content. The frame never scrolls on its own, so its height must always cover the message:
+     it is measured again when the reading pane changes width, when images and fonts arrive, and when quoted text opens.
+     A very long message stops at 2,400 px with "Show the whole message", as Gmail clips long mail. */
+  var LONG_PX = 3200;
   function fitFrame(f, box, fold) {
     var d; try { d = f.contentDocument; } catch (e) { return; }
     if (!d || !d.body) return;
-    var w = box.clientWidth;
+    var lastW = -1, useScroll = false;
     var fit = function () {
-      d.body.style.zoom = '';
-      var sw = d.documentElement.scrollWidth;
-      if (sw > w + 4 && w > 0) d.body.style.zoom = String(Math.max(0.4, w / sw));
-      f.style.height = Math.ceil(d.documentElement.scrollHeight * 1) + 'px';
+      var w = box.clientWidth;
+      if (!w) return;
+      if (w !== lastW) {
+        lastW = w;
+        d.body.style.zoom = '';
+        var sw = d.documentElement.scrollWidth;
+        if (sw > w + 4) { d.body.style.zoom = String(Math.max(0.4, w / sw)); useScroll = true; }
+      }
+      // The body's own box gives the height (so the frame can also shrink when quoted text folds). Content that sits outside
+      // the body box, or a zoomed body, switches this frame to the document's scroll height for good, so the two never flip.
+      var cur = f.clientHeight, over = d.documentElement.scrollHeight, rectH = Math.ceil(d.body.getBoundingClientRect().height);
+      if (!useScroll && over > Math.max(cur, rectH) + 1) useScroll = true;
+      var h = useScroll ? over : rectH;
+      if (Math.abs(h - cur) > 1) f.style.height = h + 'px';
+      if (h > LONG_PX && !box._full && !box._long) {
+        box._long = 1;
+        box.classList.add('is-long');
+        box.insertAdjacentHTML('beforeend', '<button type="button" class="ml-longbtn" data-act="show-long">Show the whole message</button>');
+      }
     };
+    box._fit = fit;
     // Quoted earlier messages fold away (the "..." button shows them), as in Gmail.
     if (fold && !box._q) {
       var q = d.querySelector('.gmail_quote, blockquote[type="cite"], #appendonsend, .yahoo_quoted, #divRplyFwdMsg');
@@ -1427,8 +1517,20 @@
     }
     fit();
     if (S.level.read && !S.headersOnly) { markEntities(d); bindEntities(f, d); }
-    d.querySelectorAll('img').forEach(function (im) { if (!im.complete) im.addEventListener('load', fit); });
-    if (window.ResizeObserver) { var ro = new ResizeObserver(function () { f.style.height = d.documentElement.scrollHeight + 'px'; }); ro.observe(d.body); }
+    d.querySelectorAll('img').forEach(function (im) { if (!im.complete) { im.addEventListener('load', fit); im.addEventListener('error', fit); } });
+    if (d.fonts && d.fonts.ready) d.fonts.ready.then(fit).catch(function () {});
+    setTimeout(fit, 400); setTimeout(fit, 1500);
+    if (window.ResizeObserver) { var ro = new ResizeObserver(function () { requestAnimationFrame(fit); }); ro.observe(d.body); ro.observe(box); }
+    // A selection inside the message reaches the page (Ask Favor Brain about the selected words).
+    var selT = 0;
+    d.addEventListener('selectionchange', function () {
+      clearTimeout(selT);
+      selT = setTimeout(function () {
+        var sel = d.getSelection(), text = sel && sel.rangeCount ? String(sel).trim() : '', rect = null;
+        if (text) { var fr = f.getBoundingClientRect(), r = sel.getRangeAt(0).getBoundingClientRect(), z = parseFloat(d.body.style.zoom) || 1; rect = { left: fr.left + r.left * z, top: fr.top + r.top * z, right: fr.left + r.right * z, bottom: fr.top + r.bottom * z, width: r.width * z, height: r.height * z }; }
+        try { window.dispatchEvent(new CustomEvent('favor-mail-selection', { detail: { text: text.slice(0, 4000), rect: rect } })); } catch (e) { /* old browser */ }
+      }, 120);
+    });
     d.addEventListener('keydown', function (e) { if (e.key === 'Escape' || (!e.metaKey && !e.ctrlKey && /^[jkeuarf#/c]$/.test(e.key))) document.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, shiftKey: e.shiftKey })); });
   }
 
@@ -1446,6 +1548,33 @@
     root.style.setProperty('--ml-bot', Math.max(0, b) + 'px');
   }
   addEventListener('resize', function () { requestAnimationFrame(measure); });
+  // A conversation that changed (a draft saved, discarded or sent) is read again from Gmail, never from the copies kept here.
+  function forgetThread(id) { if (!id) return; delete PRE[id]; DEV.drop(id); }
+  // The shared composer sent or scheduled something: the conversation or the Sent list shows it.
+  addEventListener('favor-compose:sent', function (e) {
+    if (!root.isConnected) return;
+    var d = e.detail || {};
+    forgetThread(d.threadId);
+    setTimeout(function () {
+      if (S.open && d.threadId === S.open) openThread(S.open);
+      else if (S.label === 'SENT' || S.label === 'DRAFT') loadList({ quiet: true });
+    }, 600);
+  });
+  addEventListener('favor-compose:draft', function (e) { forgetThread((e.detail || {}).threadId); if (root.isConnected && S.label === 'DRAFT' && !S.open) loadList({ quiet: true }); });
+  // A discarded draft leaves the conversation and the Drafts list at once.
+  addEventListener('favor-compose:discarded', function (e) {
+    if (!root.isConnected) return;
+    var d = e.detail || {};
+    forgetThread(d.threadId);
+    if (S.open && d.threadId === S.open) openThread(S.open);
+    else if (S.label === 'DRAFT') loadList({ quiet: true });
+  });
+  // Another part of FavorOS asks for a reply in this conversation with something in it (a clip, a Brain answer).
+  addEventListener('favor-mail:reply', function (e) {
+    var d = e.detail || {};
+    if (!root.isConnected || !S.thread || (d.threadId && d.threadId !== S.thread.id)) return;
+    startReply(d.kind || 'reply', null, null, false, d.items || []);
+  });
 
   /* ------------------------------------------------------------------ routing (#/LABEL[/thread], #/search/words[/thread]) */
   function parseHash() {
@@ -1483,7 +1612,7 @@
   // The hub reloads the page on any Back step it does not own. Mail owns every step on this page (a conversation, a sheet, the
   // message window), so this listener runs first and keeps the hub out of it, unless one of the hub's own panels is open.
   window.addEventListener('popstate', function (e) {
-    if (!root.isConnected || window.__hubOvHandled || (window.hubOv && window.hubOv.depth && window.hubOv.depth())) return;
+    if (!root.isConnected || window.__hubOvHandled || (window.hubOv && ((window.hubOv.depth && window.hubOv.depth()) || (window.hubOv.busy && window.hubOv.busy())))) return;
     e.stopImmediatePropagation();
     if (skipPop) { skipPop--; var f = afterPop; afterPop = null; if (f) f(); return; }
     if (sheetEl && sheetPushed) closeSheet('pop');
@@ -1533,7 +1662,7 @@
     if (kind === 'star') {
       var on = t ? !t.starred : !threadTools().starred;
       if (t) { t.starred = on; patchRow(t); }
-      if (S.thread && S.thread.id === id) { S.thread.messages.forEach(function (m) { m.starred = on; m.labelIds = on ? m.labelIds.concat(['STARRED']) : m.labelIds.filter(function (l) { return l !== 'STARRED'; }); }); var hs = $('.ml-star--h'); if (hs) { hs.classList.toggle('is-on', on); hs.setAttribute('aria-pressed', on ? 'true' : 'false'); hs.setAttribute('aria-label', on ? 'Remove star' : 'Star'); } }
+      if (S.thread && S.thread.id === id) { S.thread.messages.forEach(function (m) { m.starred = on; m.labelIds = on ? m.labelIds.concat(['STARRED']) : m.labelIds.filter(function (l) { return l !== 'STARRED'; }); }); $$('.ml-thread .ml-star').forEach(function (hs) { hs.classList.toggle('is-on', on); hs.setAttribute('aria-pressed', on ? 'true' : 'false'); hs.setAttribute('aria-label', on ? 'Remove star' : 'Star'); }); }
       api.modify(id, on ? ['STARRED'] : [], on ? [] : ['STARRED']).catch(function (e) { if (t) { t.starred = !on; patchRow(t); } failed(e); });
       return;
     }
@@ -1839,24 +1968,27 @@
   function replyBody(text) {
     return '<div>' + esc(text).replace(/\n/g, '<br>') + '</div><div><br></div>' + (S.signature ? '<br><div class="gmail_signature">' + S.signature + '</div>' : '');
   }
-  function startReply(kind, m, text) {
+  // Replies open inline under the conversation (Shift or "Reply in a new window" pops them out); the shared composer
+  // (public/js/compose/compose.js) runs them. Without it, the older window below still works.
+  function startReply(kind, m, text, pop, items) {
     if (!S.level.write || !canWrite()) return askWrite('reply');
     m = m || lastMsg(); if (!m) return;
     var t = S.thread;
+    var where = { inline: !pop, kind: kind === 'forward' ? 'fwd' : 'reply', items: items };
     if (kind === 'forward') {
-      return openCompose({ subject: reSubject(m.subject || t.subject, 'Fwd'), quote: fwdHtml(m), forward: (m.attachments || []).filter(function (f) { return !f.inline; }).map(function (f) { return { messageId: m.id, attachmentId: f.id, name: f.name, mime: f.mime, size: f.size }; }), title: 'Forward' });
+      return openCompose({ subject: reSubject(m.subject || t.subject, 'Fwd'), quote: fwdHtml(m), forward: (m.attachments || []).filter(function (f) { return !f.inline; }).map(function (f) { return { messageId: m.id, attachmentId: f.id, name: f.name, mime: f.mime, size: f.size }; }), title: 'Forward', threadId: t.id, mb: S.threadBox }, where);
     }
     var all = replyAllList(m);
     var to = kind === 'replyall' ? all : [(m.replyTo && m.replyTo[0]) || (m.from.email === S.me ? (m.to || [])[0] : m.from)];
     var cc = [];
     if (kind === 'replyall' && all.length > 1) { to = [all[0]]; cc = all.slice(1); }
-    openCompose({ to: to.filter(Boolean), cc: cc, subject: reSubject(m.subject || t.subject, 'Re'), quote: quoteHtml(m), threadId: t.id, replyTo: m.id, mb: S.threadBox, title: kind === 'replyall' ? 'Reply all' : 'Reply', body: text ? replyBody(text) : undefined });
+    openCompose({ to: to.filter(Boolean), cc: cc, subject: reSubject(m.subject || t.subject, 'Re'), quote: quoteHtml(m), threadId: t.id, replyTo: m.id, mb: S.threadBox, title: kind === 'replyall' ? 'Reply all' : 'Reply', body: text ? replyBody(text) : undefined }, where);
   }
   function editDraft(mid) {
     if (!S.level.write || !canWrite()) return askWrite('draft');
     var m = S.thread.messages.filter(function (x) { return x.id === mid; })[0]; if (!m) return;
     var real = S.thread.messages.filter(function (x) { return !x.draft; });
-    openCompose({ to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: S.drafts[m.id] || '', threadId: real.length ? S.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', title: 'Draft', mb: S.threadBox, noSig: true });
+    openCompose({ to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: S.drafts[m.id] || '', threadId: real.length ? S.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', title: real.length ? 'Reply' : 'Draft', mb: S.threadBox, noSig: true }, { inline: !!real.length, kind: 'reply' });
   }
   function chipHtml(a) { return '<span class="ml-to" data-email="' + esc(a.email) + '" data-name="' + esc(a.name || '') + '" title="' + esc(a.email) + '">' + esc(a.name || a.email) + '<button type="button" data-unchip aria-label="Remove ' + esc(a.name || a.email) + '">' + ic('x') + '</button></span>'; }
   function addrRow(k, label, list) {
@@ -1873,8 +2005,15 @@
       return '<option value="' + esc(v) + '"' + (x === pick ? ' selected' : '') + '>' + esc((x.name ? x.name + ' ' : '') + '<' + x.email + '>') + '</option>';
     }).join('') + '</select></div>';
   }
-  function openCompose(o) {
+  function composeCtx() { return { me: S.me, name: S.name, signature: S.signature, fromOpts: S.fromOpts, write: !!(S.level.write && canWrite()), read: !!S.level.read, box: S.box }; }
+  function openCompose(o, where) {
     o = o || {};
+    where = where || {};
+    if (window.FavorCompose) {
+      var host = where.inline && S.thread && o.threadId === S.thread.id ? root.querySelector('[data-inline-host]') : null;
+      window.FavorCompose.open(Object.assign({}, o, { mode: host ? 'inline' : 'float', host: host, kind: where.kind || '', items: where.items, ctx: composeCtx() }));
+      return;
+    }
     if (C) closeCompose(true);
     var el = document.createElement('div');
     el.className = 'ml-c';
@@ -2268,7 +2407,13 @@
     else if (k === 'clean-review') cleanReview();
     else if (k === 'brief-open') go('INBOX', '', id);
     else if (k === 'brief-fresh') loadBrief(true);
-    else if (k === 'brief-hide') { try { sessionStorage.setItem('favor.mail.brief', ET()); } catch (e2) { /* private mode */ } var bh = $('.ml-brief'); if (bh) bh.remove(); }
+    else if (k === 'brief-hide') {
+      var bk = (S.brief && S.brief.key) || '';
+      try { localStorage.setItem('favor.mail.briefoff:' + (S.me || ''), bk); } catch (e2) { /* private mode */ }
+      if (S.brief) S.brief.off = true;
+      api.briefClose(bk, accts()[0] || '').catch(function () { /* this browser still remembers */ });
+      var bh = $('.ml-brief'); if (bh) bh.remove();
+    }
     else if (k === 'nudge-hide') { try { localStorage.setItem('favor.mail.nudge', ET().slice(0, 8) + Math.floor(Number(ET().slice(8, 10)) / 7)); } catch (e3) { /* private mode */ } var nh = $('.ml-clean--nudge'); if (nh) nh.remove(); }
     else if (k === 'cats') categoriesSheet();
     else if (k === 'prospect') addProspect();
@@ -2278,6 +2423,8 @@
     else if (k === 'gift-note') giftNote();
     else if (k === 'gift-chat') giftChat();
     else if (k === 'ask-go') askAbout();
+    else if (k === 'team-move') teamMove(a);
+    else if (k === 'team-dismiss') teamDismiss();
     else if (k === 'commit-task') commitTask(+a.dataset.i);
     else if (k === 'read-file') readFileKind(a);
     else if (k === 'later-list') laterList();
@@ -2297,8 +2444,14 @@
     else if (k === 'snooze') snoozeMenu(id, a);
     else if (k === 'labels') labelsMenu(id, a);
     else if (k === 'thread-more') threadMore(a);
+    else if (k === 'handoff') { if (window.FavorHandoff && S.thread) window.FavorHandoff.open({ kind: 'mail', id: S.thread.id, title: S.thread.subject || '' }); }
     else if (k === 'reply' || k === 'replyall' || k === 'forward') startReply(k);
-    else if (k === 'reply-one' || k === 'fwd-one') { var mm = msgById(a.closest('.ml-msg').dataset.mid); startReply(k === 'fwd-one' ? 'forward' : 'reply', mm); }
+    else if (k === 'reply-one' || k === 'fwd-one') { var mm = msgById(a.closest('.ml-msg').dataset.mid); startReply(k === 'fwd-one' ? 'forward' : 'reply', mm, null, e.shiftKey); }
+    else if (k === 'msg-more') {
+      var mo = msgById(a.closest('.ml-msg').dataset.mid);
+      var shm = openSheet('This message', '<div class="ml-menu"><button type="button" class="ml-menu__i" data-r="reply">' + ic('reply') + '<span>Reply</span></button>' + (replyAllList(mo).length > 1 ? '<button type="button" class="ml-menu__i" data-r="replyall">' + ic('replyall') + '<span>Reply all</span></button>' : '') + '<button type="button" class="ml-menu__i" data-r="forward">' + ic('fwd') + '<span>Forward</span></button><button type="button" class="ml-menu__i" data-r="popout">' + ic('ext') + '<span>Reply in a new window</span></button></div>', { anchor: a });
+      shm.addEventListener('click', function (ev) { var r = ev.target.closest('[data-r]'); if (!r) return; closeSheet(null, function () { if (r.dataset.r === 'popout') startReply('reply', mo, null, true); else startReply(r.dataset.r, mo); }); });
+    }
     else if (k === 'reply-menu') {
       var last = lastMsg();
       var sh = openSheet('Reply', '<div class="ml-menu"><button type="button" class="ml-menu__i" data-r="reply">' + ic('reply') + '<span>Reply</span></button>' + (replyAllList(last).length > 1 ? '<button type="button" class="ml-menu__i" data-r="replyall">' + ic('replyall') + '<span>Reply all</span></button>' : '') + '<button type="button" class="ml-menu__i" data-r="forward">' + ic('fwd') + '<span>Forward</span></button></div>');
@@ -2315,10 +2468,11 @@
       art.replaceWith(tmp.firstChild);
       drawBodies();
     }
-    else if (k === 'unfold') { var box = a.previousElementSibling; var f = box && box.querySelector('iframe'); if (f && f.contentDocument) { f.contentDocument.documentElement.classList.remove('fos-fold'); f.style.height = f.contentDocument.documentElement.scrollHeight + 'px'; } a.remove(); }
+    else if (k === 'unfold') { var box = a.previousElementSibling; var f = box && box.querySelector('iframe'); if (f && f.contentDocument) { f.contentDocument.documentElement.classList.remove('fos-fold'); if (box._fit) box._fit(); else f.style.height = f.contentDocument.documentElement.scrollHeight + 'px'; } a.remove(); }
+    else if (k === 'show-long') { var lb = a.closest('.ml-frame'); if (lb) { lb._full = 1; lb.classList.remove('is-long'); a.remove(); if (lb._fit) lb._fit(); } }
     else if (k === 'view-file') viewFile(a.closest('.ml-msg').dataset.mid, +a.dataset.k);
     else if (k === 'edit-draft') editDraft(a.closest('.ml-msg').dataset.mid);
-    else if (k === 'drop-draft') { var dmid = a.closest('.ml-msg').dataset.mid; var did = S.drafts[dmid]; if (!did) return; if (!S.level.write || !canWrite()) return askWrite('draft'); api.dropDraft(did, S.threadBox).then(function () { toast('Draft discarded'); openThread(S.open); }).catch(failed); }
+    else if (k === 'drop-draft') { var dmid = a.closest('.ml-msg').dataset.mid; var did = S.drafts[dmid]; if (!did) { toast('FavorOS could not find this draft in Gmail. Open it in Gmail to delete it.'); return; } if (!S.level.write || !canWrite()) return askWrite('draft'); api.dropDraft(did, S.threadBox).then(function () { toast('Draft discarded'); forgetThread(S.open); openThread(S.open); }).catch(failed); }
     else if (k === 'prev' || k === 'next') stepThread(k === 'next' ? 1 : -1);
   });
   function msgById(id) { return S.thread && S.thread.messages.filter(function (m) { return m.id === id; })[0]; }

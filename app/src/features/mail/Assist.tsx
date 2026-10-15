@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { MI, when } from './util';
 
 const money = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -45,7 +45,7 @@ export function BriefCards({ b, wait, ov, today, onOpen, onFresh, onHide, onNudg
               <button type="button" className="ml-iconbtn" onClick={onFresh} aria-label="Refresh the briefing">
                 <MI n="refresh" />
               </button>
-              <button type="button" className="ml-iconbtn" onClick={onHide} aria-label="Hide until tomorrow">
+              <button type="button" className="ml-iconbtn" onClick={onHide} aria-label="Close the briefing">
                 <MI n="x" />
               </button>
             </div>
@@ -178,6 +178,8 @@ export interface AssistProps {
   onAsk: (q: string) => void;
   onFindTime: () => void;
   onAskBrain: (q: string) => void;
+  /** Move to Chat line (TeamChat.tsx), drawn first in the assist area. */
+  top?: ReactNode;
 }
 
 export function AssistPanel(p: AssistProps) {
@@ -188,6 +190,7 @@ export function AssistPanel(p: AssistProps) {
   const pr = a.profile;
   return (
     <div className="ml-assist">
+      {p.top}
       {(a.ask || a.summary) && (
         <div className="ml-sum">
           {a.ask ? (
@@ -208,13 +211,8 @@ export function AssistPanel(p: AssistProps) {
         <div className="ml-prof">
           <span className="ml-prof__t">
             <b>{pr.name || pr.email}</b>
-            <span>
-              {pr.role}.{' '}
-              {pr.history && pr.history.n
-                ? pr.history.n + (pr.history.more ? '+' : '') + ' conversation' + (pr.history.n === 1 ? '' : 's') + (pr.history.lastDate ? ', last ' + shortDay(pr.history.lastDate) : '')
-                : 'First email'}
-              .
-            </span>
+            <span>{pr.role}</span>
+            {pr.facts && pr.facts.length > 0 ? <span>{pr.facts.join('. ')}.</span> : null}
           </span>
           {pr.partner ? (
             <a className="ml-btn" href={'/work/partner/' + encodeURIComponent(pr.partner.id)}>
@@ -274,15 +272,16 @@ export function AssistPanel(p: AssistProps) {
         <button type="submit" className="ml-btn">
           Ask
         </button>
-        <button type="button" className="ml-btn" onClick={p.onFindTime}>
+        <button type="button" className="ml-btn" data-act="find-time" onClick={p.onFindTime}>
           <MI n="cal" />
           Find a time
         </button>
-        <button type="button" className="ml-btn" onClick={() => p.onAskBrain(q)}>
+        <button type="button" className="ml-btn" data-act="ask-brain" onClick={() => p.onAskBrain(q)}>
           <MI n="q" />
           Ask Favor Brain
         </button>
       </form>
+      <p className="ml-askcap">Answered by Favor Brain from this email</p>
       {a.answer ? <div className="ml-answer">{a.answer}</div> : null}
     </div>
   );

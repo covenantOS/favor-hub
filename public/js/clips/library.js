@@ -4,6 +4,18 @@ import { openShare, levelLabel, levelOfClip, publicBadge } from './sharesheet.js
 
 const $ = (id) => document.getElementById(id);
 const linkFor = (id) => `${location.origin}/c/${id}`;
+// A clip as an item for the email composer (public/js/compose/compose.js): "Send to email" and dragging a card onto a draft.
+const emailItem = (c) => ({ kind: 'clip', title: c.title || 'Clip', url: linkFor(c.id), sub: c.duration_ms ? fmtTime(c.duration_ms / 1000) : '', text: c.summary || '' });
+document.addEventListener('dragstart', (e) => {
+  const card = e.target.closest && e.target.closest('.cl-card[draggable="true"]');
+  if (!card || !e.dataTransfer) return;
+  const clip = rows.find((c) => c.id === card.dataset.id);
+  if (!clip) return;
+  e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(emailItem(clip)));
+  e.dataTransfer.setData('text/uri-list', linkFor(clip.id));
+  e.dataTransfer.setData('text/plain', linkFor(clip.id));
+  e.dataTransfer.effectAllowed = 'copy';
+});
 const HOVER_SECONDS = 6;
 const fmtBytes = (n) => {
   const b = Number(n) || 0;
@@ -50,7 +62,7 @@ function cardHtml(c) {
   const sum = c.summary ? `<p class="cl-sum">${esc(c.summary)}</p>` : '';
   const hit = c.match ? `<a class="cl-hit" href="/c/${c.id}?t=${Math.floor(c.match.at)}"><span>${fmtTime(c.match.at)}</span><span class="cl-hit__t">${esc(c.match.text)}</span></a>` : '';
   const on = picked.has(c.id);
-  return `<article class="h-card cl-card${picking ? ' is-picking' : ''}${on ? ' is-picked' : ''}" data-id="${c.id}">
+  return `<article class="h-card cl-card${picking ? ' is-picking' : ''}${on ? ' is-picked' : ''}" data-id="${c.id}"${picking ? '' : ' draggable="true"'}>
     ${picking ? `<button type="button" class="cl-pick" data-act="pick" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(c.title || 'clip')}"><i></i></button>` : ''}
     <a class="cl-thumb" href="/c/${c.id}" aria-label="Open ${esc(c.title || 'clip')}" data-thumb>${thumb}${dur}${naming}${levelOfClip(c) === 'public' ? `<span class="cl-pubmark">${publicBadge('public')}</span>` : ''}</a>
     <div class="cl-body">
@@ -61,6 +73,7 @@ function cardHtml(c) {
     <div class="cl-acts">
       ${c.mine ? `<button type="button" class="cl-lvl cl-lvl--${levelOfClip(c)}" data-act="share" aria-label="Who can watch: ${esc(levelLabel(levelOfClip(c)))}. Change" title="Change who can watch">${esc(levelLabel(levelOfClip(c)))}</button>` : `<span class="cl-lvl cl-lvl--${levelOfClip(c)}">${esc(levelLabel(levelOfClip(c)))}</span>`}
       <span class="cl-btns">
+        ${c.status === 'ready' && window.FavorCompose && document.documentElement.classList.contains('has-mail') ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="email" title="Add this clip to an email (or drag the card onto one)">Send to email</button>' : ''}
         ${c.mine ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="copy">Copy link</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rename">Rename</button>
         ${c.status === 'ready' ? `<a class="h-btn h-btn--ghost h-btn--sm" href="/c/${c.id}?make=article" title="Draft a help article from this clip">Help article</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="lesson" title="Make a draft Learn course from this clip">Learn lesson</button>` : ''}` : `<a class="h-btn h-btn--ghost h-btn--sm" href="/c/${c.id}">Open</a>`}
@@ -296,6 +309,10 @@ function wire() {
     if (!clip) return;
     if (btn.dataset.act === 'share') return openShare(clip.id, { onChange: ({ level }) => { clip.level = level; clip.share = level === 'public' ? 1 : 0; clip.staff_link = level === 'staff' ? 1 : 0; paint(); } });
     if (btn.dataset.act === 'copy') toast((await copyText(linkFor(clip.id))) ? 'Link copied' : 'Could not copy the link');
+    if (btn.dataset.act === 'email' && window.FavorCompose) {
+      await window.FavorCompose.add(emailItem(clip));
+      if (!clip.share) toast('People outside FavorOS need "Anyone with the link" on to watch it');
+    }
     if (btn.dataset.act === 'lesson') {
       btn.disabled = true;
       try {

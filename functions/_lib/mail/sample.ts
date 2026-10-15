@@ -41,6 +41,13 @@ const people: P[] = [
   { name: 'Calendar', email: 'calendar@example.com' },
   { name: 'Lena Brooks', email: 'lena.brooks@example.net' },
 ];
+// Automatic senders, kept apart from `people` so the filler conversations below keep their senders.
+const automatic: P[] = [
+  { name: 'Favor Projects', email: 'noreply@favorintl.org' },
+  { name: 'FavorOS', email: 'notifications@favorintl.org' },
+  { name: 'Suno', email: 'receipts@suno.example' },
+  { name: 'Hume AI', email: 'billing@hume.example' },
+];
 export const SAMPLE_PARTNER_EMAILS = [people[0].email, people[1].email, people[4].email];
 
 const tinyPdf = 'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9GCg==';
@@ -65,6 +72,24 @@ interface ThreadDef {
 }
 
 const ME: P = { name: 'FavorOS Tester', email: 'tester@favorintl.org' };
+const SIG_IMG = 'https://dash.favorintl.org/images/favor-icon.png';
+const sigBlock = (name: string, title: string, phone: string, email: string) =>
+  `<div class="gmail_signature"><table cellpadding="0" cellspacing="0" style="font-family:Georgia,serif"><tr><td style="padding-right:14px;vertical-align:top"><img src="${SIG_IMG}" width="88" height="88" alt="Favor International" style="display:block"></td><td style="border-left:3px solid #1a9c3e;padding-left:12px;vertical-align:top"><div style="font-size:22px">${name}</div><div style="font-size:13px;margin-top:6px">Favor International | <i>${title}</i></div><div style="font-size:13px;margin-top:6px">P: ${phone}</div><div style="font-size:13px;margin-top:4px">E: <a href="mailto:${email}">${email}</a></div></td></tr></table></div>`;
+const SIG_TESTER = sigBlock('FavorOS Tester', 'Test Account', '(555) 010-0101', 'tester@favorintl.org');
+const SIG_PRIYA = sigBlock('Priya Nair', 'Program Associate', '(555) 010-0144', 'priya@favorintl.org');
+const LONG_REPORT = [
+  'I went through the church plant numbers with the field team. The 22 churches listed under the first and second levels are not in our totals because they are daughter and granddaughter churches.',
+  'Their note: "Churches Dedicated gives the right number for this quarter\'s church plants, while the total number of churches is the all-time total. Each church is asked to plant a daughter church after three years, so the first and second levels are daughter and granddaughter churches. The church plant category counts only our own plants, so the daughter and granddaughter churches are separate."',
+  'For <b>Primary Schools</b>, I added the totals for Number Boarding and Number Day School, which come to 1,090 (I first entered 1,092). That differs from the combined boys and girls total of 1,104. In <b>Secondary Schools</b> the totals match. I will follow up with the school office about the primary school difference.',
+  'For <b>Women Empowerment</b>, I will change the line to read "Women Beginning Businesses" so it matches the program name in the field report.',
+  'For <b>Water</b>, the borehole count is 14 for the quarter. Two of those were repairs, not new wells, so the new-well number is 12. I listed both in the notes column so the board can see the difference.',
+  'For <b>Health</b>, the clinic visits came in late. The number I have is 3,412 visits, but the clinic said a final count arrives Friday. I left a placeholder in the sheet and marked it in yellow.',
+  'For <b>Discipleship</b>, the seven lines from the footnote add to 2,960. That matches what we published last quarter in method, so the comparison holds.',
+  'Last item: the photos for the report are in the shared folder under Quarter Report, Photos. I picked twelve; tell me if you want a different cover.',
+  'Thanks for checking these before it goes out.',
+].map((p) => `<p>${p}</p>`).join('');
+
+const TWO: P = { name: 'FavorOS Tester Two', email: 'tester2@favorintl.org' };
 const q = (who: string, text: string) => `<div class="gmail_quote"><div>On Thu, ${who} wrote:</div><blockquote class="gmail_quote">${text}</blockquote></div>`;
 
 function base(): ThreadDef[] {
@@ -95,6 +120,29 @@ function base(): ThreadDef[] {
     { id: 'smp010', subject: 'Re: Matching gift form', msgs: [{ from: people[1], to: [ME], hours: 75, html: '<p>Signed and attached. Thanks for sending it.</p>', files: ['pdf'] }] },
     { id: 'smp011', subject: 'Newsletter draft for review', msgs: [{ from: people[6], to: [ME], hours: 98, html: '<p>Draft is in the shared folder. Edits by Wednesday, please.</p>' }] },
     { id: 'smp012', subject: 'Welcome packet address', msgs: [{ from: people[9], to: [ME], hours: 120, html: '<p>We moved in August. New address is 14 Larkspur Lane.</p>' }] },
+    // A long staff thread with an image signature: the reading pane, the inline reply and the quoted text are checked against it.
+    {
+      id: 'smpQ01', subject: 'Quarter report numbers',
+      msgs: [
+        { from: ME, to: [people[6]], hours: 8, html: '<p>Priya, can you check the school and church numbers before the report goes out?</p>' + SIG_TESTER, labels: ['SENT'] },
+        { from: people[6], to: [ME], hours: 2, html: LONG_REPORT + SIG_PRIYA + q('Tester', 'Priya, can you check the school and church numbers before the report goes out?'), unread: true },
+      ],
+    },
+    // Automatic mail that arrived after everything else: the Mail briefing must not lead with it (2026-10-14).
+    { id: 'smpA01', subject: 'Finished: H2 made in FavorOS', msgs: [{ from: automatic[0], to: [ME], hours: 0.2, html: '<p>Your video H2 finished rendering in FavorOS. Open it from Clips.</p>', unread: true }] },
+    { id: 'smpA02', subject: 'Task assigned to you in FavorOS: Review the spring newsletter', msgs: [{ from: automatic[1], to: [ME], hours: 0.3, html: '<p>Priya Nair assigned you a task in FavorOS.</p>', unread: true }] },
+    { id: 'smpA03', subject: 'Your receipt from Suno #4471', msgs: [{ from: automatic[2], to: [ME], hours: 0.4, html: '<p>Payment received. Amount: $10.00. Thank you for your subscription.</p>', unread: true }] },
+    { id: 'smpA04', subject: 'Invoice 8820 for Hume AI', msgs: [{ from: automatic[3], to: [ME], hours: 0.5, html: '<p>Your invoice for October is attached. Amount due: $20.00.</p>', unread: true }] },
+    { id: 'smpA05', subject: 'Project plan: spring trip', msgs: [{ from: people[6], to: [ME], hours: 2.5, html: '<p>Can you look over the spring trip plan and tell me which dates you can cover?</p><p>Priya</p>', unread: true }] },
+    // A conversation between the two test users only: Mail offers to move it to Chat (functions/_lib/mail/tochat.ts).
+    {
+      id: 'smp013', subject: 'October newsletter story order',
+      msgs: [
+        { from: TWO, to: [ME], hours: 5, html: '<p>Tester, I put the story order for the October newsletter in the planning folder. The well update leads, then the trip recap.</p><p>Can you check the headline for the lead story?</p><div>-- <br>FavorOS Tester Two<br>Favor International</div>', unread: true },
+        { from: ME, to: [TWO], hours: 4, html: '<p>The order works. I would shorten the headline to "Clean water in Larkspur".</p><p>I will send the trip photos tomorrow.</p><div>-- <br>FavorOS Tester<br>Favor International</div>' + q('FavorOS Tester Two', 'Can you check the headline for the lead story?') },
+        { from: TWO, to: [ME], hours: 2, html: '<p>Good, I changed it. Photos tomorrow is fine.</p>' + q('FavorOS Tester', 'I would shorten the headline.'), unread: true },
+      ],
+    },
     { id: 'smp090', subject: 'Itinerary sent', labels: ['SENT'], msgs: [{ from: ME, to: [people[1]], hours: 40, html: '<p>The itinerary is attached.</p>', labels: ['SENT'], files: ['pdf'] }] },
   ];
   const subjects = ['Volunteer schedule', 'Prayer request', 'Board packet', 'Trip deposit', 'Sponsor a student', 'Chapel visit', 'Year-end letter'];
@@ -133,7 +181,8 @@ const addr = (p: P) => `${p.name} <${p.email}>`;
 
 function build(owner: string, s: SampleState): any[] {
   const now = Date.now();
-  const defs = [...base(), ...s.extra];
+  const baseDefs = base();
+  const defs = [...baseDefs.map((d) => ({ ...d, msgs: [...d.msgs, ...s.extra.filter((x) => x.id === d.id).flatMap((x) => x.msgs)] })), ...s.extra.filter((x) => !baseDefs.some((d) => d.id === x.id))];
   return defs.map((d) => {
     const mod = s.mods[d.id] || { add: [], remove: [] };
     const messages = d.msgs.map((m, i) => {
@@ -203,7 +252,7 @@ export function sampleFetcher(env: Pick<Env, 'DB'>, owner: string): Fetcher {
     const systemLabels = ['INBOX', 'STARRED', 'IMPORTANT', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'UNREAD'];
     if (p === '/profile') return J({ emailAddress: owner, historyId: String(1000 + s.seq) });
     if (p === '/history') return J({ error: { code: 404, message: 'start over' } }, 404);
-    if (p === '/settings/sendAs') return J({ sendAs: [{ sendAsEmail: owner, displayName: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', isDefault: true, signature: '<div>FavorOS Tester<br>Favor International</div>' }] });
+    if (p === '/settings/sendAs') return J({ sendAs: [{ sendAsEmail: owner, displayName: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', isDefault: true, signature: SIG_TESTER }] });
     if (p === '/labels' && method === 'GET') return J({ labels: [...systemLabels.filter((l) => l !== 'UNREAD').map((id) => ({ id, name: id, type: 'system' })), ...s.labels.map((l) => ({ id: l.id, name: l.name, type: 'user' }))] });
     if (p === '/labels' && method === 'POST') {
       const id = 'Label_' + (s.labels.length + 4 + s.seq);
@@ -264,10 +313,13 @@ export function sampleFetcher(env: Pick<Env, 'DB'>, owner: string): Fetcher {
     if (p === '/messages/send' && method === 'POST') {
       const raw = fromB64u(String(body?.raw || ''));
       const head = (n: string) => new RegExp('^' + n + ':\\s*(.*)$', 'im').exec(raw)?.[1]?.trim() || '';
-      const text = raw.split(/\r?\n\r?\n/).slice(1).join('\n\n');
+      const parts = raw.split(/\r?\n--[^\r\n]+/).map((x) => x.split(/\r?\n\r?\n/).slice(1).join('\n\n'));
+      const enc = /Content-Transfer-Encoding:\s*base64/i.test(raw);
+      const text = enc ? fromB64u((parts.find((x) => /^[A-Za-z0-9+/=\s]+$/.test(x.trim()) && x.trim()) || '').replace(/\s+/g, '').replace(/\+/g, '-').replace(/\//g, '_')) : raw.split(/\r?\n\r?\n/).slice(1).join('\n\n');
+      const toList = head('To').split(',').map((x) => x.trim()).filter(Boolean).map((x) => ({ name: x.replace(/<.*$/, '').replace(/"/g, '').trim(), email: (x.match(/<([^>]+)>/)?.[1] || x).trim().toLowerCase() }));
       s.seq++;
       const tid = body?.threadId && by.has(body.threadId) ? String(body.threadId) : 'smpS' + String(s.seq).padStart(3, '0');
-      const msg: MsgDef = { from: { name: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', email: owner }, to: [{ name: head('To'), email: head('To') }], hours: 0, html: '<p>' + text.replace(/<[^>]+>/g, '').slice(0, 2000).replace(/\n/g, '<br>') + '</p>', labels: ['SENT'] };
+      const msg: MsgDef = { from: { name: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', email: owner }, to: toList, hours: 0, html: '<p>' + text.replace(/<[^>]+>/g, '').slice(0, 2000).replace(/\n/g, '<br>') + '</p>', labels: ['SENT'] };
       const existing = s.extra.find((x) => x.id === tid);
       if (existing) existing.msgs.push(msg);
       else if (by.has(tid)) s.extra.push({ id: tid, subject: head('Subject'), msgs: [msg] });

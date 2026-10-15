@@ -73,7 +73,7 @@ const frameDoc = (html: string) => {
   return (
     '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: ${o}; style-src 'unsafe-inline' https:; font-src https: data:; media-src https: ${o}">` +
-    '<base target="_blank"><style>html,body{margin:0;padding:0;background:transparent}body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:#1d211b;overflow-wrap:anywhere;word-break:break-word}' +
+    '<base target="_blank"><style>html,body{margin:0;padding:0;background:transparent}body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:#1d211b;overflow-wrap:anywhere;word-break:break-word;display:flow-root}' +
     'img{max-width:100%;height:auto}pre{white-space:pre-wrap}a{color:#235578}blockquote{margin:6px 0 6px 2px;padding-left:12px;border-left:3px solid #e4e0d4;color:#464c42}' +
     'html.fos-fold .fos-q{display:none!important}table{max-width:100%}</style></head><body>' +
     html +
@@ -87,6 +87,9 @@ function MessageFrame({ html, title, fold, ent }: { html: string; title: string;
   const frame = useRef<HTMLIFrameElement>(null);
   const [hasQuote, setHasQuote] = useState(false);
   const [open, setOpen] = useState(false);
+  const [long, setLong] = useState(false);
+  const full = useRef(false);
+  const fitRef = useRef<() => void>(() => undefined);
   useEffect(() => {
     const f = frame.current;
     const b = box.current;
@@ -101,13 +104,33 @@ function MessageFrame({ html, title, fold, ent }: { html: string; title: string;
       }
       if (!d || !d.body) return;
       const doc = d;
+      // The frame never scrolls on its own, so its height always covers the message: measured again when the pane changes
+      // width, when images and fonts arrive and when quoted text opens. A very long message stops at 2,400 px with a button.
+      let lastW = -1;
+      let useScroll = false;
       const fit = () => {
-        doc.body.style.zoom = '';
-        const sw = doc.documentElement.scrollWidth;
         const w = b.clientWidth;
-        if (sw > w + 4 && w > 0) doc.body.style.zoom = String(Math.max(0.4, w / sw));
-        f.style.height = Math.ceil(doc.documentElement.scrollHeight) + 'px';
+        if (!w) return;
+        if (w !== lastW) {
+          lastW = w;
+          doc.body.style.zoom = '';
+          const sw = doc.documentElement.scrollWidth;
+          if (sw > w + 4) {
+            doc.body.style.zoom = String(Math.max(0.4, w / sw));
+            useScroll = true;
+          }
+        }
+        // The body's own box gives the height (so the frame also shrinks when quoted text folds). Content outside the body box,
+        // or a zoomed body, switches this frame to the document's scroll height for good, so the two measures never flip.
+        const cur = f.clientHeight;
+        const over = doc.documentElement.scrollHeight;
+        const rectH = Math.ceil(doc.body.getBoundingClientRect().height);
+        if (!useScroll && over > Math.max(cur, rectH) + 1) useScroll = true;
+        const h = useScroll ? over : rectH;
+        if (Math.abs(h - cur) > 1) f.style.height = h + 'px';
+        if (h > 3200 && !full.current) setLong(true);
       };
+      fitRef.current = fit;
       if (fold) {
         const q = doc.querySelector('.gmail_quote, blockquote[type="cite"], #appendonsend, .yahoo_quoted, #divRplyFwdMsg');
         if (q) {
@@ -160,12 +183,36 @@ function MessageFrame({ html, title, fold, ent }: { html: string; title: string;
         });
       }
       doc.querySelectorAll('img').forEach((im) => {
-        if (!im.complete) im.addEventListener('load', fit);
+        if (!im.complete) {
+          im.addEventListener('load', fit);
+          im.addEventListener('error', fit);
+        }
       });
+      if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(fit).catch(() => undefined);
+      window.setTimeout(fit, 400);
+      window.setTimeout(fit, 1500);
       if (window.ResizeObserver) {
-        ro = new ResizeObserver(() => (f.style.height = doc.documentElement.scrollHeight + 'px'));
+        ro = new ResizeObserver(() => requestAnimationFrame(fit));
         ro.observe(doc.body);
+        ro.observe(b);
       }
+      // A selection inside the message reaches the page (Ask Favor Brain about the selected words).
+      let selT = 0;
+      doc.addEventListener('selectionchange', () => {
+        clearTimeout(selT);
+        selT = window.setTimeout(() => {
+          const sel = doc.getSelection();
+          const text = sel && sel.rangeCount ? String(sel).trim() : '';
+          let rect: Record<string, number> | null = null;
+          if (sel && text) {
+            const fr = f.getBoundingClientRect();
+            const r = sel.getRangeAt(0).getBoundingClientRect();
+            const z = parseFloat(doc.body.style.zoom) || 1;
+            rect = { left: fr.left + r.left * z, top: fr.top + r.top * z, right: fr.left + r.right * z, bottom: fr.top + r.bottom * z, width: r.width * z, height: r.height * z };
+          }
+          window.dispatchEvent(new CustomEvent('favor-mail-selection', { detail: { text: text.slice(0, 4000), rect } }));
+        }, 120);
+      });
       // Keys pressed inside the message reach the page's shortcuts.
       doc.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || (!e.metaKey && !e.ctrlKey && /^[jkeuarf#/c]$/.test(e.key))) document.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, shiftKey: e.shiftKey }));
@@ -182,14 +229,25 @@ function MessageFrame({ html, title, fold, ent }: { html: string; title: string;
     if (!d) return;
     d.documentElement.classList.toggle('fos-fold');
     setOpen((v) => !v);
-    requestAnimationFrame(() => {
-      if (frame.current && d.documentElement) frame.current.style.height = d.documentElement.scrollHeight + 'px';
-    });
+    requestAnimationFrame(() => fitRef.current());
   };
   return (
     <>
-      <div className="ml-frame" ref={box}>
+      <div className={'ml-frame' + (long ? ' is-long' : '')} ref={box}>
         <iframe ref={frame} className="ml-iframe" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" title={title} scrolling="no" srcDoc={frameDoc(html || '<p style="color:#666b60">(no text)</p>')} />
+        {long && (
+          <button
+            type="button"
+            className="ml-longbtn"
+            onClick={() => {
+              full.current = true;
+              setLong(false);
+              requestAnimationFrame(() => fitRef.current());
+            }}
+          >
+            Show the whole message
+          </button>
+        )}
       </div>
       {hasQuote && (
         <button type="button" className="ml-fold" onClick={unfold} aria-label={open ? 'Hide quoted text' : 'Show quoted text'} title="Show quoted text">
@@ -229,6 +287,65 @@ export function replyAllList(m: any, me: string): any[] {
   return out;
 }
 
+/** The same actions on every open message, aligned on the right of its header: star, reply, and more (reply all, forward, a new window). */
+function MsgTools({ m, c }: { m: any; c: ReaderProps }) {
+  const [menu, setMenu] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  const starred = toolsOf(c.thread).starred;
+  useEffect(() => {
+    if (!menu) return;
+    const off = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !box.current?.contains(e.target as Node)) setMenu(false);
+    };
+    document.addEventListener('pointerdown', off);
+    document.addEventListener('keydown', off);
+    return () => {
+      document.removeEventListener('pointerdown', off);
+      document.removeEventListener('keydown', off);
+    };
+  }, [menu]);
+  const many = replyAllList(m, c.me).length > 1;
+  const pick = (k: 'reply' | 'replyall' | 'forward', pop?: boolean) => {
+    setMenu(false);
+    c.onReply(k, m, pop);
+  };
+  return (
+    <span className="ml-msg__tools" ref={box}>
+      <button type="button" className={'ml-iconbtn ml-star' + (starred ? ' is-on' : '')} onClick={(e) => c.onAct('star', e.currentTarget)} aria-pressed={starred} aria-label={starred ? 'Remove star' : 'Star'} title="Star (s)">
+        <MI n="star" />
+      </button>
+      <button type="button" className="ml-iconbtn" onClick={(e) => c.onReply('reply', m, e.shiftKey)} aria-label="Reply" title="Reply (r)">
+        <MI n="reply" />
+      </button>
+      <button type="button" className="ml-iconbtn" data-act="msg-more" onClick={() => setMenu((v) => !v)} aria-label="More for this message" title="Reply all, forward" aria-haspopup="menu" aria-expanded={menu}>
+        <MI n="more" />
+      </button>
+      {menu && (
+        <span className="ml-msgmenu" role="menu">
+          <button type="button" role="menuitem" onClick={() => pick('reply')}>
+            <MI n="reply" />
+            Reply
+          </button>
+          {many && (
+            <button type="button" role="menuitem" onClick={() => pick('replyall')}>
+              <MI n="replyall" />
+              Reply all
+            </button>
+          )}
+          <button type="button" role="menuitem" onClick={() => pick('forward')}>
+            <MI n="fwd" />
+            Forward
+          </button>
+          <button type="button" role="menuitem" onClick={() => pick('reply', true)}>
+            <MI n="ext" />
+            Reply in a new window
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }) {
   const lastReal = all.filter((x) => !x.draft).slice(-1)[0];
   const dflt = !!m.unread || m === lastReal || !!m.draft || all.length === 1;
@@ -238,7 +355,8 @@ function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }
   const api = getApi();
   return (
     <article className={'ml-msg' + (open ? ' is-open' : '') + (m.draft ? ' is-draft' : '')} data-mid={m.id}>
-      <button type="button" className="ml-msg__head" aria-expanded={open} onClick={() => c.onToggle(m.id, !open)}>
+      <div className="ml-msg__head">
+      <button type="button" className="ml-msg__tog" aria-expanded={open} onClick={() => c.onToggle(m.id, !open)}>
         <span className="ml-av" data-h={hue((m.from || {}).email || '')}>
           {initials(m.from && m.from.email === c.me ? c.name : who(m.from))}
         </span>
@@ -253,6 +371,8 @@ function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }
           {when(m.date)}
         </time>
       </button>
+      {open && !m.draft && <MsgTools m={m} c={c} />}
+      </div>
       {open && (
         <div className="ml-msg__body">
           {p && (
@@ -294,29 +414,18 @@ function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }
               })}
             </div>
           )}
-          <div className="ml-msg__acts">
-            {m.draft ? (
-              <>
-                <button type="button" className="ml-btn ml-btn--primary" onClick={() => c.onEditDraft(m.id)}>
-                  <MI n="pen" />
-                  Edit draft
-                </button>
-                <button type="button" className="ml-btn" onClick={() => c.onDropDraft(m.id)}>
-                  <MI n="trash" />
-                  Discard
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" className="ml-iconbtn" onClick={() => c.onReply('reply', m)} aria-label="Reply" title="Reply">
-                  <MI n="reply" />
-                </button>
-                <button type="button" className="ml-iconbtn" onClick={() => c.onReply('forward', m)} aria-label="Forward" title="Forward">
-                  <MI n="fwd" />
-                </button>
-              </>
-            )}
-          </div>
+          {m.draft && (
+            <div className="ml-msg__acts">
+              <button type="button" className="ml-btn ml-btn--primary" onClick={() => c.onEditDraft(m.id)}>
+                <MI n="pen" />
+                Edit draft
+              </button>
+              <button type="button" className="ml-btn" onClick={() => c.onDropDraft(m.id)}>
+                <MI n="trash" />
+                Discard
+              </button>
+            </div>
+          )}
         </div>
       )}
     </article>
@@ -337,8 +446,10 @@ export interface ReaderProps {
   snoozedNote?: string;
   onToggle: (mid: string, open: boolean) => void;
   onAct: (kind: string, anchor?: HTMLElement) => void;
-  onReply: (kind: 'reply' | 'replyall' | 'forward', m?: any) => void;
+  onReply: (kind: 'reply' | 'replyall' | 'forward', m?: any, pop?: boolean) => void;
   onEditDraft: (mid: string) => void;
+  /** Gmail draft ids by message id, so a draft being written in the composer is not shown twice. */
+  drafts?: Record<string, string>;
   onDropDraft: (mid: string) => void;
   extra?: React.ReactNode;
   suggested?: React.ReactNode;
@@ -363,6 +474,20 @@ export function Reader(c: ReaderProps) {
   })();
   const last = msgs.filter((m) => !m.draft).slice(-1)[0];
   const act = (k: string) => (e: React.MouseEvent) => c.onAct(k, e.currentTarget as HTMLElement);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const extRef = useRef<HTMLSpanElement>(null);
+  // Once per drawn conversation: the composer learns where its inline reply goes, and other parts of FavorOS get the toolbar slot.
+  const ready = !c.loading && !!last;
+  useEffect(() => {
+    if (!ready || !t.id) return;
+    if (hostRef.current && window.FavorCompose) window.FavorCompose.host(t.id, hostRef.current);
+    const people: Record<string, string> = {};
+    msgs.forEach((m) => [m.from, ...(m.to || []), ...(m.cc || [])].forEach((a: any) => a && a.email && (people[a.email] = a.name || people[a.email] || '')));
+    window.dispatchEvent(new CustomEvent('favor-mail:thread', { detail: { threadId: t.id, subject: t.subject || '', mb: c.box || '', participants: Object.keys(people).map((e) => ({ email: e, name: people[e] })), el: extRef.current } }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t.id, ready]);
+  const editing: Record<string, 1> = {};
+  (window.FavorCompose ? window.FavorCompose.list() : []).forEach((x) => x.draftId && (editing[x.draftId] = 1));
   return (
     <div className="ml-thread" data-thread={t.id}>
       <div className="ml-thread__bar">
@@ -396,6 +521,12 @@ export function Reader(c: ReaderProps) {
           <button type="button" className="ml-iconbtn ml-dt" onClick={act('labels')} aria-label="Labels" title="Labels">
             <MI n="tag" />
           </button>
+          {window.FavorHandoff && (
+            <button type="button" className="ml-iconbtn ml-dt" onClick={() => window.FavorHandoff?.open({ kind: 'mail', id: t.id, title: t.subject || '' })} aria-label="Hand off" title="Hand this to someone">
+              <MI n="person" />
+            </button>
+          )}
+          <span className="ml-ext" data-mail-ext ref={extRef} />
           <button type="button" className="ml-iconbtn" onClick={act('thread-more')} aria-label="More" title="More" aria-haspopup="dialog">
             <MI n="more" />
           </button>
@@ -432,13 +563,10 @@ export function Reader(c: ReaderProps) {
                 {partner.name || 'Partner'}
               </a>
             )}
-            <button type="button" className={'ml-star ml-star--h' + (st.starred ? ' is-on' : '')} onClick={act('star')} aria-pressed={st.starred} aria-label={st.starred ? 'Remove star' : 'Star'}>
-              <MI n="star" />
-            </button>
           </div>
         </div>
         {c.extra}
-        <div className="ml-thread__msgs">
+        <div className="ml-thread__msgs" data-brain-context="mail">
           {c.loading ? (
             <div className="ml-msg ml-msg--skel">
               <span className="ml-av" />
@@ -449,10 +577,11 @@ export function Reader(c: ReaderProps) {
               </span>
             </div>
           ) : (
-            msgs.map((m, i) => <Msg key={m.id} m={m} i={i} all={msgs} c={c} />)
+            msgs.map((m, i) => (m.draft && c.drafts && editing[c.drafts[m.id]] ? null : <Msg key={m.id} m={m} i={i} all={msgs} c={c} />))
           )}
         </div>
         {!c.loading && last && c.suggested}
+        {!c.loading && last && <div className="ml-inline" data-inline-host key={'h' + t.id} ref={hostRef} />}
         {!c.loading && last && (
           <div className="ml-thread__foot">
             <button type="button" className="ml-btn" onClick={() => c.onReply('reply')}>

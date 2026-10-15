@@ -40,6 +40,7 @@
   let toastEl = null;
   let toastT = 0;
   function toast(msg, ms = 3600) {
+    if (window.hubToast) { window.hubToast(msg, { ms: Math.max(4000, ms) }); return; }
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'rt-toast ix-toast';

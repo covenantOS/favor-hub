@@ -260,6 +260,7 @@
     }
     // The notice sits on the page itself, so it shows over the large viewer too. link: { href, label }.
     function toast(t, link) {
+      if (window.hubToast) { window.hubToast(t, { link: link && link.href ? { href: link.href, label: link.label, external: true } : null }); return; }
       var el = $('.ch-toast');
       if (!el) { el = document.createElement('div'); el.className = 'ch-toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
       el.innerHTML = esc(t) + (link && link.href ? ' <a href="' + esc(link.href) + '" target="_blank" rel="noopener">' + esc(link.label || 'Open') + '</a>' : '');

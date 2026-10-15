@@ -212,6 +212,7 @@
       (window.FavorCompose && window.FavorCompose.add ? '<button type="button" class="fx-btn" data-brain-email><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Send to email</button>' : '') + '</div>';
   }
   function note(text) {
+    if (window.hubToast) { window.hubToast(text); return; }
     var t = document.querySelector('.fx-toast');
     if (!t) { t = document.createElement('div'); t.className = 'rt-toast fx-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
     t.textContent = text; t.classList.add('is-on');

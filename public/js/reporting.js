@@ -16,6 +16,7 @@
 
   let toastTimer = 0;
   function toast(msg) {
+    if (window.hubToast) { window.hubToast(msg); return; }
     const t = $('rg-toast');
     t.textContent = msg;
     t.classList.add('is-on');

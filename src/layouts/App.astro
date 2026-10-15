@@ -43,6 +43,7 @@ import '../styles/release.css';
 import '../styles/integrations.css';
 import '../styles/integrations-today.css';
 import '../styles/nav-areas.css';
+import '../styles/upgrades.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
 import liteJs from '../../public/js/lite.js?raw';
@@ -133,7 +134,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     </script>
     <script is:inline src="/js/favor-data.js?v=1"></script>
     <script is:inline src="/js/favor-ui.js?v=1" defer></script>
-    <script is:inline src="/js/favor-entity.js?v=1" defer></script>
+    <script is:inline src="/js/favor-entity.js?v=2" defer></script>
     <script is:inline src="/js/sheets.js?v=2"></script>
     {!lean && <script is:inline>
       // The partner tools (partner card, drill-down, thank-you, call prep, records). In Lite mode a person without partner access
@@ -160,6 +161,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     </script>
     <title>{title} - FavorOS</title>
     <meta name="description" content={description} />
+    <link rel="stylesheet" href="/js/compose/compose.css?v=2" data-fc-css />
   </head>
   <body class="h-body" data-nav={nav} data-area={curArea || undefined}>
     <script is:inline>if (window.FavorLite) window.FavorLite.fontsLast();</script>
@@ -292,7 +294,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           sums.railmore = railMore;
           var tabs = document.getElementById('h-tabs');
           // One tab left is still shown when it is not the open page: a person on a page outside their access sees the page they may open.
-          if (tabs) { var vt = q('a.h-tab[data-nav-id]:not([hidden])', tabs); tabs.hidden = !vt.length || (vt.length === 1 && vt[0].classList.contains('is-on')); }
+          if (tabs) { var vt = q('a.h-tab[data-nav-id]:not([hidden])', tabs); tabs.hidden = !document.documentElement.classList.contains('nav-pending') && (!vt.length || (vt.length === 1 && vt[0].classList.contains('is-on'))); }
           if (window.hubTabsLayout) window.hubTabsLayout();
           // The phone bar: Today and this person's next three areas, in rail order. More holds every other area.
           var bar = q('#h-bar [data-bar]');
@@ -377,6 +379,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         };
         window.hubApplyNav = function (d) {
           var $ = function (id) { return document.getElementById(id); };
+          document.documentElement.classList.remove('nav-pending');
           var u = d.user || {};
           if (u.via === 'google' && $('h-foot')) {
             var name = u.name || u.email || '';
@@ -418,6 +421,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           document.documentElement.classList.toggle('has-wc', !!access.workCenter);
           document.documentElement.classList.toggle('has-clips', !!access.clips);
           document.documentElement.classList.toggle('has-chat', !!access.chat);
+          document.documentElement.classList.toggle('has-mail', !!access.mail);
           document.documentElement.classList.toggle('has-tasks', !!access.tasks);
           document.documentElement.classList.toggle('has-projects', !!access.projects); // projects hook
           document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);
@@ -441,6 +445,12 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         try {
           var saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null');
           if (saved) window.hubApplyNav(saved);
+          else {
+            // A first visit on this browser has no saved menu: the areas wait unseen for the first answer and then show in their places
+            // once, so the icons never slide down as Meetings, Chat, Mail and Admin are added. Shown anyway after 4 seconds.
+            document.documentElement.classList.add('nav-pending');
+            setTimeout(function () { if (!document.documentElement.classList.contains('nav-pending')) return; document.documentElement.classList.remove('nav-pending'); if (window.hubNavLayout) window.hubNavLayout(); }, 4000);
+          }
           if (localStorage.getItem('favor.hub.gate.v1') === '1') document.documentElement.classList.add('has-gate');
           // Today's tour card shows while a tour or a walkthrough is waiting. A browser that has never been asked has the core tour waiting.
           var tp = localStorage.getItem('favor.hub.tours.pending');
@@ -473,7 +483,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         </header>
         <script is:inline>
           // The top bar comes after the menu script above, so the saved sections (reminders bell, clips buttons) are applied to it here, before its first paint.
-          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); if (hb) hb.hidden = false; } } catch (e) {}
+          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); else if (document.documentElement.classList.contains('nav-pending')) { var tp0 = document.getElementById('h-tabs'); if (tp0) tp0.hidden = false; } if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); if (hb) hb.hidden = false; } } catch (e) {}
         </script>
         <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
@@ -483,10 +493,10 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=13" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=14" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=11" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=26" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=27" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
     <script is:inline src="/js/request-tasks.js?v=2" defer></script>
@@ -497,8 +507,13 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/ring.js?v=1" defer></script>
     <script is:inline src="/js/handoff.js?v=1" defer></script>
     <script is:inline src="/js/ask-brain.js?v=1" defer></script>
+    <script is:inline src="/js/compose/compose.js?v=2"></script>
     <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
+    <script is:inline src="/js/hub-toast.js?v=1" defer></script>
+    <script is:inline src="/js/hub-flow.js?v=1" defer></script>
+    <script is:inline src="/js/hub-tip.js?v=1" defer></script>
+    <script is:inline src="/js/hub-sheet.js?v=1" defer></script>
     <script>
       import '../scripts/hub';
     </script>

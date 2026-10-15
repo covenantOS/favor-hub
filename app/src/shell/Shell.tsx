@@ -67,6 +67,7 @@ export function Shell({ children }: { children: ReactNode }) {
     r.toggle('has-wc', !!access.workCenter);
     r.toggle('has-clips', !!access.clips);
     r.toggle('has-chat', !!access.chat);
+    r.toggle('has-mail', !!access.mail);
     r.toggle('has-tasks', !!access.tasks);
     r.toggle('has-projects', !!access.projects);
     r.toggle('has-clip-rec', !!access.clips && access.clipsRecord !== false);

@@ -63,6 +63,7 @@
     return new Date(t).toLocaleDateString('en-US', { timeZone: ET, month: 'short', day: 'numeric' });
   }
   function toast(text, undo) {
+    if (window.hubToast) { window.hubToast(text, { action: undo ? { label: 'Undo', fn: undo } : null }); return; }
     var t = document.querySelector('.fx-toast');
     if (!t) { t = document.createElement('div'); t.className = 'rt-toast fx-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
     t.innerHTML = esc(text) + (undo ? ' <button type="button" class="fx-btn" style="margin-left:10px;min-height:28px;background:transparent;color:#fff;border-color:rgba(255,255,255,.4)" data-fx-undo>Undo</button>' : '');
@@ -101,7 +102,7 @@
     var s = this.slot, name = this.name;
     var ready = this.fast !== null;
     var all = ready ? this.items() : [];
-    var head = '<div class="fx-head"><h2>' + (name === 'inbox' ? 'Inbox' : 'Waiting on') + (ready && all.length ? ' <span class="fx-n">' + all.length + '</span>' : '') + '</h2>';
+    var head = '<div class="fx-head"><h2>' + (name === 'inbox' ? 'Inbox' : 'Waiting on') + (ready && all.length ? ' <span class="fx-n" data-flow="today-' + name + '">' + all.length + '</span>' : '') + '</h2>';
     if (name === 'inbox' && ready && all.length > 3) {
       var have = {}; all.forEach(function (i) { have[tabOf(i)] = 1; });
       var tabs = TABS.inbox.filter(function (t) { return t[0] === 'all' || have[t[0]]; });

@@ -9,6 +9,8 @@
 //   GET    messages/:mid/attachments/:aid one file (?name=&mime=, ?dl=1 to download)
 //   POST   threads/:id/modify             {add:[label], remove:[label]}: archive, read, unread, star, labels
 //   POST   threads/:id/trash | untrash
+//   POST   threads/:id/to-chat {note?}    a staff-only conversation continues in Chat (staff and Chat access re-checked here); /to-chat/note sends the note into
+//                                         the thread, /to-chat/dismiss hides the suggestion. GET threads/:id carries teamChat {ok,people,state,link}
 //   POST   threads/:id/snooze {until}     DELETE threads/:id/snooze puts it back now
 //   POST   labels {name}                  a new label
 //   POST   send                           {to,cc,bcc,subject,html,threadId?,replyTo?,files?,forward?,draftId?}
@@ -36,10 +38,11 @@ import { assign, assigned, defaultChat, defaultRequest, finishAssigned, mention,
 import { applyLabels, bootstrap, catchUp, inboxFromCache, stateOf, FRESH_MS } from './sync';
 import { idsFor, pruneRows, rowsFor, useRowStore } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
-import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
+import { amountsIn, askThread, ASK_FEATURE, ASK_PAUSED, closeBriefing, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
 import { freshText } from './smart';
 import { assist, cardOf, classify, customsOf, decorate, forgetScan, isCat, isCustom, overview, saveSummary, savedSummary, smartView, tidy, TEXT_MODEL, waitingOn, type SmartCtx } from './smart';
-import { aiFor } from '../ai/guard';
+import { aiFor, isAiPaused } from '../ai/guard';
+import { NO_TEAM, chatLink, chatWords, dismiss, historyText, rememberMove, teamChat } from './tochat';
 
 export type MailMode = AccessMode;
 
@@ -257,10 +260,10 @@ async function route(ctx: MailCtx): Promise<Response> {
   const needWrite = () => (!writeOn ? errorJson('mail_readonly', 'Changing and sending mail from FavorOS is switched off. Open the message in Gmail.', 403) : level.write ? null : scopeError('write'));
 
   const smartCtx: SmartCtx = { env, me, name: user.name || me, ai: ctx.ai || (env.AI as any), partners: ctx.partners, giving: ctx.giving };
-  const runModel = async (system: string, userText: string, max: number): Promise<string> => {
+  const runModel = async (system: string, userText: string, max: number, feature = 'mail-draft'): Promise<string> => {
     const ai = smartCtx.ai;
     if (!ai) return '';
-    const out: any = await aiFor(ai, 'mail-draft').run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
+    const out: any = await aiFor(ai, feature).run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
     return String(out?.response ?? out?.result?.response ?? '').trim();
   };
   const mq = async (sql: string, params: unknown[] = []): Promise<any[]> => {
@@ -353,7 +356,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (r) return r;
     const e = lower(url.searchParams.get('email'));
     if (!/^[^@\s]+@[^@\s]+$/.test(e)) throw new HttpError(400, 'bad_email', 'That is not an email address.');
-    return json({ ok: true, profile: await senderProfile(smartCtx, gm, e, String(url.searchParams.get('name') || '').slice(0, 120)) });
+    return json({ ok: true, profile: await senderProfile(smartCtx, gm, e, String(url.searchParams.get('name') || '').slice(0, 120), { admin: user.role === 'admin' }) });
   }
 
   if (a === 'smart' && b === 'briefing' && method === 'GET') {
@@ -361,6 +364,12 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (r) return r;
     const w = await waitingOn(smartCtx, gm, 3).catch(() => []);
     return json({ ok: true, briefing: await briefing(smartCtx, gm, runModel, w.length, url.searchParams.get('fresh') === '1') });
+  }
+
+  if (a === 'smart' && b === 'briefing' && c === 'close' && method === 'POST') {
+    const body = await readBody(request);
+    await closeBriefing(env, me, String(body.key || '')).catch(() => undefined);
+    return json({ ok: true });
   }
 
   if (a === 'smart' && b === 'categories') {
@@ -685,6 +694,76 @@ async function route(ctx: MailCtx): Promise<Response> {
     }
   }
 
+  // Move to Chat: only a conversation among active FavorOS staff who may all use Chat. Checked here every time, never from the page.
+  if (a === 'threads' && b && c === 'to-chat' && method === 'POST') {
+    const r = needRead();
+    if (r) return r;
+    const id = tid(b);
+    if (d === 'dismiss') {
+      await dismiss(env, owner, id);
+      return json({ ok: true });
+    }
+    const body = await readBody(request);
+    const note = d === 'note' || body.note === true;
+    if (note) {
+      const w = needWrite();
+      if (w) return w;
+    }
+    const t = await gm.get('/threads/' + id, { format: 'full' });
+    const shaped = (t.messages || []).map((m: any) => shapeMessage(m));
+    const real = shaped.filter((m: any) => !m.draft);
+    const tc = await teamChat(env, shaped, owner, id, url.origin).catch((e) => {
+      console.error('[mail] to-chat check', String((e as any)?.message || e).slice(0, 200));
+      return NO_TEAM;
+    });
+    if (!tc.ok) return errorJson('not_team', 'This conversation includes someone who is not on FavorOS Chat, so it stays in email.', 403);
+    const subject = real[0]?.subject || shaped[0]?.subject || '';
+    // The note goes out the way any reply does, from the person's own mailbox (the sample mailbox for the test users).
+    const sendNote = async (link: string) => {
+      const last = real[real.length - 1];
+      const to = tc.people.filter((p) => p.email !== owner && p.email !== me).map((p) => ({ name: p.name, email: p.email }));
+      const html = `<p>I moved this conversation to FavorOS Chat: <a href="${link}">${link}</a></p>`;
+      const mail = await outMail(gm, from(await fromOf(gm, me, user, {})), { to, subject: /^re:/i.test(subject) ? subject : 'Re: ' + subject, html, replyTo: last?.id }, true);
+      await gm.send('POST', '/messages/send', { raw: rawOf(mail), threadId: id });
+    };
+    if (d === 'note') {
+      if (tc.state !== 'moved') return errorJson('not_moved', 'Move the conversation to Chat first.', 409);
+      await sendNote(tc.link);
+      return json({ ok: true, noted: true });
+    }
+    if (tc.state === 'moved') return json({ ok: true, already: true, channel: tc.channel, link: tc.link });
+    const nameOf = (e: string, fallback: string) => tc.people.find((p) => p.email === e)?.name || fallback || e.split('@')[0];
+    const text = historyText(subject, real.map((m: any) => ({ name: nameOf(lower(m.from.email), m.from.name), date: m.date, text: chatWords(m) })));
+    const store = await import('../chat/db');
+    const more = await import('../chat/more');
+    const live = await import('../chat/live');
+    const others = tc.people.map((p) => p.email).filter((e) => e !== owner);
+    const ch = await store.openConversation(env as never, owner, others);
+    const posted = await store.post(env as never, { channel_id: ch.id, email: owner, body: text });
+    const pinned = await more.setPin(env as never, owner, posted.message.id, true).catch(() => null);
+    const link = chatLink(url.origin, ch.id);
+    const tell = async () => {
+      const [msg] = await store.shape(env as never, [posted.message]);
+      await live.publish(env as never, ch.members.filter((m) => m !== owner), { type: 'channel', channel: { ...ch, unread: 0, mentions: 0, last_read: 0 } });
+      await live.publish(env as never, posted.members, { type: 'message', message: msg });
+      if (pinned) await live.publish(env as never, posted.members, { type: 'pin', id: posted.message.id, channel_id: ch.id, on: true, pins: pinned.pins, by: owner });
+    };
+    if (ctx.waitUntil) ctx.waitUntil(tell().catch(() => undefined));
+    else await tell().catch(() => undefined);
+    await rememberMove(env, owner, id, 'moved', ch.id, posted.message.id);
+    let noted = false;
+    let noteError = '';
+    if (note) {
+      try {
+        await sendNote(link);
+        noted = true;
+      } catch (e) {
+        noteError = e instanceof HttpError ? e.message : 'The note did not send.';
+      }
+    }
+    return json({ ok: true, channel: ch.id, link, pinned: !!pinned, noted, ...(noteError ? { noteError } : {}) });
+  }
+
   if (a === 'threads' && b && c === 'ask' && method === 'POST') {
     const r = needRead();
     if (r) return r;
@@ -692,8 +771,14 @@ async function route(ctx: MailCtx): Promise<Response> {
     const q = String((await readBody(request)).q || '');
     const t = await gm.get('/threads/' + id, { format: 'full' });
     const text = (t.messages || []).map((m: any) => shapeMessage(m)).filter((m: any) => !m.draft).slice(-8).map((m: any) => `From ${m.from.name || m.from.email}, ${m.date.slice(0, 10)}:\n${freshText(m).slice(0, 1800)}`).join('\n\n---\n\n');
-    const answer = await askThread(runModel, text, q).catch(() => '');
-    return json({ ok: true, answer: answer || 'The model did not answer. Try again.' });
+    // Ask counts against the same daily spending ceiling as Favor Brain (feature mail-ask in ai/guard.ts). Past it, the guard refuses the call.
+    try {
+      const answer = await askThread((system, userText, max) => runModel(system, userText, max, ASK_FEATURE), text, q);
+      return json({ ok: true, answer: answer || 'The model did not answer. Try again.' });
+    } catch (err) {
+      if (isAiPaused(err)) return json({ ok: true, answer: ASK_PAUSED, paused: true });
+      return json({ ok: true, answer: 'The model did not answer. Try again.' });
+    }
   }
 
   if (a === 'threads' && b && c === 'assist' && method === 'GET') {
@@ -1003,11 +1088,30 @@ async function buildThread(ctx: MailCtx, gm: Gmail, me: string, id: string, t: a
   });
   let drafts: Record<string, string> = {};
   if (msgs.some((m: any) => m.draft)) {
-    const dl = await gm.get('/drafts', { maxResults: '100' }).catch(() => ({ drafts: [] }));
-    drafts = Object.fromEntries((dl.drafts || []).filter((x: any) => x.message?.threadId === id).map((x: any) => [x.message.id, x.id]));
+    // Every draft in this conversation needs its draft id, or Edit and Discard cannot reach it. Gmail lists drafts 100 at a
+    // time, newest first; a person with many drafts had older ones missing from the first page (Discard did nothing).
+    const want = new Set(msgs.filter((m: any) => m.draft).map((m: any) => m.id));
+    let pageToken = '';
+    for (let page = 0; page < 10 && want.size; page++) {
+      const dl: any = await gm.get('/drafts', pageToken ? { maxResults: '500', pageToken } : { maxResults: '500' }).catch(() => ({ drafts: [] }));
+      for (const x of dl.drafts || []) {
+        if (x.message?.threadId === id) {
+          drafts[x.message.id] = x.id;
+          want.delete(x.message.id);
+        }
+      }
+      pageToken = dl.nextPageToken || '';
+      if (!pageToken) break;
+    }
   }
   const sz = await ctx.env.DB.prepare('SELECT until FROM hub_mail_snooze WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(me, id).first<{ until: string }>().catch(() => null);
-  return { thread: { id, subject: msgs[0]?.subject || '', messages: msgs, snoozed: sz?.until || '', hid: String(t.historyId || '') }, partners: await partnersFor(ctx, msgs, me), drafts };
+  const tc = ctx.user
+    ? await teamChat(ctx.env, msgs, ctx.user.email, id, new URL(ctx.request.url).origin).catch((e) => {
+        console.error('[mail] team chat check', String((e as any)?.message || e).slice(0, 200));
+        return NO_TEAM;
+      })
+    : NO_TEAM;
+  return { thread: { id, subject: msgs[0]?.subject || '', messages: msgs, snoozed: sz?.until || '', hid: String(t.historyId || '') }, partners: await partnersFor(ctx, msgs, me), drafts, teamChat: tc };
 }
 
 async function partnersFor(ctx: MailCtx, msgs: Array<{ from: Addr; to: Addr[]; cc: Addr[] }>, me: string) {

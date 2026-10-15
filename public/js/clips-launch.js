@@ -39,6 +39,7 @@
     return matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 1023px)').matches);
   }
   function toast(msg) {
+    if (window.hubToast) { window.hubToast(msg); return; }
     var t = document.createElement('div');
     t.className = 'h-toast';
     t.setAttribute('role', 'status');

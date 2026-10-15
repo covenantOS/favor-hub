@@ -126,6 +126,7 @@ const real = {
   smartSearch: (q: string, mb?: string) => req('POST', pathMb('smart/search', mb), { q }),
   overview: (mb?: string) => req('GET', pathMb('smart/overview', mb)),
   briefing: (fresh: boolean, mb?: string) => req('GET', pathMb('smart/briefing' + (fresh ? '?fresh=1' : ''), mb)),
+  briefClose: (key: string, mb?: string) => req('POST', pathMb('smart/briefing/close', mb), { key: key || '' }),
   assist: (id: string) => req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))),
   partner: (id: string) => req('GET', 'partner/' + encodeURIComponent(id)),
   bulk: (b: any, mb?: string) => {
@@ -193,6 +194,9 @@ const real = {
   owners: () => req('GET', 'log-owners'),
   task: (b: any) => req('POST', '/api/tasks', b),
   chatBoot: () => req('GET', '/api/chat/boot'),
+  moveToChat: (id: string, note: boolean) => (drop(id), req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat', boxOf(id)), { note })),
+  chatNote: (id: string) => req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat/note', boxOf(id)), {}),
+  chatDismiss: (id: string) => (drop(id), req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat/dismiss', boxOf(id)), {})),
   chatSend: (ch: string, body: string) => req('POST', '/api/chat/channels/' + encodeURIComponent(ch) + '/messages', { body }),
   logAction: (b: any) => req('POST', '/api/work/entry/many', b),
   fileUrl: (mid: string, f: any, dl?: boolean, mb?: string) =>
@@ -204,6 +208,16 @@ let api: MailApi = real;
 
 declare global {
   interface Window {
+    /** The shared email composer (public/js/compose/compose.js). */
+    FavorCompose?: {
+      open: (o: Record<string, unknown>) => Promise<string | null>;
+      add: (item: Record<string, unknown>) => Promise<string | null>;
+      host: (threadId: string, el: HTMLElement) => void;
+      list: () => Array<{ id: string; mode: string; threadId: string; kind: string; draftId: string }>;
+      focus: (id: string) => void;
+      close: (id: string) => void;
+    };
+    FavorHandoff?: { open: (o: { kind: string; id: string; title: string }) => void };
     FavorMailMock?: (r: unknown) => MailApi;
     __mailMock?: boolean;
   }

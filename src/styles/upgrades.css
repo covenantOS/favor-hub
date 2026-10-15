@@ -1,0 +1,206 @@
+/* ====================================================================
+   App feel upgrades (2026-10-14). Will, after seeing shadcn's Trace: "What other upgrades like this exist that people are
+   putting out there that would massively improve our experience and overall look and feel?"
+   What is here, each with the script that drives it:
+   1. springs: two spring curves as CSS linear() easings, for things that land (sheets, toasts, menus);
+   2. menus and popovers open from the control that opened them and fade out on close (@starting-style, no script);
+   3. toasts stack and can be flicked away (public/js/hub-toast.js);
+   4. changing numbers roll to their new value (public/js/hub-flow.js);
+   5. tooltips that show fast and then at once along a row (public/js/hub-tip.js);
+   6. phone sheets follow the finger (public/js/hub-sheet.js);
+   7. the search palette: marked letters, a loading line, a quicker close (src/components/CommandPalette.astro);
+   8. small type and press details.
+   Transform and opacity only. Nothing here moves when the computer asks for less motion.
+   ==================================================================== */
+
+/* ------------------------------------------------------------ 1. springs */
+/* A spring that settles without a visible bounce (1% past the mark), and a stiffer one that does not pass it at all. Sampled from
+   a damped spring (ratio 0.82, 22 rad/s over 420 ms; 0.9, 30 rad/s over 300 ms). Browsers without linear() keep --m-out. */
+:root {
+  --m-spring: var(--m-out, cubic-bezier(0.22, 1, 0.36, 1));
+  --m-snap: var(--m-out, cubic-bezier(0.22, 1, 0.36, 1));
+  --m-spring-ms: 420ms;
+  --m-snap-ms: 300ms;
+  /* Vaul's and the iPhone's sheet curve, for anything that slides in from an edge. */
+  --m-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --m-spring: linear(0, 0.06, 0.194, 0.353, 0.507, 0.643, 0.754, 0.84, 0.903, 0.947, 0.976, 0.994, 1.004, 1.009, 1.011, 1.011, 1.009, 1.008, 1.006, 1.004, 1.003, 1.002, 1.001, 1.001, 1);
+    --m-snap: linear(0, 0.056, 0.18, 0.326, 0.469, 0.595, 0.7, 0.784, 0.849, 0.897, 0.932, 0.956, 0.973, 0.985, 0.992, 0.997, 0.999 67%, 1);
+  }
+}
+
+/* ------------------------------------------------------------ 2. menus and popovers */
+/* They grow from their control (98% to full size, 4 px of travel) in 160 ms and leave in 100 ms. The individual scale and translate
+   properties are used, so a menu placed with transform keeps its place. A menu that is drawn when it opens animates the same way. */
+@media (prefers-reduced-motion: no-preference) and (min-width: 861px) {
+  body.h-body :is(.h-tabmenu, .ce-menu, .snz-menu, .fe-menu, .ls-pop, .ep-menu, .hq-menu, .ch-pop, .pp-pop, .pj-pop, .wg-pop, .wm-pop:not(.wm-pop--bn), .ep-pop) {
+    transform-origin: top center;
+    transition: opacity 160ms var(--m-out), scale 160ms var(--m-snap), translate 160ms var(--m-snap), display 160ms allow-discrete, overlay 160ms allow-discrete;
+  }
+  body.h-body :is(.h-tabmenu, .ce-menu)[hidden] {
+    opacity: 0; scale: 0.98; translate: 0 -2px;
+    transition-duration: 100ms; transition-timing-function: var(--m-in);
+  }
+  body.h-body .ce-menu { transform-origin: top right; }
+}
+@media (prefers-reduced-motion: no-preference) and (min-width: 861px) {
+  @starting-style {
+    body.h-body :is(.h-tabmenu, .ce-menu, .snz-menu, .fe-menu, .ls-pop, .ep-menu, .hq-menu, .ch-pop, .pp-pop, .pj-pop, .wg-pop, .wm-pop:not(.wm-pop--bn), .ep-pop) { opacity: 0; scale: 0.98; translate: 0 -4px; }
+  }
+}
+/* The account menu opens upward from the bottom of the rail; it now also fades out. */
+@media (prefers-reduced-motion: no-preference) {
+  body.h-body .h-acctmenu { transition: opacity 100ms var(--m-in), scale 100ms var(--m-in), display 100ms allow-discrete; }
+  body.h-body .h-acctmenu[hidden] { opacity: 0; scale: 0.98; }
+}
+/* Dialogs scale in from 97% with their backdrop fading, and fade out the same way. Pages that animate their own dialog keep theirs. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(dialog) { transition: opacity 180ms var(--m-out), scale 220ms var(--m-snap), display 180ms allow-discrete, overlay 180ms allow-discrete; }
+  :where(dialog:not([open])) { opacity: 0; scale: 0.98; transition-duration: 120ms; transition-timing-function: var(--m-in); }
+  :where(dialog)::backdrop { transition: opacity 180ms var(--m-out), display 180ms allow-discrete, overlay 180ms allow-discrete; }
+  :where(dialog:not([open]))::backdrop { opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    :where(dialog[open]) { opacity: 0; scale: 0.97; }
+    :where(dialog[open])::backdrop { opacity: 0; }
+  }
+}
+
+/* ------------------------------------------------------------ 3. toasts */
+/* Bottom centre (the chat bubble holds the bottom right corner), above the tab bar on a phone. Sonner's measures: 356 px wide, 14 px apart, the two
+   behind peeking 14 px higher and 5% smaller each, 400 ms to arrive, 200 ms to leave. */
+.ht { position: fixed; z-index: 1000; left: 0; right: 0; margin: 0 auto; bottom: 24px; width: 356px; max-width: calc(100vw - 24px); pointer-events: none; outline: none; }
+.ht__list { position: relative; margin: 0; padding: 0; list-style: none; height: var(--ht-h, 0px); transition: height 400ms var(--m-spring); }
+/* While the stack is spread out, the gaps between messages still count as the stack, so the pointer moving across one does not close it. */
+.ht.is-open .ht__list { pointer-events: auto; }
+.ht__t {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0; overflow: hidden; pointer-events: auto; cursor: default; touch-action: none;
+  transform: translate3d(var(--ht-dx, 0px), calc(var(--ht-y, 0px) + var(--ht-dy, 0px)), 0) scale(var(--ht-s, 1));
+  transform-origin: 50% 100%;
+  opacity: var(--ht-o, 1);
+  border-radius: 14px; background: var(--h-ink, #12161a); color: #fff;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.12), 0 10px 28px -8px rgba(17, 24, 39, 0.35);
+  font: 500 14px/1.4 var(--h-font); letter-spacing: 0;
+  transition: transform 400ms var(--m-spring), opacity 400ms var(--m-out), height 400ms var(--m-spring);
+  user-select: none; -webkit-user-select: none;
+}
+.ht__t.is-new { transform: translate3d(0, 100%, 0) scale(1); opacity: 0; transition: none; }
+.ht__t.is-out { opacity: 0; translate: 0 10px; transition: transform 200ms var(--m-in), opacity 200ms var(--m-in), translate 200ms var(--m-in); }
+.ht__t.is-swiped { opacity: 0; transition: transform 200ms var(--m-out), opacity 200ms var(--m-out); }
+.ht__t.is-drag { transition: opacity 200ms; }
+.ht__t:focus-visible { outline: 2px solid var(--h-leaf, #2ea84a); outline-offset: 2px; }
+.ht__c { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 12px 12px 12px 16px; }
+.ht__m { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; text-wrap: pretty; }
+.ht__i { flex: none; width: 18px; height: 18px; display: grid; place-items: center; }
+.ht__i svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ht__i--ok { color: #7fd497; }
+.ht__i--bad { color: #ff9f8a; }
+.ht__i--busy { color: rgba(255, 255, 255, 0.75); }
+.ht__i--busy svg { stroke-dasharray: 34 14; animation: ht-spin 0.9s linear infinite; }
+@keyframes ht-spin { to { rotate: 360deg; } }
+.ht__b {
+  flex: none; display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: rgba(255, 255, 255, 0.14); color: #fff; font: 600 13px var(--h-font); text-decoration: none; cursor: pointer;
+  transition: background-color 120ms var(--m-out), scale 120ms var(--m-out);
+}
+.ht__b:hover { background: rgba(255, 255, 255, 0.24); }
+.ht__b:active { scale: 0.97; }
+.ht__b:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+a.ht__b { color: #d6ecd9; }
+@media (max-width: 860px) {
+  .ht { left: 12px; right: 12px; width: auto; max-width: none; bottom: calc(12px + max(var(--ht-bar, 0px), env(safe-area-inset-bottom, 0px))); }
+  .ht__c { min-height: 52px; }
+  .ht__b { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ht__list, .ht__t, .ht__t.is-out, .ht__t.is-swiped { transition: opacity 150ms linear !important; }
+  .ht__t.is-new { transform: translate3d(0, 0, 0); }
+  .ht__i--busy svg { animation-duration: 2.4s; }
+}
+
+/* ------------------------------------------------------------ 4. rolling numbers */
+/* Counts use figures of one width, so a number that changes keeps its width (and the badge its size). */
+.h-nav__count, [data-flow], #wm-bell em, .h-tabs .h-nav__count { font-variant-numeric: tabular-nums; }
+/* Each changed digit sits in a window one line tall (.hf-d). Inside it the new digit slides in from below (or above, for a smaller
+   number) while the old one, drawn one line further on, slides out with it. */
+.hf .hf-d { display: inline-block; clip-path: inset(0 -0.2em); }
+.hf .hf-i { display: inline-block; position: relative; animation: hf-up 380ms var(--m-spring) both; }
+.hf .hf-i::before { content: attr(data-was); position: absolute; left: 0; right: 0; top: -100%; text-align: center; }
+.hf .hf-i.hf-dn { animation-name: hf-dn; }
+.hf .hf-i.hf-dn::before { top: 100%; }
+@keyframes hf-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes hf-dn { from { transform: translateY(-100%); } to { transform: none; } }
+
+/* ------------------------------------------------------------ 5. tooltips */
+.h-tip {
+  position: fixed; z-index: 1100; left: 0; top: 0; max-width: min(320px, calc(100vw - 16px)); padding: 6px 9px; border-radius: 8px;
+  background: var(--h-ink, #12161a); color: #fff; font: 500 13px/1.35 var(--h-font); letter-spacing: 0; text-wrap: balance;
+  box-shadow: 0 6px 18px -6px rgba(17, 24, 39, 0.35);
+  pointer-events: none; opacity: 0; scale: 0.97;
+  transition: opacity 120ms var(--m-out), scale 120ms var(--m-out);
+}
+.h-tip.is-on { opacity: 1; scale: 1; }
+.h-tip.is-instant { transition-duration: 0ms; }
+@media (prefers-reduced-motion: reduce) { .h-tip { scale: 1; transition: none; } }
+@media (hover: none) { .h-tip { display: none; } }
+
+/* ------------------------------------------------------------ 6. phone sheets */
+/* While a sheet is pulled down, the dimmed page behind it brightens in step (hub-sheet.js sets --sheet-fade from 0 to 1). */
+@media (max-width: 860px) {
+  body.h-body .h-app.is-nav::after { opacity: calc(1 - var(--sheet-fade, 0)); transition: opacity var(--sheet-fade-ms, 0ms) var(--m-sheet); }
+  body.h-body dialog::backdrop { opacity: calc(1 - var(--sheet-fade, 0)); }
+  body.h-body .pj-scrim { opacity: calc(1 - var(--sheet-fade, 0)); transition: opacity var(--sheet-fade-ms, 0ms) var(--m-sheet); }
+  body.h-body .t2-scrim { opacity: calc(1 - var(--sheet-fade, 0)); transition: opacity var(--sheet-fade-ms, 0ms) var(--m-sheet); }
+  body.h-body .is-dragging { user-select: none; -webkit-user-select: none; }
+  /* The sheets' own transitions are smoother on the sheet curve. */
+  body.h-body .h-side { transition: transform 0.4s var(--m-sheet), visibility 0s linear 0.4s; }
+  body.h-body .h-app.is-nav .h-side { transition: transform 0.4s var(--m-sheet), visibility 0s; }
+}
+
+/* ------------------------------------------------------------ 7. search palette */
+body.h-body .cmdk__list mark { background: none; color: inherit; font-weight: 700; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--h-leaf, #2ea84a) 70%, transparent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+/* The pointer moves the highlight (one highlight, the keyboard's and the mouse's), so hover draws nothing of its own. */
+body.h-body .cmdk__list li[role='option']:hover:not(.is-sel) { background: none; }
+body.h-body .cmdk__list li[role='option'] { transition: none; }
+/* Group names stay at the top of the list while their rows scroll under them. */
+body.h-body .cmdk__group { position: sticky; top: -8px; z-index: 1; background: inherit; }
+body.h-body .cmdk__list { background: inherit; }
+body.h-body .cmdk__panel { position: relative; }
+/* The loading line: under the search box, a short bar moving across while the server answers. */
+body.h-body .cmdk__head { position: relative; }
+body.h-body .cmdk__head::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; opacity: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--h-leaf, #2ea84a), transparent) no-repeat;
+  background-size: 30% 100%; transition: opacity 150ms var(--m-out);
+}
+body.h-body .cmdk.is-loading .cmdk__head::after { opacity: 1; animation: cmdk-load 1.1s var(--m-std) infinite; }
+@keyframes cmdk-load { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+/* Opening: a 150 ms fade and lift. Closing: 100 ms, no movement. A palette opened many times a day should be quick. */
+body.h-body .cmdk__panel { animation: cmdk-up 150ms var(--m-out); }
+body.h-body .cmdk__overlay { animation: cmdk-fade 150ms var(--m-out); }
+body.h-body .cmdk.is-closing .cmdk__panel, body.h-body .cmdk.is-closing .cmdk__overlay { opacity: 0; transition: opacity 100ms var(--m-in); }
+@keyframes cmdk-up { from { opacity: 0; transform: translateY(-6px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes cmdk-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 860px) {
+  body.h-body .cmdk__panel { animation: cmdk-fade 150ms var(--m-out); }
+  body.h-body .cmdk__group { top: -6px; }
+  body.h-body .cmdk__empty { flex: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.h-body .cmdk__panel, body.h-body .cmdk__overlay { animation: none; }
+  body.h-body .cmdk.is-loading .cmdk__head::after { animation: none; }
+}
+
+/* ------------------------------------------------------------ 8. type and press details */
+/* Headings break into even lines; paragraphs avoid a single word on the last line (where the browser can). */
+:where(.h-body) :where(h1, h2, h3, .h-top__title) { text-wrap: balance; }
+:where(.h-body) :where(p, li, dd) { text-wrap: pretty; }
+/* Icon buttons in the header and the phone bar give under a press, as the text buttons already do (feel.css). */
+@media (prefers-reduced-motion: no-preference) {
+  body.h-body :is(.h-top__cam, .h-top__search, .h-top__menu, .h-bar__a, .fx-btn, .rq-chip, .wc-chip) { transition-property: background-color, border-color, color, box-shadow, opacity, scale; transition-duration: 150ms; transition-timing-function: var(--m-out); }
+  body.h-body :is(.h-top__cam, .h-top__search, .h-top__menu, .fx-btn):active:not(:disabled) { scale: 0.94; }
+  body.h-body .h-bar__a:active { scale: 0.96; }
+}

@@ -6,10 +6,12 @@ import { Compose, type ComposeInit, type Outgoing } from './Compose';
 import { Reader, replyAllList, toolsOf } from './Reader';
 import { Sheet, Toast, type ToastState } from './Sheet';
 import { AssistPanel, BriefCards, SuggestedReplies, shortDay, type AssistState } from './Assist';
+import { TeamChatLine, teamOf, type TeamState } from './TeamChat';
 import { SmartSheets, type SmartCtx } from './SmartSheets';
 import { BASE_VIEWS, CAT_NAMES, FLAG_NAMES, MI, SYS_ICON, hue, initials, isPhone, isPrimary, when, who } from './util';
 import { installTips } from './tips';
 import { MailError, PRE, boxOf, device, getApi, mailApi, mbOf, setMe, sigOf } from './mailApi';
+import { COMPOSE_JS, loadScript } from '@/lib/legacy';
 
 const HOLD_MS = 15000;
 const PRIMARY_DOT = '#7b8a76';
@@ -52,6 +54,7 @@ interface State {
   scanned: number;
   loadError: string;
   assist: AssistState | null;
+  team: TeamState | null;
   tl: null | { open: boolean; items?: any[]; error?: string };
   brief: any;
   briefFailed: boolean;
@@ -63,7 +66,7 @@ interface State {
 const initial = (): State => ({
   me: '', name: '', level: { read: false, write: false, headers: false, contacts: false }, write: true, connected: false, signature: '', ready: false, error: '',
   label: 'INBOX', q: '', v: '', threads: [], nexts: {}, loading: false, labels: [], sel: -1, open: '', thread: null, threadLoading: false, partners: {}, drafts: {}, headersOnly: false,
-  exp: {}, flags: {}, sort: '', picked: {}, anchor: '', boxes: [], box: '', counts: {}, customs: [], ov: null, fromOpts: null, view: 'list', scanned: 0, loadError: '', assist: null, tl: null, brief: null, briefFailed: false, briefGone: 0, names: null, sheet: null,
+  exp: {}, flags: {}, sort: '', picked: {}, anchor: '', boxes: [], box: '', counts: {}, customs: [], ov: null, fromOpts: null, view: 'list', scanned: 0, loadError: '', assist: null, team: null, tl: null, brief: null, briefFailed: false, briefGone: 0, names: null, sheet: null,
 });
 
 /* ------------------------------------------------------------------ routing (#/LABEL[/thread], #/search/words[/thread]) */
@@ -301,7 +304,7 @@ export function MailPage() {
           .batch(groups[a].slice(0, 5), a)
           .then((d: any) =>
             (d.threads || []).forEach((t: any) => {
-              const data = { thread: t.thread, partners: t.partners, drafts: t.drafts };
+              const data = { thread: t.thread, partners: t.partners, drafts: t.drafts, teamChat: t.teamChat };
               PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) };
               void device.put(t.id, data);
             })
@@ -427,13 +430,13 @@ export function MailPage() {
     x.open = id;
     const t = findThread(id);
     const sel = t ? x.threads.indexOf(t) : x.sel;
-    set({ open: id, sel, view: 'thread', thread: { id, subject: t ? t.subject : '', messages: [] }, threadLoading: true, partners: {}, drafts: {}, headersOnly: false });
+    set({ open: id, sel, view: 'thread', thread: { id, subject: t ? t.subject : '', messages: [] }, threadLoading: true, partners: {}, drafts: {}, headersOnly: false, team: null });
     let shown = '';
     if (!(PRE[id] && Date.now() - PRE[id].at < 90000))
       void device.get(id).then((c) => {
         if (!c || seq !== threadSeq.current || shown) return;
         shown = sigOf(c.data);
-        set({ thread: c.data.thread, partners: c.data.partners || {}, drafts: c.data.drafts || {}, headersOnly: false, threadLoading: false });
+        set({ thread: c.data.thread, partners: c.data.partners || {}, drafts: c.data.drafts || {}, headersOnly: false, threadLoading: false, team: null });
       });
     setTimeout(() => {
       const i = S.current.threads.findIndex((r) => r.id === id);
@@ -443,8 +446,8 @@ export function MailPage() {
       .thread(id)
       .then((d: any) => {
         if (seq !== threadSeq.current) return;
-        if (!shown || shown !== sigOf(d) || d.headersOnly) set({ thread: d.thread, partners: d.partners || {}, drafts: d.drafts || {}, headersOnly: !!d.headersOnly, threadLoading: false });
-        else set({ threadLoading: false, headersOnly: !!d.headersOnly });
+        if (!shown || shown !== sigOf(d) || d.headersOnly) set({ thread: d.thread, partners: d.partners || {}, drafts: d.drafts || {}, headersOnly: !!d.headersOnly, threadLoading: false, team: teamOf(d) });
+        else set({ threadLoading: false, headersOnly: !!d.headersOnly, team: teamOf(d) });
         if (focus) document.querySelector<HTMLElement>('.ml-thread__h')?.focus({ preventScroll: true });
         const lt = findThread(id);
         const msgs: any[] = d.thread.messages || [];
@@ -738,13 +741,25 @@ export function MailPage() {
   };
 
   /* ------------------------------------------------------------------ compose and send */
-  const openCompose = (o: ComposeInit = {}) => {
+  // Replies open inline under the conversation and new mail in a window, both in the shared composer (public/js/compose/compose.js),
+  // which stays open across routes. The older Compose window below is the fallback when that script cannot load.
+  const openCompose = (o: ComposeInit = {}, where: { inline?: boolean; kind?: string; items?: any[] } = {}) => {
     if (!S.current.level.write || !canWrite()) return askWrite('compose');
     if (S.current.fromOpts == null && S.current.boxes.length) void api().from().then((d: any) => set({ fromOpts: d.from || [] })).catch(() => undefined);
-    setCompose(o);
-    if (isPhone()) history.pushState({ mlCompose: 1 }, '');
+    const x = S.current;
+    void loadScript(COMPOSE_JS)
+      .then(() => {
+        const fc = window.FavorCompose;
+        if (!fc) throw new Error('no composer');
+        const host = where.inline && x.thread && o.threadId === x.thread.id ? document.querySelector<HTMLElement>('.ml-thread[data-thread] [data-inline-host]') : null;
+        void fc.open({ ...o, mode: host ? 'inline' : 'float', host, kind: where.kind || '', items: where.items, ctx: { me: x.me, name: x.name, signature: x.signature, fromOpts: x.fromOpts, write: !!(x.level.write && canWrite()), read: !!x.level.read, box: x.box } });
+      })
+      .catch(() => {
+        setCompose(o);
+        if (isPhone()) history.pushState({ mlCompose: 1 }, '');
+      });
   };
-  const startReply = (kind: 'reply' | 'replyall' | 'forward', mIn?: any, text?: string) => {
+  const startReply = (kind: 'reply' | 'replyall' | 'forward', mIn?: any, text?: string, pop?: boolean, items?: any[]) => {
     const x = S.current;
     if (!x.level.write || !canWrite()) return askWrite('reply');
     const t = x.thread;
@@ -761,7 +776,8 @@ export function MailPage() {
           '<br><div class="gmail_quote"><div>---------- Forwarded message ---------</div>' + line('From', escH(who(m.from)) + ' &lt;' + escH(m.from.email) + '&gt;') + line('Date', escH(when(m.date, true))) + line('Subject', escH(m.subject)) + line('To', list(m.to)) + line('Cc', list(m.cc)) + '<br>' + (m.html || escH(m.text || '')) + '</div>',
         forward: (m.attachments || []).filter((f: any) => !f.inline).map((f: any) => ({ messageId: m.id, attachmentId: f.id, name: f.name, mime: f.mime, size: f.size })),
         mb: boxOf(t.id),
-      });
+        threadId: t.id,
+      }, { inline: !pop, kind: 'fwd', items });
     }
     const all = replyAllList(m, x.me);
     let to: any[] = kind === 'replyall' ? all : [(m.replyTo && m.replyTo[0]) || (m.from.email === x.me ? (m.to || [])[0] : m.from)];
@@ -781,24 +797,28 @@ export function MailPage() {
       replyTo: m.id,
       mb: boxOf(t.id),
       body: text ? '<div>' + escH(text).split(String.fromCharCode(10)).join('<br>') + '</div><div><br></div>' + (x.signature ? '<br><div class="gmail_signature">' + x.signature + '</div>' : '') : undefined,
-    });
+    }, { inline: !pop, kind: 'reply', items });
   };
   const editDraft = (mid: string) => {
     const x = S.current;
     const m = ((x.thread && x.thread.messages) || []).find((q: any) => q.id === mid);
     if (!m) return;
     const real = x.thread.messages.filter((q: any) => !q.draft);
-    openCompose({ title: 'Draft', to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: x.drafts[m.id] || '', threadId: real.length ? x.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', mb: boxOf(x.thread.id), noSig: true });
+    openCompose({ title: real.length ? 'Reply' : 'Draft', to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: x.drafts[m.id] || '', threadId: real.length ? x.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', mb: boxOf(x.thread.id), noSig: true }, { inline: !!real.length, kind: 'reply' });
   };
   const dropDraft = (mid: string) => {
     const x = S.current;
     const did = x.drafts[mid];
-    if (!did) return;
+    if (!did) return say('FavorOS could not find this draft in Gmail. Open it in Gmail to delete it.');
     api()
       .dropDraft(did, boxOf(x.open))
       .then(() => {
         say('Draft discarded');
-        if (x.open) void openThread(x.open);
+        if (x.open) {
+          delete PRE[x.open];
+          void device.drop(x.open);
+          void openThread(x.open);
+        }
       })
       .catch((e: any) => failed(e));
   };
@@ -1136,6 +1156,34 @@ export function MailPage() {
     }
     set({ briefGone: Date.now() });
   };
+  // Closing the briefing keeps the date of the newest important message (people, partners, staff) in this browser and, through the
+  // server, for the person on every device. The card comes back only when something newer and important arrives.
+  const briefClosedKey = (): string | null => {
+    try {
+      return localStorage.getItem('favor.mail.briefoff:' + (S.current.me || ''));
+    } catch {
+      return null;
+    }
+  };
+  const briefHidden = (b: any): boolean => {
+    const k = briefClosedKey();
+    if (!b) return k !== null;
+    return !!b.off || (k !== null && String(b.key || '') <= k);
+  };
+  const closeBrief = () => {
+    const b = S.current.brief;
+    const key = (b && b.key) || '';
+    try {
+      localStorage.setItem('favor.mail.briefoff:' + (S.current.me || ''), key);
+    } catch {
+      // private mode
+    }
+    if (b) S.current.brief = { ...b, off: true };
+    api()
+      .briefClose(key, accts()[0] || '')
+      .catch(() => undefined);
+    set({ briefGone: Date.now() });
+  };
   const archiveMany = (ids: string[]) => {
     set({ sheet: null });
     const x = S.current;
@@ -1281,6 +1329,47 @@ export function MailPage() {
 
   useEffect(() => installTips(), []);
 
+  // The shared composer sent something: the conversation or the Sent list shows it. Another part of FavorOS can ask for a reply here.
+  useEffect(() => {
+    const sent = (e: Event) => {
+      const d = ((e as CustomEvent).detail || {}) as { threadId?: string };
+      // A conversation that changed is read again from Gmail, never from the copies kept on this device.
+      if (d.threadId) {
+        delete PRE[d.threadId];
+        void device.drop(d.threadId);
+      }
+      window.setTimeout(() => {
+        const x = S.current;
+        if (x.open && d.threadId === x.open) void openThread(x.open);
+        else if (x.label === 'SENT' || x.label === 'DRAFT') void loadList({ quiet: true });
+      }, 600);
+    };
+    const reply = (e: Event) => {
+      const d = ((e as CustomEvent).detail || {}) as { threadId?: string; kind?: 'reply' | 'replyall' | 'forward'; items?: any[] };
+      const x = S.current;
+      if (!x.thread || (d.threadId && d.threadId !== x.thread.id)) return;
+      startReply(d.kind || 'reply', undefined, undefined, false, d.items || []);
+    };
+    // A saved draft changes its conversation: the copies kept on this device are dropped, the page is not redrawn.
+    const drafted = (e: Event) => {
+      const id = (((e as CustomEvent).detail || {}) as { threadId?: string }).threadId;
+      if (id) {
+        delete PRE[id];
+        void device.drop(id);
+      }
+    };
+    window.addEventListener('favor-compose:draft', drafted);
+    window.addEventListener('favor-compose:sent', sent);
+    window.addEventListener('favor-compose:discarded', sent);
+    window.addEventListener('favor-mail:reply', reply);
+    return () => {
+      window.removeEventListener('favor-compose:sent', sent);
+      window.removeEventListener('favor-compose:discarded', sent);
+      window.removeEventListener('favor-compose:draft', drafted);
+      window.removeEventListener('favor-mail:reply', reply);
+    };
+  });
+
   // The phone's Back closes compose and sheets before leaving the page.
   useEffect(() => {
     const pop = () => {
@@ -1363,7 +1452,8 @@ export function MailPage() {
         exp={s.exp}
         onToggle={(mid, open) => set({ exp: { ...s.exp, [mid]: open } })}
         onAct={(k, a) => act(k, undefined, a)}
-        onReply={startReply}
+        onReply={(k, m, pop) => startReply(k, m, undefined, pop)}
+        drafts={s.drafts}
         onEditDraft={editDraft}
         onDropDraft={dropDraft}
         extra={
@@ -1383,6 +1473,7 @@ export function MailPage() {
               onAsk={askAbout}
               onFindTime={() => openSmart('find-time')}
               onAskBrain={(q) => askBrain(q)}
+              top={<TeamChatLine key={s.assist.id} team={s.team} threadId={s.assist.id} me={s.me} api={api} say={say} failed={failed} onChange={(t) => set({ team: t })} />}
             />
           ) : null
         }
@@ -1567,12 +1658,12 @@ export function MailPage() {
                 b={s.brief}
                 wait={!s.briefFailed}
                 ov={s.ov}
-                showBrief={inboxPlain() && !s.v && !!rows.length && !s.briefFailed && s.level.read && !hiddenToday('favor.mail.brief')}
+                showBrief={inboxPlain() && !s.v && !!rows.length && !s.briefFailed && s.level.read && !briefHidden(s.brief)}
                 showNudge={inboxPlain() && !s.v && (() => { try { return localStorage.getItem('favor.mail.nudge') !== nudgeKey(); } catch { return true; } })()}
                 showClean={inboxPlain() && !s.v && !hiddenToday('favor.mail.clean')}
                 onOpen={(id: string) => go(s.label, s.q, id)}
                 onFresh={() => { set({ brief: null }); loadBrief(true); }}
-                onHide={() => hideToday('favor.mail.brief')}
+                onHide={closeBrief}
                 onNudgeHide={() => { try { localStorage.setItem('favor.mail.nudge', nudgeKey()); } catch { /* private mode */ } set({ briefGone: Date.now() }); }}
                 onCleanReview={() => (!s.level.write || !canWrite() ? askWrite('archive') : openSmart('clean'))}
                 onCleanDismiss={() => hideToday('favor.mail.clean')}

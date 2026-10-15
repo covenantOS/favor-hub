@@ -21,12 +21,16 @@ const items = buildPaletteItems(
       <input
         type="text"
         id="cmdk-input"
-        placeholder="Jump to anything…"
+        placeholder="Search pages, partners, people and actions"
         autocomplete="off"
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"
         aria-label="Search"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="cmdk-list"
+        aria-autocomplete="list"
       />
       <kbd class="cmdk__esc" data-cmdk-close>esc</kbd>
     </div>
@@ -51,17 +55,91 @@ const items = buildPaletteItems(
   let current = items;
 
   const norm = (s) => (s || '').toLowerCase();
+  const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // Fuzzy match, the scoring cmdk uses (Paco Coursey's command-score, MIT): every typed letter must appear in order, and a
+  // letter that follows the last one or starts a word scores far above one picked from the middle of a word, so "gft entry"
+  // finds Gift entry and "rprt" finds Reports while scattered letters rank low.
+  const GAP = /[\\\/_+.#"@\[\(\{&]/, GAPS = /[\\\/_+.#"@\[\(\{&]/g, SPACE = /[\s-]/, SPACES = /[\s-]/g;
+  function fz(str, ab, ls, la, si, ai, memo) {
+    if (ai === ab.length) return si === str.length ? 1 : 0.99;
+    const key = si + ',' + ai;
+    if (memo[key] !== undefined) return memo[key];
+    const ch = la.charAt(ai);
+    let idx = ls.indexOf(ch, si), high = 0, sc, tr, br;
+    while (idx >= 0) {
+      sc = fz(str, ab, ls, la, idx + 1, ai + 1, memo);
+      if (sc > high) {
+        if (idx === si) sc *= 1;
+        else if (GAP.test(str.charAt(idx - 1))) { sc *= 0.8; br = str.slice(si, idx - 1).match(GAPS); if (br && si > 0) sc *= Math.pow(0.999, br.length); }
+        else if (SPACE.test(str.charAt(idx - 1))) { sc *= 0.9; br = str.slice(si, idx - 1).match(SPACES); if (br && si > 0) sc *= Math.pow(0.999, br.length); }
+        else { sc *= 0.17; if (si > 0) sc *= Math.pow(0.999, idx - si); }
+        if (str.charAt(idx) !== ab.charAt(ai)) sc *= 0.9999;
+      }
+      if ((sc < 0.1 && ls.charAt(idx - 1) === la.charAt(ai + 1)) || (la.charAt(ai + 1) === la.charAt(ai) && ls.charAt(idx - 1) !== la.charAt(ai))) {
+        tr = fz(str, ab, ls, la, idx + 1, ai + 2, memo);
+        if (tr * 0.1 > sc) sc = tr * 0.1;
+      }
+      if (sc > high) high = sc;
+      idx = ls.indexOf(ch, idx + 1);
+    }
+    memo[key] = high;
+    return high;
+  }
+  const fuzzy = (str, q) => { const s1 = String(str || '').replace(SPACES, ' '); return q ? fz(s1, q, s1.toLowerCase(), q.toLowerCase(), 0, 0, {}) : 0; };
+
+  // A typed word inside the title counts most, then a close fuzzy match on the title, then the page's keywords, then its line.
   function score(item, q) {
     if (!q) return 1;
     const t = norm(item.title);
-    const d = norm(item.desc);
-    const tags = norm(item.tags);
-    if (t.startsWith(q)) return 4;
-    if (t.includes(q)) return 3;
-    if (tags.includes(q)) return 2;
-    if (d.includes(q)) return 1;
+    if (t.startsWith(q)) return 3 + fuzzy(item.title, q);
+    if (t.includes(q)) return 2 + fuzzy(item.title, q);
+    const ft = fuzzy(item.title, q);
+    if (ft >= 0.01) return 1 + ft;
+    if (norm(item.tags).includes(q)) return 0.9;
+    // Keywords are matched one word at a time: across the whole keyword line, first letters of unrelated words spell almost anything.
+    let fk = 0;
+    if (q.length > 2 && q.indexOf(' ') < 0) for (const w of String(item.tags || '').split(/\s+/)) { const f = fuzzy(w, q); if (f > fk) fk = f; }
+    if (fk >= 0.02) return 0.5 + fk * 0.3;
+    if (norm(item.desc).includes(q)) return 0.3;
     return 0;
+  }
+  // Which letters of a title to mark: the typed text where it appears whole, otherwise each letter in turn, a word's first letter first.
+  function marks(title, q) {
+    const t = norm(title);
+    if (!q) return null;
+    const at = t.indexOf(q);
+    if (at >= 0) return { from: at, to: at + q.length };
+    const out = [];
+    let from = 0;
+    for (const ch of q) {
+      if (ch === ' ') continue;
+      let i = -1;
+      for (let j = from; j < t.length; j++) if (t[j] === ch && (j === 0 || /[\s\-\/(]/.test(t[j - 1]))) { i = j; break; }
+      if (i < 0 || (out.length && i > t.indexOf(ch, from) && /[^\s\-\/(]/.test(t[from - 1] || ' ') && t.indexOf(ch, from) === from)) i = t.indexOf(ch, from);
+      if (i < 0) return null;
+      out.push(i);
+      from = i + 1;
+    }
+    return { pos: out };
+  }
+  function lit(title, q) {
+    const m = marks(title, q);
+    if (!m) return escHtml(title);
+    if (!m.pos) return escHtml(title.slice(0, m.from)) + '<mark>' + escHtml(title.slice(m.from, m.to)) + '</mark>' + escHtml(title.slice(m.to));
+    let html = '';
+    for (let i = 0; i < title.length; i++) html += m.pos.includes(i) ? '<mark>' + escHtml(title[i]) + '</mark>' : escHtml(title[i]);
+    return html.replace(/<\/mark><mark>/g, '');
+  }
+
+  // Recently opened: the last six things this person opened from here, first in the list before anything is typed.
+  const RKEY = 'favor.hub.cmdk.recent.v1';
+  function recent() { try { const r = JSON.parse(localStorage.getItem(RKEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+  function remember(item) {
+    if (!item || !item.href || item.href.charAt(0) === '#') return;
+    const keep = { title: item.title, desc: item.desc, href: item.href, external: !!item.external, plain: !!item.plain };
+    const list = [keep].concat(recent().filter((r) => r.href !== item.href)).slice(0, 6);
+    try { localStorage.setItem(RKEY, JSON.stringify(list)); } catch (e) { /* storage refused */ }
   }
 
   // Pages this person may not open stay out of the list. The saved sidebar answer holds their access and KPI teams.
@@ -90,10 +168,17 @@ const items = buildPaletteItems(
     return Object.assign({}, i, { group: own ? 'Your pages' : 'Other pages', desc: wasOn && i.was ? path + ' · Was ' + i.was : i.desc });
   }
   function filter(q) {
-    const lq = norm(q.trim());
+    const lq = norm(q.trim()).replace(/\s+/g, ' ');
     const mine = myJobs();
-    const pool = items.filter(allowed).map((i) => shaped(i, mine));
-    if (!lq) return pool.filter((i) => !i.searchOnly && !(i.menu === false));
+    const pool = items.filter(allowed).map((i) => Object.assign(shaped(i, mine), { plain: true, q: lq }));
+    if (!lq) {
+      const rec = recent();
+      // A page this person may no longer open drops out of Recent too.
+      const known = new Map(items.map((i) => [i.href, i]));
+      const recRows = rec.filter((r) => !known.has(r.href) || allowed(known.get(r.href))).slice(0, 5).map((r) => Object.assign({}, r, { group: 'Recent', q: '' }));
+      const seen = new Set(recRows.map((r) => r.href));
+      return recRows.concat(pool.filter((i) => !i.searchOnly && !(i.menu === false) && !(seen.has(i.href) && i.group !== 'Actions')));
+    }
     return pool
       .map((i) => ({ i, s: score(i, lq) }))
       .filter((x) => x.s > 0)
@@ -105,20 +190,25 @@ const items = buildPaletteItems(
     current = arr;
     if (!arr.length) {
       list.innerHTML = '';
+      list.hidden = true;
       empty.hidden = false;
       return;
     }
+    list.hidden = false;
     empty.hidden = true;
     let html = '';
     let lastGroup = null;
     arr.forEach((item, idx) => {
       if (item.group !== lastGroup) {
-        html += `<li class="cmdk__group" aria-hidden="true">${item.group}</li>`;
+        html += `<li class="cmdk__group" aria-hidden="true">${escHtml(item.group)}</li>`;
         lastGroup = item.group;
       }
-      html += `<li role="option" data-idx="${idx}" data-href="${item.href}" data-ext="${!!item.external}">
-        <span class="cmdk__row-title">${item.title}</span>
-        <span class="cmdk__row-desc">${item.desc}</span>
+      // Pages, tools and help are plain words (their typed letters marked); rows from the server arrive already escaped.
+      const title = item.plain ? lit(item.title, item.q || '') : item.title;
+      const desc = item.plain ? escHtml(item.desc) : item.desc;
+      html += `<li role="option" id="cmdk-o${idx}" data-idx="${idx}" data-href="${escHtml(item.href)}" data-ext="${!!item.external}">
+        <span class="cmdk__row-title">${title}</span>
+        <span class="cmdk__row-desc">${desc}</span>
         <span class="cmdk__row-arrow" aria-hidden="true">↵</span>
       </li>`;
     });
@@ -127,17 +217,22 @@ const items = buildPaletteItems(
     highlight();
   }
 
-  function highlight() {
+  function highlight(byPointer) {
     const rows = list.querySelectorAll('li[role="option"]');
-    rows.forEach((li) => li.classList.remove('is-sel'));
+    rows.forEach((li) => { li.classList.remove('is-sel'); li.removeAttribute('aria-selected'); });
     const target = rows[selected];
     if (target) {
       target.classList.add('is-sel');
-      target.scrollIntoView({ block: 'nearest' });
-    }
+      target.setAttribute('aria-selected', 'true');
+      input.setAttribute('aria-activedescendant', target.id);
+      if (!byPointer) target.scrollIntoView({ block: 'nearest' });
+    } else input.removeAttribute('aria-activedescendant');
   }
 
+  let closeT = 0;
   function open() {
+    clearTimeout(closeT);
+    cmdk.classList.remove('is-closing');
     cmdk.hidden = false;
     input.value = '';
     for (const k of Object.keys(remote)) remote[k] = [];
@@ -145,13 +240,26 @@ const items = buildPaletteItems(
     requestAnimationFrame(() => input.focus());
     document.body.style.overflow = 'hidden';
   }
+  // Closing fades out in a tenth of a second (opening is a little longer); nothing on the page waits for it.
   function close() {
-    cmdk.hidden = true;
+    if (cmdk.hidden || cmdk.classList.contains('is-closing')) return;
     document.body.style.overflow = '';
+    loading(false);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { cmdk.hidden = true; return; }
+    cmdk.classList.add('is-closing');
+    closeT = setTimeout(() => { cmdk.hidden = true; cmdk.classList.remove('is-closing'); }, 110);
+  }
+  // A thin line under the search box moves while the server is still answering.
+  let loadT = 0;
+  function loading(on) {
+    clearTimeout(loadT);
+    if (!on) { cmdk.classList.remove('is-loading'); return; }
+    loadT = setTimeout(() => cmdk.classList.add('is-loading'), 150);
   }
 
   function navigateTo(item) {
     if (!item) return;
+    remember(item);
     if (item.href === '#nav-toggle') { close(); window.dispatchEvent(new Event('hub-nav-toggle')); return; }
     if (item.external) { window.open(item.href, '_blank', 'noopener'); close(); return; }
     // Take the search's history entry off first; a page change started while that step is pending would be cancelled by it.
@@ -170,14 +278,14 @@ const items = buildPaletteItems(
     if (slash) { e.preventDefault(); open(); return; }
     if (cmdk.hidden) return;
 
+    // Arrows wrap around the ends; Ctrl+N and Ctrl+P work too.
+    const down = e.key === 'ArrowDown' || (e.ctrlKey && e.key.toLowerCase() === 'n');
+    const up = e.key === 'ArrowUp' || (e.ctrlKey && e.key.toLowerCase() === 'p');
     if (e.key === 'Escape') { e.preventDefault(); close(); }
-    else if (e.key === 'ArrowDown') {
+    else if (down || up) {
       e.preventDefault();
-      selected = Math.min(selected + 1, current.length - 1);
-      highlight();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      selected = Math.max(selected - 1, 0);
+      if (!current.length) return;
+      selected = (selected + (down ? 1 : -1) + current.length) % current.length;
       highlight();
     } else if (e.key === 'Enter') {
       e.preventDefault();
@@ -189,8 +297,7 @@ const items = buildPaletteItems(
   // after a short pause, in two steps: partners, reports and Brain chats first, then meetings and clips. Tier 3 is for slow
   // sources such as Drive and runs after tier 2 settles. Every server call applies the signed-in person's access, so a
   // row this person cannot open never comes back. A denied or failed source shows no rows and the rest keep working.
-  const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const KIND_ORDER = ['Your pages', 'Actions', 'Partners', 'Requests', 'Projects', 'Menu', 'Tools', 'Reports', 'Other pages', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive'];
+  const KIND_ORDER = ['Recent', 'Your pages', 'Actions', 'Partners', 'Requests', 'Projects', 'Menu', 'Tools', 'Reports', 'Other pages', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive'];
   // With words typed, a page that matches comes before everything else, whoever's job it is; the empty list keeps Actions second.
   const kindRank = (g) => (g === 'Other pages' && input.value.trim() ? 0.5 : KIND_ORDER.indexOf(g));
   const remote = { partners: [], requests: [], projects: [], reports: [], chats: [], meetings: [], messages: [], clips: [], learn: [], drive: [] };
@@ -388,6 +495,7 @@ const items = buildPaletteItems(
     ]);
     // Tier 3: Drive files, last. Its rows join the list when they arrive; the rows above never wait for it.
     await source('drive', text, mine, () => driveHits(text));
+    if (mine === seq) loading(false);
   }
 
   input.addEventListener('input', () => {
@@ -396,8 +504,17 @@ const items = buildPaletteItems(
     clearTimeout(remoteTimer);
     for (const k of Object.keys(remote)) remote[k] = [];
     render(merged(filter(input.value)));
-    if (text.length < 2) return;
+    if (text.length < 2) { loading(false); return; }
+    loading(true);
     remoteTimer = setTimeout(() => runRemote(text, mine), 180);
+  });
+
+  // The pointer picks a row only when it moves, so a list that scrolls under a still mouse keeps the keyboard's row.
+  list.addEventListener('pointermove', (e) => {
+    const li = e.target.closest('li[role="option"]');
+    if (!li || +li.dataset.idx === selected) return;
+    selected = +li.dataset.idx;
+    highlight(true);
   });
 
   list.addEventListener('click', (e) => {

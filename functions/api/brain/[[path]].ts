@@ -35,7 +35,7 @@ const reply = (status: number, text: string) => new Response(text, { status, hea
 /** The stored form of an answer: the rows behind a list are not kept, the preview stays. */
 function stored(d: any) {
   const blocks = (Array.isArray(d.blocks) ? d.blocks : []).map((b: any) => (b && b.type === 'table' && Array.isArray(b.rows) ? { ...b, rows: b.rows.slice(0, b.preview || 8) } : b));
-  return { asked_as: d.asked_as || '', intent: d.intent || '', outcome: d.outcome || '', blocks, reading: Array.isArray(d.reading) ? d.reading : [], reading_text: d.reading_text || '', follow: Array.isArray(d.follow) ? d.follow : [], lists: Array.isArray(d.lists) ? d.lists : [], ...(d.ctx && typeof d.ctx === 'object' ? { ctx: d.ctx } : {}), ...(d.written && typeof d.written === 'object' ? { written: d.written } : {}) };
+  return { asked_as: d.asked_as || '', intent: d.intent || '', outcome: d.outcome || '', blocks, reading: Array.isArray(d.reading) ? d.reading : [], reading_text: d.reading_text || '', follow: Array.isArray(d.follow) ? d.follow : [], lists: Array.isArray(d.lists) ? d.lists : [], steps: Array.isArray(d.steps) ? d.steps.slice(0, 8) : [], ...(d.ctx && typeof d.ctx === 'object' ? { ctx: d.ctx } : {}), ...(d.written && typeof d.written === 'object' ? { written: d.written } : {}) };
 }
 
 async function ask(request: Request, env: BrainEnv, user: { email: string; name?: string; role?: string; via?: string }, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
@@ -62,13 +62,41 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
   // The Brain files its copy of this chat under a scratch id, so the last turns travel with the question: a follow-up like
   // "tell me more about that other category" needs the tables the last answer showed. The page cannot set this field.
   const history = await recentHistory(env, email, conv, 3);
+  // The page can take the answer's steps as they happen (Accept: application/x-ndjson, brain-trace.js): the Brain's step lines pass
+  // straight through, and the last line is the answer as stored here. Without it the reply is the answer JSON, as before.
+  const live = (request.headers.get('Accept') || '').includes('application/x-ndjson');
+  const ts = live ? new TransformStream<Uint8Array, Uint8Array>() : null;
+  const out = ts ? ts.writable.getWriter() : null;
+  const enc = new TextEncoder();
+  const send = (o: unknown) => (out ? out.write(enc.encode(JSON.stringify(o) + '\n')).catch(() => undefined) : Promise.resolve());
   const job = (async () => {
     let status = 500;
     let text = '';
     try {
-      const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: headersFor(env, user), body: JSON.stringify({ ...body, conv: scratch, history }) });
+      const h: Record<string, string> = headersFor(env, user);
+      if (live) h.Accept = 'application/x-ndjson';
+      const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: h, body: JSON.stringify({ ...body, conv: scratch, history }) });
       status = res.status;
-      text = hubCsvLinks(await res.text(), env);
+      if (live && res.body && (res.headers.get('Content-Type') || '').includes('ndjson')) {
+        const rd = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        const take = async (ln: string) => {
+          if (!ln.trim()) return;
+          let o: any;
+          try { o = JSON.parse(ln); } catch { return; }
+          if (o.steps) await send({ steps: o.steps });
+          if (o.final) { text = hubCsvLinks(JSON.stringify(o.final), env); status = o.status || status; }
+        };
+        for (;;) {
+          const r = await rd.read();
+          if (r.done) break;
+          buf += dec.decode(r.value, { stream: true });
+          let i;
+          while ((i = buf.indexOf('\n')) >= 0) { await take(buf.slice(0, i)); buf = buf.slice(i + 1); }
+        }
+        await take(buf);
+      } else text = hubCsvLinks(await res.text(), env);
     } catch {
       text = JSON.stringify({ ok: false, error: 'ask', message: 'The Brain did not answer. Ask again.' });
     }
@@ -93,9 +121,13 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
     delete d.written;
     return { status: ok ? status : status >= 400 ? status : 500, text: JSON.stringify(d) };
   })();
+  if (ts && out) {
+    waitUntil(job.then((r) => send({ final: JSON.parse(r.text), status: r.status })).catch(() => send({ final: { ok: false, error: 'ask', message: 'The Brain did not answer. Ask again.' }, status: 500 })).finally(() => out.close().catch(() => undefined)));
+    return new Response(ts.readable, { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' } });
+  }
   waitUntil(job.catch(() => undefined));
-  const out = await job;
-  return reply(out.status, out.text);
+  const done = await job;
+  return reply(done.status, done.text);
 }
 
 export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params, waitUntil }) => {

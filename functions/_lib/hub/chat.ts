@@ -3,7 +3,7 @@
 import type { Env } from '../http';
 
 export const KEEP_DAYS = 30;
-export interface ThreadRow { id: string; title: string; pinned: number; made_at: string; changed_at: string; pending?: number }
+export interface ThreadRow { id: string; title: string; pinned: number; made_at: string; changed_at: string; pending?: number; preview?: string; turns?: number; same?: string[] }
 export interface TurnRow { n: number; question: string; answer_json: string; at: string; ref: string | null }
 
 /** A turn the server is still answering is stored as {"pending":1,...} until the answer lands. */
@@ -23,14 +23,45 @@ export async function purgeOld(env: Env, now = Date.now()): Promise<void> {
   ]);
 }
 
+const LIST_COLS = `id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending,
+  (SELECT substr(t.answer_json, 1, 2500) FROM brain_turns t WHERE t.thread_id = brain_threads.id ORDER BY t.n DESC LIMIT 1) AS last_answer,
+  (SELECT COUNT(*) FROM brain_turns t WHERE t.thread_id = brain_threads.id) AS turns,
+  (SELECT t.question FROM brain_turns t WHERE t.thread_id = brain_threads.id ORDER BY t.n LIMIT 1) AS first_q`;
+
+/** One plain line from a stored answer (its first text block, else its first figure), for the chat list. Reads the JSON's head as text. */
+export function previewOf(answer: string | null | undefined): string {
+  const a = String(answer || '');
+  if (!a || a.startsWith('{"pending"')) return '';
+  if (/^\{"error":/.test(a)) return 'No answer';
+  const un = (x: string) => { try { return JSON.parse('"' + x + '"'); } catch { return x; } };
+  const md = /"md":"((?:[^"\\]|\\.){4,})"/.exec(a);
+  const tile = /"label":"((?:[^"\\]|\\.)+)","value":(-?[\d.]+)/.exec(a);
+  let t = md ? un(md[1]) : tile ? `${un(tile[1])}: ${Number(tile[2]).toLocaleString('en-US')}` : '';
+  t = t.replace(/\s*\((?:partner )?households\)/g, '').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
+  return t.length > 110 ? t.slice(0, 108).replace(/\s+\S*$/, '') + '...' : t;
+}
+const sameKey = (q: string) => q.toLowerCase().replace(/[^a-z0-9$ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
 export async function listThreads(env: Env, email: string, q = ''): Promise<ThreadRow[]> {
   const term = q.trim().slice(0, 80);
   // Chats the agent key or a script session started (source 'agent') are kept for the record but never listed.
   const sql = term
-    ? `SELECT id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending FROM brain_threads WHERE email = ? AND source = 'person' AND (title LIKE ? ESCAPE '\\' OR id IN (SELECT thread_id FROM brain_turns WHERE question LIKE ? ESCAPE '\\')) ORDER BY pinned DESC, changed_at DESC LIMIT 200`
-    : `SELECT id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending FROM brain_threads WHERE email = ? AND source = 'person' ORDER BY pinned DESC, changed_at DESC LIMIT 200`;
+    ? `SELECT ${LIST_COLS} FROM brain_threads WHERE email = ? AND source = 'person' AND (title LIKE ? ESCAPE '\\' OR id IN (SELECT thread_id FROM brain_turns WHERE question LIKE ? ESCAPE '\\')) ORDER BY pinned DESC, changed_at DESC LIMIT 200`
+    : `SELECT ${LIST_COLS} FROM brain_threads WHERE email = ? AND source = 'person' ORDER BY pinned DESC, changed_at DESC LIMIT 200`;
   const st = term ? env.DB.prepare(sql).bind(email, like(term), like(term)) : env.DB.prepare(sql).bind(email);
-  return ((await st.all<ThreadRow>()).results || []).map((r) => ({ ...r, pinned: r.pinned ? 1 : 0, pending: r.pending ? 1 : 0 }));
+  const rows = (await st.all<ThreadRow & { last_answer?: string; first_q?: string }>()).results || [];
+  // The same one-question chat asked again and again shows once, the newest, carrying the ids of the others (delete removes all).
+  const out: ThreadRow[] = [];
+  const seen = new Map<string, ThreadRow>();
+  for (const r of rows) {
+    const row: ThreadRow = { id: r.id, title: r.title, pinned: r.pinned ? 1 : 0, made_at: r.made_at, changed_at: r.changed_at, pending: r.pending ? 1 : 0, preview: previewOf(r.last_answer), turns: Number(r.turns) || 0 };
+    const k = Number(r.turns) <= 1 && !r.pinned && r.first_q ? sameKey(r.first_q) : '';
+    const first = k ? seen.get(k) : undefined;
+    if (first) { (first.same = first.same || []).push(r.id); continue; }
+    if (k) seen.set(k, row);
+    out.push(row);
+  }
+  return out;
 }
 
 export async function getThread(env: Env, email: string, id: string) {

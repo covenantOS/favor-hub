@@ -78,3 +78,9 @@ script_name = "favor-chat"
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "favor-drive"
+
+# The FavorOS web app (web/, TanStack Start on the favoros-web Worker). The middleware hands it the routes in the hub setting
+# web.routes for the people in web.audience (functions/_lib/web.ts). It has no public address of its own.
+[[services]]
+binding = "WEB"
+service = "favoros-web"

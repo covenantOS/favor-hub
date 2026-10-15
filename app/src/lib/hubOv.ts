@@ -18,6 +18,8 @@ const pop = () => {
 
 export const hubOv = {
   depth: () => stack.length,
+  /** True while a Back step this module started is still on its way (page scripts must let that popstate reach it). */
+  busy: () => quiet > 0,
   on(close: () => void): Token {
     const t = { close };
     stack.push(t);

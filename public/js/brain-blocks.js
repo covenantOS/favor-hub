@@ -204,8 +204,8 @@
   // The Brain names the rows in the plural ("partners"); one row reads "1 partner".
   const rowLabel = (tb, n) => `${int(n)} ${tb.noun ? (Number(n) === 1 ? String(tb.noun).replace(/s$/, '') : tb.noun) : Number(n) === 1 ? 'row' : 'rows'}`;
   function toolsHTML(tb, inPanel, canSheets) {
-    return `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcopy" data-tb="${tb.id}">${ic('copy')}<span class="lbl-l">Copy</span></button>
-    <button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcsv" data-tb="${tb.id}">${ic('dl')}<span class="lbl-l">CSV</span></button>
+    return `<button type="button" class="h-btn h-btn--ghost h-btn--xs tb-ic" data-act="tcopy" data-tb="${tb.id}" aria-label="Copy the table" data-tip="Copy">${ic('copy')}<span class="lbl-l">Copy</span></button>
+    <button type="button" class="h-btn h-btn--ghost h-btn--xs tb-ic" data-act="tcsv" data-tb="${tb.id}" aria-label="Download a CSV" data-tip="Download CSV">${ic('dl')}<span class="lbl-l">CSV</span></button>
     ${canSheets ? `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tsheet" data-tb="${tb.id}" data-sheetbtn="${tb.id}">${ic('sheet')}<span>Open in Google Sheets</span></button>` : ''}
     ${inPanel ? '' : `<button type="button" class="ib ib--sm" data-act="topen" data-tb="${tb.id}" aria-label="Open large" data-tip="Open large">${ic('expand')}</button>`}`;
   }
@@ -220,9 +220,10 @@
     const n = tb.count || tb.rows.length;
     const shown = Math.min(tb.preview, tableRows(tb).length);
     return `<div class="card blk-table" data-tbwrap="${id}">
-      <div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
+      <div class="card__h"><div><div class="card__t" title="${esc(b.title)}">${esc(shortTitle(b.title, nounOf(b)))}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
         <div class="card__acts">${ctx && ctx.expired ? '' : toolsHTML(tb, false, tb.canSheets)}</div></div>
       ${chipsHTML(tb)}
+      ${miniHTML(tb, n)}
       <div class="tbl__wrap"><div class="tbl__scroll" data-tbbody="${id}" tabindex="0" role="region" aria-label="${esc(b.title)}, scroll sideways for every column">${tableInner(tb)}</div></div>
       ${ctx && ctx.expired ? `<div class="bc-expired">Expired. Lists last 24 hours.<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="ask-again" data-turn="${ctx.ti}">Ask again</button></div>` : n > tb.preview || tb.partial ? `<div class="tbl__foot"><span data-cnt2="${id}">Showing ${int(shown)} of ${int(n)}${b.more ? '+' : ''}</span><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="topen" data-tb="${id}">Show all ${ic('arrow')}</button></div>` : ''}
       ${b.note ? `<div class="tbl__foot"><span>${esc(b.note)}</span></div>` : ''}
@@ -266,6 +267,31 @@
 
   // ---- Tiles, team ----------------------------------------------------------------------------------
   const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(Number(d.pct) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 }))}%</span>` : '');
+  // A table's title said plainly: "How many lapsed (last gift over 24 months ago) partners (households) in Ohio" reads
+  // "Lapsed partners in Ohio". The full wording stays in the title attribute and in the steps above the answer.
+  // A title cut short by the Brain ("Lapsed, major (a single gift of $1,000 or more") gets its noun back from the table:
+  // "Lapsed major partners". Commas between single describing words go ("lapsed, major" reads "lapsed major").
+  const NOUNS = /\b(partners?|households?|gifts?|actions?|visits?|events?|records?|churches|foundations|individuals|organizations|grants?|opportunities|people|staff|codes?|appeals?|campaigns?|funds?|months?|years?|states?|teams?|rows?)\b/i;
+  // The table's noun, else its first column read as a plural ("Partner" gives "partners").
+  const nounOf = (b) => b.noun || (b.cols && b.cols[0] && /^[A-Za-z ]+$/.test(b.cols[0].label || '') ? String(b.cols[0].label).toLowerCase().replace(/y$/, 'ie').replace(/s?$/, 's') : '');
+  function shortTitle(t, noun) {
+    let s = String(t || '').replace(/^\s*(how many|list(?: of)?|a list of|show me|which)\s+/i, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*$/, '').replace(/\s+/g, ' ').replace(/[?.,:;]+$/, '').trim();
+    if (!s) return String(t || '');
+    s = s.replace(/^[A-Za-z]+(?:, [A-Za-z]+)+(?= |$)/, (m) => m.replace(/,/g, ''));
+    if (!NOUNS.test(s) && noun) s += ' ' + String(noun).toLowerCase();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  B.shortTitle = shortTitle;
+  // The table in a narrow answer (the dock, a phone, a narrow window; container query in brain.css): up to five rows, each the
+  // name and one key field, and Open full table.
+  function miniHTML(tb, n) {
+    const rows = tableRows(tb).slice(0, 5);
+    if (!rows.length || !tb.cols.length) return '';
+    const name = tb.cols[0];
+    const key = tb.cols.slice(1).find((c) => !c.panel_only && ['money', 'date', 'int'].includes(c.type)) || tb.cols.slice(1).find((c) => !c.panel_only);
+    return `<ul class="tbl__mini" aria-label="${esc(shortTitle(tb.title, nounOf(tb)))}, first ${rows.length}">${rows.map((x) => `<li><span class="mn">${cell(name, x)}</span>${key ? `<span class="mk">${cell(key, x)}</span>` : ''}</li>`).join('')}</ul>
+      <div class="tbl__minifoot"><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="topen" data-tb="${tb.id}">Open full table${n > rows.length ? ` (${int(n)})` : ''} ${ic('arrow')}</button></div>`;
+  }
   function spark(v) {
     if (!v || v.length < 2) return '';
     const mx = Math.max(...v), mn = Math.min(...v);
@@ -645,6 +671,69 @@
   }
 
   /** One block as HTML. ctx: { ti, bi, canSheets, canRequest(pkg), expired }. */
+  // ---- Typed blocks for the asker's day and work (2026-10-14): each part looks like what it is. A small header with its icon
+  // and an Open link, then rows: meetings with a time column, provider badge, faces and Join; mail with the sender's face,
+  // subject, snippet and an unread dot; files with a type icon, who changed it and tbWhen (a thumbnail for pictures); tasks with
+  // a checkbox, the project and the due date. Narrow answers (dock, phone) keep the same rows, tighter (brain.css).
+  const tbInitials = (n) => String(n || '?').replace(/[^A-Za-z@ ]/g, ' ').trim().split(/[\s@]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const tbHue = (s) => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  const tbFace = (name, email, cls = 'tb-av') => `<span class="${cls}" style="--av-h:${tbHue(email || name)}" title="${esc(name || email)}" aria-hidden="true">${esc(tbInitials(name || email))}</span>`;
+  const tbWhen = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (d >= today) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    if (d >= today - 864e5) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+  const tbHead = (icon, title, note, link, linkLabel, n) => `<div class="tb-h"><span class="tb-h__ic" aria-hidden="true">${ic(icon)}</span><b>${esc(title)}</b>${n != null ? `<span class="tb-h__n">${int(n)}</span>` : ''}${note ? `<span class="tb-h__s">${esc(note)}</span>` : ''}${link ? `<a class="tb-h__go" href="${esc(href(link))}"${/^https?:/.test(link) ? ' target="_blank" rel="noopener"' : ''}>${esc(linkLabel)}${ic('arrow')}</a>` : ''}</div>`;
+  const PROVIDER = { 'FavorOS': 'favoros', 'Google Meet': 'gmeet', 'Zoom': 'zoom' };
+  function calendarHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((e) => {
+      const ppl = e.people || [];
+      const faces = ppl.slice(0, 4).map((p) => tbFace(p.name, p.email)).join('') + (ppl.length > 4 ? `<span class="tb-av tb-av--more">+${ppl.length - 4}</span>` : '');
+      const names = ppl.slice(0, 3).map((p) => p.name || String(p.email || '').split('@')[0]).join(', ') + (ppl.length > 3 ? ` and ${ppl.length - 3} more` : '');
+      return `<li class="tb-row tb-cal"><span class="tb-cal__t">${esc(e.time || '')}</span><span class="tb-cal__ic" aria-hidden="true">${ic('cal')}</span>
+        <span class="tb-main"><span class="tb-title">${esc(e.title || 'Meeting')}</span><span class="tb-sub">${e.provider ? `<span class="tb-badge tb-badge--${PROVIDER[e.provider] || 'other'}">${esc(e.provider)}</span>` : ''}${names ? `<span class="tb-who">${esc(names)}</span>` : ''}</span></span>
+        <span class="tb-side">${faces ? `<span class="tb-faces">${faces}</span>` : ''}${e.join ? `<a class="h-btn h-btn--primary h-btn--xs" href="${esc(href(e.join))}" target="_blank" rel="noopener" aria-label="Join ${esc(e.title || 'the meeting')}">Join</a>` : ''}</span></li>`;
+    }).join('');
+    return `<div class="card tb tb--cal">${tbHead('cal', b.title || "Today's meetings", b.note, 'https://calendar.google.com/calendar/u/0/r/day', 'Open in Calendar', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No meetings today.</p>'}</div>`;
+  }
+  function mailHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((m) => {
+      const go = m.thread ? `/mail/#/INBOX/${encodeURIComponent(m.thread)}` : m.link || '';
+      return `<li class="tb-row tb-mail${m.unread ? ' is-unread' : ''}"><a class="tb-rowlink" href="${esc(href(go))}">${tbFace(m.from, m.email)}
+        <span class="tb-main"><span class="tb-top"><span class="tb-from">${esc(m.from || m.email || 'Unknown sender')}</span><span class="tb-when">${esc(tbWhen(m.at) || m.received || '')}</span></span>
+        <span class="tb-title">${m.unread ? '<i class="tb-dot" aria-label="Unread"></i>' : ''}${esc(m.subject || '(No subject)')}</span>${m.snippet ? `<span class="tb-snip">${esc(m.snippet)}</span>` : ''}</span></a></li>`;
+    }).join('');
+    return `<div class="card tb tb--mail">${tbHead('mail', b.title || 'Unread mail', b.note, '/mail/', 'Open in Mail', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No unread mail.</p>'}</div>`;
+  }
+  const FKIND = (f) => { const k = String(f.kind || '').toLowerCase(), m = String(f.mime || ''); return /image/.test(m) || k === 'image' ? 'image' : k === 'sheet' || /spreadsheet/.test(m) ? 'sheet' : k === 'slides' || /presentation/.test(m) ? 'slides' : /pdf/.test(m) || k === 'pdf' ? 'pdf' : /video/.test(m) ? 'video' : 'doc'; };
+  const FK_ICON = { doc: 'fdoc', pdf: 'fdoc', sheet: 'fgrid', slides: 'fslides', image: 'fimage', video: 'play' };
+  const FK_LABEL = { doc: 'Doc', pdf: 'PDF', sheet: 'Sheet', slides: 'Slides', image: 'Picture', video: 'Video' };
+  function filelistHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((f) => {
+      const k = FKIND(f);
+      const tile = k === 'image' && f.id ? `<span class="tb-ftile tb-ftile--pic"><img src="${esc(THUMB(f.id, 400))}" alt="" loading="lazy" onerror="this.remove()"></span>` : `<span class="tb-ftile tb-ftile--${k}" aria-hidden="true">${ic(FK_ICON[k])}</span>`;
+      const meta = [FK_LABEL[k], f.by ? 'changed by ' + f.by : '', tbWhen(f.at) || (f.modified ? dlong(f.modified) : '')].filter(Boolean).join(' · ');
+      return `<li class="tb-row tb-file"><a class="tb-rowlink" href="${esc(href(f.link))}" target="_blank" rel="noopener">${tile}<span class="tb-main"><span class="tb-title">${esc(f.name || 'File')}</span><span class="tb-sub">${esc(meta)}</span></span></a></li>`;
+    }).join('');
+    return `<div class="card tb tb--files">${tbHead('fdoc', b.title || 'Files', b.note, 'https://drive.google.com/drive/shared-with-me', 'Open in Drive', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No files changed this week.</p>'}</div>`;
+  }
+  function tasksHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((t) => {
+      const due = t.due ? new Date(String(t.due).length === 10 ? t.due + 'T12:00:00' : t.due) : null;
+      const late = due && !t.done && due < new Date(new Date().toDateString());
+      return `<li class="tb-row tb-task${t.done ? ' is-done' : ''}"><span class="tb-check" role="img" aria-label="${t.done ? 'Done' : 'Open'}">${t.done ? ic('check') : ''}</span>
+        <a class="tb-main" href="${esc(href(t.link || '/projects/'))}"><span class="tb-title">${esc(t.title || 'Task')}</span><span class="tb-sub">${t.project ? `<span class="tb-chip">${esc(t.project)}</span>` : ''}${due ? `<span class="tb-due${late ? ' is-late' : ''}">${late ? 'Overdue, ' : 'Due '}${esc(due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}</span>` : ''}</span></a></li>`;
+    }).join('');
+    return `<div class="card tb tb--tasks">${tbHead('check', b.title || 'Your tasks', b.note, '/projects/', 'Open in Projects', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No open tasks.</p>'}</div>`;
+  }
   B.render = (b, ctx) => { try { return draw(b, ctx); } catch (e) { return ''; } };
   const draw = (b, ctx) => {
     switch (b.type) {
@@ -663,8 +752,60 @@
       case 'sources': return sourcesHTML(b);
       case 'consent': return consentHTML(b, ctx);
       case 'files': return filesHTML(b);
+      case 'calendar': return calendarHTML(b);
+      case 'mail': return mailHTML(b);
+      case 'filelist': return filelistHTML(b);
+      case 'tasks': return tasksHTML(b);
       default: return b && b.md ? `<div class="blk-text">${md(b.md)}</div>` : '';
     }
+  };
+  /**
+   * Draws an answer's blocks with each number said once. A lone figure tile followed by a short sentence that repeats it ("121
+   * partners (households).") becomes one headline line: the figure and a short label ("121 lapsed partners in Ohio").
+   */
+  B.renderAll = (blocks, ctx) => {
+    let bs = (blocks || []).slice();
+    // An answer the check held back is handed to Claude with a friendly card (Will, 2026-10-14: "more of an encouragement").
+    const held = bs.findIndex((b) => b && b.type === 'note' && /can.t answer this one reliably/i.test(b.title || ''));
+    if (held >= 0) {
+      const src = bs.find((b) => b && b.type === 'sources' && (b.items || []).some((i) => /Continue in Claude/i.test(i.label || '')));
+      const link = src ? (src.items.find((i) => /Continue in Claude/i.test(i.label || '')) || {}).href : '';
+      const m = /Here is how I read it:\s*(.*?)\s*That may not be/i.exec(bs[held].body || '');
+      const read = m && m[1] && m[1].length < 110 && !/^searched/i.test(m[1]) ? m[1].replace(/\.$/, '') : '';
+      return `<div class="blk-handoff"><div class="blk-handoff__ic" aria-hidden="true">${ic('spark')}</div><div class="blk-handoff__tx"><b>Let's take this one to Claude</b><p>I'm sharper in Claude for questions like this. Your question and what I found so far are ready to go.</p>${read ? `<p class="blk-handoff__rd">I read it as: ${esc(read)}.</p>` : ''}<div class="blk-handoff__acts">${link ? `<a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(link))}" target="_blank" rel="noopener">Continue in Claude ${ic('ext')}</a>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rephrase">Rephrase</button></div></div></div>`;
+    }
+    // With the steps above the answer, "How I read it" lives in them; its line is not said again under the answer.
+    if (ctx && ctx.steps) bs = bs.map((b) => (b && b.type === 'text' && /How I read it/i.test(b.md || '') ? { ...b, md: String(b.md).split(/\n/).filter((l) => !/^\s*_?How I read it/i.test(l)).join('\n').trim() } : b)).filter((b) => !(b && b.type === 'text' && !b.md));
+    const ti = bs.findIndex((b) => b && b.type === 'tiles' && (b.tiles || []).length === 1 && typeof b.tiles[0].value === 'number' && !b.tiles[0].delta && !b.tiles[0].trend && b.tiles[0].progress == null && !b.tiles[0].compare);
+    let head = '';
+    if (ti >= 0) {
+      const tile = bs[ti].tiles[0];
+      const shown = fmt(tile.value, tile.format || 'int');
+      // Only a short sentence whose one figure is this number ("121 partners (households).") is folded in; a sentence with
+      // more in it ("$4,291,689.40 so far, $5,000,000 goal") stays as written.
+      // The figures in a sentence, years left out ("2026 so far" is a period, not a figure).
+      const FIG = /\$?\d[\d,]*(?:\.\d+)?%?/g;
+      const figs = (t) => (t.match(FIG) || []).filter((x) => !/^(19|20)\d\d$/.test(x));
+      const val = (x) => Number(x.replace(/[$,%]/g, ''));
+      let tok = '';
+      const xi = bs.findIndex((b, k) => {
+        if (k <= ti || k > ti + 2 || !b || b.type !== 'text') return false;
+        const t = String(b.md || '').replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
+        const f = figs(t);
+        if (t.length >= 120 || f.length !== 1 || Math.round(val(f[0])) !== Math.round(tile.value)) return false;
+        tok = f[0];
+        return true;
+      });
+      if (xi >= 0) {
+        const tb = bs.find((b) => b && b.type === 'table' && b.title);
+        const said = String(bs[xi].md).replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
+        const rest = tb ? shortTitle(tb.title, nounOf(tb)).replace(/^\w/, (c) => c.toLowerCase()) : said.replace(tok, '').replace(/^[\s:,-]+/, '').replace(/[\s:,.-]+$/, '');
+        head = `<div class="blk-head"><b data-count="${tile.value}" data-f="${esc(tile.format || 'int')}">${esc(shown)}</b> <span>${esc(rest || tile.label)}</span></div>`;
+        bs.splice(xi, 1);
+        bs.splice(ti, 1);
+      }
+    }
+    return head + bs.map((b, bi) => B.render(b, typeof ctx === 'function' ? ctx(bi) : { ...ctx, bi })).join('');
   };
   B.fallback = (markdown) => `<div class="blk-text">${md(markdown)}</div>`;
 
@@ -855,6 +996,16 @@
   const blockOf = (turn, el) => (turn && turn.blocks ? turn.blocks[+el.dataset.bi] : null);
   const ACTIONS = {
     ask: (el, host) => host.ask(el.dataset.q, { intent: el.dataset.intent || undefined, el }),
+    // Rephrase on a handed-off answer: the question goes back in the ask box, ready to edit.
+    rephrase: (el, host) => {
+      const t = host.turn(el);
+      const box = document.getElementById('bc-input') || (el.closest('[data-brain]') || document).querySelector('[data-bask] textarea');
+      if (!box) return;
+      box.value = (t && t.q) || '';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    },
     photo: (el, host) => lightbox(el, host),
     'ask-again': (el, host) => { const t = host.turn(el); if (t) host.ask(t.asked_as || t.q, { again: true, el }); },
     choose: (el, host) => {

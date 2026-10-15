@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The FavorOS web app. No public address: dash.favorintl.org's Pages middleware reaches it through the WEB service binding.
+  "name": "favoros-web",
+  "account_id": "6e975b8c8e7bea3f644c0eb722af991f",
+  "compatibility_date": "2026-10-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./src/server.ts",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true }
+}
