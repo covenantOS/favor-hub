@@ -13,13 +13,19 @@ Chat is where the team talks inside FavorOS. Admin > Chat sets who can use it.
 
 ## Channels and messages
 
-The left column lists channels, then direct messages and groups. Bold means unread, and a red number means someone mentioned you or sent you a direct message. Everyone starts in **#general** and **#hub-feedback**. Press **+** beside Channels to make a channel, public or private. A private channel and its messages show only to the people in it. **Browse channels** lists the public ones.
+The left column lists channels, then direct messages and groups. Bold means unread, and a red number means someone mentioned you or sent you a direct message. Everyone starts in **#general** and **#hub-feedback**. Press **+** beside Channels to make a channel. The form asks for a Name, a Topic and **Make it private**, and **Create channel** saves it. A private channel and its messages show only to the people in it. **Browse channels** lists the public ones with how many members each has and a **Join** button.
 
-Press the pencil or the **+** beside Direct messages and pick one person for a direct message or several for a group. The same people always open the same conversation.
+Press the pencil at the top of the list or the **+** beside Direct messages and pick one person for a direct message or several for a group. The same people always open the same conversation.
 
 Type in the box and press Enter. Shift and Enter start a new line, and the next item when you are in a list. The row above the box makes text bold, italic or struck through, adds a link, a list, a quote or code; Ctrl B and Ctrl I work too, and typing - or 1. or > at the start of a line does the same. Press the up arrow in an empty box to edit your last message, in the channel or in a thread.
 
-Hold the pointer over a message for its toolbar: react, reply in a thread, and **More** for Edit, Copy text, Copy link, Pin, Mark unread from here, Create a request from this message and Delete. The emoji picker has a search box, groups and a skin tone that it remembers.
+Hold the pointer over a message for its toolbar: **React**, **Reply in thread**, **More actions** and **Make a task from this message**. The task button asks for a Title, a Project, an Owner and a Due date, and **Make the task** saves it. **More actions** lists Edit, Copy text, Copy link, Pin, Mark unread from here, Create a request from this message, Turn into a task, reminder or action, Reply with a clip, Ask Favor Brain about this and Delete. The emoji picker has a search box, groups and a skin tone that it remembers.
+
+## The channel header and details
+
+The header of a channel or conversation holds, from the left, the faces of its members (press them for the member list), **Huddle**, **Catch me up** (the spark), **Language** (the globe), **Search messages** and **Channel details** (the i).
+
+Channel details opens beside the messages with three tabs. **About** shows the topic, which you can edit in a channel, when it was made and by whom, and whether it is public or private. **Leave channel** and **Mute** or **Unmute** sit at the bottom. **Members** lists everyone with their status, **Add people** adds more, and the person who made the channel is marked **Created it**. **Files** lists every file shared there.
 
 What you type and do not send stays with that conversation as a draft, marked with a pencil in the list and gathered under **Drafts**.
 
@@ -56,10 +62,15 @@ The microphone beside the message box records a voice note of up to five minutes
 
 Press the **plus** in the message box.
 
+- **Upload a file** picks a file from your computer.
 - **Share from Drive** searches the Drive library. It lists only files your own Google account can open, and posts the pick as a card with an Open button.
 - **Share a clip** lists your clips. A pasted clip link becomes a clip card too.
 - **Record a clip** opens the recorder. The clip posts to the channel when you finish it.
 - **Huddle** works like the **Huddle** button at the top.
+- **Find a time** books a meeting with everyone in the conversation.
+- **Make a request** adds a card to the request board.
+
+The row of icons under the box holds the plus, **Mention someone**, **Emoji**, **Ask Favor Brain** and **Record a voice note**, with **Send** at the right.
 
 ## Huddles
 
@@ -79,7 +90,7 @@ Type **@Favor Brain** and a question in a channel or a thread, or start the mess
 
 ## Search
 
-Press **Ctrl K** in Chat, or **Jump to or search** at the top of the list, to jump to a channel or a person; the last line searches messages for what you typed. The search icon in a channel searches messages, filtered to this conversation, to messages with files, to messages that mention you, or **From** one person.
+Press **Ctrl K** in Chat, or **Jump to or search** at the top of the list, to jump to a channel or a person; the last line searches messages for what you typed. **Search messages** in the header opens a search box with the choices **Everywhere**, **In this conversation**, **With files**, **Mentions of me** and **From anyone**.
 
 ## Slash commands and requests
 
@@ -113,9 +124,9 @@ To stop it, use **Turn off email about chat** at the bottom of any of these emai
 
 ## The Chat button on every page
 
-On a computer, a round button at the bottom right of each FavorOS page opens Chat and Favor Brain in a panel over the page. The Chat tab lists your direct messages and channels with Threads first. Press a conversation to read it and reply, press a reply count to open its thread, and press the arrow at the top left to go back. In the new FavorOS app the panel draws the same messages and message box as the Chat page: reactions, cards, voice notes, Favor Brain answers, formatting, @ mentions, emoji and files, with Catch me up and the globe in the conversation's header. The Favor Brain tab asks a question and shows the answer the way the Brain page does, with the same list of chats under **Chats**.
+On a computer, a round button at the bottom right of each FavorOS page opens Chat and Favor Brain in a panel over the page. The Chat tab has a **Find a conversation** box, then Threads, your direct messages and your channels, and **Open Chat** at the bottom. Inside a conversation, **Open in Chat** at the top goes to the full page, and **More** holds Catch me up and the language. Press a conversation to read it and reply, press a reply count to open its thread, and press the arrow at the top left to go back. In the new FavorOS app the panel draws the same messages and message box as the Chat page: reactions, cards, voice notes, Favor Brain answers, formatting, @ mentions, emoji and files, with Catch me up and the language choice under **More** in the conversation's header. The Favor Brain tab asks a question and shows the answer the way the Brain page does, with the same list of chats under **Chats**.
 
-A number on the button counts direct messages, mentions and threads waiting for you. A direct message or a mention also shows a small notice above the button with **Reply** and **Open**. A muted channel stays quiet. The panel stays open and on the same conversation as you move between pages. Drag its top left corner to resize it, or press the arrows for a larger panel. Ctrl and a period (Command and a period on a Mac) opens and closes it, and Esc closes it. The button is not on the Chat page, the Favor Brain page or a phone, and it moves up when a page has a button in its corner.
+A number on the button counts direct messages, mentions and threads waiting for you. A direct message or a mention also shows a small notice above the button with **Reply** and **Open**. A muted channel stays quiet. The panel stays open and on the same conversation as you move between pages. Drag its top left corner to resize it. **Open as a full page** at the top right goes to the Chat page or the Brain page, and **Close the panel** (or Esc) closes it. Ctrl and a period (Command and a period on a Mac) opens and closes it. The button is not on the Chat page, the Favor Brain page or a phone, and it moves up when a page has a button in its corner.
 
 ## On a phone
 

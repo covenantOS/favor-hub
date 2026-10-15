@@ -1691,7 +1691,7 @@ export function MailPage() {
                             }
                           }}
                         >
-                          <span className={'ml-av' + (picked ? ' is-picked' : '')} data-h={hue((t.from && t.from.email) || name)} data-pick>
+                          <span className={'ml-av' + (picked ? ' is-picked' : '')} data-h={hue((t.from && t.from.email) || name)} data-pick title={picked ? 'Unselect' : 'Select'}>
                             {picked ? (
                               <>
                                 <MI n="check" />

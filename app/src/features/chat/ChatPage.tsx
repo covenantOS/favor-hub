@@ -506,7 +506,7 @@ function Head({ e }: { e: ChatEngine }) {
         {c.topic ? <div className="ch-head__topic">{c.topic}</div> : dmStatus(e, c)}
       </div>
       <div className="ch-head__acts">
-        <button type="button" className="ch-members" data-act="details" aria-label="Members" onClick={() => e.openDetails('members')}>
+        <button type="button" className="ch-members" data-act="details" aria-label="Members" title="Members and details" onClick={() => e.openDetails('members')}>
           <span className="ch-stack">
             {ms.map((id: string) => (
               <Avatar key={id} u={e.user(id)} size="sm" />

@@ -11,6 +11,7 @@ updated: 2026-10-13
 
 ## October 14, 2026
 
+- **Mail and Chat help cover every button.** The [Mail](/help/mail/) article now walks through each view, the list controls, the conversation toolbar, the message window, send later and snooze. [Chat](/help/chat/) adds the channel header, channel details, the plus menu and the Chat button's panel.
 - **Booking page shows each answer with its question.** Upcoming bookings lists the partner's answers under the question they answered. Book, Booking page and Notes each have a Show me this page walkthrough. [Meetings](/help/meetings/)
 - **Your day as lists in Favor Brain.** Ask about your meetings, unread mail, files or tasks and the answer is a list: meetings with a time and Join, mail with the sender and an unread dot, files with who changed them, tasks with the project and due date. Each has an Open link. See [Favor Brain](/help/ask-favor/).
 - **Favor Brain hands a hard question to Claude.** When it cannot answer reliably, the card says Let's take this one to Claude. Continue in Claude opens Claude with your question and what it found, and Rephrase puts your question back in the box. See [Favor Brain](/help/ask-favor/).
