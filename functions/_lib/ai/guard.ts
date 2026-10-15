@@ -510,6 +510,21 @@ export async function testUsed(store: GuardStore, day: string): Promise<number> 
   return Number(row?.n) || 0;
 }
 
+/** Neurons booked today under features with a ceiling of their own (not test runs, which the reconciler removes from the total first). */
+export async function ceilingedUsed(store: GuardStore, day: string): Promise<number> {
+  const rows = await store.db
+    .prepare('SELECT feature, COALESCE(SUM(neurons), 0) AS n FROM ai_budget_use WHERE day = ? GROUP BY feature')
+    .bind(day)
+    .all<{ feature: string; n: number }>()
+    .catch(() => ({ results: [] as { feature: string; n: number }[] }));
+  let sum = 0;
+  for (const r of rows.results || []) {
+    const ft = FEATURES[r.feature];
+    if (ft && ft.cap != null && !ft.test) sum += Number(r.n) || 0;
+  }
+  return sum;
+}
+
 /** Writes Cloudflare's totals for the last `days` days into D1 and KV, and sets today's kill flag past KILL_AT. */
 export async function reconcile(store: GuardStore, totals: Record<string, number>, today = utcDay(), days = 7): Promise<{ day: string; est: number; truth: number; used: number; off: boolean }> {
   const settings = await readSettings(store.kv);
@@ -532,7 +547,10 @@ export async function reconcile(store: GuardStore, totals: Record<string, number
   const row = (await store.db.prepare('SELECT est, truth, off, test_over FROM ai_budget_day WHERE day = ?').bind(today).first<{ est: number; truth: number; off: number; test_over: number }>()) || { est: 0, truth: 0, off: 0, test_over: 0 };
   const used = Math.ceil(Math.max(Number(row.est) || 0, Number(row.truth) || 0));
   const extra = (await extraLeft(store, settings, today).catch(() => 0)) + (Number(row.test_over) || 0);
-  const kill = Number(row.truth) > KILL_AT + extra;
+  // The kill protects the features that have no ceiling of their own. Usage booked under a feature with its own approved ceiling
+  // (Brain, meeting notes, the Drive index; test runs are already out of truth) does not count toward it (Will, 2026-10-14).
+  const ceilinged = await ceilingedUsed(store, today);
+  const kill = Math.max(0, Number(row.truth) - ceilinged) > KILL_AT + extra;
   if (kill && !row.off) await store.db.prepare('UPDATE ai_budget_day SET off = 1 WHERE day = ?').bind(today).run();
   if (store.kv) {
     await store.kv.put(`ai:budget:${today}`, String(used), { expirationTtl: 60 * 60 * 24 * 40 });
