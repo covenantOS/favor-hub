@@ -19,7 +19,7 @@
   'use strict';
   if (window.FavorCompose) return;
 
-  var CSS_HREF = '/js/compose/compose.css?v=1';
+  var CSS_HREF = '/js/compose/compose.css?v=2';
   var HOLD_MS = 15000;
   var MAX_FILES = 24 * 1048576;
   var MAX_OPEN = 3;
@@ -248,7 +248,7 @@
   function snapOf(w) {
     var ed = w.el && $('[data-fc-ed]', w.el), q = w.el && $('[data-fc-q]', w.el);
     return {
-      id: w.id, mode: w.mode === 'inline' ? 'min' : w.mode, wasInline: w.mode === 'inline' || !!w.wasInline, free: w.free || null, prevMode: w.prevMode || '',
+      id: w.id, mode: w.mode === 'inline' ? 'min' : w.mode, wasInline: w.mode === 'inline' || !!w.wasInline, preMin: w.mode === 'inline' ? 'inline' : w.preMin || '', free: w.free || null, prevMode: w.prevMode || '',
       title: w.o.title || '', to: chips(w, 'to'), cc: chips(w, 'cc'), bcc: chips(w, 'bcc'), showCc: !!w.showCc,
       subject: w.el ? $('[data-fc-subj]', w.el).value : w.o.subject || '',
       body: ed ? ed.innerHTML : w.o.body || '', quote: (q ? q.innerHTML : w.o.quote || '').slice(0, 200000), quoteOpen: !!w.quoteOpen,
@@ -372,9 +372,11 @@
       el.style.left = el.style.top = el.style.width = el.style.height = '';
     } else {
       ensureLayer();
-      if (w.mode === 'full') { if (el.parentNode !== layer) layer.appendChild(el); el.style.left = el.style.top = el.style.width = el.style.height = ''; }
+      // Full screen and free windows are position: fixed, so they stay where they are in the layer: moving a node that holds the
+      // caret while the pointer drags it crashed Edge's renderer.
+      if (w.mode === 'full') { if (!layer.contains(el)) dockRow.insertBefore(el, dockRow.firstChild); el.style.left = el.style.top = el.style.width = el.style.height = ''; }
       else if (w.mode === 'float' && w.free && !isPhone()) {
-        if (el.parentNode !== layer) layer.appendChild(el);
+        if (!layer.contains(el)) dockRow.insertBefore(el, dockRow.firstChild);
         var f = w.free;
         f.w = clamp(f.w, 360, innerWidth - 16); f.h = clamp(f.h, 260, innerHeight - 16);
         f.x = clamp(f.x, 8, innerWidth - f.w - 8); f.y = clamp(f.y, 8, innerHeight - f.h - 8);
@@ -424,6 +426,7 @@
     if (w.mode === mode && !opts.force) return;
     var from = w.mode;
     if (from === 'inline' && mode !== 'inline') { w.oldHost = w.host; w.wasInline = true; }
+    if (mode === 'min' && from !== 'min') w.preMin = opts.auto ? 'inline' : from === 'inline' ? 'inline' : from === 'full' ? 'full' : 'float';
     if (mode !== 'full' && from !== 'full') w.prevMode = '';
     if (mode === 'full') w.prevMode = from === 'full' ? w.prevMode : from === 'inline' ? 'float' : from;
     w.mode = mode;
@@ -437,6 +440,8 @@
     if (mode === 'min') phoneOverlay(w, false);
     requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.remove('is-moving'); }); });
     if (mode !== 'min' && opts.focus !== false) restoreSel(w, keepSel);
+    if (mode === 'inline' && opts.focus !== false) el.scrollIntoView({ block: 'nearest' });
+    if (mode === 'float' || mode === 'full') { el.classList.remove('is-arrive'); void el.offsetWidth; el.classList.add('is-arrive'); }
     var fb = $('[data-fc-c="full"]', el); if (fb) { fb.innerHTML = ic(mode === 'full' ? 'unfull' : 'full'); fb.setAttribute('aria-label', mode === 'full' ? 'Exit full screen' : 'Full screen'); }
     writeStore();
     emit('change', { id: w.id, mode: mode, threadId: w.o.threadId || '' });
@@ -490,7 +495,7 @@
       var have = WINS.filter(function (x) { return !x.gone && x.o.threadId === o.threadId && x.o.kind === o.kind; })[0];
       if (have) {
         if (o.mode === 'inline' && o.host && have.mode !== 'inline' && !isPhone()) { have.host = o.host; setMode(have, 'inline'); }
-        else if (have.mode === 'min') setMode(have, have.wasInline && o.host ? (have.host = o.host, 'inline') : 'float');
+        else if (have.mode === 'min') { if (o.host) have.host = o.host; setMode(have, restoreMode(have)); }
         focusWin(have);
         return Promise.resolve(have.id);
       }
@@ -523,13 +528,18 @@
     requestAnimationFrame(function () { requestAnimationFrame(function () { w.el.classList.remove('is-entering'); }); });
     if (w.mode !== 'min' && !restoreSnap) {
       restoreSel(w, null);
-      if (w.mode === 'inline') setTimeout(function () { w.el.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }, 60);
+      if (w.mode === 'inline') w.el.scrollIntoView({ block: 'nearest' });
     }
     if (o.items) o.items.forEach(function (it) { insertItem(w, it); });
     if (o.body || o.items) { w.dirty = true; changed(w); }
     writeStore();
     emit('open', { id: w.id, threadId: o.threadId || '', mode: w.mode });
     return w.id;
+  }
+  // A tab opens back where it was: a window stays a window; a reply folded away by leaving its conversation goes back inline.
+  function restoreMode(w) {
+    if (w.preMin === 'inline' && w.host && w.host.isConnected && !isPhone()) return 'inline';
+    return w.preMin === 'full' ? 'full' : 'float';
   }
   function focusWin(w) {
     w.touched = Date.now();
@@ -553,14 +563,14 @@
       if (f) { fmt(w, f.dataset.fcFmt); return; }
       var b = e.target.closest('[data-fc-c]'); if (!b) return;
       var c = b.dataset.fcC;
-      w.touched = Date.now();
+      if (c !== 'min' && c !== 'toggle-min') w.touched = Date.now();
       if (c === 'send') send(w);
       else if (c === 'close') closeWin(w);
       else if (c === 'discard') discard(w);
       else if (c === 'min') setMode(w, 'min');
       else if (c === 'toggle-min') {
         if (w.dragged) { w.dragged = false; return; }
-        if (w.mode === 'min') setMode(w, w.wasInline && w.host && w.host.isConnected && !isPhone() ? 'inline' : 'float');
+        if (w.mode === 'min') setMode(w, restoreMode(w));
         else if (w.mode === 'float' && !isPhone()) setMode(w, 'min');
       }
       else if (c === 'pop') { w.free = null; setMode(w, 'float'); }
@@ -578,6 +588,7 @@
     });
     el.addEventListener('mousedown', function (e) { if (e.target.closest('[data-fc-fmt]')) e.preventDefault(); });
     el.addEventListener('focusin', function (e) {
+      if (w.mode === 'min') return;
       w.touched = Date.now(); lastFocus = w;
       if (!e.target.closest('[data-fc-addr], .fc-sum') && el.querySelector('.fc-fields.is-open')) {
         if (!e.target.closest('.fc-fields')) { el.querySelector('.fc-fields').classList.remove('is-open'); sumLine(w); }
@@ -849,6 +860,10 @@
     head.addEventListener('pointerdown', function (e) {
       if (isPhone() || w.mode === 'inline' || w.mode === 'full' || w.mode === 'min' || e.button !== 0) return;
       if (e.target.closest('.fc-head__acts')) return;
+      // No text selection while dragging, and the caret stays where it was. (user-select: none on a window that holds the
+      // focused editor crashed Edge's renderer, so the pointer is captured instead.)
+      e.preventDefault();
+      try { head.setPointerCapture(e.pointerId); } catch (er) { /* old browser */ }
       var r = w.el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY, moved = false;
       var mv = function (ev) {
         var dx = ev.clientX - sx, dy = ev.clientY - sy;
@@ -864,10 +879,10 @@
         w.el.style.left = w.free.x + 'px'; w.el.style.top = w.free.y + 'px';
       };
       var up = function () {
-        removeEventListener('pointermove', mv); removeEventListener('pointerup', up);
+        removeEventListener('pointermove', mv); removeEventListener('pointerup', up); head.removeEventListener('lostpointercapture', up);
         if (moved) { w.dragged = true; w.el.classList.remove('is-dragging'); place(w); writeStore(); setTimeout(function () { w.dragged = false; }, 50); }
       };
-      addEventListener('pointermove', mv); addEventListener('pointerup', up);
+      addEventListener('pointermove', mv); addEventListener('pointerup', up); head.addEventListener('lostpointercapture', up);
     });
   }
   function wireResize(w) {
@@ -875,6 +890,9 @@
       h.addEventListener('pointerdown', function (e) {
         if (isPhone() || w.mode !== 'float' || e.button !== 0) return;
         e.preventDefault();
+        // The pointer is captured: without it, moving over a message (a frame with its own document) took the moves and the
+        // release away from the page and the window kept resizing.
+        try { h.setPointerCapture(e.pointerId); } catch (er) { /* old browser */ }
         var r = w.el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY, dir = h.dataset.fcRz;
         var docked = !w.free;
         w.el.classList.add('is-sizing');
@@ -895,8 +913,8 @@
             w.el.style.left = f.x + 'px'; w.el.style.top = f.y + 'px'; w.el.style.width = f.w + 'px'; w.el.style.height = f.h + 'px';
           }
         };
-        var up = function () { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); w.el.classList.remove('is-sizing'); writeStore(); cover(); };
-        addEventListener('pointermove', mv); addEventListener('pointerup', up);
+        var up = function () { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); h.removeEventListener('lostpointercapture', up); w.el.classList.remove('is-sizing'); writeStore(); cover(); };
+        addEventListener('pointermove', mv); addEventListener('pointerup', up); h.addEventListener('lostpointercapture', up);
       });
     });
   }
@@ -918,7 +936,7 @@
       e.preventDefault(); depth++;
       $('[data-fc-droptxt]', ov).textContent = k === 'files' ? 'Drop to attach' : 'Drop to add to this email';
       ov.hidden = false;
-      if (w.mode === 'min') setMode(w, w.wasInline && w.host && w.host.isConnected ? 'inline' : 'float', { focus: false });
+      if (w.mode === 'min') setMode(w, restoreMode(w), { focus: false });
     });
     el.addEventListener('dragover', function (e) { if (dtKind(e.dataTransfer)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
     el.addEventListener('dragleave', function () { depth = Math.max(0, depth - 1); if (!depth) ov.hidden = true; });
@@ -1268,7 +1286,9 @@
   /* ------------------------------------------------------------------ the public face */
   function add(item, opts) {
     opts = opts || {};
-    var target = !opts.fresh && (lastFocus && !lastFocus.gone ? lastFocus : WINS.filter(function (w) { return !w.gone && w.mode !== 'min'; }).slice(-1)[0]);
+    // The open window last worked in; a minimized one only when nothing is open.
+    var open = WINS.filter(function (w) { return !w.gone && w.mode !== 'min'; }).sort(function (a, b) { return (b.touched || 0) - (a.touched || 0); });
+    var target = !opts.fresh && (lastFocus && !lastFocus.gone && lastFocus.mode !== 'min' ? lastFocus : open[0]);
     if (target) {
       if (target.mode === 'min') setMode(target, 'float');
       if (insertItem(target, item)) toast('Added to ' + titleOf(target));
@@ -1286,7 +1306,7 @@
     WINS.forEach(function (w) {
       if (w.gone || w.o.threadId !== threadId) return;
       if (w.mode === 'inline' && w.host !== el) { var keep = saveSel(w); w.host = el; place(w); restoreSel(w, keep); }
-      else if (w.mode === 'min' && w.wasInline && !isPhone() && w.wantInline !== false) { w.host = el; setMode(w, 'inline', { focus: false }); }
+      else if (w.mode === 'min' && w.preMin === 'inline' && !isPhone()) { w.host = el; setMode(w, 'inline', { focus: false }); }
     });
   }
   // An inline window whose conversation was closed folds to a tab, or goes away if nothing was written.
@@ -1298,8 +1318,7 @@
         if (w.gone || w.mode !== 'inline' || (w.host && w.host.isConnected && w.el.isConnected)) return;
         if (isBlank(w)) { finish(w); return; }
         if (w.dirty) saveDraft(w);
-        w.wantInline = true;
-        setMode(w, 'min', { focus: false });
+        setMode(w, 'min', { focus: false, auto: true });
       });
     }, 120);
   }
@@ -1307,7 +1326,9 @@
   function keepLayer() { if (layer && !layer.isConnected && document.body) { document.body.appendChild(layer); cover(); } }
   var mo = new MutationObserver(function () { keepLayer(); if (WINS.some(function (w) { return w.mode === 'inline'; })) watchHosts(); });
   document.addEventListener('hub-swapped', keepLayer);
-  function startWatch() { mo.observe(document.body, { childList: true, subtree: true }); }
+  var bodyT = 0;
+  var bo = new MutationObserver(function () { cancelAnimationFrame(bodyT); bodyT = requestAnimationFrame(function () { phoneBottom(); }); });
+  function startWatch() { mo.observe(document.body, { childList: true, subtree: true }); bo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
 
   // Back from another page: the windows come back as they were (inline ones as tabs until their conversation opens).
   function restore() {
@@ -1324,7 +1345,8 @@
           w.draftId = s.draftId || ''; w.dirty = false;
           if (s.dirty) ensureCtx().then(function () { if (!w.gone) changed(w); }).catch(function () {});
           if (s.fileMeta && s.fileMeta.length) filesGet(s.id).then(function (f) { w.files = f || []; renderFiles(w); });
-          if (s.wasInline && s.threadId && findHost(s.threadId) && !isPhone()) { w.host = findHost(s.threadId); setMode(w, 'inline', { focus: false }); }
+          w.preMin = s.preMin || (s.wasInline && s.mode === 'min' ? 'inline' : w.preMin);
+          if (w.preMin === 'inline' && s.threadId && findHost(s.threadId) && !isPhone()) { w.host = findHost(s.threadId); setMode(w, 'inline', { focus: false }); }
         }
       });
       (st.pending || []).forEach(function (s) {
@@ -1351,12 +1373,12 @@
     host: host,
     /** Windows open now, for Mail (which conversation already has a reply). */
     list: function () { return WINS.filter(function (w) { return !w.gone; }).map(function (w) { return { id: w.id, mode: w.mode, threadId: w.o.threadId || '', kind: w.o.kind || '', draftId: w.draftId || w.o.draftId || '' }; }); },
-    focus: function (id) { var w = byId(id); if (w) { if (w.mode === 'min') setMode(w, w.wasInline && w.host && w.host.isConnected ? 'inline' : 'float'); focusWin(w); } },
+    focus: function (id) { var w = byId(id); if (w) { if (w.mode === 'min') setMode(w, restoreMode(w)); focusWin(w); } },
     close: function (id) { var w = byId(id); if (w) closeWin(w); },
     toast: toast,
     ITEM_TYPE: ITEM_TYPE,
   };
 
   var boot = function () { ensureLayer(); startWatch(); if (meEmail()) restore(); };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
 })();

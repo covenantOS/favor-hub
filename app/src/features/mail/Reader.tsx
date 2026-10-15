@@ -107,6 +107,7 @@ function MessageFrame({ html, title, fold, ent }: { html: string; title: string;
       // The frame never scrolls on its own, so its height always covers the message: measured again when the pane changes
       // width, when images and fonts arrive and when quoted text opens. A very long message stops at 2,400 px with a button.
       let lastW = -1;
+      let useScroll = false;
       const fit = () => {
         const w = b.clientWidth;
         if (!w) return;
@@ -114,11 +115,18 @@ function MessageFrame({ html, title, fold, ent }: { html: string; title: string;
           lastW = w;
           doc.body.style.zoom = '';
           const sw = doc.documentElement.scrollWidth;
-          if (sw > w + 4) doc.body.style.zoom = String(Math.max(0.4, w / sw));
+          if (sw > w + 4) {
+            doc.body.style.zoom = String(Math.max(0.4, w / sw));
+            useScroll = true;
+          }
         }
+        // The body's own box gives the height (so the frame also shrinks when quoted text folds). Content outside the body box,
+        // or a zoomed body, switches this frame to the document's scroll height for good, so the two measures never flip.
         const cur = f.clientHeight;
         const over = doc.documentElement.scrollHeight;
-        const h = Math.ceil(over > cur + 1 ? over : doc.body.getBoundingClientRect().height);
+        const rectH = Math.ceil(doc.body.getBoundingClientRect().height);
+        if (!useScroll && over > Math.max(cur, rectH) + 1) useScroll = true;
+        const h = useScroll ? over : rectH;
         if (Math.abs(h - cur) > 1) f.style.height = h + 'px';
         if (h > 3200 && !full.current) setLong(true);
       };

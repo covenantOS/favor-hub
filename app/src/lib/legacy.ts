@@ -50,7 +50,7 @@ export function layoutAssets(): Promise<LayoutAssets> {
 const FRAME_HELPERS = ['mention-input', 'drill'] as const;
 
 /** The shared email composer (public/js/compose/compose.js): every route can open it, and its windows stay open across routes. */
-export const COMPOSE_JS = '/js/compose/compose.js?v=1';
+export const COMPOSE_JS = '/js/compose/compose.js?v=2';
 
 /** Load the shell's helper scripts once the first frame has painted. */
 export async function mountShellScripts(): Promise<void> {

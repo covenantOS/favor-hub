@@ -1480,7 +1480,7 @@
   function fitFrame(f, box, fold) {
     var d; try { d = f.contentDocument; } catch (e) { return; }
     if (!d || !d.body) return;
-    var lastW = -1;
+    var lastW = -1, useScroll = false;
     var fit = function () {
       var w = box.clientWidth;
       if (!w) return;
@@ -1488,10 +1488,13 @@
         lastW = w;
         d.body.style.zoom = '';
         var sw = d.documentElement.scrollWidth;
-        if (sw > w + 4) d.body.style.zoom = String(Math.max(0.4, w / sw));
+        if (sw > w + 4) { d.body.style.zoom = String(Math.max(0.4, w / sw)); useScroll = true; }
       }
-      var cur = f.clientHeight, over = d.documentElement.scrollHeight;
-      var h = Math.ceil(over > cur + 1 ? over : d.body.getBoundingClientRect().height);
+      // The body's own box gives the height (so the frame can also shrink when quoted text folds). Content that sits outside
+      // the body box, or a zoomed body, switches this frame to the document's scroll height for good, so the two never flip.
+      var cur = f.clientHeight, over = d.documentElement.scrollHeight, rectH = Math.ceil(d.body.getBoundingClientRect().height);
+      if (!useScroll && over > Math.max(cur, rectH) + 1) useScroll = true;
+      var h = useScroll ? over : rectH;
       if (Math.abs(h - cur) > 1) f.style.height = h + 'px';
       if (h > LONG_PX && !box._full && !box._long) {
         box._long = 1;
