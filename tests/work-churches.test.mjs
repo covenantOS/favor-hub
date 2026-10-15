@@ -72,16 +72,20 @@ describe('regions', () => {
 
 describe('loadChurches', () => {
   it('counts only church-coded records and church gifts, and never the pledge row', async () => {
-    const r = await ch.loadChurches(q, TODAY);
+    const r = await ch.loadChurches(q, TODAY, 5000);
     assert.deepEqual(r.rows.map((x) => x.name), ['Grace Test Church', 'Hill Test Chapel', 'Quiet Test Church']);
     assert.equal(r.stats.churchesOnFile, 3);
     assert.equal(r.stats.givingYtd, 1300);
     assert.equal(r.stats.giftsYtd, 2);
     assert.equal(r.stats.churchesGave, 2);
     assert.equal(r.stats.newsletter, 1);
+    assert.equal(r.stats.goal, 5000, 'the goal is whatever the caller read from fundraiser_goals');
+  });
+  it('has no goal of its own', () => {
+    assert.equal(ch.CHURCH_GOAL_2026, undefined);
   });
   it('reads years, pastor, holder and the quarterly call date', async () => {
-    const r = await ch.loadChurches(q, TODAY);
+    const r = await ch.loadChurches(q, TODAY, 5000);
     const g = r.rows[0];
     assert.equal(g.ytd, 1000);
     assert.equal(g.lastYear, 500);
@@ -92,7 +96,7 @@ describe('loadChurches', () => {
     assert.equal(g.region, 'Southeast');
   });
   it('a church nobody has spoken to is timed from its last gift, and a mailing is not a contact', async () => {
-    const r = await ch.loadChurches(q, TODAY);
+    const r = await ch.loadChurches(q, TODAY, 5000);
     const hill = r.rows.find((x) => x.cid === '2');
     assert.equal(hill.lastContact, null);
     assert.equal(hill.call.by, '2026-05-03');

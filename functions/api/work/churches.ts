@@ -1,4 +1,5 @@
 import { HttpError, nowIso } from '../../_lib/http';
+import { churchGoal } from '../../_lib/goals/store';
 import { loadChurchDetail, loadChurches } from '../../_lib/work/churches';
 import { listMirrorQ, mirrorQ, SYSTEM_ID } from '../../_lib/work/partner';
 import { work } from '../../_lib/work/route';
@@ -17,6 +18,7 @@ export const onRequestGet = work(async ({ ctx, env, url }) => {
     if (!detail) throw new HttpError(404, 'not_found', 'That record is not a church.');
     return { detail };
   }
-  const list = await loadChurches(listMirrorQ(env), today);
+  const goal = await churchGoal(env, Number(today.slice(0, 4))).catch(() => 0);
+  const list = await loadChurches(listMirrorQ(env), today, goal);
   return { ...list, at: nowIso() };
 });

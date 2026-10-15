@@ -6,8 +6,6 @@
 import { openActionSql } from '../hub/actions';
 import type { Q } from './partner';
 
-/** Josh Milliron's working goal for church giving in 2026 (his email of 2026-10-05, the KPI dashboard's Church Engagement goal). */
-export const CHURCH_GOAL_2026 = 370946.25;
 export const CALL_EVERY_DAYS = 90;
 export const SOON_DAYS = 21;
 
@@ -62,7 +60,8 @@ const CHURCH_GIFT = `gift_constituency = 'Church' AND gift_type <> 'RecurringGif
 const CONTACT = `action_category IN ('Email', 'Phone call', 'Meeting')
   AND (action_completed_date IS NOT NULL OR COALESCE(json_extract(raw_json, '$.completed'), 0) IN (1, 'true'))`;
 
-export async function loadChurches(q: Q, today: string): Promise<ChurchesList> {
+/** `goal` is Church Engagement's annual goal for the year of `today`, read from fundraiser_goals by the caller (goals/store.ts churchGoal). */
+export async function loadChurches(q: Q, today: string, goal: number): Promise<ChurchesList> {
   const year = Number(today.slice(0, 4));
   const yearStart = `${year}-01-01`;
   const lastStart = `${year - 1}-01-01`;
@@ -157,7 +156,7 @@ export async function loadChurches(q: Q, today: string): Promise<ChurchesList> {
     today,
     stats: {
       givingYtd: Math.round(num(t.total)),
-      goal: CHURCH_GOAL_2026,
+      goal,
       churchesOnFile: num(onFile[0] && onFile[0].n),
       churchesGave: num(t.churches),
       giftsYtd: num(t.n),

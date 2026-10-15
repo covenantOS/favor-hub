@@ -226,6 +226,17 @@ const highlights: StepDef = {
   side: 'bottom',
 };
 
+const churches: StepDef = {
+  id: 'churches',
+  page: '/churches/',
+  via: 'partners-churches',
+  at: ['.ch-band', '.ch-list', '.ch-page'],
+  title: 'Churches',
+  need: 'work',
+  body: () => 'Every church partner is here with their giving, their pastor and when the next call is due.',
+  side: 'bottom',
+};
+
 /** Each tour's own screens, two or three. */
 const TEAM: Record<TourId, StepDef[]> = {
   rdd: [
@@ -236,7 +247,7 @@ const TEAM: Record<TourId, StepDef[]> = {
   church: [
     actions(),
     mine('Every church and partner you hold is here, with their giving and when anyone last spoke to them.'),
-    week,
+    churches,
   ],
   partner_care: [
     {
