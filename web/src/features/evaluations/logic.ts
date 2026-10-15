@@ -3,7 +3,7 @@
 // tests run them as they are and the page draws the same text everywhere.
 import type { Form, Question, Section } from '@hub/data/evaluation-forms';
 
-export type FormId = 'A' | 'B' | 'C';
+export type FormId = 'A' | 'B';
 
 export interface Ans {
   qid: string;
@@ -22,15 +22,12 @@ export interface Scale {
 export interface Limits {
   reviewersMin: number;
   reviewersMax: number;
-  goalsMin: number;
-  goalsMax: number;
 }
 
 export interface FormsPayload {
   forms: Record<FormId, Form>;
   scale: Scale[];
   exampleNote: string;
-  planAreas: string[];
   limits: Limits;
 }
 
@@ -56,20 +53,10 @@ export interface Mine {
   owe: Array<{ caseId: string; employee: string; relationship: string; due: string; status: string; progress: { done: number; total: number } }>;
   team: Array<{ id: string; employee: string; period: string; stage: string; stageWord: string; next: string; due: string; self: boolean; reviewersDone: number; reviewers: number }>;
   needsSign: Array<{ id: string; employee: string; period: string }>;
+  leads: Array<{ id: string; employee: string; period: string; meetingOn: string; meetingTime: string }>;
   reports: Array<{ email: string; name: string }>;
-}
-
-export interface Goal {
-  id: string;
-  area: string;
-  goal: string;
-  steps: string;
-  support: string;
-  target_date: string | null;
-  course_id: string | null;
-  task_id?: string | null;
-  review_status: string;
-  review_note: string;
+  isAdmin?: boolean;
+  settings?: { summaryUrl: string; instructionsUrl: string; supervisors: Record<string, string> };
 }
 
 export interface Progress {
@@ -85,6 +72,7 @@ export interface Reviewer {
   frequency: string;
   status: string;
   submittedAt: string;
+  declineNote?: string;
 }
 
 export interface CompetencyRow {
@@ -115,19 +103,21 @@ export interface CaseView {
     stageWord: string;
     due: { w1: string; w2: string; w3: string };
     meetingOn: string;
+    meetingTime: string;
+    meetingLink: string;
     acknowledgedAt: string;
     acknowledgedNote: string;
     signedBy: string;
     signedAt: string;
     docUrl: string;
-    docError: string;
     selfSubmitted: boolean;
     summaryShared: boolean;
     termOpen: boolean;
     employee: Who;
     supervisor: Who;
+    leader: Who;
   };
-  role: { employee: boolean; supervisor: boolean; reviewer: boolean; manage: boolean; raw: boolean; hr: boolean };
+  role: { employee: boolean; supervisor: boolean; reviewer: boolean; leader: boolean; manage: boolean; raw: boolean; hr: boolean };
   next: string;
   self?: { answers: Ans[]; submitted: boolean; progress: Progress };
   reviewers?: Reviewer[];
@@ -144,8 +134,7 @@ export interface CaseView {
     };
     reviewersIn: number;
   };
-  summary?: { answers: Ans[]; goals: Goal[]; submitted: boolean; progress: Progress; editable: boolean };
-  priorGoals?: Array<Goal & { period: string }>;
+  final?: { templateUrl: string; instructionsUrl: string; docUrl: string; shared: boolean; editable: boolean };
   learning?: Array<{ title: string; completedAt: string }>;
   evidence?: Evidence;
   reportsToMissing?: boolean;
@@ -153,8 +142,8 @@ export interface CaseView {
 
 export type Answers = Record<string, Ans>;
 /** The form a tab edits, and where its saved answers sit in the case view. */
-export type AnswerSource = 'self' | 'mineB' | 'summary';
-export const SOURCE_OF: Record<FormId, AnswerSource> = { A: 'self', B: 'mineB', C: 'summary' };
+export type AnswerSource = 'self' | 'mineB';
+export const SOURCE_OF: Record<FormId, AnswerSource> = { A: 'self', B: 'mineB' };
 
 /* ------------------------------------------------------------------------------------------------------------- dates */
 
@@ -255,33 +244,9 @@ export function gapLabel(x: Gap): string {
   return x.why + ': ' + (x.q.n ? x.q.n + '. ' : '') + x.q.text.slice(0, 70) + (x.q.text.length > 70 ? '...' : '');
 }
 
-/* ------------------------------------------------------------------------------------------------------------- goals */
-
-export const NEW_GOAL = (area: string): Goal => ({ id: '', area, goal: '', steps: '', support: '', target_date: '', course_id: '', review_status: '', review_note: '' });
-
-/** A goal counts when it has the goal, the action steps and a target date. */
-export const goalComplete = (g: Goal): boolean => !!(g.goal && g.steps && g.target_date);
-
-export function goalsReady(goals: Goal[], limits: Limits): boolean {
-  const n = goals.filter(goalComplete).length;
-  return n >= limits.goalsMin && n === goals.length;
-}
-
-/** The summary can be shared when every required answer is in and the plan has enough finished goals. */
-export function shareReady(form: Form, m: Answers, goals: Goal[], limits: Limits): boolean {
-  return !gapsOf(form, m).length && goalsReady(goals, limits);
-}
-
-/** The body the plan is saved with. */
-export const goalsBody = (goals: Goal[]) => ({
-  goals: goals.map((g) => ({ id: g.id, area: g.area, goal: g.goal, steps: g.steps, support: g.support, targetDate: g.target_date, courseId: g.course_id })),
-});
-
-export const GOAL_WORD: Record<string, string> = { met: 'Met', partly: 'Partly met', not_met: 'Not met', '': 'Not recorded' };
-
 /* ------------------------------------------------------------------------------------------------------------- tabs */
 
-export type Tab = 'overview' | 'self' | 'evidence' | 'reviewers' | 'summary' | 'feedback' | 'compare' | 'signoff' | 'mine';
+export type Tab = 'overview' | 'self' | 'evidence' | 'reviewers' | 'final' | 'feedback' | 'compare' | 'mine';
 
 export function tabsFor(v: CaseView): Array<[Tab, string]> {
   const t: Array<[Tab, string]> = [['overview', 'Overview']];
@@ -290,14 +255,13 @@ export function tabsFor(v: CaseView): Array<[Tab, string]> {
     t.push(['self', 'Self-assessment']);
     if (v.evidence) t.push(['evidence', 'My year']);
     t.push(['reviewers', 'Reviewers']);
-    if (v.summary) t.push(['summary', 'Summary and plan']);
+    if (v.case.meetingOn || v.case.summaryShared) t.push(['final', 'Meeting and final evaluation']);
   } else if (r.raw) {
     if (v.self) t.push(['self', 'Self-assessment']);
     if (v.evidence) t.push(['evidence', 'Evidence']);
     t.push(['feedback', 'Feedback']);
     t.push(['compare', 'Compare']);
-    t.push(['summary', 'Summary and plan']);
-    t.push(['signoff', 'Meeting and sign-off']);
+    t.push(['final', 'Meeting and final evaluation']);
   }
   if (v.mineB) t.push(['mine', 'My feedback form']);
   return t;
@@ -311,14 +275,14 @@ export function tabShown(v: CaseView, wanted: string): Tab {
 }
 
 export const STEPS = (due: { w1: string; w2: string; w3: string }) => [
-  { label: 'Week 1', text: 'Self-assessment and reviewers', due: due.w1 },
-  { label: 'Week 2', text: 'Feedback and review', due: due.w2 },
-  { label: 'Week 3', text: 'Meeting and sign-off', due: due.w3 },
+  { label: 'Week 1', text: 'Self-evaluation and feedback', due: due.w1 },
+  { label: 'Week 2', text: 'Review meeting and final evaluation', due: due.w2 },
 ];
 
-/** Where the stepper stands: the step number now, and whether every step is done. */
-export function stepNow(stage: string): { cur: number; done: boolean } {
-  return { cur: stage === 'self' ? 1 : stage === 'feedback' || stage === 'summary' ? 2 : 3, done: stage === 'signed' || stage === 'done' };
+/** Where the stepper stands: the step number now, and whether every step is done. Feedback stays in week 1 until its due date passes. */
+export function stepNow(stage: string, w1Due = '', today = ''): { cur: number; done: boolean } {
+  const late = !!w1Due && !!today && today > w1Due;
+  return { cur: stage === 'self' ? 1 : stage === 'feedback' ? (late ? 2 : 1) : 2, done: stage === 'signed' || stage === 'done' };
 }
 
 /* ---------------------------------------------------------------------------------------------------------- compare */
@@ -347,7 +311,20 @@ export function reviewerHits(staff: Person[], pick: string[], q: string, employe
 
 /** The line under the Ask button: why it is off. */
 export function askHint(n: number, lim: Limits): string {
-  return n < lim.reviewersMin ? 'Choose at least ' + lim.reviewersMin + '.' : n > lim.reviewersMax ? 'No more than ' + lim.reviewersMax + '.' : '';
+  return n < lim.reviewersMin ? 'Choose at least ' + lim.reviewersMin + '. Your supervisor counts as one.' : n > lim.reviewersMax ? 'No more than ' + lim.reviewersMax + '.' : '';
+}
+
+/** The supervisor is always one of the reviewers: put them first when they are missing from the chosen list. */
+export function withSupervisor(list: string[], supervisor: string): string[] {
+  return supervisor && !list.includes(supervisor) ? [supervisor, ...list] : list;
+}
+
+/** A clock time such as 14:30 in words, Eastern. */
+export function timeWord(t: string): string {
+  const m = /^(\d\d):(\d\d)$/.exec(t || '');
+  if (!m) return '';
+  const h = Number(m[1]);
+  return (h % 12 || 12) + ':' + m[2] + ' ' + (h < 12 ? 'AM' : 'PM') + ' Eastern';
 }
 
 /* ---------------------------------------------------------------------------------------------------------- admin */

@@ -341,6 +341,23 @@ export const DEFS: Def[] = [
       }
     },
   }),
+  hubDef({ id: 'evals.access', area: 'people', group: 'Evaluations', label: 'Who else can use Evaluations', hint: 'While Evaluations is in testing, the Early access list, hub admins, HR and the people here can open it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":["grace@favorintl.org"],"teams":[]}' }),
+  hubDef({ id: 'evals.summary_url', area: 'people', group: 'Evaluations', label: 'Final evaluation form', hint: 'The Google Doc that supervisors copy after the review meeting. Use a link that ends in /copy so it opens as a copy.', kind: 'text', def: 'https://docs.google.com/document/d/1pgaiNGZiMti7b__V1H3QtqVJzvO4GpSBj7qBRvvjQC0/copy' }),
+  hubDef({ id: 'evals.instructions_url', area: 'people', group: 'Evaluations', label: 'Supervisor instruction page', hint: 'The Google Doc that tells a supervisor how to prepare the review. HR writes it.', kind: 'text', def: 'https://docs.google.com/document/d/1LNhsspcLpxyf7wPaGJv_X9kEOBomH_Uj-HBg6kOb_AI/edit' }),
+  hubDef({
+    id: 'evals.supervisors', area: 'people', group: 'Evaluations', label: 'Supervisors without a reporting line',
+    hint: 'A JSON object of person and supervisor, used when a term opens for someone who has no Reports to in Admin > People. For example {"rachel@favorintl.org":"terry@favorintl.org"}. A line in Admin > People always wins.',
+    kind: 'text', def: '{"rachel@favorintl.org":"terry@favorintl.org","michael@favorintl.org":"terry@favorintl.org"}',
+    async check(_env, value) {
+      if (!value.trim()) return;
+      let o: unknown;
+      try { o = JSON.parse(value); } catch { throw new HttpError(400, 'bad', 'Use a JSON object, like {"rachel@favorintl.org":"terry@favorintl.org"}.'); }
+      if (!o || typeof o !== 'object' || Array.isArray(o)) throw new HttpError(400, 'bad', 'Use a JSON object, like {"rachel@favorintl.org":"terry@favorintl.org"}.');
+      for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+        if (!/^[^@\s]+@[^@\s]+$/.test(k) || !/^[^@\s]+@[^@\s]+$/.test(String(v))) throw new HttpError(400, 'bad', `${k} and its supervisor must both be email addresses.`);
+      }
+    },
+  }),
   // ---------------------------------------------------------------------------------------------------- Projects
   hubDef({ id: 'projects.enabled', area: 'projects', label: 'Who can use Projects', hint: 'Admins only, every signed-in staff member, or nobody. Task notices follow the Request notices setting in Admin > Chat.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'projects.marketing_key', area: 'projects', label: 'Project for Marketing requests', hint: 'The key of the project where a Marketing request lands as a task, for example MKT. Empty leaves requests going to the form they use now.', kind: 'text', def: '' }),

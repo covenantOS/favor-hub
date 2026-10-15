@@ -1,5 +1,5 @@
-// The three evaluation forms, from Rachel Cox's questionnaire (vault: Staff Evaluations, "2026-10-11 Rachel evaluation questionnaire").
-// Question text is hers, word for word. Ids are stable: an id is what an answer is saved under, so never renumber one.
+// The two evaluation forms, loaded from Rachel Cox's Google Doc "Evaluation Questions" (Form A and Form B), modified 2026-10-15.
+// Question text is hers, word for word, including wording she has not tidied yet. The supervisor's final form is her separate Summary doc. Ids are stable: an id is what an answer is saved under, so never renumber one.
 //
 // Rollout rule (Rachel, first cycle): every rating is required, 15 to 20 of the long answers are required (the `req` flag below),
 // the rest are optional. A rating of 1 or 2 needs an example. 0 means Not Observed.
@@ -31,7 +31,7 @@ export interface Section {
 }
 
 export interface Form {
-  id: 'A' | 'B' | 'C';
+  id: 'A' | 'B';
   title: string;
   who: string;
   intro: string[];
@@ -87,7 +87,7 @@ export const FORM_A: Form = {
       category: 'Job performance',
       questions: [
         r('a1', 1, 'I understand my role, responsibilities, and the expectations outlined in my RR&E.'),
-        r('a2', 2, 'I consistently follow through on commitments and complete assigned responsibilities.'),
+        r('a2', 2, 'I consistently follow through on commitments and complete assigned responsibilities. I understand my role and what is expected based on my RR&E\'s.'),
         r('a3', 3, 'I produce accurate, thorough, and high-quality work.'),
         r('a4', 4, 'I effectively prioritize responsibilities and manage competing deadlines.'),
         r('a5', 5, 'I take ownership of my work and accept accountability for outcomes.'),
@@ -96,12 +96,12 @@ export const FORM_A: Form = {
         r('a8', 8, 'I adapt effectively to changes in priorities, processes, or organizational needs.'),
         r('a9', 9, 'I look for opportunities to improve existing systems, procedures, and workflows.'),
         r('a10', 10, 'I demonstrate reliability, appropriate availability, and responsible use of work time.'),
-        t('a11', 11, 'What are your three most significant accomplishments during this evaluation period?', true),
+        t('a11', 11, 'What are a few of your most significant accomplishments during this evaluation period?', true),
         t('a12', 12, 'What responsibilities or areas of your role do you believe you perform particularly well? Please provide examples.', true),
         t('a13', 13, 'What challenges have you encountered, and how did you work through them?', true),
         t('a14', 14, 'Describe a situation where you took initiative or identified an opportunity to improve a process.'),
         t('a15', 15, 'Are there areas of your RR&E that need greater clarity, additional training, or adjustment?'),
-        t('a16', 16, 'What could you improve about how you manage your workload, responsibilities, or priorities?'),
+        t('a16', 16, 'What could you improve about how you manage your workload, responsibilities, or priorities? What challenges have you encountered, and how did you work through them?'),
       ],
     },
     {
@@ -114,7 +114,7 @@ export const FORM_A: Form = {
         r('a18', 18, 'I treat colleagues, ministry partners, and others with kindness, dignity, and respect.'),
         r('a19', 19, 'I demonstrate humility and a willingness to learn from others.'),
         r('a20', 20, 'I contribute to a positive, supportive, and Christ-centered working environment.'),
-        r('a21', 21, 'I work collaboratively with others, including individuals outside my department.'),
+        r('a21', 21, 'I work collaboratively with others, including individuals outside my department. I demonstrate humility and a willingness to learn from others.'),
         r('a22', 22, 'I handle disagreements and difficult conversations respectfully and constructively.'),
         r('a23', 23, 'I am receptive to constructive feedback and make efforts to apply it.'),
         r('a24', 24, 'I demonstrate good stewardship of organizational time, funds, equipment, and resources.'),
@@ -137,7 +137,7 @@ export const FORM_A: Form = {
         r('a34', 34, 'I listen attentively and seek to understand others before responding.'),
         r('a35', 35, 'I communicate concerns, challenges, and potential delays proactively.'),
         r('a36', 36, 'I demonstrate sound judgment and thoughtful decision-making.'),
-        r('a37', 37, 'I communicate effectively across departments and levels of leadership.'),
+        r('a37', 37, 'I communicate effectively across departments and levels of leadership by expressing concerns, challenges, and potential delays proactively.'),
         r('a38', 38, 'I participate constructively in meetings and collaborative discussions.'),
         r('a39', 39, 'I appropriately manage confidential or sensitive information.'),
         r('a40', 40, 'I demonstrate a willingness to learn and develop new professional skills.'),
@@ -157,7 +157,7 @@ export const FORM_A: Form = {
         r('a46', 46, 'I lead by example through my actions, attitude, and work ethic.'),
         r('a47', 47, 'I take responsibility for mistakes and actively seek to learn from them.'),
         r('a48', 48, 'I demonstrate a servant-hearted approach to my work and interactions.'),
-        r('a49', 49, 'I encourage others and contribute to their success.'),
+        r('a49', 49, 'I encourage others and contribute to their success. I lead by example through my actions, attitude, and work ethic.'),
         r('a50', 50, 'I demonstrate good judgment when making decisions or recommendations.'),
         r('a51', 51, 'I remain professional and constructive during difficult or stressful situations.'),
         r('a52', 52, 'I actively seek opportunities for personal and professional growth.'),
@@ -174,10 +174,10 @@ export const FORM_A: Form = {
       questions: [
         t('a58', 58, 'What professional skills or knowledge have you developed during this evaluation period?'),
         t('a59', 59, 'What training, mentoring, or development opportunities have been most beneficial?'),
-        t('a60', 60, 'What are your top three professional development goals for the next six months?', true),
+        t('a60', 60, 'What are your top three professional development goals for the next six months? What steps will you take to accomplish these goals?', true),
         t('a61', 61, 'What steps will you take to accomplish these goals?', true),
-        t('a62', 62, 'What support, resources, or training would help you accomplish them?'),
-        t('a63', 63, 'Are there additional responsibilities or areas of the ministry you would like to learn more about?'),
+        t('a62', 62, 'What support, resources, or training would help you accomplish said goals?'),
+        t('a63', 63, 'Are there additional responsibilities or areas of the ministry you would like to learn more about? What opportunities for growth or development would you like to discuss with your supervisor?'),
         t('a64', 64, 'What would you like to accomplish professionally over the next 1 to 3 years?'),
         t('a65', 65, 'What opportunities for growth or development would you like to discuss with your supervisor?', true),
       ],
@@ -186,14 +186,14 @@ export const FORM_A: Form = {
       id: 'a-overall',
       title: 'Overall Reflection and Organizational Feedback',
       questions: [
-        t('a66', 66, 'What are you most proud of accomplishing during this evaluation period?', true),
+        t('a66', 66, 'What are you most proud of accomplishing during this evaluation period? What is the most important lesson you have learned?', true),
         t('a67', 67, 'What is the most important lesson you have learned?'),
         t('a68', 68, 'What is one thing you would approach differently if given the opportunity?'),
         t('a69', 69, 'Do you feel you have the tools, resources, communication, and leadership support necessary to perform your role effectively? Please explain.', true),
-        t('a70', 70, 'What is working well within your department?'),
+        t('a70', 70, 'What is working well within your department? What could be improved within your department or across Favor?'),
         t('a71', 71, 'What could be improved within your department or across Favor?'),
         t('a72', 72, 'How could leadership better support you in your role and professional development?'),
-        t('a73', 73, 'What would you like your supervisor to understand about your experience during this evaluation period?', true),
+        t('a73', 73, 'If given the opportunity to visit the field, which areas of ministry would you be most interested in experiencing firsthand, and how do you believe this experience could deepen your understanding of Favor\'s mission and strengthen your effectiveness in your role?'),
         t('a74', 74, 'Is there anything else you would like to share during your evaluation?'),
       ],
     },
@@ -233,9 +233,9 @@ export const FORM_B: Form = {
         r('b10', 10, 'Approaches problems constructively and identifies practical solutions.'),
         r('b11', 11, 'Adapts effectively to changing circumstances and priorities.'),
         r('b12', 12, 'Demonstrates effective organization and time management.'),
-        t('b13', 13, 'What do you consider this employee\'s greatest professional strengths?', true),
+        t('b13', 13, 'What do you consider this employee\'s greatest professional strengths? In what areas could this employee improve their performance or effectiveness?', true),
         t('b14', 14, 'Can you share a specific example of this employee demonstrating initiative, accountability, or excellence?'),
-        t('b15', 15, 'In what areas could this employee improve their performance or effectiveness?', true),
+        t('b15', 15, 'Have you observed any recurring patterns of behavior, whether positive or areas for improvement, in the employee\'s work habits, communication, attitude, or interactions with others? Please provide specific examples where possible and describe how these behaviors have impacted their work, team dynamics, or overall effectiveness.'),
       ],
     },
     {
@@ -243,13 +243,13 @@ export const FORM_B: Form = {
       title: 'Relationships and Christian Character',
       category: 'Relationships and character',
       questions: [
-        r('b16', 16, 'Demonstrates honesty, integrity, and trustworthiness.'),
+        r('b16', 16, 'Demonstrates honesty, integrity, and trustworthiness. Treats others with kindness, dignity, and respect.'),
         r('b17', 17, 'Treats others with kindness, dignity, and respect.'),
         r('b18', 18, 'Demonstrates humility and a willingness to learn.'),
         r('b19', 19, 'Contributes positively to the work environment.'),
-        r('b20', 20, 'Works collaboratively and supports team members.'),
+        r('b20', 20, 'Works collaboratively and supports team members.Demonstrates humility and a willingness to learn.'),
         r('b21', 21, 'Handles disagreements or difficult situations respectfully.'),
-        r('b22', 22, 'Receives constructive feedback with openness.'),
+        r('b22', 22, 'Receives constructive feedback with openness. Responds constructively to challenges or setbacks.'),
         r('b23', 23, 'Demonstrates a servant-hearted attitude toward others.'),
         t('b24', 24, 'How does this employee positively contribute to team relationships and Favor\'s working environment?', true),
         t('b25', 25, 'Describe an example of this employee demonstrating Christian character, encouragement, or servant leadership.'),
@@ -261,7 +261,7 @@ export const FORM_B: Form = {
       title: 'Communication and Professional Skills',
       category: 'Communication and skills',
       questions: [
-        r('b27', 27, 'Communicates clearly and professionally.'),
+        r('b27', 27, 'Communicates clearly and professionally. Communicates effectively across departments.'),
         r('b28', 28, 'Keeps appropriate individuals informed of progress, challenges, and updates.'),
         r('b29', 29, 'Demonstrates active listening and consideration for others.'),
         r('b30', 30, 'Responds to communication in an appropriate and timely manner.'),
@@ -284,7 +284,7 @@ export const FORM_B: Form = {
         r('b40', 40, 'Demonstrates a willingness to learn and improve.'),
         r('b41', 41, 'Contributes to the overall mission and values of Favor.'),
         t('b42', 42, 'What leadership qualities or positive influences have you observed in this employee?'),
-        t('b43', 43, 'What opportunities for growth or development would you recommend?', true),
+        t('b43', 43, 'What opportunities for growth or development would you recommend? What additional responsibilities, training, or mentorship might benefit this employee?', true),
         t('b44', 44, 'What additional responsibilities, training, or mentorship might benefit this employee?'),
       ],
     },
@@ -292,8 +292,8 @@ export const FORM_B: Form = {
       id: 'b-overall',
       title: 'Overall Feedback',
       questions: [
-        t('b45', 45, 'What are the three greatest strengths this employee brings to Favor?', true),
-        t('b46', 46, 'What is one area where you believe this employee has grown during the evaluation period?'),
+        t('b45', 45, 'What are some of the greatest strengths this employee brings to Favor?', true),
+        t('b46', 46, 'What is one area where you believe this employee has grown during the evaluation period? What is something this employee does that positively impacts your work or the ministry?'),
         t('b47', 47, 'What is one area you would encourage this employee to focus on over the next six months?', true),
         t('b48', 48, 'What is something this employee does that positively impacts your work or the ministry?'),
         t('b49', 49, 'Is there anything this employee could do differently to better support their team, department, or the organization?'),
@@ -303,42 +303,7 @@ export const FORM_B: Form = {
   ],
 };
 
-export const PLAN_AREAS = ['Professional Skills', 'Communication and Teamwork', 'Leadership and Character', 'Role-Specific Development'];
-
-const c = (id: string, n: number, text: string): Question => ({ id, n, kind: 'text', text, req: true });
-
-export const FORM_C: Form = {
-  id: 'C',
-  title: 'Supervisor Evaluation and Development Summary',
-  who: 'Form C, written by the supervisor',
-  intro: [
-    'Review the self-assessment and the feedback side by side. The averages compare how the employee rates each competency with how the others rate it. There is no single overall score.',
-    'Write for the employee. After you share this, the employee reads it and the development plan, and it is the only account of the feedback they receive.',
-  ],
-  readers: 'The employee reads this summary and the plan once you share them. HR and FavorOS administrators can read it. The raw feedback from each reviewer stays with you, HR and FavorOS administrators and is never shown to the employee.',
-  sections: [
-    {
-      id: 'c-summary',
-      title: 'Supervisor Evaluation',
-      questions: [
-        c('c1', 1, 'Most significant accomplishments'),
-        c('c2', 2, 'Strengths consistently identified across the self-assessment and feedback'),
-        c('c3', 3, 'Where self-perception aligned with feedback'),
-        c('c4', 4, 'Significant differences between the self-assessment and others\' observations'),
-        c('c5', 5, 'Areas of growth consistently identified'),
-        c('c6', 6, 'How effectively the employee fulfills the RR&E'),
-        c('c7', 7, 'Responsibilities, expectations or reporting relationships needing clarification'),
-        c('c8', 8, 'Professional development to prioritize'),
-        c('c9', 9, 'Support or resources the supervisor or organization should provide'),
-        c('c10', 10, 'Measurable goals for the next six months'),
-      ],
-    },
-  ],
-};
-
-export const FORMS = { A: FORM_A, B: FORM_B, C: FORM_C } as const;
-
-export const PLAN_COLUMNS = ['Development area', 'Goal', 'Action steps', 'Support needed', 'Target date'];
+export const FORMS = { A: FORM_A, B: FORM_B } as const;
 
 /** Every question of a form, in order. */
 export function questionsOf(form: Form): Question[] {

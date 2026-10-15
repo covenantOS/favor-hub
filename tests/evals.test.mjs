@@ -17,16 +17,18 @@ const OZZY = { email: 'ozzy@favorintl.org', name: 'Ozzy Other', role: 'staff' };
 const REV = ['r1', 'r2', 'r3', 'r4'].map((n) => ({ email: `${n}@favorintl.org`, name: `Rae ${n}`, role: 'staff' }));
 const PEOPLE = [ADA, ANN, SAM, HAL, OZZY, ...REV];
 
-let M, S, R, F, A, D, db, env, sent, realFetch;
+let M, S, R, F, A, X, G, db, env, sent, realFetch;
 
 function world() {
   const d1 = memoryD1();
-  for (const f of ['db/schema.sql', 'db/work.sql', 'db/expenses.sql', 'db/signin.sql', 'db/reports.sql', 'db/admin-home.sql', 'db/meetings.sql', 'db/people-dev.sql']) d1.exec(read(f));
+  for (const f of ['db/schema.sql', 'db/work.sql', 'db/expenses.sql', 'db/signin.sql', 'db/reports.sql', 'db/admin-home.sql', 'db/meetings.sql', 'db/people-dev.sql', 'db/evals-2026-10-15.sql']) d1.exec(read(f));
   for (const p of PEOPLE) {
     d1.db.prepare('INSERT INTO hub_users (email, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(p.email, p.name, p.role, NOW, NOW);
     d1.db.prepare('INSERT INTO meet_directory (email, name, title, team, active) VALUES (?, ?, ?, ?, 1)').run(p.email, p.name, 'Staff', 'Operations');
   }
   d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('requests.notify', 'on', 't', ?)").run(NOW);
+  // The testing audience: everyone made up here is on the Early access list. One test removes the list to show the gate.
+  d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('early_access', ?, 't', ?)").run(JSON.stringify({ emails: PEOPLE.map((p) => p.email), teams: [] }), NOW);
   d1.db.prepare('INSERT INTO hub_hr (email, set_by, set_at) VALUES (?, ?, ?)').run(HAL.email, 't', NOW);
   d1.db.prepare('INSERT INTO hub_reporting (email, supervisor_email, department, title, start_date) VALUES (?, ?, ?, ?, ?)').run(ANN.email, SAM.email, 'Operations', 'Assistant', '2025-03-01');
   d1.db.prepare('INSERT INTO hub_reporting (email, supervisor_email, department, title, start_date) VALUES (?, ?, ?, ?, ?)').run(OZZY.email, null, 'Support', 'Assistant', '2025-08-01');
@@ -49,7 +51,8 @@ before(async () => {
   R = await import('../functions/_lib/evals/rules.ts');
   F = await import('../functions/_lib/people-dev.ts');
   A = await import('../functions/_lib/evals/api.ts');
-  D = await import('../functions/_lib/evals/drive.ts');
+  X = await import('../functions/_lib/evals/export.ts');
+  G = await import('../functions/_lib/evals/settings.ts');
   realFetch = globalThis.fetch;
 });
 
@@ -71,7 +74,6 @@ describe('the forms are Rachel\'s, word for word', () => {
   it('counts match her questionnaire', () => {
     assert.equal(M.answerable(M.FORM_A).length, 74);
     assert.equal(M.answerable(M.FORM_B).length + 2, 50);
-    assert.equal(M.answerable(M.FORM_C).length, 10);
     assert.equal(M.FORM_A.sections.filter((s) => s.id !== 'a-info').length, 6);
     assert.equal(M.questionsOf(M.FORM_A).find((q) => q.id === 'a1').text, 'I understand my role, responsibilities, and the expectations outlined in my RR&E.');
     assert.equal(M.questionsOf(M.FORM_A).find((q) => q.id === 'a74').text, 'Is there anything else you would like to share during your evaluation?');
@@ -81,20 +83,19 @@ describe('the forms are Rachel\'s, word for word', () => {
   it('keeps her scale, with Not Observed, and her introduction', () => {
     assert.deepEqual(M.SCALE.map((s) => s.label), ['Exceptional', 'Strong', 'Meets Expectations', 'Developing', 'Needs Significant Improvement', 'Not Observed']);
     assert.match(M.FORM_A.intro[0], /^At Favor International, our desire is to cultivate a culture of growth, accountability, encouragement, and excellence as we serve the Lord together\.$/);
-    assert.equal(M.PLAN_AREAS.length, 4);
   });
 
   it('asks nothing about marital status, children, tithing or church attendance', () => {
-    const all = [M.FORM_A, M.FORM_B, M.FORM_C].flatMap((f) => M.questionsOf(f)).map((q) => q.text.toLowerCase()).join(' ');
+    const all = [M.FORM_A, M.FORM_B].flatMap((f) => M.questionsOf(f)).map((q) => q.text.toLowerCase()).join(' ');
     for (const w of ['marital', 'married', 'children', 'tithe', 'tithing', 'church attendance', 'attend church']) assert.ok(!all.includes(w), w);
   });
 
   it('requires every rating, 15 to 20 long answers on Form A, and says who reads each form', () => {
     const req = M.requiredText(M.FORM_A).length;
     assert.ok(req >= 15 && req <= 20, `required long answers on Form A: ${req}`);
-    for (const f of [M.FORM_A, M.FORM_B, M.FORM_C]) assert.ok(f.readers.length > 40);
+    for (const f of [M.FORM_A, M.FORM_B]) assert.ok(f.readers.length > 40);
     assert.match(M.FORM_B.readers, /not anonymous/i);
-    assert.ok(!/anonym/i.test(M.FORM_A.readers + M.FORM_C.readers));
+    assert.ok(!/anonym/i.test(M.FORM_A.readers));
   });
 
   it('pairs each competency with real question ids', () => {
@@ -136,8 +137,9 @@ describe('rules', () => {
     assert.equal(R.mayReadRaw({ email: 'h@x', admin: false, hr: true }, c), true);
   });
 
-  it('the calendar runs three weeks and groups starters by half year', () => {
-    assert.deepEqual(R.weekDue('2026-01-05'), { w1: '2026-01-12', w2: '2026-01-19', w3: '2026-01-26' });
+  it('the calendar runs two weeks of a length HR sets, and groups starters by half year', () => {
+    assert.deepEqual(R.weekDue('2026-01-05'), { w1: '2026-01-12', w2: '2026-01-19', w3: '2026-01-19' });
+    assert.deepEqual(R.weekDue('2026-01-05', 10, 5), { w1: '2026-01-15', w2: '2026-01-20', w3: '2026-01-20' });
     assert.equal(R.periodFor('2026-01-05'), 'January to June 2026');
     assert.equal(R.groupByStart('2025-03-01'), 'first');
     assert.equal(R.groupByStart('2025-08-01'), 'second');
@@ -193,7 +195,7 @@ describe('opening a term', () => {
     assert.equal(t.skipped[0].email, 'nobody@favorintl.org');
     const c = db.db.prepare('SELECT * FROM eval_cases WHERE employee_email = ?').get(ANN.email);
     assert.equal(c.supervisor_email, SAM.email);
-    assert.deepEqual([c.w1_due, c.w2_due, c.w3_due], ['2026-01-12', '2026-01-19', '2026-01-26']);
+    assert.deepEqual([c.w1_due, c.w2_due], ['2026-01-12', '2026-01-19']);
     assert.equal(sent.length, 2);
     assert.equal(sent[0].to[0], ANN.email);
   });
@@ -212,337 +214,219 @@ describe('opening a term', () => {
   });
 });
 
-describe('the cycle, week by week', () => {
-  it('walks one person from self-assessment to a filed document', async () => {
+const answerAll = async (u, id, form, over) => {
+  await call(u, 'PUT', `case/${id}/answers`, { form, answers: full(form === 'A' ? M.FORM_A : M.FORM_B, over), relationship: 'Colleague / Peer', frequency: 'Weekly' });
+  await call(u, 'POST', `case/${id}/submit`, { form });
+};
+const selfAndReviewers = async (list = [SAM, REV[0]]) => {
+  await startTerm();
+  const id = await caseFor();
+  await answerAll(ANN, id, 'A');
+  await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: list.map((r) => ({ email: r.email })) });
+  return id;
+};
+
+describe('the forms are loaded from Rachel\'s documents', () => {
+  it('uses her edited wording and keeps the question kinds', () => {
+    const q = (f, id) => M.questionsOf(f).find((x) => x.id === id);
+    assert.equal(q(M.FORM_A, 'a11').text, 'What are a few of your most significant accomplishments during this evaluation period?');
+    assert.match(q(M.FORM_A, 'a73').text, /^If given the opportunity to visit the field/);
+    assert.equal(q(M.FORM_A, 'a73').req, false);
+    assert.match(q(M.FORM_B, 'b15').text, /^Have you observed any recurring patterns of behavior/);
+    assert.equal(q(M.FORM_B, 'b45').text, 'What are some of the greatest strengths this employee brings to Favor?');
+    assert.deepEqual([q(M.FORM_A, 'a1').kind, q(M.FORM_A, 'a11').kind, q(M.FORM_B, 'b3').kind, q(M.FORM_B, 'b4').kind], ['rating', 'text', 'choice', 'choice']);
+    assert.equal(M.FORMS.C, undefined);
+  });
+});
+
+describe('the reviewers: two or three, the supervisor always one', () => {
+  it('refuses a list without the supervisor, or with one or four people', async () => {
     await startTerm();
     const id = await caseFor();
-
-    // Week 1: self-assessment, saved as she goes.
-    const half = full(M.FORM_A).slice(0, 20);
-    const saved = await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: half });
-    assert.equal(saved.saved, 20);
-    await assert.rejects(() => call(ANN, 'POST', `case/${id}/submit`, { form: 'A' }), /not finished/);
-    const bad = full(M.FORM_A, { a1: 2 });
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: bad });
-    await assert.rejects(() => call(ANN, 'POST', `case/${id}/submit`, { form: 'A' }), /need an example/);
-    const ok = full(M.FORM_A, { a1: 2 });
-    ok.find((a) => a.qid === 'a1').example = 'I missed the January filing.';
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: ok });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    let v = (await call(ANN, 'GET', `case/${id}`)).view;
-    assert.equal(v.case.stage, 'self');
-    assert.equal(v.case.selfSubmitted, true);
-    // Locked after submit.
-    await assert.rejects(() => call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: ok }), /submitted/);
-
-    // Reviewers: 3 to 5, from the staff list, never herself.
-    await assert.rejects(() => call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: [{ email: REV[0].email }, { email: REV[1].email }] }), /3 to 5/);
-    await assert.rejects(() => call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: [{ email: ANN.email }, { email: REV[0].email }, { email: REV[1].email }] }), /other than/);
+    await answerAll(ANN, id, 'A');
+    const put = (list) => call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: list.map((r) => ({ email: r.email })) });
+    await assert.rejects(() => put([REV[0], REV[1]]), /supervisor is always one/);
+    await assert.rejects(() => put([SAM]), /2 or 3/);
+    await assert.rejects(() => put([SAM, REV[0], REV[1], REV[2]]), /no more than 3/i);
     sent.length = 0;
-    const set = await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.slice(0, 3).map((r) => ({ email: r.email })) });
-    assert.equal(set.stage, 'feedback');
+    const ok = await put([SAM, REV[0]]);
+    assert.equal(ok.stage, 'feedback');
     const to = sent.map((m) => m.to[0]);
-    for (const r of REV.slice(0, 3)) assert.ok(to.includes(r.email), 'each reviewer is asked by email');
-    assert.ok(to.includes(SAM.email), 'the supervisor hears the self-assessment is in');
+    assert.ok(to.includes(SAM.email) && to.includes(REV[0].email), 'each reviewer gets an email');
+    assert.ok(sent.some((m) => String(m.html).includes('/evaluations/?c=' + id)), 'the email carries the link to that evaluation');
+  });
 
-    // Week 2: reviewers write their own Form B and see nothing else.
-    for (const [i, r] of REV.slice(0, 3).entries()) {
-      const rv = (await call(r, 'GET', `case/${id}`)).view;
-      assert.equal(rv.self, undefined);
-      assert.equal(rv.feedback, undefined);
-      assert.equal(rv.reviewers, undefined);
-      assert.equal(rv.analysis, undefined);
-      assert.equal(rv.role.reviewer, true);
-      const bans = full(M.FORM_B, { b5: i === 0 ? 5 : 3 });
-      bans.find((x) => x.qid === 'b13').text = 'SECRETWORDS about strengths';
-      await call(r, 'PUT', `case/${id}/answers`, { form: 'B', answers: bans, relationship: 'Colleague / Peer', frequency: 'Weekly' });
-      await call(r, 'POST', `case/${id}/submit`, { form: 'B' });
-      await assert.rejects(() => call(r, 'PUT', `case/${id}/answers`, { form: 'B', answers: [] }), /already submitted/);
-    }
-
-    // The employee sees who was asked and whether they answered, never what they said.
-    v = (await call(ANN, 'GET', `case/${id}`)).view;
-    assert.equal(v.reviewers.length, 3);
-    assert.ok(v.reviewers.every((r) => r.status === 'submitted'));
-    assert.equal(v.feedback, undefined);
-    assert.equal(v.analysis, undefined);
-    assert.equal(v.summary, undefined);
-
-    // An outsider and a person not asked see nothing.
-    await assert.rejects(() => call(OZZY, 'GET', `case/${id}`), /not part of/);
-    // Their own list is empty: nobody else's evaluation, feedback request, team line or signature item appears on Evaluations.
-    const ozMe = await call(OZZY, 'GET', 'me');
-    assert.deepEqual([ozMe.own, ozMe.owe, ozMe.team, ozMe.needsSign, ozMe.manage], [[], [], [], [], false]);
-    await assert.rejects(() => call(OZZY, 'GET', 'admin/pick'), /HR and hub administrators/);
-    await assert.rejects(() => call(REV[3], 'GET', `case/${id}`), /not part of/);
-    await assert.rejects(() => call(REV[3], 'PUT', `case/${id}/answers`, { form: 'B', answers: [] }), /not asked/);
-
-    // The supervisor sees both sides with names, per competency, and no overall score.
-    const sv = (await call(SAM, 'GET', `case/${id}`)).view;
-    assert.equal(sv.feedback.length, 3);
-    assert.ok(sv.feedback[0].reviewer.startsWith('Rae'));
-    const role = sv.analysis.rows.find((r) => r.id === 'role');
-    assert.deepEqual([role.self, role.others, role.raters], [2, 3.67, 3]);
-    assert.equal(sv.analysis.categories.length, 4);
-    assert.ok(!('overall' in sv.analysis));
-    const hv = (await call(HAL, 'GET', `case/${id}`)).view;
-    assert.equal(hv.feedback.length, 3);
-
-    // Week 2 to 3: the supervisor's summary and plan.
-    await assert.rejects(() => call(ANN, 'PUT', `case/${id}/answers`, { form: 'C', answers: [] }), /supervisor writes/);
-    await assert.rejects(() => call(OZZY, 'PUT', `case/${id}/goals`, { goals: [] }), /supervisor writes/);
-    await call(SAM, 'PUT', `case/${id}/answers`, { form: 'C', answers: full(M.FORM_C) });
-    await assert.rejects(() => call(SAM, 'POST', `case/${id}/submit`, { form: 'C', meetingOn: '2026-01-26' }), /priority goals/);
-    const goals = (await call(SAM, 'PUT', `case/${id}/goals`, {
-      goals: [
-        { area: M.PLAN_AREAS[0], goal: 'Finish the Blackbaud course', steps: 'Two lessons a week', support: 'Time on Fridays', targetDate: '2026-04-30' },
-        { area: M.PLAN_AREAS[1], goal: 'Send weekly updates', steps: 'Friday note to the team', targetDate: '2026-03-31' },
-      ],
-    })).goals;
-    assert.equal(goals.length, 2);
-    // The employee cannot see the summary or plan until it is shared.
-    assert.equal((await call(ANN, 'GET', `case/${id}`)).view.summary, undefined);
+  it('a reviewer declines with a note, the supervisor hears, and the employee picks a replacement', async () => {
+    const id = await selfAndReviewers([SAM, REV[0], REV[1]]);
+    await assert.rejects(() => call(SAM, 'POST', `case/${id}/decline`, {}), /supervisor reviews every/);
     sent.length = 0;
-    const shared = await call(SAM, 'POST', `case/${id}/submit`, { form: 'C', meetingOn: '2026-01-26' });
-    assert.equal(shared.stage, 'meeting');
+    await call(REV[1], 'POST', `case/${id}/decline`, { note: 'On leave that week.' });
+    const to = sent.map((m) => m.to[0]);
+    assert.ok(to.includes(ANN.email) && to.includes(SAM.email));
+    assert.ok(sent.some((m) => m.to[0] === SAM.email && String(m.html).includes('On leave that week.')));
+    assert.ok(!sent.some((m) => m.to[0] === ANN.email && String(m.html).includes('On leave')), 'the employee does not read the note');
+    const sv = (await call(SAM, 'GET', `case/${id}`)).view;
+    assert.equal(sv.reviewers.find((r) => r.email === REV[1].email).declineNote, 'On leave that week.');
+    const ev = (await call(ANN, 'GET', `case/${id}`)).view;
+    assert.equal(ev.reviewers.find((r) => r.email === REV[1].email).status, 'declined');
+    assert.equal(ev.reviewers.find((r) => r.email === REV[1].email).declineNote, undefined);
+    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: [SAM, REV[0], REV[2]].map((r) => ({ email: r.email })) });
+    assert.equal((await call(ANN, 'GET', `case/${id}`)).view.reviewers.filter((r) => r.status === 'asked').length, 3);
+  });
+
+  it('the supervisor hears about every form as it comes in, and the employee reads no reviewer words', async () => {
+    const id = await selfAndReviewers([SAM, REV[0]]);
+    sent.length = 0;
+    const b = full(M.FORM_B);
+    b.find((x) => x.qid === 'b13').text = 'SECRETWORDS about strengths';
+    await call(REV[0], 'PUT', `case/${id}/answers`, { form: 'B', answers: b, relationship: 'Colleague / Peer', frequency: 'Weekly' });
+    await call(REV[0], 'POST', `case/${id}/submit`, { form: 'B' });
+    assert.ok(sent.some((m) => m.to[0] === SAM.email && /1 of 2/.test(m.subject)), 'one notice per form');
+    await assert.rejects(() => call(OZZY, 'GET', `case/${id}`), /not part of/);
+    const av = (await call(ANN, 'GET', `case/${id}`)).view;
+    assert.ok(!JSON.stringify(av).includes('SECRETWORDS'));
+    assert.equal(av.feedback, undefined);
+    const sv = (await call(SAM, 'GET', `case/${id}`)).view;
+    assert.ok(JSON.stringify(sv).includes('SECRETWORDS'));
+    const hv = (await call(HAL, 'GET', `case/${id}`)).view;
+    assert.equal(hv.feedback.length, 2);
+  });
+});
+
+describe('export to Google Sheets', () => {
+  it('builds the self-evaluation and each reviewer as separate sheets with the reviewer name beside every answer', async () => {
+    const id = await selfAndReviewers([SAM, REV[0]]);
+    const b = full(M.FORM_B);
+    b.find((x) => x.qid === 'b13').text = 'Great with partners';
+    await call(REV[0], 'PUT', `case/${id}/answers`, { form: 'B', answers: b, relationship: 'Colleague / Peer', frequency: 'Weekly' });
+    await call(REV[0], 'POST', `case/${id}/submit`, { form: 'B' });
+    const self = await X.exportSpec(env, SAM, id, { part: 'self' });
+    assert.match(self.title, /^Self-evaluation, Ann Employee/);
+    assert.equal(self.tab.rows.length, M.answerable(M.FORM_A).length);
+    assert.ok(self.tab.rows.every((r) => r.reviewer === undefined));
+    const rev = await X.exportSpec(env, HAL, id, { part: 'reviewer', email: REV[0].email });
+    assert.match(rev.title, /^Feedback from Rae r1 on Ann Employee/);
+    assert.equal(rev.tab.rows.length, M.answerable(M.FORM_B).length);
+    assert.ok(rev.tab.rows.every((r) => r.reviewer === 'Rae r1'));
+    assert.equal(rev.tab.rows.find((r) => String(r.question).startsWith('What do you consider')).answer, 'Great with partners');
+    assert.equal(rev.tab.rows.find((r) => r.n === 5).rating, '4 Strong');
+    await assert.rejects(() => X.exportSpec(env, SAM, id, { part: 'reviewer', email: SAM.email }), /has not submitted/);
+  });
+
+  it('is for the supervisor, HR and admins, never the employee or a reviewer', async () => {
+    const id = await selfAndReviewers([SAM, REV[0]]);
+    for (const u of [ANN, REV[0], OZZY]) await assert.rejects(() => X.exportSpec(env, u, id, { part: 'self' }), /Nobody exports their own/);
+    await assert.rejects(() => call(ANN, 'POST', `case/${id}/export`, { part: 'self' }), /Nobody exports their own/);
+    await assert.rejects(() => X.exportSpec(env, ADA, id, { part: 'nothing' }), /Pick the self-evaluation/);
+  });
+});
+
+describe('the meeting, the final evaluation and the signature', () => {
+  const DOC = 'https://docs.google.com/document/d/1abcdefghijklmnopqrstuvwxyz0123456789/edit';
+  it('runs from the schedule to the signature without the system writing anything', async () => {
+    const id = await selfAndReviewers([SAM, REV[0]]);
+    await assert.rejects(() => call(ANN, 'POST', `case/${id}/meeting`, { date: '2026-01-14' }), /supervisor, HR or an administrator/);
+    await assert.rejects(() => call(SAM, 'POST', `case/${id}/final`, { url: DOC }), /Schedule the review meeting/);
+    sent.length = 0;
+    await call(HAL, 'POST', `case/${id}/meeting`, { date: '2026-01-14', time: '14:30', link: 'https://zoom.us/j/123', leader: OZZY.email });
+    assert.deepEqual(sent.map((m) => m.to[0]).sort(), [ANN.email, OZZY.email, SAM.email].sort());
+    assert.ok(sent.every((m) => String(m.html).includes('2:30 PM Eastern')));
+    await assert.rejects(() => call(HAL, 'POST', `case/${id}/meeting`, { date: '2026-01-14', link: 'zoom.us' }), /https/);
+    const ov = (await call(OZZY, 'GET', `case/${id}`)).view;
+    assert.equal(ov.role.leader, true);
+    assert.equal(ov.self, undefined);
+    assert.equal(ov.feedback, undefined);
+    assert.equal((await call(OZZY, 'GET', 'me')).leads.length, 1);
+    await assert.rejects(() => call(SAM, 'POST', `case/${id}/final`, { url: 'https://example.com/x' }), /Google Doc/);
+    await assert.rejects(() => call(ANN, 'POST', `case/${id}/final`, { url: DOC }), /Only the supervisor/);
+    assert.equal((await call(ANN, 'GET', `case/${id}`)).view.case.docUrl, '');
+    sent.length = 0;
+    await call(SAM, 'POST', `case/${id}/final`, { url: DOC });
     assert.ok(sent.some((m) => m.to[0] === ANN.email));
     const av = (await call(ANN, 'GET', `case/${id}`)).view;
-    assert.equal(av.summary.goals.length, 2);
-    assert.equal(av.summary.answers.length, 10);
-    assert.equal(av.feedback, undefined, 'the employee gets the summary, not the words');
-    assert.equal(av.analysis, undefined);
-    assert.equal(av.self.answers.length > 0, true);
-    assert.ok(!JSON.stringify(av).includes('SECRETWORDS'), 'no reviewer words reach the employee');
-
-    // Week 3: acknowledgment waits for the meeting, then HR signs.
-    await assert.rejects(() => S.acknowledge(env, ANN, id, '', new Date('2026-01-20T15:00:00Z')), /after the meeting/);
-    await assert.rejects(() => call(SAM, 'POST', `case/${id}/acknowledge`, {}), /Only the employee/);
-    await S.acknowledge(env, ANN, id, 'Thank you.', new Date('2026-01-27T15:00:00Z'));
+    assert.equal(av.case.docUrl, DOC);
+    assert.equal(av.final.templateUrl, '', 'the form template is for the people who write it');
+    const sv = (await call(SAM, 'GET', `case/${id}`)).view;
+    assert.match(sv.final.templateUrl, /\/copy$/);
+    assert.match(sv.final.instructionsUrl, /^https:\/\/docs\.google\.com\//);
+    await assert.rejects(() => S.acknowledge(env, ANN, id, '', new Date('2026-01-10T15:00:00Z')), /after the meeting/);
+    await S.acknowledge(env, ANN, id, 'Thank you.', new Date('2026-01-15T15:00:00Z'));
     await assert.rejects(() => call(SAM, 'POST', `case/${id}/sign`), /HR signs/);
-    await assert.rejects(() => call(ANN, 'POST', `case/${id}/sign`), /HR signs/);
     const signed = await call(HAL, 'POST', `case/${id}/sign`);
     assert.equal(signed.stage, 'done');
-    assert.match(signed.docError, /No evaluation folder/);
-    const c = db.db.prepare('SELECT * FROM eval_cases WHERE id = ?').get(id);
-    assert.equal(c.signed_by, HAL.email);
   });
 
-  it('the supervisor may go ahead with fewer than three feedback forms, but must confirm', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: full(M.FORM_A) });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.slice(0, 3).map((r) => ({ email: r.email })) });
-    await call(REV[0], 'PUT', `case/${id}/answers`, { form: 'B', answers: full(M.FORM_B), relationship: 'Colleague / Peer', frequency: 'Daily' });
-    await call(REV[0], 'POST', `case/${id}/submit`, { form: 'B' });
-    await call(SAM, 'PUT', `case/${id}/answers`, { form: 'C', answers: full(M.FORM_C) });
-    await call(SAM, 'PUT', `case/${id}/goals`, { goals: [{ area: M.PLAN_AREAS[0], goal: 'g1', steps: 's', targetDate: '2026-04-01' }, { area: M.PLAN_AREAS[2], goal: 'g2', steps: 's', targetDate: '2026-05-01' }] });
-    await assert.rejects(() => call(SAM, 'POST', `case/${id}/submit`, { form: 'C', meetingOn: '2026-01-26' }), /Confirm to go ahead with 1/);
-    const r = await call(SAM, 'POST', `case/${id}/submit`, { form: 'C', meetingOn: '2026-01-26', proceedWithFewer: true });
-    assert.equal(r.stage, 'meeting');
-  });
-
-  it('a reviewer who never answers can be replaced, and the decline shows', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: full(M.FORM_A) });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.slice(0, 3).map((r) => ({ email: r.email })) });
-    await call(REV[2], 'POST', `case/${id}/decline`, {});
-    const v = (await call(SAM, 'GET', `case/${id}`)).view;
-    assert.equal(v.reviewers.find((r) => r.email === REV[2].email).status, 'declined');
-    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: [REV[0], REV[1], REV[3]].map((r) => ({ email: r.email })) });
-    const after = (await call(ANN, 'GET', `case/${id}`)).view;
-    assert.equal(after.reviewers.filter((r) => r.status === 'asked').length, 3);
-    await assert.rejects(() => call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.map((r) => ({ email: r.email })).concat([{ email: OZZY.email }, { email: HAL.email }]) }), /no more than 5/);
-  });
-
-  it('the employee cannot take back a reviewer who already submitted', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: full(M.FORM_A) });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.slice(0, 3).map((r) => ({ email: r.email })) });
-    await call(REV[0], 'PUT', `case/${id}/answers`, { form: 'B', answers: full(M.FORM_B), relationship: 'Colleague / Peer', frequency: 'Daily' });
-    await call(REV[0], 'POST', `case/${id}/submit`, { form: 'B' });
-    await assert.rejects(() => call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: [REV[1], REV[2], REV[3]].map((r) => ({ email: r.email })) }), /already submitted/);
-    await call(SAM, 'PUT', `case/${id}/reviewers`, { reviewers: [REV[1], REV[2], REV[3]].map((r) => ({ email: r.email })) });
-  });
-
-  it('reopening a submitted form lets its author change it', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: full(M.FORM_A) });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    await assert.rejects(() => call(OZZY, 'POST', `case/${id}/reopen`, { form: 'A' }), /Only the supervisor/);
-    await call(SAM, 'POST', `case/${id}/reopen`, { form: 'A' });
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: [{ qid: 'a1', rating: 5 }] });
-  });
-
-  it('the evaluation with no supervisor waits for one, and admins set it by drop-down', async () => {
-    await S.startTerm(env, ADA, { startsOn: '2026-01-05', emails: [OZZY.email] });
-    const id = await caseFor(OZZY.email);
-    await assert.rejects(() => call(OZZY, 'PUT', `case/${id}/answers`, { form: 'C', answers: [] }), /supervisor writes/);
-    await assert.rejects(() => call(SAM, 'POST', `case/${id}/supervisor`, { email: SAM.email }), /HR and hub administrators/);
-    await call(HAL, 'POST', `case/${id}/supervisor`, { email: SAM.email });
-    assert.equal(db.db.prepare('SELECT supervisor_email AS s FROM eval_cases WHERE id = ?').get(id).s, SAM.email);
-    await assert.rejects(() => call(HAL, 'POST', `case/${id}/supervisor`, { email: OZZY.email }), /their own evaluation/);
+  it('the supervisor can take the final evaluation back until the employee acknowledges', async () => {
+    const id = await selfAndReviewers();
+    await call(HAL, 'POST', `case/${id}/meeting`, { date: '2026-01-14' });
+    await call(SAM, 'POST', `case/${id}/final`, { url: DOC });
+    await call(SAM, 'POST', `case/${id}/final-reopen`, {});
+    assert.equal((await call(ANN, 'GET', `case/${id}`)).view.case.docUrl, '');
+    await call(SAM, 'POST', `case/${id}/final`, { url: DOC });
+    await S.acknowledge(env, ANN, id, '', new Date('2026-01-15T15:00:00Z'));
+    await assert.rejects(() => call(SAM, 'POST', `case/${id}/final-reopen`, {}), /already acknowledged/);
   });
 });
 
-describe('what each person is told they have to do', () => {
-  it('me lists my evaluation, the reviews I owe and my team', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: full(M.FORM_A) });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.slice(0, 3).map((r) => ({ email: r.email })) });
-    const mineAnn = await call(ANN, 'GET', 'me');
-    assert.equal(mineAnn.own.length, 1);
-    assert.equal(mineAnn.own[0].stage, 'feedback');
-    const mineRev = await call(REV[0], 'GET', 'me');
-    assert.equal(mineRev.owe.length, 1);
-    assert.equal(mineRev.own.length, 0);
-    const mineSam = await call(SAM, 'GET', 'me');
-    assert.equal(mineSam.team.length, 1);
-    assert.equal(mineSam.team[0].reviewers, 3);
-    assert.equal(mineSam.manage, false);
-    assert.equal((await call(HAL, 'GET', 'me')).manage, true);
-    assert.equal((await S.waitingOn(env, REV[0])).n, 1);
-    assert.equal((await S.waitingOn(env, OZZY)).n, 0);
+describe('opening a term, the settings and the gate', () => {
+  it('uses the supervisor setting for people with no reporting line, and a line in People always wins', async () => {
+    db.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('evals.supervisors', ?, 't', ?)").run(JSON.stringify({ [OZZY.email]: SAM.email, [ANN.email]: HAL.email }), NOW);
+    const t = await S.startTerm(env, ADA, { startsOn: '2026-01-05', emails: [OZZY.email, ANN.email], w1Days: 10, w2Days: 5 });
+    assert.deepEqual(t.noSupervisor, []);
+    const rows = Object.fromEntries(db.db.prepare('SELECT employee_email AS e, supervisor_email AS s, w1_due, w2_due FROM eval_cases').all().map((r) => [r.e, r]));
+    assert.equal(rows[OZZY.email].s, SAM.email);
+    assert.equal(rows[ANN.email].s, SAM.email, 'Reports to in Admin > People wins');
+    assert.deepEqual([rows[ANN.email].w1_due, rows[ANN.email].w2_due], ['2026-01-15', '2026-01-20']);
+    assert.equal(db.db.prepare('SELECT supervisor_email AS s FROM hub_reporting WHERE email = ?').get(OZZY.email).s, null, 'the reporting table is not written');
   });
 
-  it('who is behind shows past-due people by role, without answers', async () => {
-    await startTerm();
-    const id = await caseFor();
-    const r = await S.termReport(env, HAL, db.db.prepare('SELECT id FROM eval_terms').get().id, new Date('2026-01-14T15:00:00Z'));
-    assert.equal(r.cases.length, 1);
-    assert.ok(r.cases[0].behind.some((b) => b.what === 'Self-assessment'));
-    assert.ok(!JSON.stringify(r).includes('A written answer'));
-    await assert.rejects(() => S.termReport(env, SAM, db.db.prepare('SELECT id FROM eval_terms').get().id), /HR and hub administrators/);
-    void id;
+  it('defaults Rachel and Michael to Terry', async () => {
+    const st = await G.evalSettings(env);
+    assert.equal(st.supervisors['rachel@favorintl.org'], 'terry@favorintl.org');
+    assert.equal(st.supervisors['michael@favorintl.org'], 'terry@favorintl.org');
   });
 
-  it('reminders go once each, through the same gate as other notices', async () => {
+  it('opens only for the Early access list, Grace, HR and admins', async () => {
+    db.db.prepare("DELETE FROM hub_settings WHERE key = 'early_access'").run();
+    await assert.rejects(() => call(ANN, 'GET', 'forms'), /not open to everyone/);
+    await assert.rejects(() => call(OZZY, 'GET', 'me'), /not open to everyone/);
+    assert.ok((await call(ADA, 'GET', 'forms')).forms, 'admins keep it');
+    assert.ok((await call(HAL, 'GET', 'me')).manage, 'HR keeps it');
+    assert.equal((await S.waitingOn(env, ANN)).n, 0);
+    const grace = { email: 'grace@favorintl.org', name: 'Grace', role: 'staff' };
+    assert.equal(await G.mayUseEvals(env, grace), true, 'Grace is in evals.access by default');
+    db.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('early_access', ?, 't', ?)").run(JSON.stringify({ emails: [ANN.email], teams: [] }), NOW);
+    assert.ok((await call(ANN, 'GET', 'forms')).forms);
+    await assert.rejects(() => call(SAM, 'GET', 'forms'), /not open to everyone/);
+  });
+
+  it('does not open the same person twice and reminders go once each, feedback due at the end of week 1', async () => {
     await startTerm();
+    const id = await caseFor();
+    await answerAll(ANN, id, 'A');
+    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: [SAM, REV[0]].map((r) => ({ email: r.email })) });
     sent.length = 0;
     const one = await S.runNudges(env, new Date('2026-01-11T15:00:00Z'));
-    assert.equal(one.sent, 1);
-    const two = await S.runNudges(env, new Date('2026-01-11T18:00:00Z'));
-    assert.equal(two.sent, 0);
-    const late = await S.runNudges(env, new Date('2026-01-13T15:00:00Z'));
-    assert.equal(late.sent, 1);
-    db.db.prepare("DELETE FROM hub_settings WHERE key = 'requests.notify'").run();
-    db.db.prepare("DELETE FROM eval_nudges").run();
-    sent.length = 0;
-    await S.runNudges(env, new Date('2026-01-11T15:00:00Z'));
-    assert.equal(sent.length, 0, 'gate off: nothing leaves');
-  });
-});
-
-describe('the plan carries into the next cycle', () => {
-  it('last term\'s goals show on the next evaluation and take a verdict', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(SAM, 'PUT', `case/${id}/goals`, { goals: [{ area: M.PLAN_AREAS[0], goal: 'Finish the course', steps: 'Weekly', targetDate: '2026-04-30' }] });
-    db.db.prepare("UPDATE eval_cases SET stage = 'done' WHERE id = ?").run(id);
-    db.db.prepare("UPDATE eval_terms SET status = 'closed'").run();
-    await S.startTerm(env, ADA, { startsOn: '2026-07-06', emails: [ANN.email] });
-    const id2 = db.db.prepare("SELECT id FROM eval_cases WHERE id != ?").get(id).id;
-    const v = (await call(SAM, 'GET', `case/${id2}`)).view;
-    assert.equal(v.priorGoals.length, 1);
-    assert.equal(v.priorGoals[0].goal, 'Finish the course');
-    await call(SAM, 'POST', `case/${id2}/goal-review`, { goalId: v.priorGoals[0].id, status: 'partly', note: 'Four of six lessons.' });
-    assert.equal(db.db.prepare('SELECT review_status AS s FROM eval_goals').get().s, 'partly');
-    await assert.rejects(() => call(OZZY, 'POST', `case/${id2}/goal-review`, { goalId: v.priorGoals[0].id, status: 'met' }), /Only the supervisor/);
-  });
-
-  it('goals become tasks for the employee when Projects is installed, and are skipped when it is not', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(SAM, 'PUT', `case/${id}/goals`, { goals: [{ area: M.PLAN_AREAS[0], goal: 'Learn it', steps: 'Daily', targetDate: '2026-04-30' }] });
-    assert.equal(await S.makeGoalTasks(env, id), 0);
-    db.exec(`CREATE TABLE hub_tasks (id TEXT PRIMARY KEY, project_id TEXT, section_id TEXT, code TEXT, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', priority TEXT NOT NULL DEFAULT 'normal', owner_email TEXT, start_date TEXT, due_date TEXT, due_time TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
-    assert.equal(await S.makeGoalTasks(env, id), 1);
-    const t = db.db.prepare('SELECT * FROM hub_tasks').get();
-    assert.equal(t.owner_email, ANN.email);
-    assert.equal(t.due_date, '2026-04-30');
-    assert.match(t.description, /\/evaluations\/\?c=/);
-    assert.equal(await S.makeGoalTasks(env, id), 0);
-  });
-});
-
-describe('the filed document', () => {
-  it('files a Google Doc and a PDF in the employee folder, without reviewer words', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await call(ANN, 'PUT', `case/${id}/answers`, { form: 'A', answers: full(M.FORM_A) });
-    await call(ANN, 'POST', `case/${id}/submit`, { form: 'A' });
-    await call(ANN, 'PUT', `case/${id}/reviewers`, { reviewers: REV.slice(0, 3).map((r) => ({ email: r.email })) });
-    for (const r of REV.slice(0, 3)) {
-      const ans = full(M.FORM_B);
-      ans.find((a) => a.qid === 'b13').text = 'SECRETWORDS from a reviewer';
-      await call(r, 'PUT', `case/${id}/answers`, { form: 'B', answers: ans, relationship: 'Colleague / Peer', frequency: 'Daily' });
-      await call(r, 'POST', `case/${id}/submit`, { form: 'B' });
-    }
-    await call(SAM, 'PUT', `case/${id}/answers`, { form: 'C', answers: full(M.FORM_C) });
-    await call(SAM, 'PUT', `case/${id}/goals`, { goals: [{ area: M.PLAN_AREAS[0], goal: 'g1', steps: 's1', targetDate: '2026-04-01' }, { area: M.PLAN_AREAS[3], goal: 'g2', steps: 's2', targetDate: '2026-05-01' }] });
-    await call(SAM, 'POST', `case/${id}/submit`, { form: 'C', meetingOn: '2026-01-26' });
-    await S.acknowledge(env, ANN, id, '', new Date('2026-01-27T15:00:00Z'));
-    await call(ADA, 'PUT', 'admin/folder', { folder: 'https://drive.google.com/drive/folders/ROOTFOLDER123456' });
-    assert.equal(await D.evalFolder(env), 'ROOTFOLDER123456');
-
-    const calls = [];
-    const deps = {
-      token: async () => 't',
-      fetch: async (url, init = {}) => {
-        calls.push({ url: String(url), method: init.method || 'GET', body: init.body });
-        if (String(url).includes('/upload/')) return Response.json({ id: 'f' + calls.length, webViewLink: 'https://docs.google.com/document/d/abc/edit' });
-        if ((init.method || 'GET') === 'GET') return Response.json({ files: [] });
-        return Response.json({ id: 'folder1' });
-      },
-      assets: async (p) => new Uint8Array(readFileSync(new URL('../public' + p, import.meta.url))),
-    };
-    const r = await D.publish(env, id, deps);
-    assert.equal(r.error, '');
-    assert.match(r.url, /docs\.google\.com/);
-    const uploads = calls.filter((c) => c.url.includes('/upload/'));
-    assert.equal(uploads.length, 2);
-    const text = uploads.map((u) => Buffer.from(u.body).toString('latin1')).join('\n');
-    assert.ok(text.includes('google-apps.document'));
-    assert.ok(text.includes('Employee Evaluation: Ann Employee'));
-    assert.ok(!text.includes('SECRETWORDS'), 'a reviewer\'s words never reach the document');
-    assert.ok(!text.includes('Rae r1'), 'a reviewer\'s name never reaches the document');
-    assert.equal(db.db.prepare('SELECT doc_url AS u FROM eval_cases WHERE id = ?').get(id).u, r.url);
-    const pdf = await D.pdfFor(env, id, deps);
-    assert.equal(Buffer.from(pdf.bytes.subarray(0, 4)).toString(), '%PDF');
-  });
-
-  it('keeps the error and the PDF when Drive refuses', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await D.setEvalFolder(env, 'x', 'ROOTFOLDER123456');
-    const r = await D.publish(env, id, { token: async () => 't', fetch: async () => new Response('{"error":{"message":"no access"}}', { status: 403 }), assets: async () => null });
-    assert.match(r.error, /403/);
-    assert.match(db.db.prepare('SELECT doc_error AS e FROM eval_cases WHERE id = ?').get(id).e, /no access/);
-  });
-
-  it('PDF download opens for the employee only after the summary is shared', async () => {
-    await startTerm();
-    const id = await caseFor();
-    await assert.rejects(() => call(ANN, 'GET', `case/${id}/pdf`), /once your supervisor shares/);
-    await assert.rejects(() => call(OZZY, 'GET', `case/${id}/pdf`), /once your supervisor shares/);
+    assert.equal(one.sent, 2, 'both reviewers, two days before week 1 ends');
+    assert.equal((await S.runNudges(env, new Date('2026-01-11T18:00:00Z'))).sent, 0);
+    const behind = (await S.termReport(env, HAL, db.db.prepare('SELECT id FROM eval_terms').get().id, new Date('2026-01-14T15:00:00Z'))).cases[0].behind;
+    assert.ok(behind.some((x) => x.what.startsWith('Feedback on')));
+    assert.ok(behind.some((x) => x.what === 'Review meeting not scheduled'));
+    assert.ok(!JSON.stringify(behind).includes('A written answer'));
   });
 });
 
 describe('the routes', () => {
-  it('serve the forms to anyone signed in and keep admin routes to HR and admins', async () => {
+  it('serve the forms and keep admin routes to HR and admins', async () => {
     const f = await call(OZZY, 'GET', 'forms');
     assert.equal(f.forms.A.sections.length, 7);
-    assert.equal(f.limits.reviewersMin, 3);
+    assert.equal(f.limits.reviewersMin, 2);
+    assert.equal(f.limits.reviewersMax, 3);
+    assert.equal(f.forms.C, undefined);
     await assert.rejects(() => call(OZZY, 'GET', 'admin/terms'), /HR and hub administrators/);
     assert.ok((await call(HAL, 'GET', 'admin/terms')).terms);
     assert.ok((await call(ADA, 'GET', 'admin/pick')).people.length >= 3);
     await assert.rejects(() => call(OZZY, 'GET', 'nothing'), /nothing at that address/);
+    await assert.rejects(() => call(OZZY, 'GET', 'courses'), /nothing at that address/);
   });
 });

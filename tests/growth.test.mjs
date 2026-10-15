@@ -241,12 +241,14 @@ test('evidence counts the year of finished tasks, Work Center actions and course
 test('an evaluation shows evidence to the employee and the supervisor, not to a reviewer, and asks an admin for a missing Reports to', async () => {
   const w = world();
   w.d1.exec(read('db/people-dev.sql'));
+  w.d1.exec(read('db/evals-2026-10-15.sql'));
   const S = await import('../functions/_lib/evals/service.ts');
   const A = await import('../functions/_lib/evals/api.ts');
   const ins = (sql, ...a) => w.d1.db.prepare(sql).run(...a);
   ins('INSERT INTO hub_reporting (email, supervisor_email, department, title, start_date) VALUES (?, ?, ?, ?, ?)', NEW.email, BOSS.email, 'Partner Care', 'Associate', '2025-03-01');
   ins('INSERT INTO hub_reporting (email, supervisor_email, department, title, start_date) VALUES (?, ?, ?, ?, ?)', PEER.email, null, 'Partner Care', 'Associate', '2025-03-01');
   ins("INSERT OR REPLACE INTO hub_settings (key, value, updated_by, updated_at) VALUES ('requests.notify', 'off', 't', ?)", NOW);
+  ins("INSERT OR REPLACE INTO hub_settings (key, value, updated_by, updated_at) VALUES ('early_access', ?, 't', ?)", JSON.stringify({ emails: [NEW.email, BOSS.email, PEER.email], teams: [] }), NOW);
   const admin = { email: WILL.email, name: WILL.name, role: 'admin' };
   const emp = { email: NEW.email, name: NEW.name, role: 'staff' };
   const sup = { email: BOSS.email, name: BOSS.name, role: 'staff' };

@@ -8,8 +8,8 @@ import { byId, SOURCE_OF, type Ans, type Answers, type CaseView, type FormId } f
 import { evKeys } from './queries';
 
 export type Edits = Record<FormId, Answers>;
-const none = (): Edits => ({ A: {}, B: {}, C: {} });
-const FORMS: FormId[] = ['A', 'B', 'C'];
+const none = (): Edits => ({ A: {}, B: {} });
+const FORMS: FormId[] = ['A', 'B'];
 
 export interface Saver {
   /** Unsaved edits, by form. */
@@ -32,7 +32,7 @@ export function useSaver(caseId: string): Saver {
   const chain = useRef<Promise<void>>(Promise.resolve());
   const alive = useRef(true);
 
-  const sync = () => setEdits({ A: ref.current.A, B: ref.current.B, C: ref.current.C });
+  const sync = () => setEdits({ A: ref.current.A, B: ref.current.B });
 
   const send = useCallback(
     async (form: FormId): Promise<void> => {

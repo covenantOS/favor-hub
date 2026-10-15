@@ -1,4 +1,4 @@
-// The read and action panels of one evaluation: overview, reviewers, the year's evidence, feedback, compare, summary and plan, sign-off.
+// The read and action panels of one evaluation: overview, reviewers, the year's evidence, feedback, compare, the meeting and the final evaluation.
 // Same markup and class names as public/js/evaluations.js drew.
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from '@/shell/NavLink';
@@ -6,8 +6,8 @@ import { evalCall } from './api';
 import { FormEditor, FormLocked, FormRead, Intro, Lines, SectionBlock, rowHandlers } from './Forms';
 import { toast } from './toast';
 import {
-  GOAL_WORD, NEW_GOAL, STEPS, activeReviewers, askHint, barWidth, caseHref, dateWord, gapText, gapsOf, goalsBody, goalComplete, isBigGap, merged, num, percent, plural,
-  reviewerHits, rowsByCategory, stepNow, todayEt, totalsOf, type Ans, type CaseView, type FormsPayload, type Goal, type Person,
+  STEPS, activeReviewers, askHint, barWidth, caseHref, dateWord, gapText, gapsOf, isBigGap, merged, num, percent, plural,
+  reviewerHits, rowsByCategory, stepNow, timeWord, todayEt, totalsOf, type Ans, type CaseView, type FormsPayload, type Person,
 } from './logic';
 import type { Saver } from './useSaver';
 
@@ -16,7 +16,7 @@ export interface Ctx {
   forms: FormsPayload;
   meName: string;
   staff: Person[];
-  courses: Array<{ id: string; title: string }>;
+  settings?: { summaryUrl: string; instructionsUrl: string };
   saver: Saver;
   reload: () => Promise<unknown>;
   patch: (fn: (v: CaseView) => CaseView) => void;
@@ -61,7 +61,9 @@ function Check({ done, text, extra }: { done: boolean; text: string; extra?: str
 }
 
 function Stepper({ stage, due }: { stage: string; due: { w1: string; w2: string; w3: string } }) {
-  const { cur, done } = stepNow(stage);
+  const [today, setToday] = useState('');
+  useEffect(() => setToday(todayEt()), []);
+  const { cur, done } = stepNow(stage, due.w1, today);
   return (
     <ol className="ev-steps" aria-label="Where this evaluation is">
       {STEPS(due).map((s, i) => {
@@ -82,77 +84,6 @@ function Stepper({ stage, due }: { stage: string; due: { w1: string; w2: string;
 }
 
 /* ------------------------------------------------------------------------------------------------------- overview */
-
-function Prior({ x, canReview }: { x: Ctx; canReview: boolean }) {
-  const goals = x.view.priorGoals || [];
-  return (
-    <section className="ev-panel">
-      <h2>Goals from the last evaluation{goals[0] && goals[0].period ? ' (' + goals[0].period + ')' : ''}</h2>
-      <ul className="ev-goals">
-        {goals.map((g) => (
-          <li className="ev-goal" key={g.id}>
-            <div>
-              <b>{g.goal}</b>
-              <span className="ev-sub">
-                {g.area}
-                {g.target_date ? ' · Target ' + dateWord(g.target_date) : ''}
-              </span>
-            </div>
-            {canReview ? <GoalReview x={x} g={g} /> : <span className="ev-chip ev-chip--quiet">{GOAL_WORD[g.review_status] || ''}</span>}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function GoalReview({ x, g }: { x: Ctx; g: Goal }) {
-  const [status, setStatus] = useState(g.review_status);
-  const [note, setNote] = useState(g.review_note);
-  const saved = useRef({ status: g.review_status, note: g.review_note });
-  const save = (s: string, n: string) => {
-    evalCall('POST', 'case/' + cid(x.view) + '/goal-review', { goalId: g.id, status: s, note: n })
-      .then(() => {
-        saved.current = { status: s, note: n };
-        x.patch((v) => ({ ...v, priorGoals: (v.priorGoals || []).map((p) => (p.id === g.id ? { ...p, review_status: s, review_note: n } : p)) }));
-        toast('Saved.');
-      })
-      .catch(fail);
-  };
-  return (
-    <div className="ev-goal__rv">
-      <select
-        data-goalrv={g.id}
-        aria-label="How this goal went"
-        value={status}
-        onChange={(e) => {
-          setStatus(e.target.value);
-          save(e.target.value, note);
-        }}
-      >
-        {['', 'met', 'partly', 'not_met'].map((k) => (
-          <option key={k} value={k}>
-            {GOAL_WORD[k]}
-          </option>
-        ))}
-      </select>
-      <input
-        data-goalnote={g.id}
-        value={note}
-        placeholder="Note"
-        maxLength={300}
-        aria-label="Note on this goal"
-        onChange={(e) => setNote(e.target.value)}
-        onBlur={() => {
-          if (note !== saved.current.note) save(status, note);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-        }}
-      />
-    </div>
-  );
-}
 
 function SupervisorPick({ x }: { x: Ctx }) {
   const c = x.view.case;
@@ -211,10 +142,11 @@ export function Overview({ x }: { x: Ctx }) {
         {r.employee ? (
           <>
             <ul className="ev-checks">
-              <Check done={c.selfSubmitted} text="Self-assessment (Form A)" extra={c.selfSubmitted ? '' : v.self && v.self.progress ? v.self.progress.done + ' of ' + v.self.progress.total + ' required answers' : ''} />
-              <Check done={act.length >= lim.reviewersMin} text={'Name ' + lim.reviewersMin + ' to ' + lim.reviewersMax + ' people for feedback'} extra={sent + ' of ' + act.length + ' sent their feedback'} />
-              <Check done={c.summaryShared} text="Your supervisor shares the summary and your plan" />
-              <Check done={!!c.acknowledgedAt} text={'You acknowledge after the meeting' + (c.meetingOn ? ' on ' + dateWord(c.meetingOn) : '')} />
+              <Check done={c.selfSubmitted} text="Self-evaluation" extra={c.selfSubmitted ? '' : v.self && v.self.progress ? v.self.progress.done + ' of ' + v.self.progress.total + ' required answers' : ''} />
+              <Check done={act.length >= lim.reviewersMin} text={'Name ' + lim.reviewersMin + ' or ' + lim.reviewersMax + ' people for feedback, your supervisor included'} extra={sent + ' of ' + act.length + ' sent their feedback'} />
+              <Check done={!!c.meetingOn} text="Review meeting scheduled" extra={c.meetingOn ? dateWord(c.meetingOn) : ''} />
+              <Check done={c.summaryShared} text="Your supervisor shares your final evaluation after the meeting" />
+              <Check done={!!c.acknowledgedAt} text="You acknowledge it" />
               <Check done={!!c.signedAt} text="HR signs" />
             </ul>
             <div className="ev-acts">
@@ -224,37 +156,39 @@ export function Overview({ x }: { x: Ctx }) {
                 </NavLink>
               ) : null}
               {c.summaryShared ? (
-                <NavLink className="h-btn h-btn--primary" href={caseHref(c.id, 'summary')}>
-                  Read the summary and plan
+                <NavLink className="h-btn h-btn--primary" href={caseHref(c.id, 'final')}>
+                  Read your final evaluation
                 </NavLink>
               ) : null}
             </div>
           </>
         ) : r.raw ? (
           <ul className="ev-checks">
-            <Check done={c.selfSubmitted} text="Self-assessment submitted" />
+            <Check done={c.selfSubmitted} text="Self-evaluation submitted" />
             <Check done={act.length >= lim.reviewersMin} text="Reviewers named" extra={act.length + ' named'} />
             <Check done={act.length > 0 && act.every((y) => y.status === 'submitted')} text="Feedback in" extra={act.filter((y) => y.status === 'submitted').length + ' of ' + act.length} />
-            <Check done={c.summaryShared} text="Summary and plan shared" />
+            <Check done={!!c.meetingOn} text="Review meeting scheduled" extra={c.meetingOn ? dateWord(c.meetingOn) : ''} />
+            <Check done={c.summaryShared} text="Final evaluation shared" />
             <Check done={!!c.acknowledgedAt} text="Employee acknowledged" />
             <Check done={!!c.signedAt} text="HR signed" />
           </ul>
         ) : null}
       </section>
+      {c.meetingOn || c.leader.email ? <MeetingInfo x={x} /> : null}
+      {r.raw && v.feedback && v.self ? <ExportPanel x={x} /> : null}
       {r.manage && c.termOpen ? <SupervisorPick x={x} /> : null}
-      {v.priorGoals && v.priorGoals.length ? <Prior x={x} canReview={r.raw} /> : null}
       <section className="ev-panel ev-who">
         <h2>Who can read what</h2>
         {r.employee ? (
           <>
             <p>{F.A.readers}</p>
             <p>{F.B.readers}</p>
-            <p>{F.C.readers}</p>
+            <p>Your final evaluation is a Google Doc your supervisor shares with you after the review meeting.</p>
           </>
         ) : r.raw ? (
           <>
+            <p>{F.A.readers}</p>
             <p>{F.B.readers}</p>
-            <p>{F.C.readers}</p>
           </>
         ) : (
           <p>{F.B.readers}</p>
@@ -315,8 +249,9 @@ export function Reviewers({ x }: { x: Ctx }) {
     <section className="ev-panel">
       <h2>People who give you feedback</h2>
       <p>
-        Name {lim.reviewersMin} to {lim.reviewersMax} people who work with you: colleagues, people you lead, someone from another department. Each one gets their own feedback form. They are asked as soon as you save.
+        Name {lim.reviewersMin} or {lim.reviewersMax} people who work with you. Your supervisor is always one of them. The others can be a colleague, someone you lead, or someone from another department. Each one gets an email with their own link to a feedback form as soon as you save.
       </p>
+      {list.some((y) => y.status === 'declined') && c.termOpen ? <p className="ev-sub">Someone declined. Choose another person and save so you still have {lim.reviewersMin} or {lim.reviewersMax} reviewers.</p> : null}
       <p className="ev-readers">
         <b>Who reads their answers.</b> {forms.forms.B.readers}
       </p>
@@ -330,7 +265,7 @@ export function Reviewers({ x }: { x: Ctx }) {
                   <b>{y.name}</b>
                 </div>
                 {y.status === 'submitted' ? <span className="ev-chip">Sent</span> : y.status === 'declined' ? <span className="ev-chip ev-chip--warn">Declined</span> : <span className="ev-chip ev-chip--quiet">Asked</span>}
-                {editable && y.status !== 'submitted' ? (
+                {editable && y.status !== 'submitted' && y.email !== c.supervisor.email ? (
                   <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-unpick={y.email} onClick={() => x.setPick(x.pick.filter((e) => e !== y.email))}>
                     Remove
                   </button>
@@ -347,9 +282,13 @@ export function Reviewers({ x }: { x: Ctx }) {
               chosen.map((e) => (
                 <span className="ev-tag" key={e}>
                   {nameOf(e)}
-                  <button type="button" data-unpick={e} aria-label={'Remove ' + nameOf(e)} onClick={() => x.setPick(x.pick.filter((y) => y !== e))}>
-                    {'×'}
-                  </button>
+                  {e === c.supervisor.email ? (
+                    <em className="ev-sub"> supervisor</em>
+                  ) : (
+                    <button type="button" data-unpick={e} aria-label={'Remove ' + nameOf(e)} onClick={() => x.setPick(x.pick.filter((y) => y !== e))}>
+                      {'×'}
+                    </button>
+                  )}
                 </span>
               ))
             ) : (
@@ -493,15 +432,16 @@ export function Feedback({ x }: { x: Ctx }) {
     <>
       <section className="ev-panel">
         <h2>Feedback from reviewers</h2>
-        <p className="ev-readers">{F.readers} Do not pass a reviewer's words to the employee. The summary is how they hear it.</p>
+        <p className="ev-readers">{F.readers} Do not pass a reviewer's words to the employee. You write the evaluation they receive.</p>
         {!fb.length ? <p className="ev-sub">Nobody has been asked yet.</p> : null}
       </section>
+      {v.role.raw && v.self ? <ExportPanel x={x} /> : null}
       {fb.map((r) => (
         <details className="ev-acc" key={r.email}>
           <summary>
             <b>{r.reviewer}</b>
             <span className="ev-sub">{[r.relationship, r.frequency].filter(Boolean).join(' · ') || 'No relationship given'}</span>
-            <span className={'ev-chip ' + (r.submitted ? '' : 'ev-chip--quiet')}>{r.submitted ? 'Submitted' : 'Not yet'}</span>
+            <span className={'ev-chip ' + (r.submitted ? '' : 'ev-chip--quiet')}>{r.submitted ? 'Submitted' : (v.reviewers || []).find((y) => y.email === r.email)?.status === 'declined' ? 'Declined' : 'Not yet'}</span>
           </summary>
           {r.submitted ? (
             <>
@@ -522,7 +462,11 @@ export function Feedback({ x }: { x: Ctx }) {
               ) : null}
             </>
           ) : (
-            <p className="ev-sub">Waiting on this form.</p>
+            <p className="ev-sub">
+              {(v.reviewers || []).find((y) => y.email === r.email)?.status === 'declined'
+                ? 'Declined to give feedback.' + ((v.reviewers || []).find((y) => y.email === r.email)?.declineNote ? ' Their note: ' + (v.reviewers || []).find((y) => y.email === r.email)?.declineNote : '')
+                : 'Waiting on this form.'}
+            </p>
           )}
         </details>
       ))}
@@ -672,103 +616,251 @@ export function Compare({ x }: { x: Ctx }) {
   );
 }
 
-/* ---------------------------------------------------------------------------------------------------- summary, plan */
+/* ---------------------------------------------------------------------------------------------- meeting and final evaluation */
 
-function DocLinks({ x }: { x: Ctx }) {
+function when(c: CaseView['case']): string {
+  return c.meetingOn ? dateWord(c.meetingOn, true) + (c.meetingTime ? ' at ' + timeWord(c.meetingTime) : '') : '';
+}
+
+/** The review meeting in one place: day and time, who joins, the Zoom link. Everyone in the evaluation sees the same lines. Never answers. */
+function MeetingInfo({ x }: { x: Ctx }) {
   const c = x.view.case;
   return (
-    <div className="ev-acts">
-      {c.summaryShared ? (
-        <a className="h-btn h-btn--ghost" target="_blank" rel="noopener" href={'/api/evaluations/case/' + c.id + '/pdf'}>
-          Download the PDF
-        </a>
+    <section className="ev-panel">
+      <h2>Review meeting</h2>
+      {c.meetingOn ? (
+        <p>
+          <b>{when(c)}</b>
+        </p>
+      ) : (
+        <p className="ev-sub">Not scheduled yet. HR schedules the meetings ahead of time.</p>
+      )}
+      <p className="ev-sub">
+        With {c.supervisor.name || 'the supervisor'}
+        {c.leader.name ? ' and ' + c.leader.name : ''}.
+      </p>
+      {c.meetingLink ? (
+        <div className="ev-acts">
+          <a className="h-btn h-btn--ghost" target="_blank" rel="noopener" href={c.meetingLink}>
+            Open the Zoom link
+          </a>
+        </div>
       ) : null}
-      {c.docUrl && x.view.role.raw ? (
-        <a className="h-btn h-btn--ghost" target="_blank" rel="noopener" href={c.docUrl}>
-          Open the Google Doc
-        </a>
-      ) : null}
-    </div>
+    </section>
   );
 }
 
-function GoalCard({ g, i, x, set, remove }: { g: Goal; i: number; x: Ctx; set: (i: number, k: keyof Goal, v: string) => void; remove: (i: number) => void }) {
+type Made = { sheet?: { url: string; title: string; label: string } };
+
+/** Export to Google Sheets: the self-evaluation and each reviewer's answers as separate sheets, in your own Drive. You combine them. */
+function ExportButtons({ x, part, email, label }: { x: Ctx; part: 'self' | 'reviewer'; email?: string; label: string }) {
+  const [b, setB] = useState(false);
+  const [note, setNote] = useState<{ text: string; href?: string; link?: string } | null>(null);
+  const next = encodeURIComponent('/evaluations/?c=' + x.view.case.id);
   return (
-    <li className="ev-goal ev-goal--edit" data-gi={i}>
-      <div className="ev-goal__h">
-        <b>Goal {i + 1}</b>
-        <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-rmgoal={i} onClick={() => remove(i)}>
-          Remove
-        </button>
+    <>
+      <button
+        type="button"
+        className="h-btn h-btn--ghost h-btn--sm"
+        data-export={part + (email ? ':' + email : '')}
+        disabled={b}
+        onClick={() => {
+          setB(true);
+          setNote(null);
+          evalCall<Made>('POST', 'case/' + cid(x.view) + '/export', { part, email })
+            .then((d) => {
+              toast('Sheet made in your Drive.');
+              setNote({ text: d.sheet?.title || 'Sheet made', link: d.sheet?.url });
+            })
+            .catch((e) => {
+              const code = (e as { code?: string }).code;
+              if (code === 'not_connected') setNote({ text: 'Connect your Google account to FavorOS first.', href: '/api/google/connect?next=' + next });
+              else if (code === 'consent') setNote({ text: 'Allow Favor to make Google Sheets for you. Google asks once.', href: '/api/google/connect?add=sheets&next=' + next });
+              else fail(e);
+            })
+            .finally(() => setB(false));
+        }}
+      >
+        {b ? 'Making the sheet...' : 'Export ' + label + ' to Google Sheets'}
+      </button>
+      {note ? (
+        <span className="ev-sub" role="status">
+          {note.text}{' '}
+          {note.href ? <a href={note.href}>Continue</a> : null}
+          {note.link ? (
+            <a href={note.link} target="_blank" rel="noopener">
+              Open the sheet
+            </a>
+          ) : null}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function ExportPanel({ x }: { x: Ctx }) {
+  const v = x.view;
+  const fb = (v.feedback || []).filter((r) => r.submitted);
+  return (
+    <section className="ev-panel">
+      <h2>Export the answers</h2>
+      <p>
+        Each export makes its own private Google Sheet in your Drive, with the reviewer's name next to every answer. Combine them yourself into the evaluation. FavorOS does not write it for you.
+      </p>
+      <div className="ev-acts">
+        {v.self?.submitted ? <ExportButtons x={x} part="self" label="the self-evaluation" /> : <span className="ev-sub">The self-evaluation is not submitted yet.</span>}
       </div>
+      {fb.map((r) => (
+        <div className="ev-acts" key={r.email}>
+          <ExportButtons x={x} part="reviewer" email={r.email} label={r.reviewer + "'s answers"} />
+        </div>
+      ))}
+      {!fb.length ? <p className="ev-sub">Reviewer answers can be exported once a reviewer submits.</p> : null}
+    </section>
+  );
+}
+
+function MeetingForm({ x }: { x: Ctx }) {
+  const c = x.view.case;
+  const [date, setDate] = useState(c.meetingOn);
+  const [time, setTime] = useState(c.meetingTime);
+  const [link, setLink] = useState(c.meetingLink);
+  const [leader, setLeader] = useState(c.leader.email);
+  const [b, setB] = useState(false);
+  useEffect(() => {
+    setDate(c.meetingOn);
+    setTime(c.meetingTime);
+    setLink(c.meetingLink);
+    setLeader(c.leader.email);
+  }, [c.meetingOn, c.meetingTime, c.meetingLink, c.leader.email]);
+  return (
+    <section className="ev-panel">
+      <h2>Schedule the review meeting</h2>
+      <p className="ev-sub">The supervisor and one leadership member meet with {c.employee.name} on Zoom. Saving emails all three.</p>
       <label className="ev-field">
-        <span>Development area</span>
-        <select data-g="area" value={g.area} onChange={(e) => set(i, 'area', e.target.value)}>
-          {x.forms.planAreas.map((a) => (
-            <option key={a}>{a}</option>
-          ))}
+        <span>Day</span>
+        <input type="date" id="ev-meet2" value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
+      <label className="ev-field">
+        <span>Time, Eastern</span>
+        <input type="time" id="ev-meet-time" value={time} onChange={(e) => setTime(e.target.value)} />
+      </label>
+      <label className="ev-field">
+        <span>Leadership member who joins</span>
+        <select id="ev-meet-leader" value={leader} onChange={(e) => setLeader(e.target.value)}>
+          <option value="">Not chosen yet</option>
+          {x.staff
+            .filter((p) => p.email !== c.employee.email && p.email !== c.supervisor.email)
+            .map((p) => (
+              <option key={p.email} value={p.email}>
+                {p.name}
+              </option>
+            ))}
         </select>
       </label>
       <label className="ev-field">
-        <span>Goal</span>
-        <textarea data-g="goal" rows={2} maxLength={1000} value={g.goal} onChange={(e) => set(i, 'goal', e.target.value)} />
+        <span>Zoom link</span>
+        <input type="url" id="ev-meet-link" placeholder="https://" value={link} onChange={(e) => setLink(e.target.value)} />
       </label>
-      <label className="ev-field">
-        <span>Action steps</span>
-        <textarea data-g="steps" rows={3} maxLength={2000} value={g.steps} onChange={(e) => set(i, 'steps', e.target.value)} />
-      </label>
-      <label className="ev-field">
-        <span>Support needed</span>
-        <textarea data-g="support" rows={2} maxLength={1000} value={g.support} onChange={(e) => set(i, 'support', e.target.value)} />
-      </label>
-      <div className="ev-two">
-        <label className="ev-field">
-          <span>Target date</span>
-          <input type="date" data-g="target_date" value={g.target_date || ''} onChange={(e) => set(i, 'target_date', e.target.value)} />
-        </label>
-        <label className="ev-field">
-          <span>Learn course (optional)</span>
-          <select data-g="course_id" value={g.course_id || ''} onChange={(e) => set(i, 'course_id', e.target.value)}>
-            <option value="">None</option>
-            {x.courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="ev-acts">
+        <button
+          type="button"
+          className="h-btn h-btn--primary"
+          id="ev-setmeet"
+          disabled={b || !date}
+          onClick={() =>
+            void busy(setB, async () => {
+              await evalCall('POST', 'case/' + cid(x.view) + '/meeting', { date, time, link, leader });
+              toast('Meeting saved. Everyone in it was emailed.');
+              await x.reload();
+            })
+          }
+        >
+          {c.meetingOn ? 'Save changes' : 'Schedule the meeting'}
+        </button>
       </div>
-    </li>
+    </section>
   );
 }
 
-function GoalRead({ g }: { g: Goal }) {
+function ShareFinal({ x }: { x: Ctx }) {
+  const v = x.view;
+  const c = v.case;
+  const f = v.final;
+  const [url, setUrl] = useState('');
+  const [b, setB] = useState(false);
+  if (!f) return null;
   return (
-    <li className="ev-goal ev-goal--full">
-      <div>
-        <b>{g.goal}</b>
-        <span className="ev-sub">
-          {g.area}
-          {g.target_date ? ' · Target ' + dateWord(g.target_date, true) : ''}
-        </span>
-      </div>
-      <dl>
-        <dt>Action steps</dt>
-        <dd>
-          <Lines text={g.steps} />
-        </dd>
-        <dt>Support needed</dt>
-        <dd>{g.support || 'None listed'}</dd>
-        {g.course_id ? (
-          <>
-            <dt>Learning</dt>
-            <dd>
-              <a href={'/learn/course/?id=' + encodeURIComponent(g.course_id)}>Open the course</a>
-            </dd>
-          </>
+    <section className="ev-panel">
+      <h2>Final evaluation</h2>
+      <p>
+        After the meeting, make a copy of the form, fill it in with your leadership member, and share it with {c.employee.name} in Google Docs. Then paste its link here so they can read it and acknowledge it.
+      </p>
+      <div className="ev-acts">
+        {f.instructionsUrl ? (
+          <a className="h-btn h-btn--ghost" target="_blank" rel="noopener" href={f.instructionsUrl}>
+            Supervisor instructions
+          </a>
         ) : null}
-      </dl>
-    </li>
+        {f.templateUrl ? (
+          <a className="h-btn h-btn--ghost" target="_blank" rel="noopener" href={f.templateUrl}>
+            Final evaluation form (make a copy)
+          </a>
+        ) : null}
+      </div>
+      {f.shared ? (
+        <>
+          <p>
+            <b>Shared with {c.employee.name}.</b>
+          </p>
+          <div className="ev-acts">
+            {f.docUrl ? (
+              <a className="h-btn h-btn--ghost" target="_blank" rel="noopener" href={f.docUrl}>
+                Open the final evaluation
+              </a>
+            ) : null}
+            {c.termOpen && !c.acknowledgedAt ? (
+              <button
+                type="button"
+                className="h-btn h-btn--ghost"
+                data-reopenc="1"
+                onClick={() => {
+                  if (window.confirm('Take it back? ' + c.employee.name + ' stops seeing the link until you share it again.')) evalCall('POST', 'case/' + cid(v) + '/final-reopen').then(x.reload).catch(fail);
+                }}
+              >
+                Take it back
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <>
+          <label className="ev-field">
+            <span>Link to the finished Google Doc</span>
+            <input type="url" id="ev-final-url" placeholder="https://docs.google.com/document/d/..." value={url} onChange={(e) => setUrl(e.target.value)} />
+          </label>
+          <div className="ev-acts">
+            <button
+              type="button"
+              className="h-btn h-btn--primary"
+              id="ev-final"
+              disabled={b || !url.trim() || !c.meetingOn || !c.termOpen}
+              onClick={() =>
+                void busy(setB, async () => {
+                  await evalCall('POST', 'case/' + cid(v) + '/final', { url: url.trim() });
+                  toast('Shared with ' + c.employee.name + '.');
+                  setUrl('');
+                  await x.reload();
+                })
+              }
+            >
+              Share with {c.employee.name}
+            </button>
+            {!c.meetingOn ? <span className="ev-sub">Schedule the meeting first.</span> : null}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -779,6 +871,13 @@ function Acknowledge({ x }: { x: Ctx }) {
   const [today, setToday] = useState('');
   // Today in Eastern time, read after the page is up so the server and browser draw the same first text.
   useEffect(() => setToday(todayEt()), []);
+  const doc = c.docUrl ? (
+    <div className="ev-acts">
+      <a className="h-btn h-btn--primary" target="_blank" rel="noopener" href={c.docUrl}>
+        Open your final evaluation
+      </a>
+    </div>
+  ) : null;
   if (c.acknowledgedAt)
     return (
       <section className="ev-panel">
@@ -786,309 +885,144 @@ function Acknowledge({ x }: { x: Ctx }) {
         <p>
           You acknowledged this on {dateWord(c.acknowledgedAt, true)}.{c.acknowledgedNote ? ' Your note: ' + c.acknowledgedNote : ''}
         </p>
-        <DocLinks x={x} />
+        {doc}
       </section>
     );
   const early = !!c.meetingOn && !!today && today < c.meetingOn;
   return (
-    <section className="ev-panel ev-submit">
-      <h2>Acknowledge</h2>
-      <p>After the meeting, acknowledge that you read the summary and the plan. Acknowledging does not mean you agree with every line. Add a note if you want your view recorded.</p>
-      <label className="ev-field">
-        <span>Your note (optional)</span>
-        <textarea id="ev-acknote" rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
-      <div className="ev-acts">
-        <button
-          type="button"
-          className="h-btn h-btn--primary"
-          id="ev-ack"
-          disabled={early || b}
-          onClick={() =>
-            void busy(setB, async () => {
-              await evalCall('POST', 'case/' + cid(x.view) + '/acknowledge', { note });
-              toast('Acknowledged.');
-              await x.reload();
-            })
-          }
-        >
-          I read this and met with my supervisor
-        </button>
-        {early ? <span className="ev-sub">Opens after the meeting on {dateWord(c.meetingOn, true)}.</span> : null}
-      </div>
-    </section>
-  );
-}
-
-function SummaryEditor({ x }: { x: Ctx }) {
-  const { view: v, forms, saver } = x;
-  const sm = v.summary!;
-  const F = forms.forms.C;
-  const c = v.case;
-  const lim = forms.limits;
-  const [goals, setGoals] = useState<Goal[]>(() => (sm.goals || []).map((g) => ({ ...g })));
-  const [msg, setMsg] = useState('');
-  const [meet, setMeet] = useState(c.meetingOn || c.due.w3 || '');
-  const [b, setB] = useState(false);
-  const m = merged(sm.answers, saver.edits.C);
-  const t = totalsOf(F, m);
-  const gp = gapsOf(F, m);
-  const nGoals = goals.filter(goalComplete).length;
-  const ok = !gp.length && nGoals >= lim.goalsMin && nGoals === goals.length;
-  const rv = (v.reviewers || []).filter((y) => y.status === 'submitted').length;
-  const cur = (qid: string): Ans | undefined => merged(sm.answers, saver.edits.C)[qid];
-  const h = rowHandlers('C', cur, saver.queue);
-  const set = (i: number, k: keyof Goal, val: string) => {
-    setMsg('');
-    setGoals((gs) => gs.map((g, n) => (n === i ? { ...g, [k]: val } : g)));
-  };
-  const saveQuiet = () => evalCall<{ goals: Goal[] }>('PUT', 'case/' + cid(v) + '/goals', goalsBody(goals));
-  const share = async (fewer: boolean) =>
-    busy(setB, async () => {
-      await saver.flush('C');
-      await saveQuiet();
-      await evalCall('POST', 'case/' + cid(v) + '/submit', { form: 'C', meetingOn: meet, proceedWithFewer: fewer });
-      toast('Shared with the employee.');
-      await x.reload();
-    });
-  return (
     <>
-      <Intro form={F} />
-      {v.priorGoals && v.priorGoals.length ? <Prior x={x} canReview /> : null}
-      <div className="ev-form" data-form="C">
-        <div className="ev-prog">
-          <div className="ev-bar">
-            <i style={{ width: percent(t.done, t.total) + '%' }} />
-          </div>
-          <span>
-            <b id="ev-done">{t.done}</b> of {t.total} written
-          </span>
-          <span id="ev-save" className="ev-save" role="status">
-            {saver.saving}
-          </span>
-        </div>
-        {F.sections.map((s) => (
-          <SectionBlock key={s.id} sec={s} m={m} edit forms={forms} view={v} meName={x.meName} h={h} />
-        ))}
-      </div>
       <section className="ev-panel">
-        <h2>Six-month development plan</h2>
-        <p className="ev-sub">
-          {lim.goalsMin} to {lim.goalsMax} priority goals. Revisited at the next evaluation.
-        </p>
-        <ul className="ev-goals" id="ev-goals">
-          {goals.map((g, i) => (
-            <GoalCard key={i} g={g} i={i} x={x} set={set} remove={(n) => setGoals((gs) => gs.filter((_, k) => k !== n))} />
-          ))}
-        </ul>
-        <div className="ev-acts">
-          {goals.length < lim.goalsMax ? (
-            <button type="button" className="h-btn h-btn--ghost" id="ev-addgoal" onClick={() => setGoals((gs) => [...gs, NEW_GOAL(forms.planAreas[0])])}>
-              Add a goal
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="h-btn h-btn--ghost"
-            id="ev-savegoals"
-            disabled={b}
-            onClick={() =>
-              void busy(setB, async () => {
-                const d = await saveQuiet();
-                setGoals(d.goals.map((g) => ({ ...g })));
-                x.patch((vv) => (vv.summary ? { ...vv, summary: { ...vv.summary, goals: d.goals } } : vv));
-                setMsg('Saved');
-              })
-            }
-          >
-            Save the plan
-          </button>
-          <span className="ev-save" id="ev-goalmsg" role="status">
-            {msg}
-          </span>
-        </div>
+        <h2>Your final evaluation</h2>
+        <p>Your supervisor and a leadership member wrote this after your meeting. Read it before you acknowledge it.</p>
+        {doc}
       </section>
       <section className="ev-panel ev-submit">
-        <h2>Share with {c.employee.name}</h2>
-        {ok ? null : (
-          <p>
-            {gp.length ? gp.length + ' summary answer' + (gp.length === 1 ? '' : 's') + ' left. ' : ''}
-            {nGoals < lim.goalsMin || nGoals !== goals.length ? 'The plan needs ' + lim.goalsMin + ' to ' + lim.goalsMax + ' goals with the goal, action steps and a target date.' : ''}
-          </p>
-        )}
+        <h2>Acknowledge</h2>
+        <p>Acknowledging means you received your evaluation and talked it through. It does not mean you agree with every line. Add a note if you want your view recorded.</p>
         <label className="ev-field">
-          <span>Meeting date</span>
-          <input type="date" id="ev-meet" value={meet} onChange={(e) => setMeet(e.target.value)} />
+          <span>Your note (optional)</span>
+          <textarea id="ev-acknote" rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
-        {rv < lim.reviewersMin ? (
-          <p className="ev-warn">
-            Only {rv} of {lim.reviewersMin} feedback forms are in. You can go ahead with what you have.
-          </p>
-        ) : null}
         <div className="ev-acts">
           <button
             type="button"
             className="h-btn h-btn--primary"
-            id="ev-share"
-            disabled={!ok || b}
-            onClick={() => {
-              if (rv < lim.reviewersMin) {
-                if (!window.confirm('Only ' + rv + ' of ' + lim.reviewersMin + ' feedback forms are in. Share the summary with what you have?')) return;
-                void share(true);
-                return;
-              }
-              if (!window.confirm('Share the summary and plan with the employee now?')) return;
-              void share(false);
-            }}
-          >
-            Share summary and plan
-          </button>
-        </div>
-        <p className="ev-sub">After you share, the employee reads this and the plan. The raw feedback stays with you, HR and FavorOS administrators.</p>
-      </section>
-    </>
-  );
-}
-
-export function Summary({ x }: { x: Ctx }) {
-  const { view: v, forms } = x;
-  const sm = v.summary;
-  const F = forms.forms.C;
-  const c = v.case;
-  const r = v.role;
-  if (!sm)
-    return (
-      <section className="ev-panel">
-        <h2>Summary and plan</h2>
-        <p className="ev-sub">Your supervisor writes this after the feedback is in. You see it when they share it.</p>
-      </section>
-    );
-  if (sm.editable && r.raw) return <SummaryEditor x={x} />;
-  return (
-    <>
-      <section className="ev-panel ev-intro">
-        <h2>{F.title}</h2>
-        <p className="ev-readers">
-          <b>Who reads this.</b> {F.readers}
-        </p>
-        {c.meetingOn ? (
-          <p>
-            Meeting: <b>{dateWord(c.meetingOn, true)}</b>
-          </p>
-        ) : null}
-      </section>
-      <FormRead form={F} answers={sm.answers} label="Supervisor summary" forms={forms} />
-      <section className="ev-panel">
-        <h2>Six-month development plan</h2>
-        <p className="ev-sub">Revisited at your next evaluation. Each goal is also a task in Projects when Projects is on.</p>
-        <ul className="ev-goals">
-          {sm.goals.length ? sm.goals.map((g, i) => <GoalRead key={g.id || i} g={g} />) : <li className="ev-sub">No goals yet.</li>}
-        </ul>
-      </section>
-      {v.priorGoals && v.priorGoals.length ? <Prior x={x} canReview={r.raw} /> : null}
-      {r.employee ? <Acknowledge x={x} /> : null}
-      {r.raw && c.termOpen && !c.acknowledgedAt ? (
-        <div className="ev-acts">
-          <button
-            type="button"
-            className="h-btn h-btn--ghost"
-            data-reopenc="1"
-            onClick={() => {
-              if (window.confirm('Reopen the summary? The employee stops seeing it until you share it again.')) evalCall('POST', 'case/' + cid(v) + '/reopen', { form: 'C' }).then(x.reload).catch(fail);
-            }}
-          >
-            Reopen the summary
-          </button>
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------------------------------------------- sign-off */
-
-export function Signoff({ x }: { x: Ctx }) {
-  const { view: v } = x;
-  const c = v.case;
-  const r = v.role;
-  const [date, setDate] = useState(c.meetingOn);
-  useEffect(() => setDate(c.meetingOn), [c.meetingOn]);
-  const [b, setB] = useState(false);
-  return (
-    <section className="ev-panel">
-      <h2>Meeting and sign-off</h2>
-      <ul className="ev-checks">
-        <Check done={c.summaryShared} text="Summary and plan shared" />
-        <Check done={!!c.meetingOn} text="Meeting date" extra={c.meetingOn ? dateWord(c.meetingOn, true) : 'not set'} />
-        <Check done={!!c.acknowledgedAt} text="Employee acknowledged" extra={c.acknowledgedAt ? dateWord(c.acknowledgedAt) : ''} />
-        <Check done={!!c.signedAt} text="HR signed" extra={c.signedAt ? c.signedBy + ', ' + dateWord(c.signedAt) : ''} />
-        <Check done={!!c.docUrl} text={"Filed in the employee's folder"} extra={c.docUrl ? '' : c.docError || ''} />
-      </ul>
-      {c.summaryShared && c.termOpen && !c.acknowledgedAt ? (
-        <>
-          <label className="ev-field">
-            <span>Meeting date</span>
-            <input type="date" id="ev-meet2" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <div className="ev-acts">
-            <button
-              type="button"
-              className="h-btn h-btn--ghost"
-              id="ev-setmeet"
-              disabled={b}
-              onClick={() =>
-                void busy(setB, async () => {
-                  await evalCall('POST', 'case/' + cid(v) + '/meeting', { date });
-                  toast('Saved.');
-                  await x.reload();
-                })
-              }
-            >
-              Save the date
-            </button>
-          </div>
-        </>
-      ) : null}
-      <div className="ev-acts">
-        {r.manage && c.stage === 'acknowledged' ? (
-          <button
-            type="button"
-            className="h-btn h-btn--primary"
-            id="ev-sign"
-            onClick={() => {
-              if (window.confirm('Sign this evaluation as HR? It files the Google Doc and the PDF.'))
-                evalCall<{ docError?: string }>('POST', 'case/' + cid(v) + '/sign')
-                  .then((d) => {
-                    toast(d.docError ? 'Signed. The Google Doc was not filed: ' + d.docError : 'Signed and filed.', !!d.docError);
-                    return x.reload();
-                  })
-                  .catch(fail);
-            }}
-          >
-            Sign as HR
-          </button>
-        ) : null}
-        {r.manage && c.signedAt && !c.docUrl ? (
-          <button
-            type="button"
-            className="h-btn h-btn--ghost"
-            id="ev-retrydoc"
-            disabled={b}
+            id="ev-ack"
+            disabled={early || b}
             onClick={() =>
               void busy(setB, async () => {
-                const d = await evalCall<{ docError?: string }>('POST', 'case/' + cid(v) + '/doc');
-                toast(d.docError ? d.docError : 'Filed.', !!d.docError);
+                await evalCall('POST', 'case/' + cid(x.view) + '/acknowledge', { note });
+                toast('Acknowledged.');
                 await x.reload();
               })
             }
           >
-            Try the Google Doc again
+            I read this and met with my supervisor
           </button>
+          {early ? <span className="ev-sub">Opens after the meeting on {dateWord(c.meetingOn, true)}.</span> : null}
+        </div>
+      </section>
+    </>
+  );
+}
+
+/** The tab for the meeting and the final evaluation. The employee reads and acknowledges. The supervisor, HR and admins schedule, share and sign. */
+export function Final({ x }: { x: Ctx }) {
+  const { view: v } = x;
+  const c = v.case;
+  const r = v.role;
+  const [b, setB] = useState(false);
+  if (r.employee) {
+    return (
+      <>
+        <MeetingInfo x={x} />
+        {c.summaryShared ? <Acknowledge x={x} /> : <section className="ev-panel"><h2>Your final evaluation</h2><p className="ev-sub">Your supervisor shares it after the review meeting.</p></section>}
+      </>
+    );
+  }
+  return (
+    <>
+      <section className="ev-panel">
+        <h2>Meeting and final evaluation</h2>
+        <ul className="ev-checks">
+          <Check done={!!c.meetingOn} text="Review meeting scheduled" extra={c.meetingOn ? when(c) : 'not set'} />
+          <Check done={c.summaryShared} text="Final evaluation shared with the employee" />
+          <Check done={!!c.acknowledgedAt} text="Employee acknowledged" extra={c.acknowledgedAt ? dateWord(c.acknowledgedAt) : ''} />
+          <Check done={!!c.signedAt} text="HR signed" extra={c.signedAt ? c.signedBy + ', ' + dateWord(c.signedAt) : ''} />
+        </ul>
+        {c.stage === 'meeting' ? <p className="ev-sub">Waiting for the employee to acknowledge.</p> : null}
+        {r.manage && c.stage === 'acknowledged' ? (
+          <div className="ev-acts">
+            <button
+              type="button"
+              className="h-btn h-btn--primary"
+              id="ev-sign"
+              disabled={b}
+              onClick={() => {
+                if (window.confirm('Sign this evaluation as HR?'))
+                  void busy(setB, async () => {
+                    await evalCall('POST', 'case/' + cid(v) + '/sign');
+                    toast('Signed.');
+                    await x.reload();
+                  });
+              }}
+            >
+              Sign as HR
+            </button>
+          </div>
         ) : null}
-      </div>
-      {c.stage === 'meeting' ? <p className="ev-sub">Waiting for the employee to acknowledge.</p> : null}
-      {r.manage && c.stage === 'acknowledged' ? <p className="ev-sub">Signing files the Google Doc and the PDF in the employee's folder.</p> : null}
-      <DocLinks x={x} />
+      </section>
+      {c.termOpen && !c.acknowledgedAt ? <MeetingForm x={x} /> : <MeetingInfo x={x} />}
+      <ShareFinal x={x} />
+    </>
+  );
+}
+
+/** A reviewer who cannot give feedback says so, with an optional note. The employee picks a replacement. The supervisor cannot decline. */
+export function DeclineBox({ x }: { x: Ctx }) {
+  const v = x.view;
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [b, setB] = useState(false);
+  if (!v.mineB || v.mineB.submitted || v.role.supervisor || !v.case.termOpen) return null;
+  return (
+    <section className="ev-panel">
+      <h2>Not able to give feedback?</h2>
+      {open ? (
+        <>
+          <label className="ev-field">
+            <span>A note for the supervisor (optional)</span>
+            <textarea id="ev-decline-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <div className="ev-acts">
+            <button
+              type="button"
+              className="h-btn h-btn--primary"
+              id="ev-decline"
+              disabled={b}
+              onClick={() =>
+                void busy(setB, async () => {
+                  await evalCall('POST', 'case/' + cid(v) + '/decline', { note });
+                  toast('Declined. ' + v.case.employee.name + ' will pick someone else.');
+                  x.replace('/evaluations/');
+                })
+              }
+            >
+              Decline
+            </button>
+            <button type="button" className="h-btn h-btn--ghost" onClick={() => setOpen(false)}>
+              Keep my form
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="ev-acts">
+          <button type="button" className="h-btn h-btn--ghost" id="ev-decline-open" onClick={() => setOpen(true)}>
+            Decline to give feedback
+          </button>
+          <span className="ev-sub">{v.case.employee.name} then names someone else.</span>
+        </div>
+      )}
     </section>
   );
 }

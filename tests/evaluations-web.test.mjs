@@ -44,30 +44,43 @@ describe('progress and gaps', () => {
   });
 });
 
-describe('plan and sharing', () => {
-  const lim = { reviewersMin: 3, reviewersMax: 5, goalsMin: 2, goalsMax: 4 };
-  const g = (p = {}) => ({ ...L.NEW_GOAL('Area'), goal: 'G', steps: 'S', target_date: '2027-01-01', ...p });
-  it('needs the minimum finished goals and no half-written one', () => {
-    assert.equal(L.goalsReady([g()], lim), false);
-    assert.equal(L.goalsReady([g(), g()], lim), true);
-    assert.equal(L.goalsReady([g(), g(), g({ steps: '' })], lim), false);
+describe('reviewers and times', () => {
+  const lim = { reviewersMin: 2, reviewersMax: 3 };
+  it('puts the supervisor first when the chosen list lacks them, and leaves a full list alone', () => {
+    assert.deepEqual(L.withSupervisor(['b', 'c'], 'a'), ['a', 'b', 'c']);
+    assert.deepEqual(L.withSupervisor(['a', 'c'], 'a'), ['a', 'c']);
+    assert.deepEqual(L.withSupervisor(['b'], ''), ['b']);
   });
-  it('sends the plan under the names the server reads', () => {
-    assert.deepEqual(L.goalsBody([g({ id: 'x', course_id: 'c' })]).goals[0], { id: 'x', area: 'Area', goal: 'G', steps: 'S', support: '', targetDate: '2027-01-01', courseId: 'c' });
+  it('says what is wrong with the count', () => {
+    assert.match(L.askHint(1, lim), /at least 2/);
+    assert.equal(L.askHint(2, lim), '');
+    assert.match(L.askHint(4, lim), /No more than 3/);
+  });
+  it('writes a clock time in Eastern words', () => {
+    assert.equal(L.timeWord('14:30'), '2:30 PM Eastern');
+    assert.equal(L.timeWord('09:05'), '9:05 AM Eastern');
+    assert.equal(L.timeWord(''), '');
+  });
+  it('two steps: feedback stays in week 1 until its date passes', () => {
+    assert.equal(L.STEPS({ w1: 'a', w2: 'b', w3: 'b' }).length, 2);
+    assert.equal(L.stepNow('feedback', '2026-01-12', '2026-01-10').cur, 1);
+    assert.equal(L.stepNow('feedback', '2026-01-12', '2026-01-13').cur, 2);
+    assert.equal(L.stepNow('meeting').cur, 2);
+    assert.equal(L.stepNow('done').done, true);
   });
 });
 
 describe('tabs by role', () => {
   const base = { case: {}, next: '' };
   const names = (v) => L.tabsFor({ ...base, ...v }).map((t) => t[0]);
-  it('the employee', () => assert.deepEqual(names({ role: { employee: true }, evidence: {}, summary: {} }), ['overview', 'self', 'evidence', 'reviewers', 'summary']));
-  it('the supervisor, HR and admins', () => assert.deepEqual(names({ role: { raw: true }, self: {}, evidence: {} }), ['overview', 'self', 'evidence', 'feedback', 'compare', 'summary', 'signoff']));
+  it('the employee', () => assert.deepEqual(names({ role: { employee: true }, evidence: {}, case: { meetingOn: '2026-01-14' } }), ['overview', 'self', 'evidence', 'reviewers', 'final']));
+  it('the supervisor, HR and admins', () => assert.deepEqual(names({ role: { raw: true }, self: {}, evidence: {} }), ['overview', 'self', 'evidence', 'feedback', 'compare', 'final']));
   it('a reviewer sees only their own form, and opens it', () => {
     const v = { ...base, role: {}, mineB: {} };
     assert.deepEqual(names(v), ['overview', 'mine']);
     assert.equal(L.tabShown(v, ''), 'mine');
     assert.equal(L.tabShown(v, 'feedback'), 'mine');
-    assert.equal(L.tabShown({ ...base, role: { raw: true } }, 'signoff'), 'signoff');
+    assert.equal(L.tabShown({ ...base, role: { raw: true } }, 'final'), 'final');
   });
 });
 

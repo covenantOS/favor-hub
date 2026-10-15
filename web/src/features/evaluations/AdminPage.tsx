@@ -1,4 +1,4 @@
-// Work > Evaluations > Terms: open a term, pick the people, see who is behind, change a supervisor, name the folder the signed documents go
+// Work > Evaluations > Terms: open a term, pick the people, see who is behind, change a supervisor
 // to. Same markup, class names and stylesheet as src/pages/evaluations/admin/index.astro and public/js/evaluations-admin.js.
 import '@hub/styles/evaluations.css';
 import { useEffect, useRef, useState } from 'react';
@@ -8,7 +8,7 @@ import { NavLink } from '@/shell/NavLink';
 import { evalCall } from './api';
 import { evKeys, peopleQuery, pickQuery, termQuery, termsQuery, type TermDetail, type TermsState } from './queries';
 import { ToastHost, toast } from './toast';
-import { dateWord, firstPicked, groupOf, pickedCount, plural, rangeSelect, todayEt, visiblePeople, type AdminSearch, type PickPerson } from './logic';
+import { dateWord, firstPicked, groupOf, pickedCount, plural, rangeSelect, timeWord, todayEt, visiblePeople, type AdminSearch, type PickPerson } from './logic';
 
 const fail = (e: unknown) => toast((e as Error).message, true);
 
@@ -56,8 +56,6 @@ function Terms({ d }: { d: TermsState }) {
   const qc = useQueryClient();
   const router = useRouter();
   const [setup, setSetup] = useState(false);
-  const [folder, setFolder] = useState(d.folder);
-  const [folderSet, setFolderSet] = useState(d.folder);
   const [nudging, setNudging] = useState(false);
   const g = d.gaps;
   return (
@@ -106,7 +104,7 @@ function Terms({ d }: { d: TermsState }) {
       {!d.terms.length && !setup ? (
         <section className="ev-empty">
           <h2>No term yet</h2>
-          <p>A term is one semiannual round. Pick the people, set the date week 1 starts, and everyone is asked to complete their self-assessment. People who started January to June go first.</p>
+          <p>A term is one semiannual round. Pick the people, set the date week 1 starts, and everyone is told at once to complete their self-evaluation. People who started January to June go first.</p>
           <p>
             <button type="button" className="h-btn h-btn--primary" id="eva-new2" onClick={() => setSetup(true)}>
               Open the first term
@@ -132,35 +130,6 @@ function Terms({ d }: { d: TermsState }) {
           ))}
         </ul>
       ) : null}
-      <section className="ev-panel" style={{ marginTop: 18 }}>
-        <h2>Where signed evaluations are filed</h2>
-        <p className="ev-sub">
-          A folder for each employee is made inside it, holding the Google Doc and the PDF. Use the Operations, US Talent folder in the US Executive Drive. FavorOS signs in as the Favor service account, so that account needs Contributor access to the folder.
-        </p>
-        <label className="ev-field">
-          <span>Folder link or id</span>
-          <input id="eva-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." autoComplete="off" />
-        </label>
-        <div className="ev-acts">
-          <button
-            type="button"
-            className="h-btn h-btn--ghost"
-            id="eva-savefolder"
-            onClick={() =>
-              evalCall<{ folder: string }>('PUT', 'admin/folder', { folder })
-                .then((r) => {
-                  setFolder(r.folder);
-                  setFolderSet(r.folder);
-                  toast(r.folder ? 'Folder saved.' : 'Folder cleared.');
-                })
-                .catch(fail)
-            }
-          >
-            Save the folder
-          </button>
-          <span className="ev-sub">{folderSet ? 'Set.' : 'Not named yet. Signed evaluations still download as a PDF.'}</span>
-        </div>
-      </section>
       <section className="ev-panel">
         <h2>Reminders</h2>
         <p className="ev-sub">Reminders go out two days before each due date and the day after, once each, to the person who owes the step. They follow the same switch as every other notice.</p>
@@ -192,6 +161,8 @@ function Setup({ onCancel, onOpened }: { onCancel: () => void; onOpened: (termId
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [start, setStart] = useState('');
   const [name, setName] = useState('');
+  const [w1, setW1] = useState('7');
+  const [w2, setW2] = useState('7');
   const [q, setQ] = useState('');
   const [b, setB] = useState(false);
   const last = useRef('');
@@ -236,7 +207,17 @@ function Setup({ onCancel, onOpened }: { onCancel: () => void; onOpened: (termId
           <input id="eva-name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="January to June 2027 evaluations" />
         </label>
       </div>
-      <p className="ev-sub">Week 1: self-assessment and naming reviewers. Week 2: feedback and the supervisor's review. Week 3: the meeting, acknowledgment and HR's signature.</p>
+      <div className="ev-two">
+        <label className="ev-field">
+          <span>Week 1, days to collect feedback</span>
+          <input type="number" id="eva-w1" min={3} max={21} value={w1} onChange={(e) => setW1(e.target.value)} />
+        </label>
+        <label className="ev-field">
+          <span>Week 2, days for review meetings</span>
+          <input type="number" id="eva-w2" min={3} max={21} value={w2} onChange={(e) => setW2(e.target.value)} />
+        </label>
+      </div>
+      <p className="ev-sub">Week 1: everyone completes the self-evaluation and names 2 or 3 reviewers, the supervisor included, who give feedback. Week 2: the review meetings you schedule on each person's page, then the final evaluation.</p>
       <label className="ev-field">
         <span>Find a person</span>
         <input type="search" id="eva-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or team" autoComplete="off" />
@@ -312,7 +293,7 @@ function Setup({ onCancel, onOpened }: { onCancel: () => void; onOpened: (termId
           onClick={() => {
             setB(true);
             const emails = Object.keys(sel).filter((k) => sel[k]);
-            evalCall<{ opened: number; noSupervisor: string[]; termId: string }>('POST', 'admin/terms', { startsOn: start, name, emails })
+            evalCall<{ opened: number; noSupervisor: string[]; termId: string }>('POST', 'admin/terms', { startsOn: start, name, emails, w1Days: Number(w1) || 7, w2Days: Number(w2) || 7 })
               .then((d) => {
                 toast('Opened for ' + d.opened + ' ' + (d.opened === 1 ? 'person' : 'people') + '.' + (d.noSupervisor.length ? ' ' + d.noSupervisor.length + ' have no supervisor yet.' : ''));
                 onOpened(d.termId);
@@ -444,7 +425,8 @@ function Term({ d, staff, id }: { d: TermDetail; staff: Array<{ email: string; n
               <th>Where</th>
               <th>Self</th>
               <th>Feedback</th>
-              <th>Summary</th>
+              <th>Meeting</th>
+              <th>Final evaluation</th>
               <th>Signed</th>
               <th></th>
             </tr>
@@ -463,11 +445,15 @@ function Term({ d, staff, id }: { d: TermDetail; staff: Array<{ email: string; n
                 <td data-l="Feedback">
                   {c.reviewersDone} of {c.reviewers}
                 </td>
-                <td data-l="Summary">{mark(c.summary)}</td>
+                <td data-l="Meeting">{c.meetingOn ? dateWord(c.meetingOn) + (c.meetingTime ? ' ' + timeWord(c.meetingTime) : '') : 'Not set'}</td>
+                <td data-l="Final evaluation">{mark(c.summary)}</td>
                 <td data-l="Signed">{mark(c.signed)}</td>
                 <td>
                   <NavLink className="h-btn h-btn--ghost h-btn--sm" href={'/evaluations/?c=' + encodeURIComponent(c.id)}>
                     Open
+                  </NavLink>
+                  <NavLink className="h-btn h-btn--ghost h-btn--sm" href={'/evaluations/?c=' + encodeURIComponent(c.id) + '&v=final'}>
+                    {c.meetingOn ? 'Meeting' : 'Schedule'}
                   </NavLink>
                 </td>
               </tr>
@@ -477,7 +463,7 @@ function Term({ d, staff, id }: { d: TermDetail; staff: Array<{ email: string; n
       </section>
       <section className="ev-panel">
         <h2>Reviewers</h2>
-        <p className="ev-sub">Open a person's evaluation, then Reviewers, to set a reviewer aside or add one. Employees choose their own 3 to 5 reviewers in week 1. The supervisor and HR can change them.</p>
+        <p className="ev-sub">Open a person's evaluation, then Reviewers, to set a reviewer aside or add one. Employees choose their own 2 or 3 reviewers in week 1, and the supervisor is always one. A reviewer can decline and the employee picks a replacement.</p>
       </section>
     </div>
   );

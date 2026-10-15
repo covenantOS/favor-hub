@@ -1,8 +1,8 @@
 // Evaluation rules that need no database: what counts as complete, the averages the supervisor compares, the recurring themes,
-// the three week calendar and who may read what. Pure functions, so tests and the page's preview run them directly.
-import { answerable, COMPETENCIES, CATEGORIES, FORM_A, FORM_B, FORM_C, requiredText, type Form, type Question } from '../../../src/data/evaluation-forms';
+// the two week calendar and who may read what. Pure functions, so tests and the page's preview run them directly.
+import { answerable, COMPETENCIES, CATEGORIES, FORM_A, FORM_B, requiredText, type Form, type Question } from '../../../src/data/evaluation-forms';
 
-export type FormId = 'A' | 'B' | 'C';
+export type FormId = 'A' | 'B';
 
 export interface Ans {
   qid: string;
@@ -13,14 +13,14 @@ export interface Ans {
 
 export const MAX_TEXT = 8000;
 
-export const STAGES = ['self', 'feedback', 'summary', 'meeting', 'acknowledged', 'signed', 'done'] as const;
+export const STAGES = ['self', 'feedback', 'meeting', 'acknowledged', 'signed', 'done'] as const;
 export type Stage = (typeof STAGES)[number];
 
 export const STAGE_WORD: Record<string, string> = {
   self: 'Self-assessment and reviewers',
-  feedback: 'Feedback and supervisor review',
-  summary: 'Supervisor summary',
-  meeting: 'Meeting and acknowledgment',
+  feedback: 'Collecting feedback and review',
+  summary: 'Collecting feedback and review',
+  meeting: 'Final evaluation shared',
   acknowledged: 'Waiting for HR to sign',
   signed: 'Signed',
   done: 'Complete',
@@ -29,14 +29,13 @@ export const STAGE_WORD: Record<string, string> = {
 export function formOf(id: string): Form {
   if (id === 'A') return FORM_A;
   if (id === 'B') return FORM_B;
-  if (id === 'C') return FORM_C;
   throw new Error('no such form');
 }
 
-export const REVIEWERS_MIN = 3;
-export const REVIEWERS_MAX = 5;
-export const GOALS_MIN = 2;
-export const GOALS_MAX = 4;
+/** Two or three people give feedback, and one of them is always the supervisor (meeting of 2026-10-15). */
+export const REVIEWERS_MIN = 2;
+export const REVIEWERS_MAX = 3;
+export const REVIEWERS_WORD = `${REVIEWERS_MIN} or ${REVIEWERS_MAX}`;
 
 const blank = (s: unknown) => !String(s ?? '').trim();
 
@@ -191,9 +190,14 @@ export const addDays = (iso: string, n: number): string => {
   return d.toISOString().slice(0, 10);
 };
 
-/** Week 1 ends 7 days after the start, week 2 after 14, week 3 after 21. */
-export function weekDue(startsOn: string): { w1: string; w2: string; w3: string } {
-  return { w1: addDays(startsOn, 7), w2: addDays(startsOn, 14), w3: addDays(startsOn, 21) };
+/**
+ * Week 1 collects the self-assessment and the feedback, week 2 holds the review meetings. Each length is a setting of the term, 7 days
+ * by default. w3 repeats w2 so rows written by the older three week version still read.
+ */
+export function weekDue(startsOn: string, w1Days = 7, w2Days = 7): { w1: string; w2: string; w3: string } {
+  const w1 = addDays(startsOn, w1Days);
+  const w2 = addDays(w1, w2Days);
+  return { w1, w2, w3: w2 };
 }
 
 export const todayEt = (now: Date = new Date()): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);

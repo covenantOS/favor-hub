@@ -6,11 +6,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { NavLink } from '@/shell/NavLink';
 import { FormRead } from './Forms';
-import { Compare, EditorFor, Evidence, Feedback, Overview, Reviewers, Signoff, Summary, type Ctx } from './Panels';
-import { caseQuery, coursesQuery, evKeys, formsQuery, mineQuery, peopleQuery } from './queries';
+import { Compare, DeclineBox, EditorFor, Evidence, Feedback, Final, Overview, Reviewers, type Ctx } from './Panels';
+import { caseQuery, evKeys, formsQuery, mineQuery, peopleQuery } from './queries';
 import { ToastHost } from './toast';
 import { useSaver } from './useSaver';
-import { caseHref, dateWord, tabShown, tabsFor, type CaseView, type EvalSearch, type FormsPayload, type Mine } from './logic';
+import { caseHref, dateWord, timeWord, tabShown, tabsFor, withSupervisor, type CaseView, type EvalSearch, type FormsPayload, type Mine } from './logic';
 
 export function EvaluationsPage({ search }: { search: EvalSearch }) {
   return (
@@ -55,7 +55,7 @@ function HomeRoute() {
 }
 
 function Home({ m }: { m: Mine }) {
-  const any = m.own.length || m.owe.length || m.team.length || m.needsSign.length;
+  const any = m.own.length || m.owe.length || m.team.length || m.needsSign.length || m.leads.length;
   return (
     <div className="ev-root" id="ev-root">
       <header className="ev-head">
@@ -159,6 +159,27 @@ function Home({ m }: { m: Mine }) {
           </ul>
         </section>
       ) : null}
+      {m.leads.length ? (
+        <section className="ev-sec">
+          <h2>Review meetings I join</h2>
+          <ul className="ev-list">
+            {m.leads.map((t) => (
+              <li className="ev-row" key={t.id}>
+                <div className="ev-row__main">
+                  <b>{t.employee}</b>
+                  <span className="ev-sub">
+                    {t.period}
+                    {t.meetingOn ? ' · ' + dateWord(t.meetingOn) + (t.meetingTime ? ' at ' + timeWord(t.meetingTime) : '') : ' · Not scheduled yet'}
+                  </span>
+                </div>
+                <NavLink className="h-btn h-btn--ghost h-btn--sm" href={caseHref(t.id)}>
+                  Open
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {m.needsSign.length ? (
         <section className="ev-sec">
           <h2>Waiting for HR to sign</h2>
@@ -169,7 +190,7 @@ function Home({ m }: { m: Mine }) {
                   <b>{t.employee}</b>
                   <span className="ev-sub">{t.period}</span>
                 </div>
-                <NavLink className="h-btn h-btn--primary h-btn--sm" href={caseHref(t.id, 'signoff')}>
+                <NavLink className="h-btn h-btn--primary h-btn--sm" href={caseHref(t.id, 'final')}>
                   Review and sign
                 </NavLink>
               </li>
@@ -188,19 +209,18 @@ function CaseRoute({ id, tab }: { id: string; tab: string }) {
   const me = useQuery({ ...mineQuery, staleTime: Infinity });
   const cq = useQuery(caseQuery(id));
   const v = cq.data;
-  const needStaff = !!v && (v.role.employee || v.role.manage);
+  const needStaff = !!v && (v.role.employee || v.role.manage || v.role.raw);
   const staff = useQuery({ ...peopleQuery, enabled: needStaff });
-  const courses = useQuery({ ...coursesQuery, enabled: !!v && v.role.raw });
-  const err = forms.error || me.error || cq.error || staff.error || courses.error;
+  const err = forms.error || me.error || cq.error || staff.error;
   useEffect(() => {
     document.title = 'Evaluation - FavorOS';
   }, []);
   if (err) return <Failed message={(err as Error).message} />;
-  if (!v || !forms.data || !me.data || (needStaff && !staff.data) || (v.role.raw && !courses.data)) return <Opening />;
-  return <CaseView v={v} forms={forms.data} meName={me.data.me.name} staff={staff.data || []} courses={courses.data || []} tab={tab} />;
+  if (!v || !forms.data || !me.data || (needStaff && !staff.data)) return <Opening />;
+  return <CaseView v={v} forms={forms.data} meName={me.data.me.name} staff={staff.data || []} settings={me.data.settings} tab={tab} />;
 }
 
-function CaseView({ v, forms, meName, staff, courses, tab }: { v: CaseView; forms: FormsPayload; meName: string; staff: Ctx['staff']; courses: Ctx['courses']; tab: string }) {
+function CaseView({ v, forms, meName, staff, settings, tab }: { v: CaseView; forms: FormsPayload; meName: string; staff: Ctx['staff']; settings: Ctx['settings']; tab: string }) {
   const qc = useQueryClient();
   const router = useRouter();
   const c = v.case;
@@ -213,7 +233,7 @@ function CaseView({ v, forms, meName, staff, courses, tab }: { v: CaseView; form
 
   // The people named for feedback start as the ones already asked, and change only by what the person picks.
   const active = (v.reviewers || []).filter((x) => x.status === 'asked' || x.status === 'submitted').map((x) => x.email);
-  const pickNow = pick ?? active;
+  const pickNow = withSupervisor(pick ?? active, c.supervisor.email);
 
   const reload = useCallback(
     () => Promise.all([qc.refetchQueries({ queryKey: evKeys.case(c.id), exact: true }), qc.refetchQueries({ queryKey: evKeys.me, exact: true })]),
@@ -231,7 +251,7 @@ function CaseView({ v, forms, meName, staff, courses, tab }: { v: CaseView; form
     forms,
     meName,
     staff,
-    courses,
+    settings,
     saver,
     reload,
     patch,
@@ -269,7 +289,7 @@ function CaseView({ v, forms, meName, staff, courses, tab }: { v: CaseView; form
       {v.reportsToMissing ? (
         <div className="ev-gap" role="alert">
           <b>No supervisor set for {c.employee.name}</b>
-          <span>The summary and plan need one.</span>
+          <span>The review needs one.</span>
           <NavLink className="h-btn h-btn--ghost h-btn--sm" href="/admin/people/?filter=nosup">
             Open People and roles
           </NavLink>
@@ -279,12 +299,12 @@ function CaseView({ v, forms, meName, staff, courses, tab }: { v: CaseView; form
         {shown === 'overview' ? <Overview x={x} /> : null}
         {shown === 'self' ? (r.employee ? <EditorFor x={x} formId="A" /> : <SelfRead x={x} />) : null}
         {shown === 'mine' ? <EditorFor x={x} formId="B" /> : null}
+        {shown === 'mine' ? <DeclineBox x={x} /> : null}
         {shown === 'reviewers' ? <Reviewers x={x} /> : null}
         {shown === 'evidence' ? <Evidence x={x} /> : null}
         {shown === 'feedback' ? <Feedback x={x} /> : null}
         {shown === 'compare' ? <Compare x={x} /> : null}
-        {shown === 'summary' ? <Summary x={x} /> : null}
-        {shown === 'signoff' ? <Signoff x={x} /> : null}
+        {shown === 'final' ? <Final x={x} /> : null}
       </div>
     </div>
   );
