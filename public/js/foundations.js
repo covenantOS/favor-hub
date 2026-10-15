@@ -42,6 +42,7 @@
 
   let toastTimer = null;
   function toast(text) {
+    if (window.hubToast) { window.hubToast(text); return; }
     toastEl.textContent = text;
     toastEl.classList.add('is-on');
     clearTimeout(toastTimer);

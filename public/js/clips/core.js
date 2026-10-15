@@ -180,6 +180,7 @@ export function ask({ title, body, ok = 'Delete', cancel = 'Cancel', danger = tr
 }
 
 export function toast(msg, tone) {
+  if (window.hubToast) { window.hubToast(msg, { tone: tone === 'bad' ? 'bad' : '' }); return; }
   const t = document.createElement('div');
   t.className = 'cl-toast' + (tone === 'bad' ? ' is-bad' : '');
   t.setAttribute('role', 'status');

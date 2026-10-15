@@ -42,6 +42,7 @@
   let toastEl = null;
   let toastT = 0;
   function toast(msg, bad) {
+    if (window.hubToast) { window.hubToast(msg, { tone: bad ? 'bad' : '' }); return; }
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'ob-toast';

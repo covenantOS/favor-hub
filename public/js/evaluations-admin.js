@@ -15,6 +15,7 @@
   }
   function dateWord(d) { return d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }) : ''; }
   function toast(msg, bad) {
+    if (window.hubToast) { window.hubToast(msg, { tone: bad ? 'bad' : '' }); return; }
     var t = document.getElementById('ev-toast'); if (!t) return;
     t.textContent = msg; t.className = 'ev-toast is-on' + (bad ? ' is-bad' : '');
     clearTimeout(toast.t); toast.t = setTimeout(function () { t.className = 'ev-toast'; }, bad ? 6000 : 2800);

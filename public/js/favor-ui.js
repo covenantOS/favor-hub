@@ -74,6 +74,7 @@
   }
   var toastEl = null, toastT = 0;
   function toast(text, href, label) {
+    if (window.hubToast) return window.hubToast(text, { link: href ? { href: href, label: label || 'Open' } : null });
     if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'fe-toast'; toastEl.setAttribute('role', 'status'); toastEl.setAttribute('aria-live', 'polite'); document.body.appendChild(toastEl); }
     toastEl.innerHTML = esc(text) + (href ? ' <a href="' + esc(href) + '">' + esc(label || 'Open') + '</a>' : '');
     toastEl.classList.add('is-on');

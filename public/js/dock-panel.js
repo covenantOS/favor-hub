@@ -107,6 +107,7 @@
     return others.map(function (m) { return D.name(m).split(' ')[0]; }).join(', ') || 'Group';
   }
   function toast(msg) {
+    if (window.hubToast) { window.hubToast(msg); return; }
     var t = $('.fp-toast', panel);
     if (!t) { t = document.createElement('div'); t.className = 'fp-toast'; t.setAttribute('role', 'status'); panel.appendChild(t); }
     t.textContent = msg; t.classList.add('is-on'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('is-on'); }, 2800);

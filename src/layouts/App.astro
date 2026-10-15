@@ -41,6 +41,7 @@ import '../styles/release.css';
 import '../styles/integrations.css';
 import '../styles/integrations-today.css';
 import '../styles/nav-areas.css';
+import '../styles/upgrades.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
 import liteJs from '../../public/js/lite.js?raw';
@@ -497,6 +498,10 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/ask-brain.js?v=1" defer></script>
     <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
+    <script is:inline src="/js/hub-toast.js?v=1" defer></script>
+    <script is:inline src="/js/hub-flow.js?v=1" defer></script>
+    <script is:inline src="/js/hub-tip.js?v=1" defer></script>
+    <script is:inline src="/js/hub-sheet.js?v=1" defer></script>
     <script>
       import '../scripts/hub';
     </script>

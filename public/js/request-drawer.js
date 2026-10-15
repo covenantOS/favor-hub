@@ -44,6 +44,7 @@
   let toastEl = null;
   let toastT = 0;
   function toast(msg) {
+    if (window.hubToast) { window.hubToast(msg); return; }
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'rt-toast';

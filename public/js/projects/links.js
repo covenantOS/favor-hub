@@ -44,6 +44,7 @@
   }
 
   function toast(msg, href) {
+    if (window.hubToast) { window.hubToast(msg, { link: href ? { href: href, label: 'Open' } : null }); return; }
     var t = document.createElement('div');
     t.className = 'h-toast';
     t.setAttribute('role', 'status');

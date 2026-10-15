@@ -53,6 +53,7 @@ void nextMonday;
 /* ------------------------------------------------------------------ small pieces: toast, popover, dialog */
 let toastEl = null, toastT = 0;
 function toast(msg) {
+  if (window.hubToast) { window.hubToast(msg); return; }
   if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'wm-toast'; toastEl.setAttribute('role', 'status'); toastEl.setAttribute('aria-live', 'polite'); document.body.appendChild(toastEl); }
   toastEl.textContent = msg; toastEl.classList.add('is-on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('is-on'), 3200);
 }

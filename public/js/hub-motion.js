@@ -177,7 +177,8 @@
     var was = app.classList.contains('is-nav');
     new MutationObserver(function () {
       var on = app.classList.contains('is-nav');
-      if (was && !on && phone.matches && !reduce.matches) ghost(app);
+      // A sheet pulled down by the finger (hub-sheet.js) is already off the screen and needs no copy.
+      if (was && !on && phone.matches && !reduce.matches && !window.__hubSheetClosed) ghost(app);
       was = on;
     }).observe(app, { attributes: true, attributeFilter: ['class'] });
   }

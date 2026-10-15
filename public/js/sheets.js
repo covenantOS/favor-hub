@@ -23,6 +23,7 @@
 
   let toastEl = null;
   function toast(msg, link) {
+    if (window.hubToast) { window.hubToast(msg, { link: link ? { href: link, label: 'Open it', external: true } : null, ms: link ? 8000 : 4000 }); return; }
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'fs-toast';

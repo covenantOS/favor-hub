@@ -59,6 +59,7 @@
   let toastEl = null;
   let toastT = 0;
   function toast(msg) {
+    if (window.hubToast) { window.hubToast(msg); return; }
     if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'ln-toast'; toastEl.setAttribute('role', 'status'); document.body.appendChild(toastEl); }
     toastEl.textContent = msg;
     toastEl.hidden = false;

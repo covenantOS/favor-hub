@@ -25,6 +25,7 @@
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || d.ok === false) throw new Error(d.message || 'That did not work. Try again.'); return d; }); });
   }
   function toast(text) {
+    if (window.hubToast) { window.hubToast(text); return; }
     var t = document.querySelector('.fx-toast');
     if (!t) { t = document.createElement('div'); t.className = 'rt-toast fx-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
     t.textContent = text; t.classList.add('is-on');

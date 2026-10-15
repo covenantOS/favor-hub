@@ -35,6 +35,7 @@
     route();
   }
   function toast(msg, bad) {
+    if (window.hubToast) { window.hubToast(msg, { tone: bad ? 'bad' : '' }); return; }
     var t = document.getElementById('ev-toast');
     if (!t) return;
     t.textContent = msg;

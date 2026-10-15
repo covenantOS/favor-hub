@@ -83,6 +83,7 @@ export function avatar(p, size) {
 
 /** A short message at the bottom. `action` is {label, fn}, used for Undo. */
 export function toast(msg, kind, action) {
+  if (window.hubToast) { window.hubToast(msg, { tone: kind === 'error' ? 'bad' : '', action: action && action.fn ? { label: action.label, fn: action.fn } : null }); return; }
   let host = document.getElementById('pjv-toasts');
   if (!host) { host = document.createElement('div'); host.id = 'pjv-toasts'; host.setAttribute('role', 'status'); host.setAttribute('aria-live', 'polite'); document.body.appendChild(host); }
   const el = document.createElement('div');

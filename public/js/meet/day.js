@@ -505,6 +505,7 @@
   }
 
   function toast(msg) {
+    if (window.hubToast) { window.hubToast(msg); return; }
     var el = document.getElementById('toast');
     if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
     el.textContent = msg; el.classList.add('is-on'); clearTimeout(tt); tt = setTimeout(function () { el.classList.remove('is-on'); }, 3000);
