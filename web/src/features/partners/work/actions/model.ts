@@ -109,7 +109,7 @@ export function makeWork(idx: Index, pend: Pend) {
   const mayAssign = (fid: string) => !!me.anyTeam || fid === me.fid || (me.fids || []).includes(fid) || (!!me.team && P(fid).team === me.team);
   const cur = (a: Act) => {
     const o = pend.ov[a.id] || {};
-    return { due: o.due || a.due, f: o.f || a.f };
+    return { due: o.due || a.due, f: o.f || a.f, sum: o.sum ?? a.sum, cat: o.cat || a.cat, type: o.type || a.type };
   };
   const isOpenNow = (a: Act) => !pend.gone[a.id];
   const pendingOf = (a: Act) => (a.pending && a.pending.state === 'saving' ? 'saving' : '');
@@ -151,8 +151,8 @@ export function makeWork(idx: Index, pend: Pend) {
       } else if (!c.f.includes(f.fr) && !(f.theirs && a.hold.includes(f.fr))) return false;
     }
     if (f.scope === 'partners' && !(me.fid && a.hold.includes(me.fid) && !c.f.includes(me.fid))) return false;
-    if (f.type && skip !== 'type' && a.type !== f.type) return false;
-    if (f.cat && skip !== 'cat' && a.cat !== f.cat) return false;
+    if (f.type && skip !== 'type' && c.type !== f.type) return false;
+    if (f.cat && skip !== 'cat' && c.cat !== f.cat) return false;
     if (f.cid && a.cid !== f.cid) return false;
     if (f.due && skip !== 'due') {
       const n = dayn(c.due);

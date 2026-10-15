@@ -147,7 +147,11 @@ export interface WorkFilters {
 }
 export const EMPTY_FILTERS: WorkFilters = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' };
 
+/** What a person changed that the board does not show yet (an optimistic change, until the board is read again). */
 export interface Overlay {
   due?: string;
   f?: string[];
+  sum?: string;
+  cat?: string;
+  type?: string;
 }

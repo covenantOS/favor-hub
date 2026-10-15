@@ -1,0 +1,8 @@
+/* The Work Center in React: what the classic page got from the order its stylesheets loaded in, and the table cells that stand in for the
+   classic grid rows. Every selector sits under #wc-root so it cannot reach another page. */
+
+/* design-pass.css hides the phone-only Details pill; here work.css loads after it, so say it again with more weight. */
+html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: none; }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: inline-flex; }
+}
