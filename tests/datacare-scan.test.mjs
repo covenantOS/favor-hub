@@ -164,3 +164,17 @@ describe('the merge queue', () => {
     await assert.rejects(() => decidePair(env, who, '10-11', { action: 'not_same' }), /already merged or waiting/);
   });
 });
+
+describe('name check', () => {
+  it('lists a record whose name is not a person, apart from the address list', async () => {
+    const { flagNameCheck } = await import('../functions/_lib/datacare/service.ts');
+    await runScan(env);
+    await flagNameCheck(env, { cid: '36742', lookup: '22919', name: 'Matthew 6:3' });
+    const { rows } = await listFlags(env, { state: 'name', offset: 0, limit: 20, search: '' });
+    assert.deepEqual(rows.map((r) => [r.lookup, r.why]), [['22919', 'name']]);
+    assert.equal((await summary(env)).nameCheck, 1);
+    assert.equal((await summary(env)).noAddress.open, 2);
+    await runScan(env);
+    assert.equal((await listFlags(env, { state: 'name', offset: 0, limit: 20, search: '' })).rows.length, 1);
+  });
+});

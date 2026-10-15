@@ -1,5 +1,6 @@
 export interface Summary {
   noAddress: { open: number; gave: number; fixed: number };
+  nameCheck: number;
   pairs: { review: number; notSame: number; queued: number; merged: number; failed: number };
   scannedAt: string | null;
   sheet: string | null;
@@ -57,4 +58,4 @@ export interface Compare {
   suggestKeep: 'a' | 'b';
   differs: { name: boolean; address: boolean; phone: boolean };
 }
-export const WHY: Record<string, string> = { dnm: 'Do not mail', no_street: 'No street', inactive: 'Address ended', none: 'None on file' };
+export const WHY: Record<string, string> = { dnm: 'Do not mail', no_street: 'No street', inactive: 'Address ended', none: 'None on file', name: 'Name is not a person' };

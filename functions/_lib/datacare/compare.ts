@@ -69,7 +69,7 @@ export async function compareRecords(env: Env, idA: string, idB: string): Promis
       name: c.name || c.org || '',
       type: c.type || '',
       added: c.added || '',
-      address: good && good.addr ? oneLine(good.addr) : null,
+      address: good && /[a-z0-9]/i.test(String(good.addr || '')) ? oneLine(good.addr) : null,
       addressDoNotMail: !!(good && good.dnm),
       phone: (ph.find((r) => String(r.cid) === id) || {}).phone || null,
       emails: [...new Set(em.filter((r) => String(r.cid) === id).map((r) => String(r.email).toLowerCase()))],

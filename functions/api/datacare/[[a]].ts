@@ -1,6 +1,6 @@
 import { HttpError, errorJson, handleError, json, type Env } from '../../_lib/http';
 import { body, sameSite } from '../../_lib/work/route';
-import { assign, decidePair, done, listFlags, listPairs, pairDetail, queue, requireCare, rescan, setMeta, summary } from '../../_lib/datacare/service';
+import { assign, decidePair, flagNameCheck, done, listFlags, listPairs, pairDetail, queue, requireCare, rescan, setMeta, summary } from '../../_lib/datacare/service';
 
 // Data care. GET with no path is the overview; the rest are named by the path.
 //   GET  /                      counts, the reviewer, the Sheet link
@@ -50,6 +50,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     }
     if (a[0] === 'assign') return json({ ok: true, ...(await assign(env, who, { to: b.to ? String(b.to) : undefined, again: b.again === true })) });
     if (a[0] === 'pair' && a[1] === 'decide') return json({ ok: true, pair: await decidePair(env, who, String(b.id || ''), b) });
+    if (a[0] === 'name-check') {
+      if (!who.admin && !who.agent) throw new HttpError(403, 'admin_only', 'Only an admin can add to this list.');
+      await flagNameCheck(env, { cid: String(b.cid || ''), lookup: String(b.lookup || ''), name: String(b.name || '') });
+      return json({ ok: true });
+    }
     if (a[0] === 'meta') {
       if (!who.admin && !who.agent) throw new HttpError(403, 'admin_only', 'Only an admin can change this.');
       for (const k of ['sheet', 'reviewer']) if (typeof b[k] === 'string') await setMeta(env, k, String(b[k]).trim().slice(0, 300));

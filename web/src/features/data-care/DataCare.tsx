@@ -319,7 +319,7 @@ function Card({ pair, compare, nextId, onNext }: { pair: Pair; compare: Compare 
     </>
   );
   const gifts = (s: Side) => (s.gifts.n ? `${s.gifts.n} gifts, ${money0(s.gifts.total)}${s.gifts.last ? ', last ' + dayShort(s.gifts.last) : ''}` : 'No gifts');
-  const acts = (s: Side) => (s.actions.n ? `${s.actions.n} actions${s.actions.last ? ', last ' + dayShort(s.actions.last) : ''}` : 'No actions');
+  const acts = (s: Side) => (s.actions.n ? `${s.actions.n} ${s.actions.n === 1 ? 'action' : 'actions'}${s.actions.last ? ', last ' + dayShort(s.actions.last) : ''}` : 'No actions');
   const mergeLabel = `Merge into record ${keep === 'a' ? 'A' : 'B'}`;
   return (
     <section className="h-card dc-compare" aria-label="Pair side by side">
@@ -410,7 +410,7 @@ function Card({ pair, compare, nextId, onNext }: { pair: Pair; compare: Compare 
 
 /* ----------------------------------------------------------------------------------------------- missing addresses */
 
-type FlagState = 'open' | 'fixed';
+type FlagState = 'open' | 'fixed' | 'name';
 
 function Missing() {
   const [state, setState] = useState<FlagState>('open');
@@ -456,7 +456,7 @@ function Missing() {
         <span style={{ textAlign: 'right' }}>Gave</span>
         <span>Last gift</span>
         <span>Email on file</span>
-        <span>{state === 'fixed' ? 'Fixed' : 'Why'}</span>
+        <span>{state === 'fixed' ? 'Fixed' : state === 'name' ? 'Check' : 'Why'}</span>
         <span />
       </div>
       <Suspense fallback={<Skel n={6} cls="dc-row" />}>
@@ -486,6 +486,11 @@ function MissingTabs({ state, setState }: { state: FlagState; setState: (v: Flag
       <button type="button" className="dc-tab" aria-pressed={state === 'fixed'} onClick={() => setState('fixed')}>
         Fixed {count(sum.noAddress.fixed)}
       </button>
+      {sum.nameCheck > 0 ? (
+        <button type="button" className="dc-tab" aria-pressed={state === 'name'} onClick={() => setState('name')}>
+          Name check {count(sum.nameCheck)}
+        </button>
+      ) : null}
     </>
   );
 }
@@ -508,7 +513,7 @@ function MissingRows({ state, q, offset, setOffset }: { state: FlagState; q: str
             {state === 'fixed' ? <span>{f.fixedAt ? when(f.fixedAt) : ''}</span> : <span className="dc-why">{WHY[f.why] || WHY.none}</span>}
             <span>
               <NavLink href={'/work/partner/' + f.cid} className="dc-link">
-                {state === 'fixed' ? 'Open' : 'Add address'}
+                {state === 'fixed' || state === 'name' ? 'Open' : 'Add address'}
               </NavLink>
             </span>
           </div>

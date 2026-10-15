@@ -61,6 +61,7 @@ const flagOut = (r: any): FlagOut => ({
 
 export interface Summary {
   noAddress: { open: number; gave: number; fixed: number };
+  nameCheck: number;
   pairs: { review: number; notSame: number; queued: number; merged: number; failed: number };
   scannedAt: string | null;
   sheet: string | null;
@@ -69,13 +70,14 @@ export interface Summary {
 }
 
 export async function summary(env: Env): Promise<Summary> {
-  const [f, p, sc, sheet, rv, asg] = await Promise.all([
+  const [f, p, sc, sheet, rv, asg, nc] = await Promise.all([
     env.DB.prepare(`SELECT state, COUNT(*) AS n, COALESCE(SUM(gave), 0) AS g FROM dc_flag WHERE kind = 'no_address' GROUP BY state`).all<{ state: string; n: number; g: number }>(),
     env.DB.prepare(`SELECT state, COUNT(*) AS n FROM dc_pair GROUP BY state`).all<{ state: string; n: number }>(),
     getMeta(env, 'scan'),
     getMeta(env, 'sheet'),
     reviewer(env),
     getMeta(env, 'assigned'),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM dc_flag WHERE kind = 'name_check' AND state = 'open'`).first<{ n: number }>(),
   ]);
   const fl = new Map((f.results || []).map((r) => [r.state, r]));
   const pr = new Map((p.results || []).map((r) => [r.state, r.n]));
@@ -96,6 +98,7 @@ export async function summary(env: Env): Promise<Summary> {
   return {
     noAddress: { open: Number(fl.get('open')?.n || 0), gave: Number(fl.get('open')?.g || 0), fixed: Number(fl.get('fixed')?.n || 0) },
     pairs: { review: pr.get('review') || 0, notSame: pr.get('not_same') || 0, queued: pr.get('queued') || 0, merged: pr.get('merged') || 0, failed: pr.get('failed') || 0 },
+    nameCheck: Number(nc?.n || 0),
     scannedAt,
     sheet,
     reviewer: { email: rv, name: who ? who.name : rv },
@@ -103,15 +106,25 @@ export async function summary(env: Env): Promise<Summary> {
   };
 }
 
+/** Put a record on the review list because its name may not be a person (an anonymous gift name typed as a partner). */
+export async function flagNameCheck(env: Env, f: { cid: string; lookup: string; name: string }): Promise<void> {
+  const now = nowIso();
+  await env.DB.prepare(
+    `INSERT INTO dc_flag (cid, lookup, name, kind, why, state, first_seen, last_seen) VALUES (?, ?, ?, 'name_check', 'name', 'open', ?, ?)
+     ON CONFLICT(cid) DO UPDATE SET kind = 'name_check', why = 'name', state = 'open', last_seen = excluded.last_seen`
+  ).bind(f.cid, f.lookup, f.name, now, now).run();
+}
+
 export async function listFlags(env: Env, q: { state: string; offset: number; limit: number; search: string }): Promise<{ rows: FlagOut[]; total: number }> {
+  const kind = q.state === 'name' ? 'name_check' : 'no_address';
   const state = q.state === 'fixed' ? 'fixed' : 'open';
   const like = `%${q.search.replace(/[%_]/g, '')}%`;
   const where = q.search ? `AND (name LIKE ?2 OR lookup = ?3 OR email LIKE ?2)` : '';
   const bind = (st: D1PreparedStatement) => st;
   void bind;
   const args = q.search ? [state, like, q.search.trim()] : [state];
-  const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM dc_flag WHERE kind = 'no_address' AND state = ?1 ${where}`).bind(...args).first<{ n: number }>();
-  const rows = await env.DB.prepare(`SELECT * FROM dc_flag WHERE kind = 'no_address' AND state = ?1 ${where} ORDER BY ${state === 'fixed' ? 'fixed_at DESC' : 'gave DESC'}, cid LIMIT ${Math.min(Math.max(q.limit, 1), 200)} OFFSET ${Math.max(q.offset, 0)}`)
+  const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM dc_flag WHERE kind = '${kind}' AND state = ?1 ${where}`).bind(...args).first<{ n: number }>();
+  const rows = await env.DB.prepare(`SELECT * FROM dc_flag WHERE kind = '${kind}' AND state = ?1 ${where} ORDER BY ${state === 'fixed' ? 'fixed_at DESC' : 'gave DESC'}, cid LIMIT ${Math.min(Math.max(q.limit, 1), 200)} OFFSET ${Math.max(q.offset, 0)}`)
     .bind(...args)
     .all();
   return { rows: (rows.results || []).map(flagOut), total: Number(total?.n || 0) };
@@ -276,8 +289,8 @@ export async function assign(env: Env, who: CareUser, b: { to?: string; again?: 
   const taskId = made ? made.task.id : null;
   let tagged = false;
   if (taskId) {
-    await env.DB.prepare('INSERT INTO hub_task_notices (id, email, task_id, kind, actor_email, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(newId('ntc'), to, taskId, 'mentioned', lower(who.email), title.slice(0, 600), nowIso())
+    await env.DB.prepare('INSERT INTO hub_task_notices (id, email, task_id, kind, actor_email, body, created_at, emailed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(newId('ntc'), to, taskId, 'mentioned', lower(who.email), title.slice(0, 600), nowIso(), nowIso())
       .run();
     tagged = true;
   }
