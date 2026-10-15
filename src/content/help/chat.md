@@ -9,7 +9,7 @@ toolLabel: Open Chat
 updated: 2026-10-14
 ---
 
-Chat is where the team talks inside FavorOS. Admin > Chat sets who can use it.
+Chat is where the team talks inside FavorOS. If Chat is turned on for you, it shows in the menu. Admin > Settings > Chat sets who has it: admins, all staff, chosen people and teams, or nobody.
 
 ## Channels and messages
 
