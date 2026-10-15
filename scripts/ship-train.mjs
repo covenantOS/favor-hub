@@ -132,7 +132,17 @@ function assemble(entries) {
   const merged = [];
   for (const e of entries) {
     const r = trySh(`git merge --no-edit -q ${e.branch}`);
-    if (r.ok) merged.push(e);
+    // A conflict only in the generated route trees (main no longer keeps web/src/routeTree.gen.ts) is settled by dropping them: every
+    // build writes them again.
+    let ok = r.ok;
+    if (!ok) {
+      const conflicted = trySh('git diff --name-only --diff-filter=U').out.split('\n').filter(Boolean);
+      if (conflicted.length && conflicted.every((f) => /routeTree\.gen\.ts$/.test(f))) {
+        for (const f of conflicted) trySh(`git rm -q -f --cached ${f}`);
+        ok = trySh('git -c core.editor=true commit -q --no-edit').ok;
+      }
+    }
+    if (ok) merged.push(e);
     else {
       trySh('git merge --abort');
       finish(e, { state: 'rejected', reason: 'does not merge onto main (rebase on origin/main and queue again): ' + r.out.slice(-300) });
