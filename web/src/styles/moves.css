@@ -174,3 +174,15 @@
 .mv-addp label:nth-of-type(2) { flex: 0 1 180px; }
 .mv-addp input, .mv-addp select { min-height: 40px; padding: 0 12px; border: 1px solid var(--r-line-2); border-radius: 10px; background: #fff; font: 400 14px var(--h-font); color: var(--r-ink); }
 .mv-addp .mv-hits { flex: 1 1 100%; margin: 0; }
+/* The map sits in the record's grid: it must never widen its track on a phone. */
+.mv-map { min-width: 0; max-width: 100%; }
+.mv-rel { table-layout: fixed; }
+.mv-rel td { overflow-wrap: anywhere; }
+.mv-rel td.n { width: 92px; }
+.mv-rel td.src { width: 120px; }
+@media (max-width: 700px) {
+  .mv-rel td:nth-child(4), .mv-rel td.src { display: none; }
+  .mv-rel td.name { width: 46%; }
+  .mv-node .mv-nt { font-size: 15px; }
+  .mv-node .mv-ns { font-size: 13px; }
+}
