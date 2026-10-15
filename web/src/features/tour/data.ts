@@ -327,16 +327,6 @@ const TEAM: Record<TourId, StepDef[]> = {
   marketing: [
     kpi('marketing', '/dashboard/?page=%2Fmarketing', 'kpi-marketing', 'Marketing numbers', "Your team's numbers are on the Marketing tab, and Definitions says how each is counted."),
     highlights,
-    {
-      id: 'requests',
-      page: '/requests/',
-      via: 'board',
-      at: ['.req-col[data-col="inbox"]', '#req-board'],
-      title: 'The request board',
-      body: () => 'Requests move through Inbox, Approved, In motion and Done, and the person who asked gets an email when one is done.',
-      side: 'right',
-      phone: { at: ['#req-tabs', '#req-board'] },
-    },
   ],
   exec: [
     kpi('executive', '/dashboard/', 'kpi', 'The year at a glance', 'The Executive tab shows the year at a glance, and Definitions says how every number is counted.'),
