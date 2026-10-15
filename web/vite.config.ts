@@ -49,6 +49,8 @@ export default defineConfig({
             manualChunks(id: string) {
               if (!id.includes('node_modules')) return undefined;
               if (/node_modules[\/](react|react-dom|scheduler)[\/]/.test(id)) return 'react';
+              // The virtual list library only lists use; left in the catch-all below it rode in the chunk every page loads (10 KB).
+              if (/@tanstack[\/](react-)?virtual/.test(id)) return 'virtual';
               if (/@tanstack[\/](react-router|router-core|history|router-ssr|react-start|start-)/.test(id)) return 'router';
               if (id.includes('@tanstack')) return 'query';
               if (/[\/]zod[\/]/.test(id)) return 'zod';
