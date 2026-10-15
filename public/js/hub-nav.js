@@ -240,6 +240,8 @@
     const first = menu.querySelector('a:not([hidden])');
     if (first && root.classList.contains('kbd')) first.focus();
   }
+  // A page chosen from a menu closes it first, before Partners or Gifts switch the page in place and stop the click.
+  window.addEventListener('click', (e) => { const t = e.target instanceof Element ? e.target : null; if (tabMenu && t && t.closest('.h-tabmenu a')) closeTabMenu(); }, true);
   document.addEventListener('click', (e) => {
     const t = e.target instanceof Element ? e.target : null;
     const btn = t && t.closest('#h-tabs .h-tab--menu');
@@ -275,17 +277,22 @@
 
 // Tab rows that hold more tabs than fit get a fade on the right, and the active tab scrolls into view.
 (function () {
+  function fade(row) {
+    row.classList.toggle('is-over', row.scrollWidth > row.clientWidth + 2 && row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+    row.classList.toggle('is-over-l', row.scrollLeft > 2);
+  }
   function fit() {
     document.querySelectorAll('.h-tabs__row').forEach(function (row) {
       var on = row.querySelector('.h-tab.is-on');
       if (on && (on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth - 8 || on.offsetLeft < row.scrollLeft)) row.scrollLeft = Math.max(0, on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2);
-      row.classList.toggle('is-over', row.scrollWidth > row.clientWidth + 2 && row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
-      row.classList.toggle('is-over-l', row.scrollLeft > 2);
+      fade(row);
     });
   }
   window.__hubFit = fit;
   window.addEventListener('resize', fit);
-  document.addEventListener('scroll', function (e) { if (e.target && e.target.classList && e.target.classList.contains('h-tabs__row')) fit(); }, true);
+  // A swipe along the row only moves the fades; the open tab is brought back into view on load, swap and resize, never while
+  // the person is scrolling the row to reach More.
+  document.addEventListener('scroll', function (e) { if (e.target && e.target.classList && e.target.classList.contains('h-tabs__row')) fade(e.target); }, true);
   document.addEventListener('astro:page-load', fit);
   document.addEventListener('hub:swapped', fit);
   document.addEventListener('hub-swapped', fit);
