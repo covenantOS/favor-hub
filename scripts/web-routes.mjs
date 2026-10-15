@@ -10,13 +10,27 @@
 // just added (/receipts/ went missing on 2026-10-15). Each change is now a compare-and-swap: the UPDATE carries the value it read in
 // its WHERE clause, so it lands only when nobody wrote in between; otherwise it reads again and reapplies its one change. Every change
 // is appended to Q:/work/favor-hub/web-routes.log with the before and after values and the folder it ran from.
-import { execSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 
 const LOG = 'Q:/work/favor-hub/web-routes.log';
 const [cmd, route, audience] = process.argv.slice(2);
-const run = (sql) => JSON.parse(execSync(`npx wrangler d1 execute favor-requests --remote --json --command ${JSON.stringify(sql)}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))[0];
+// favor-requests lives on the Marketing account. This machine's own CLOUDFLARE_* variables point at another account, so a run without
+// cfenv.sh found no database and failed with a bare error (2026-10-15). Every call now runs wrangler in Git Bash after sourcing cfenv.sh
+// (it reads the key from a file), so the script works from any folder and from PowerShell. The SQL travels in an environment variable,
+// so no shell ever re-quotes it.
+const CFENV = 'Q:/work/favor-hub/cfenv.sh';
+const BASH = ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files/Git/usr/bin/bash.exe'].find((p) => existsSync(p)) || 'bash';
+const run = (sql) => {
+  try {
+    const line = `${existsSync(CFENV) ? `source ${CFENV} && ` : ''}npx wrangler d1 execute favor-requests --remote --json --command "$WEB_ROUTES_SQL"`;
+    return JSON.parse(execFileSync(BASH, ['-lc', line], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, WEB_ROUTES_SQL: sql, MSYS_NO_PATHCONV: '1' } }))[0];
+  } catch (e) {
+    const why = String(e.stderr || e.stdout || e.message).split('\n').filter((l) => /error|not found|auth/i.test(l)).slice(0, 3).join(' ') || String(e.message).split('\n')[0];
+    throw new Error('could not read or write web.routes on favor-requests: ' + why);
+  }
+};
 const lit = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const read = () => {
   const row = run("SELECT value FROM hub_settings WHERE key = 'web.routes'").results[0];
