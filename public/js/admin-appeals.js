@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var A = window.Admin, $ = function (id) { return document.getElementById(id); };
-  var D = null, timer = 0, busy = false;
+  var D = null, timer = 0, busy = false, held = false;
 
   function opt(v, label) { return '<option value="' + A.esc(v) + '">' + A.esc(label) + '</option>'; }
   function today() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()); }
@@ -32,21 +32,21 @@
           return '<div><code>' + A.esc(b.code) + '</code> ' + A.esc(b.description) + (gone ? ' <span class="is-bad">already exists in Blackbaud</span>' : '') + '</div>';
         }).join('');
         go.disabled = busy || !(d.built || []).length || (d.exists || []).length > 0;
-        if (!busy) { $('ap-msg').textContent = ''; $('ap-msg').className = 'ad-msg'; }
+        if (!busy && !held) { $('ap-msg').textContent = ''; $('ap-msg').className = 'ad-msg'; }
       }).catch(function (e) { box.innerHTML = '<div class="is-bad">' + A.esc(e.message) + '</div>'; go.disabled = true; });
     }, 220);
   }
 
   function create() {
     var msg = $('ap-msg'), go = $('ap-create');
-    busy = true; go.disabled = true; msg.className = 'ad-msg'; msg.textContent = 'Creating';
+    busy = true; held = false; go.disabled = true; msg.className = 'ad-msg'; msg.textContent = 'Creating';
     A.api('/api/admin/appeal-codes', { op: 'create', draft: draft(), online: $('ap-online').checked }).then(function (d) {
-      busy = false;
+      busy = false; held = true;
       var bad = d.created.filter(function (c) { return !c.ok; });
       msg.className = 'ad-msg' + (bad.length ? ' ad-msg--bad' : ' ad-msg--ok');
       msg.textContent = d.created.map(function (c) { return c.ok ? 'Created ' + c.code + '.' : c.code + ': ' + c.error; }).join(' ') + ' ' + d.wiring.join(' ');
       load();
-    }).catch(function (e) { busy = false; msg.className = 'ad-msg ad-msg--bad'; msg.textContent = e.message; preview(); });
+    }).catch(function (e) { busy = false; held = true; msg.className = 'ad-msg ad-msg--bad'; msg.textContent = e.message; preview(); });
   }
 
   function drawRecent() {
@@ -81,8 +81,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    ['ap-date', 'ap-suffix', 'ap-title', 'ap-desc', 'ap-cat', 'ap-online'].forEach(function (id) { $(id).addEventListener('input', preview); $(id).addEventListener('change', preview); });
-    $('ap-kind').addEventListener('change', function () { fillKind(); preview(); });
+    ['ap-date', 'ap-suffix', 'ap-title', 'ap-desc', 'ap-cat', 'ap-online'].forEach(function (id) { $(id).addEventListener('input', function () { held = false; preview(); }); $(id).addEventListener('change', function () { held = false; preview(); }); });
+    $('ap-kind').addEventListener('change', function () { held = false; fillKind(); preview(); });
     $('ap-create').addEventListener('click', create);
     $('rq-add').addEventListener('click', function () {
       var msg = $('rq-msg'); msg.className = 'ad-msg'; msg.textContent = 'Saving';
