@@ -1,12 +1,12 @@
 ---
-// Gifts > Recurring is built in the React app (web/src/routes/gifts/recurring). The middleware serves it to the people the web app is
-// switched on for (hub settings web.routes and web.audience). Everyone else lands here until it opens to them.
+// Gifts > Recurring is built in the React app (web/src/routes/gifts/recurring) and has no Astro twin. This note shows only to a person who
+// left the new FavorOS with ?web=0 or opened the page with ?classic=1.
 import App from '../../layouts/App.astro';
 ---
 <App title="Recurring gifts" crumb="Gifts" nav="recurring" description="Every recurring gift schedule, with declines, past-due charges and stopped schedules.">
   <div class="h-card h-note">
-    <h2 style="font-size:18px;font-weight:800">Recurring gifts is not open to you yet</h2>
-    <p class="h-lede" style="margin:6px 0 14px">It opens to the whole Support Team and Partner Care when the new FavorOS release reaches them. Declines is open now.</p>
-    <a class="h-btn h-btn--primary h-btn--sm" href="/gifts/declines/">Open Declines</a>
+    <h2 style="font-size:18px;font-weight:800">Recurring gifts opens in the new FavorOS</h2>
+    <p class="h-lede" style="margin:6px 0 14px">This page was built only there. Press the button to switch back to the new FavorOS.</p>
+    <a class="h-btn h-btn--primary h-btn--sm" href="/gifts/recurring/?web=1">Open Recurring</a>
   </div>
 </App>
