@@ -94,6 +94,18 @@ describe('kept Today in the service worker', () => {
     assert.ok(second.text.includes('window.__hubNow=' + Date.parse('Thu, 15 Oct 2026 12:00:00 GMT')));
     assert.ok(second.text.includes('requestAnimationFrame') && !second.text.includes('<script type="module" async=""'));
     assert.ok(second.text.includes(ENTRY('A')));
+    assert.ok(second.text.includes('div[hidden][id^="S:"]'), 'the app starts after the streamed cards are revealed');
+  });
+
+  it('shows a streamed card at once: the kept copy drops the hold-back until 2.3 seconds', async () => {
+    const w = makeWorker({ cookies: signedInAs(WHO_A) });
+    const hold = 'setTimeout($RV.bind(null,$RB),2300>a&&2E3<a?2300-a:2300<a?0:300-(a-$RT))';
+    const page = () => new Response(`<!DOCTYPE html><html><head><script type="module" async="" src="${ENTRY('A')}"></script></head><body><script>${hold}</script></body></html>`, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'x-hub-front': 'web' } });
+    await w.load('/', page);
+    const second = await w.load('/', page);
+    assert.ok(second.res.headers.has('x-hub-kept'));
+    assert.ok(!second.text.includes('2300>a&&2E3<a'), 'the hold-back is gone');
+    assert.ok(second.text.includes('2300<a?0:300-(a-$RT)'), 'the rest of the throttle stays');
   });
 
   it('is dropped on sign-out (the logout call and the page\'s forget message)', async () => {

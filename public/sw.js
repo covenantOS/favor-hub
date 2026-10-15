@@ -138,7 +138,10 @@ async function todayKey(url) {
 const HOLD = (src) =>
   '<script>(function(u){var d=0;function go(){if(d)return;d=1;var s=document.createElement("script");s.type="module";s.src=u;' +
   's.onload=function(){try{document.cookie="hub_w="+u.slice(u.lastIndexOf("/")+1)+";Path=/;Max-Age=2592000;Secure;SameSite=Lax"}catch(e){}};document.head.appendChild(s)}' +
-  'function after(){requestAnimationFrame(function(){setTimeout(go,0)})}' +
+  // The cards the server streamed in after the shell sit in hidden blocks until React's reveal scripts move them. Starting the app first would
+  // put its first long task in front of that reveal, so the cards would wait for the whole of hydration (2 to 3 seconds on a slow phone).
+  "var n=0;function wait(){if(!document.querySelector('div[hidden][id^=\"S:\"]')||++n>30)go();else setTimeout(wait,50)}" +
+  'function after(){requestAnimationFrame(function(){setTimeout(wait,0)})}' +
   'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",after);else after();setTimeout(go,2500)})(' + JSON.stringify(src) + ')</script>';
 async function keptToday(key) {
   try {
@@ -151,6 +154,9 @@ async function keptToday(key) {
     const e = todayEntry(html);
     if (!e) { await cache.delete(name); return null; }
     const drawn = Number(hit.headers.get('x-drawn-at')) || 0;
+    // React holds a streamed card back until 2.3 s after the page started when it would otherwise show between 2.0 and 2.3 s. The kept page is
+    // already complete, so its cards show as soon as they are in the document.
+    html = html.replace('2300>a&&2E3<a?2300-a:', '');
     html = html.replace(e.tag, () => (drawn ? '<script>window.__hubNow=' + drawn + '</script>' : '') + e.preloads.map((h) => '<link rel="modulepreload" href="' + h + '"/>').join('') + HOLD(e.src));
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-cache', 'X-Hub-Kept': hit.headers.get('x-kept-at') || '' } });
   } catch { return null; }
