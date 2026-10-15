@@ -10,6 +10,7 @@ import { hubSend } from '../../lib/write';
 import { appealsQuery, type AppealsAnswer } from './api';
 import { AdminPage, msgClass, type Msg } from './AdminPage';
 import { When } from './Time';
+import { Mail } from './Mail';
 import { canCreate, createdText, kindFill, type Draft } from './appeals';
 import { todayET } from './format';
 
@@ -313,7 +314,9 @@ function Waiting({ data, reload }: { data: AppealsAnswer; reload: () => Promise<
                       <td data-label="Asked">
                         <When iso={r.requested_at} />
                         <br />
-                        <span className="bu-mail">{r.requested_by}</span>
+                        <span className="bu-mail">
+                          <Mail text={r.requested_by} />
+                        </span>
                       </td>
                       <td data-label="Status">
                         <span className={'bu-chip' + (r.state === 'done' ? ' bu-chip--ok' : '')}>{r.state === 'open' ? 'Waiting' : r.state === 'done' ? 'Created' : 'Dropped'}</span>

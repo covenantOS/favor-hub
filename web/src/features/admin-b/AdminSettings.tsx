@@ -10,6 +10,7 @@ import { hubSend } from '../../lib/write';
 import { settingsQuery, type Setting, type SettingsAnswer, type Sub, type WorkExtras } from './api';
 import { AdminPage, msgClass, type Msg } from './AdminPage';
 import { Full } from './Time';
+import { Mail } from './Mail';
 import { controlId, confirmLead, grouped, needsConfirm, resetWord, shown } from './settings';
 import { num, shortDay } from './format';
 
@@ -70,7 +71,11 @@ function Row({ s, onChanged }: { s: Setting; onChanged: (next: Setting) => void 
           {s.contact ? <span className="ad-bbtag">Contacts partners</span> : null}
         </label>
         {s.hint ? <div className="ad-set__hint">{s.hint}</div> : null}
-        {who ? <div className="ad-set__where">{who}</div> : null}
+        {who ? (
+          <div className="ad-set__where">
+            <Mail text={who} />
+          </div>
+        ) : null}
       </div>
       <div>
         <Control
@@ -229,7 +234,9 @@ function Substitutes({ subs, onSubs }: { subs: Sub[]; onSubs: (s: Sub[]) => void
               {o.start} to {o.end}
             </td>
             <td>{o.name}</td>
-            <td className="mute">{o.email}</td>
+            <td className="mute">
+              <Mail text={o.email} />
+            </td>
             <td>
               <button type="button" className="ad-btn" data-sub-del={o.id} onClick={() => void post({ remove: o.id })}>
                 Remove

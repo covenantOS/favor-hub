@@ -18,6 +18,7 @@ import {
 } from './api';
 import { AdminPage, msgClass, type Msg } from './AdminPage';
 import { Ago, Full, When } from './Time';
+import { Mail } from './Mail';
 import { num } from './format';
 import {
   DEFAULT_OPTIONS,
@@ -150,12 +151,17 @@ function Token({ settings, onSettings, onRemoved, redraw, say, msgs }: { setting
           'No token saved.'
         ) : w ? (
           <>
-            Connected as {w.name} ({w.email}), {(w.workspaces || []).map((x) => x.name).join(', ')}. Tested <Ago iso={w.at} />.
+            Connected as {w.name} (<Mail text={w.email} />), {(w.workspaces || []).map((x) => x.name).join(', ')}. Tested <Ago iso={w.at} />.
           </>
         ) : (
           'A token is saved and has not been tested.'
         )}
-        {t.saved && t.by ? ' Saved by ' + t.by + '.' : ''}
+        {t.saved && t.by ? (
+          <>
+            {' '}
+            Saved by <Mail text={t.by} />.
+          </>
+        ) : null}
       </p>
       {settings.sealing ? null : <p className="ad-msg ad-msg--bad">This copy of FavorOS has no key to seal a token with, so it cannot keep one.</p>}
       <div className="ap-row">
@@ -321,11 +327,13 @@ function Report({ rep, run }: { rep?: RunView['report']; run: RunView['run'] }) 
                 {un.map((u, i) => (
                   <tr key={i}>
                     <td>
-                      {u.name || u.email}
+                      {u.name || <Mail text={u.email || ''} />}
                       {u.name && u.email ? (
                         <>
                           <br />
-                          <span className="mute">{u.email}</span>
+                          <span className="mute">
+                            <Mail text={u.email} />
+                          </span>
                         </>
                       ) : null}
                     </td>
@@ -857,7 +865,7 @@ function ProjectsAdmin() {
                   <b>{p.name}</b>
                   <span className="mute">
                     {p.key}
-                    {p.team ? ', ' + p.team : ''}, lead {p.lead_email}, {num(p.open)} open, {num(p.done)} done
+                    {p.team ? ', ' + p.team : ''}, lead <Mail text={p.lead_email} />, {num(p.open)} open, {num(p.done)} done
                   </span>
                 </span>
                 {p.from_asana ? <span className="ad-chip">From Asana</span> : null}
@@ -1059,7 +1067,7 @@ function AsanaSyncBody() {
             <ul className="ad-list">
               {r.people.map((p) => (
                 <li key={p.email}>
-                  {p.email}
+                  <Mail text={p.email} />
                   {p.connected ? ' (connected)' : ''}
                 </li>
               ))}
