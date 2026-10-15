@@ -119,6 +119,9 @@ export interface Partner {
   codes: string[];
   flags: { doNotCall: boolean; doNotEmail: boolean; doNotMail: boolean };
   canEdit?: boolean;
+  /** Whether this person may change solicit codes and record flags. */
+  canCodes?: boolean;
+  comm?: any;
   toThank?: ToThank[];
   dataCare?: any;
 }

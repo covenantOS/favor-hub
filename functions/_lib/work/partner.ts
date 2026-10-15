@@ -10,6 +10,7 @@ import { openActionSql } from '../hub/actions';
 import { etParts } from '../actions/intake';
 import { FUNDRAISERS_SQL, SYNCED_SQL, readOnly, type ActionsRepo, type PartnerHit } from './repo';
 import { partnerGiving, type MirrorQ } from '../gifts/partner-giving';
+import { bannerOf, channelsOf, type Banner, type Channel } from '../../../shared/commprefs';
 import { lifetimeLine, passedOnLine, sourceLine, STATUS_WORD, throughName } from '../../../shared/giving';
 import { cleanReason, methodWord } from './declines';
 
@@ -158,6 +159,17 @@ export interface PartnerView {
   opportunities: { id: string; name: string; purpose: string; status: string; ask: number; expected: number; funded: number; askDate: string; expectedDate: string; fundedDate: string; deadline: string; by: string[] }[];
   codes: string[];
   flags: { doNotCall: boolean; doNotEmail: boolean; doNotMail: boolean };
+  /** Communication preferences from the mirror: each channel's state and why, and the banner lines (shared/commprefs.ts). */
+  comm: {
+    channels: Channel[];
+    banner: Banner;
+    /** Solicit codes open today, with the Blackbaud id the record can end. */
+    codes: { id: string; code: string; start: string }[];
+    /** False when the mirror has not read this record's solicit codes yet. */
+    read: boolean;
+    requestsNoEmail: boolean;
+    noValidAddress: boolean;
+  };
   synced: string;
   /** The same partner as the iPhone contract's Partner card, so the mobile route returns it unchanged. */
   card: {
@@ -293,7 +305,7 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   const raw = parse<any>(k.raw, {});
 
   const [emails, phones, addresses, pg, recurringRows, paymentRows, openRows, openN, doneRows, noteRows, contactRows,
-    assigns, iwRows, bbIw, oppRows, codeRows, fundraisers, synced, spouseRows] = await Promise.all([
+    assigns, iwRows, bbIw, oppRows, codeRows, fundraisers, synced, spouseRows, solicitRows, solicitSync, flagRows] = await Promise.all([
     q<any>('SELECT id AS id, email_address AS address, is_primary AS prim, do_not_email AS dne FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
     q<any>('SELECT id AS id, phone_number AS number, phone_type AS type, is_primary AS prim, do_not_call AS dnc FROM phones WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
     q<any>(
@@ -349,6 +361,9 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     k.spouse
       ? q<any>('SELECT id, constituent_lookup_id AS lookup, first_name AS first, last_name AS last, preferred_name AS preferred, deceased FROM constituents WHERE id = ?1', [String(k.spouse)])
       : Promise.resolve([] as any[]),
+    q<any>('SELECT id, solicit_code AS code, substr(solicit_start, 1, 10) AS s, substr(solicit_end, 1, 10) AS e FROM solicit_codes WHERE constituent_record_id = ?1', [id]).catch(() => []),
+    q<any>('SELECT synced_at AS at FROM solicit_sync WHERE constituent_record_id = ?1', [id]).catch(() => []),
+    q<any>('SELECT requests_no_email AS rne, no_valid_address AS nva FROM constituents WHERE id = ?1', [id]).catch(() => []),
   ]);
 
   // Names for fundraisers and funds.
@@ -454,6 +469,27 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     relation: 'Spouse',
   }));
   if (!household.length && k.spouse) household.push({ id: String(k.spouse), name: `${text(k.sfirst)} ${text(k.slast)}`.trim() || `Record ${k.spouse}`, lookup: '', relation: 'Spouse' });
+
+  const openSolicit = solicitRows.filter((r: any) => !text(r.e) || text(r.e) > today).map((r: any) => ({ id: String(r.id), code: text(r.code), start: text(r.s) }));
+  const commIn = {
+    codes: openSolicit.map((c) => c.code),
+    deceased: Number(k.deceased) === 1,
+    inactive: Number(k.inactive) === 1,
+    requestsNoEmail: Number(flagRows[0]?.rne) === 1,
+    noValidAddress: Number(flagRows[0]?.nva) === 1,
+    addressDoNotMail: !!addr?.doNotMail,
+    allPhonesDoNotCall: phoneList.length > 0 && phoneList.every((p) => p.doNotCall),
+    allEmailsDoNotEmail: emailList.length > 0 && emailList.every((e) => e.doNotEmail),
+  };
+  const commChannels = channelsOf(commIn);
+  const comm = {
+    channels: commChannels,
+    banner: bannerOf(commChannels, commIn),
+    codes: openSolicit,
+    read: solicitSync.length > 0 || solicitRows.length > 0,
+    requestsNoEmail: commIn.requestsNoEmail,
+    noValidAddress: commIn.noValidAddress,
+  };
 
   const lc = contactRows[0];
   const lcDate = lc ? text(lc.done) || text(lc.due) : '';
@@ -614,6 +650,7 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
       doNotEmail: emailList.length > 0 && emailList.every((e) => e.doNotEmail),
       doNotMail: !!addr?.doNotMail,
     },
+    comm,
     synced: (() => {
       const at = synced[0]?.at;
       return at ? (String(at).includes('T') ? String(at) : String(at).replace(' ', 'T') + 'Z') : '';

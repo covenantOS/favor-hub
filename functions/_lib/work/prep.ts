@@ -74,6 +74,8 @@ export interface Brief {
   text: { number: string } | null;
   email: string | null;
   flags: string[];
+  /** Each channel's mark and why (shared/commprefs.ts): shown before a call, a mailing or an email. */
+  comm: { channels: import('../../../shared/commprefs').Channel[]; banner: import('../../../shared/commprefs').Banner };
   owed: Owed[];
   steps: BriefStep[];
   giving: { lifetime: number; count: number; last12: number; prior12: number; largest: { amount: number; date: string } | null; last: { amount: number; date: string; fund: string; through?: string } | null; passedOn?: number };
@@ -177,7 +179,15 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
   const callable = phones.find((x) => !x.doNotCall);
   const mobile = phones.find((x) => !x.doNotCall && /mobile|cell/i.test(x.type));
   const mail = (p.contact.emails || []).find((x) => !x.doNotEmail);
-  const flags = [p.deceased ? 'Deceased' : '', p.inactive ? 'Inactive' : '', p.flags.doNotCall ? 'Do not call' : '', p.flags.doNotEmail ? 'Do not email' : '', p.flags.doNotMail ? 'Do not mail' : ''].filter(Boolean);
+  const blockedWord = (k: string) => (k === 'call' ? 'Do not call' : k === 'email' ? 'Do not email' : k === 'mail' ? 'Do not mail' : 'Do not text');
+  const flags = [
+    ...new Set(
+      [p.deceased ? 'Deceased' : '', p.inactive ? 'Inactive' : '', p.flags.doNotCall ? 'Do not call' : '', p.flags.doNotEmail ? 'Do not email' : '', p.flags.doNotMail ? 'Do not mail' : '']
+        .concat(p.comm.banner.blocked.map(blockedWord))
+        .concat(p.comm.channels.filter((c) => c.state === 'limited').flatMap((c) => c.reasons.map((r) => r.text)))
+        .filter(Boolean)
+    ),
+  ];
   const contacts = (p.actions.recent || [])
     .filter((a) => ['Email', 'Phone call', 'Meeting', 'Mailing'].includes(a.category) && (a.done || a.due))
     .slice(0, 3)
@@ -219,6 +229,7 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
     text: mobile ? { number: mobile.number } : null,
     email: mail ? mail.address : null,
     flags,
+    comm: { channels: p.comm.channels, banner: p.comm.banner },
     ...base,
     steps: stepsOf(base, o.today),
     iwave: p.iwave ? { overall: p.iwave.overall, band: p.iwave.capacityBand, source: p.iwave.source } : null,
