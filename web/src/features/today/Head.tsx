@@ -96,12 +96,13 @@ function LivePill() {
   );
 }
 
-// How tall "Since you were away" was on this browser, per phone or desktop width. The boot script in the web app's document reads it
+// How tall "Since you were away" was on this browser, per phone or desktop width (the smaller of the screen and the window: the window reads
+// as the wide layout width in the head of a phone page, before its viewport tag applies). The boot script in the web app's document reads it
 // before the first paint (--td-away-h), so the place is held while the briefing is read and nothing below it moves when it arrives.
 const AWAY_KEY = 'favor.hub.td.away.v1';
 function rememberAway(h: number) {
   try {
-    const k = window.matchMedia('(max-width: 860px)').matches ? 'p' : 'd';
+    const k = Math.min(window.screen.width, window.innerWidth) < 861 ? 'p' : 'd';
     const s = (JSON.parse(localStorage.getItem(AWAY_KEY) || '{}') || {}) as Record<string, number>;
     if (s[k] === h) return;
     s[k] = h;
