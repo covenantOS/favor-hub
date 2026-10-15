@@ -25,7 +25,7 @@
   const money = (n) => { const v = Number(n) || 0; return neg(v) + '$' + (Math.round(v) === v ? Math.abs(v).toLocaleString('en-US') : Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })); };
   const compact = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : ''; return a >= 1e9 ? s + '$' + (a / 1e9).toFixed(2) + 'B' : a >= 999500 ? s + '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? s + '$' + Math.round(a / 1e3) + 'K' : s + '$' + Math.round(a); };
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const fd = (iso) => { const [, m, d] = String(iso).slice(0, 10).split('-').map(Number); return m ? MON[m - 1] + ' ' + d : ''; };
+  const fd = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); if (!m || !d) return ''; return MON[m - 1] + ' ' + d + (y === Number(TODAY.slice(0, 4)) ? '' : ', ' + y); };
   const ago = (iso) => {
     const t = Date.parse(iso); if (!t) return '';
     const m = Math.round((Date.now() - t) / 60000);
@@ -141,7 +141,7 @@
       if (by.has(k)) continue;
       const due = g.thank.due;
       const late = !!g.thank.late || (due && Date.parse(due) < Date.now());
-      by.set(k, { g: { giftId: g.giftId, cid: g.cid, name: g.name, amount: g.amount, date: g.date, fund: g.fund, phone: g.phone, team: g.team, tasks: (g.taskIds || []).length, left: g.thank.state === 'left' ? { date: g.thank.on, by: g.thank.by, how: g.thank.how } : null, due }, src: 'gifts', late, label: '', due });
+      by.set(k, { g: { giftId: g.giftId, cid: g.cid, name: g.name, amount: g.amount, date: g.date, fund: g.fund, phone: g.phone, team: g.team, through: g.soft && g.through ? g.through : '', tasks: (g.taskIds || []).length, left: g.thank.state === 'left' ? { date: g.thank.on, by: g.thank.by, how: g.thank.how } : null, due }, src: 'gifts', late, label: '', due });
     }
     return [...by.values()].filter((t) => !S.gone.has('gift:' + t.g.giftId)).sort((a, b2) => (Date.parse(a.due) || 9e15) - (Date.parse(b2.due) || 9e15));
   }
@@ -201,7 +201,7 @@
     // 5. Gifts to thank: up to three rows of their own; more than three fold into one row.
     const th = thanksList();
     const thankRow = (x, i) => ({
-      id: 'gift:' + x.g.giftId, t: 'thank', title: x.g.name || 'Partner ' + x.g.cid, sub: [money(x.g.amount), x.g.fund, x.g.date ? fd(x.g.date) : ''].filter(Boolean).join(' · '),
+      id: 'gift:' + x.g.giftId, t: 'thank', title: x.g.name || 'Partner ' + x.g.cid, sub: [money(x.g.amount), x.g.through ? 'through ' + x.g.through : '', x.g.fund, x.g.date ? fd(x.g.date) : ''].filter(Boolean).join(' · '),
       when: '', chip: x.label || (x.late ? 'Overdue' : ''), late: x.late, rank: x.late ? 92 : x.soon ? 90 : 78, ts: Date.parse(x.due) || 0, href: '/work/partner/' + encodeURIComponent(x.g.cid), kind: 'thank', gi: i, pid: x.g.cid,
     });
     S.thanks = th;
@@ -558,7 +558,7 @@
     if (o || th.length) {
       const late = th.filter((x) => x.late).length;
       cells.push(`<div class="td-dc td-dc--gifts"><span class="td-lab">New gifts${b && b.since ? ' since ' + esc(et(b.since + 'T12:00:00Z', { weekday: 'long' })) : ''}${b && b.partners && S.owner ? '' : ''}</span>` +
-        `<a class="td-big" href="/work/?view=gifts"><b data-flow="today-newgifts">${n0(o ? o.count : 0)}</b><span>${o && o.count ? money(o.total) : 'None yet'}</span></a>` +
+        `<a class="td-big" href="/work/?view=gifts"><b data-flow="today-newgifts">${n0(o ? o.count : 0)}</b><span>${o && o.count ? money0(o.total) : 'None yet'}</span></a>` +
         `<a class="td-mini" href="/work/?view=gifts">${th.length ? `${plural(th.length, 'gift')} to thank${late ? `, <em>${n0(late)} overdue</em>` : ''}` : 'Every gift thanked'}</a></div>`);
     }
     // Until the sources it waits on have answered, the card keeps its placeholders rather than drawing and then hiding.
