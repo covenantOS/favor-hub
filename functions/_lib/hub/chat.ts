@@ -37,7 +37,7 @@ export function previewOf(answer: string | null | undefined): string {
   const md = /"md":"((?:[^"\\]|\\.){4,})"/.exec(a);
   const tile = /"label":"((?:[^"\\]|\\.)+)","value":(-?[\d.]+)/.exec(a);
   let t = md ? un(md[1]) : tile ? `${un(tile[1])}: ${Number(tile[2]).toLocaleString('en-US')}` : '';
-  t = t.replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
+  t = t.replace(/\s*\((?:partner )?households\)/g, '').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
   return t.length > 110 ? t.slice(0, 108).replace(/\s+\S*$/, '') + '...' : t;
 }
 const sameKey = (q: string) => q.toLowerCase().replace(/[^a-z0-9$ ]+/g, ' ').replace(/\s+/g, ' ').trim();
