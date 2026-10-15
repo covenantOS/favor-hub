@@ -94,7 +94,7 @@ describe('the tab row the web app holds space for', () => {
     expect(tabRowHeldFor('expenses', { admin: true, rows: {} })).toBe(true);
     expect(tabRowHeldFor('expenses', { admin: false, rows: { staff: 1 } })).toBe(true);
     expect(tabRowHeldFor('expenses', { admin: true, rows: { staff: 0 } })).toBe(false);
-    expect(tabRowHeldFor('projects', { admin: true, rows: {} })).toBe(false);
+    expect(tabRowHeldFor('projects', { admin: true, rows: {} })).toBe(true); // Projects now has the two request pages beside it
     expect(tabRowHeldFor('home', { admin: true, rows: {} })).toBe(false);
     expect(tabRowHeldFor('expense', { admin: true, rows: { staff: 1 } })).toBe(false); // a page that is not in the menu holds nothing
     expect(tabRowHeldFor('not-a-page', { admin: true, rows: {} })).toBe(false);
@@ -103,7 +103,7 @@ describe('the tab row the web app holds space for', () => {
   it('works out whether the row is drawn the way TabRow does', () => {
     expect(tabRowDrawn('statements', {}, [])).toBe(false);
     expect(tabRowDrawn('statements', { giftEntry: true }, [])).toBe(true);
-    expect(tabRowDrawn('projects', { projects: true }, [])).toBe(false);
+    expect(tabRowDrawn('projects', { projects: true }, [])).toBe(true);
     expect(tabRowDrawn('not-a-page', {}, [])).toBe(false);
   });
 });
