@@ -7,6 +7,7 @@ import { EntityChip } from '@/features/entity/EntityChip';
 import { loadScript } from '@/lib/legacy';
 import { NavLink } from '@/shell/NavLink';
 import { API, BASE, apiUrl, pageUrl, reportQuery, type Col, type Filter, type Report, type Row, type Tie } from './api';
+import { loadDrill } from '../highlights/drill';
 import { dshort, money, num, pct } from './format';
 import { ReportSheetsButton } from './Sheets';
 import { toast } from './toast';
@@ -281,6 +282,7 @@ function Body({ res, onAsk }: { res: Report; onAsk: (values: Record<string, stri
 
   // A new answer from the server (a filter) starts on the first page.
   useEffect(() => setPage(0), [res]);
+  useEffect(() => loadDrill(), []);
   useEffect(() => {
     // Copy stamps ("As of ...") are painted by public/js/copy-stamp.js, which watches for the spans.
     loadScript('/js/copy-stamp.js?v=2').catch(() => undefined);
