@@ -3,8 +3,8 @@ title: Other gifts
 summary: Enter DAF, foundation, wire, stock and phone gifts with the soft credit, send the batch, and a second person approves it and posts it to Blackbaud.
 topic: work
 order: 8
-for: [admin]
-related: [gift-entry, online-gifts, whats-new]
+for: [admin, pc]
+related: [gift-entry, online-gifts, partner-page, whats-new]
 tool: /gifts/other/
 toolLabel: Open Other gifts
 updated: 2026-10-15
@@ -14,7 +14,7 @@ Other gifts is in **Gifts**, beside Gift entry and Online gifts. It is for gifts
 
 ## The list
 
-The five numbers across the top are this month's dollars and gifts, the year to date compared with last year to the same date, batches waiting for a second look, letters still to attach, and how many of this month's gifts carry a soft credit. The list under them shows the last 30 days of gifts whose payment method is Other in Blackbaud, plus the gifts waiting in a batch here, which have a tinted row. Tabs filter by kind. The Check column shows where a gift stands: Entering, Waiting for a second look, Posting, Approved or Needs a person. Press a status on a gift from a batch to open that batch.
+The five numbers across the top are this month's dollars and gifts, the year to date compared with last year to the same date, batches waiting for a second look, letters still to attach, and how many of this month's gifts carry a soft credit. The list under them shows the last 30 days of gifts whose payment method is Other in Blackbaud, plus the gifts waiting in a batch here, which have a tinted row. Tabs filter by kind: DAF, Foundation, Wire or online, Stock, Phone, and Business and church. The Check column shows where a gift stands: Entering, Waiting, Posting, Approved or Needs a person. Press a status on a gift from a batch to open that batch.
 
 ## Add a gift
 
@@ -23,6 +23,8 @@ Pick the kind at the top of the form: DAF, Foundation, Wire, Stock or Phone. Fin
 A DAF or foundation gift names who recommended it. Pick the partner from the list of people who recommended gifts from that sponsor before, or search for someone else. That partner receives the soft credit for the full amount, so the gift counts in their giving by year and on their director's numbers. When the notice names nobody, choose **No partner named**. A DAF also needs the giving fund named on the notice. A stock gift needs the ticker and the number of shares. A wire can carry its confirmation number. Attach the grant notice or letter as a PDF, PNG or JPG. It is copied onto the Blackbaud gift when the batch is approved.
 
 If the same partner already has a gift for the same amount within two days, in a batch or in Blackbaud, the gift says so and you decide whether it is a different gift.
+
+Under the memo, **Tribute** marks a gift made in honor of or in memory of someone. Pick In honor of or In memory of, type the name, and add who to notify if the notice says so. The tribute is kept in FavorOS and shows on the partner's Gifts tab under the gift's fund, and in a Tributes list there. It takes effect when the gift reaches Blackbaud, after the batch is approved. Leave it on Not a tribute gift for everything else.
 
 Card numbers and bank numbers are never entered here. A card taken by phone goes in with Add gift on the partner's record.
 
@@ -38,4 +40,8 @@ The 6 AM gift phase still sets the constituency and the fundraiser credit on eve
 
 ## Who can use it
 
-An admin turns Other gifts on in Admin > Settings > Gifts: off, admins only, or everyone who opens Gift entry. Approving needs an admin or a person an admin switched on to send to Blackbaud.
+Other gifts is open to staff who open Gift entry, the gift desk and Partner Care, once an admin turns it on. An admin sets it in Admin > Settings > Gifts: Off, Admins only, or Everyone who opens Gift entry. Approving needs an admin or a person an admin switched on to send to Blackbaud.
+
+## Is there an easier way?
+
+Instead of typing a DAF or foundation gift into Blackbaud and adding the soft credit by hand on the gift, enter it here with the soft credit named. A second person checks it before it posts. Point at DAF or soft credit on the form to read what each means.

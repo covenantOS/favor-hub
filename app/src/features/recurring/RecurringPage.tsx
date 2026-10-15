@@ -226,7 +226,7 @@ function Panel({ row, d, onClose }: { row: RecurringRow; d: RecurringResponse; o
               </select>
             </div>
             <div>
-              <label className="rg-lab" htmlFor="rg-asked">
+              <label className="rg-lab" htmlFor="rg-asked" title="Who asked for this change. It goes on the action FavorOS adds to the partner.">
                 Partner asked by
               </label>
               <select id="rg-asked" className="rg-in" value={asked} onChange={(e) => setAsked(e.target.value)} disabled={busy}>
@@ -260,6 +260,7 @@ function Panel({ row, d, onClose }: { row: RecurringRow; d: RecurringResponse; o
           <div className="rg-btns">
             <button
               type="button"
+              title={held ? 'Sets the schedule back to Active in Blackbaud.' : 'Sets the schedule to Held in Blackbaud. Resume sets it back to Active.'}
               className="h-btn h-btn--sm"
               disabled={busy}
               onClick={() => {
@@ -270,7 +271,7 @@ function Panel({ row, d, onClose }: { row: RecurringRow; d: RecurringResponse; o
               {held ? 'Resume the schedule' : 'Hold the schedule'}
             </button>
             {row.status === 'Active' && row.next && !confirmSkip && (
-              <button type="button" className="h-btn h-btn--sm" disabled={busy} onClick={() => setConfirmSkip(true)}>
+              <button type="button" className="h-btn h-btn--sm" disabled={busy} title="Moves the next charge date one cycle later." onClick={() => setConfirmSkip(true)}>
                 Skip one charge
               </button>
             )}

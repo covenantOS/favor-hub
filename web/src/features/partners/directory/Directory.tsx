@@ -71,7 +71,7 @@ export function Directory({ search }: { search: DirSearch }) {
     <div className="pd-root">
       <div className="pd-panes" role="tablist" aria-label="Lists">
         {tabs.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={pane === k} onClick={() => go({ ...search, pane: k === 'all' ? undefined : (k as DirSearch['pane']), page: undefined })}>
+          <button key={k} type="button" role="tab" aria-selected={pane === k} title={k === 'dups' ? 'Records that look like one partner, to compare and merge in Data care.' : undefined} onClick={() => go({ ...search, pane: k === 'all' ? undefined : (k as DirSearch['pane']), page: undefined })}>
             {l}
             {k === 'dups' && merges ? <span>{merges}</span> : null}
           </button>
@@ -230,11 +230,11 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
         <span className="pt-spacer" />
         <ViewsMenu search={search} go={go} say={say} />
         <ColumnsPart />
-        <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-export="" onClick={() => void exportCsv()}>
+        <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-export="" title="Downloads the partners that match as a CSV file." onClick={() => void exportCsv()}>
           <BarIc n="down" />
           Export
         </button>
-        <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-sheets="partners">
+        <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-sheets="partners" title="Sends this list to a Google Sheet only you can open.">
           <SheetMark />
           Sheets
         </button>

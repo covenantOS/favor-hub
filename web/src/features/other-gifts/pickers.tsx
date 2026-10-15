@@ -32,7 +32,7 @@ export function Picker<T>({
   extra,
 }: {
   id: string;
-  label: string;
+  label: ReactNode;
   placeholder?: string;
   chosen: ReactNode | null;
   onClear: () => void;

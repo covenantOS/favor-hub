@@ -45,7 +45,17 @@ Credit, beside the builder, shows each gift's fundraiser credit next to every as
 - A White Mail, Portfolio, Personal Contact or Director gift with no credit gets the holder on its date.
 - A change to a gift in an earlier month is marked closed month.
 
-Anyone can propose a change with a reason. An admin, the Operations team or a person an admin names approves it, and never the person who proposed it. Every step is kept in the log. Approving does not change Blackbaud until an admin turns **Apply** on, and while a record limit is set, apply reaches only that record.
+Anyone can propose a change with a reason. An admin, the Operations team or a person an admin names approves it, and never the person who proposed it. Every step is kept in the log. An approved change reaches Blackbaud while **Apply** is on, and while a record limit is set, apply reaches only that record.
+
+### It applies by itself each morning
+
+Each morning FavorOS checks the gifts from the last 45 days. A gift in the current month with no fundraiser credit gets the director who held the partner on the gift date. Blackbaud saves the credit through the web view, and FavorOS reads it back to confirm. The morning email lists what was saved.
+
+Three kinds of change wait under Waiting for approval until a second person decides: a change to a closed month, a removal of credit, and anything a person proposed. Past months never change on their own.
+
+### Is there an easier way?
+
+Instead of finding a gift with no fundraiser credit and adding the credit by hand in Blackbaud's Database View, do nothing. The morning check adds it. Open Credit only to approve the changes that wait for a person, or to see who held a partner on a gift date.
 
 ## First-time givers
 

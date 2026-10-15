@@ -8,6 +8,7 @@ import { DataTable, Pager, Seg, usePageSize, type Column, type Sort } from '../.
 import { extrasQuery } from './queries';
 import { N, fdY, useMounted, money0, rGet, rPost, todayEt, asParam } from './lib';
 import { Boundary } from './Boundary';
+import { Term } from './Ic';
 
 export const CRM_TABS: [string, string][] = [
   ['gifts', 'Gifts'],
@@ -200,14 +201,18 @@ const giftColsWith = (tribute: (g: GiftRow) => Tribute | undefined): Column<Gift
     cell: (g) =>
       g.credit === 'soft' && g.through ? (
         <>
-          <span className="pt-badge" title={`The gift sits on ${g.through.name}; Favor's rule credits it here`}>Soft credit</span>{' '}
+          <span className="pt-badge">
+            <Term k="soft" />
+          </span>{' '}
           <span className="pt-sub">
             through <PL id={g.through.id} name={g.through.name} />
           </span>
         </>
       ) : g.credit === 'passed' ? (
         <>
-          <span className="pt-badge pt-badge--gold" title="On this record, credited to the partners named">Passed on</span>{' '}
+          <span className="pt-badge pt-badge--gold">
+            <Term k="passedOn" />
+          </span>{' '}
           <span className="pt-sub">
             for{' '}
             {g.to.slice(0, 2).map((t, i) => (
