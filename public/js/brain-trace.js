@@ -16,6 +16,7 @@
     done: '<svg viewBox="0 0 16 16" ' + P + '><circle cx="8" cy="8" r="6.25"/><path d="m5.5 8.1 1.75 1.75L10.6 6.4"/></svg>',
     held: '<svg viewBox="0 0 16 16" ' + P + '><circle cx="8" cy="8" r="6.25"/><path d="M5.5 8h5"/></svg>',
     run: '<svg viewBox="0 0 16 16" class="btr-spin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.25" opacity=".25"/><path d="M8 1.75a6.25 6.25 0 0 1 6.25 6.25"/></svg>',
+    hand: '<svg viewBox="0 0 16 16" ' + P + '><path d="M3 8h8.5M8.5 4.5 12 8l-3.5 3.5"/></svg>',
     chev: '<svg viewBox="0 0 16 16" ' + P + '><path d="m6 4 4 4-4 4"/></svg>'
   };
   var ORDER = ['read', 'lookup', 'check', 'answer'];
@@ -34,9 +35,11 @@
     });
   }
   function rowHTML(s, live) {
+    // A held answer is a hand-off to Claude, said calmly (Will, 2026-10-14), never in warning red.
+    if (s.status === 'withheld') s = { id: s.id, label: 'Handed off to Claude', status: 'handoff', at: s.at, ms: s.ms, detail: 'This one reads better in Claude, so your question and what I found are ready there.' };
     var st = s.status || 'done';
     var ic = st === 'running' ? ICON.run : ICON[s.id] || ICON.done;
-    var end = s.count ? esc(s.count) : s.id !== 'answer' && (st === 'done' || st === 'withheld') ? secs(s.ms) : '';
+    var end = s.count ? esc(s.count) : s.id !== 'answer' && (st === 'done' || st === 'handoff') ? secs(s.ms) : '';
     var detail = !live && s.detail;
     var line = '<span class="btr-line" data-status="' + st + '"><span class="btr-ic" aria-hidden="true">' + ic + '</span><span class="btr-t">' + esc(s.label) + '</span>' + (end ? '<span class="btr-d">' + end + '</span>' : '') + (detail ? '<span class="btr-ic btr-chev" aria-hidden="true">' + ICON.chev + '</span>' : '') + '</span>';
     if (!detail) return '<div class="btr-row" data-id="' + esc(s.id) + '">' + line + '</div>';
@@ -50,7 +53,7 @@
     var total = steps.reduce(function (m, s) { return Math.max(m, (s.at || 0) + (s.ms || 0)); }, 0);
     var parts = ['Read your question'];
     if (by.lookup) parts.push(by.lookup.count ? by.lookup.label.replace(/^Looked up /, 'found ' + by.lookup.count + ' ') : by.lookup.label.replace(/^Looked/, 'looked'));
-    if (held) return { text: parts.join(', ') + ', held the answer back after ' + secs(total), held: true };
+    if (held) return { text: 'Handed off to Claude in ' + secs(total), held: true };
     if (by.check && by.check.status === 'done') parts.push((by.lookup ? 'checked' : by.check.label.replace(/^Checked/, 'checked')) + ' in ' + secs(total));
     else parts[parts.length - 1] += ' in ' + secs(total);
     return { text: parts.join(', '), held: false };
@@ -62,7 +65,7 @@
     steps = (steps || []).filter(function (s) { return s && s.id && s.label; });
     if (!steps.length) return '';
     var sm = summary(steps);
-    return '<div class="btr btr--done" data-btr><button type="button" class="btr-trig btr-sum" data-btr-toggle aria-expanded="false"><span class="btr-line" data-status="' + (sm.held ? 'withheld' : 'done') + '"><span class="btr-ic" aria-hidden="true">' + (sm.held ? ICON.held : ICON.done) + '</span><span class="btr-t">' + esc(sm.text) + '</span><span class="btr-ic btr-chev" aria-hidden="true">' + ICON.chev + '</span></span></button><div class="btr-body"><div class="btr-in btr-list">' + steps.map(function (s) { return rowHTML(s, false); }).join('') + (extra ? '<div class="btr-extra">' + extra + '</div>' : '') + '</div></div></div>';
+    return '<div class="btr btr--done" data-btr><button type="button" class="btr-trig btr-sum" data-btr-toggle aria-expanded="false"><span class="btr-line" data-status="' + (sm.held ? 'handoff' : 'done') + '"><span class="btr-ic" aria-hidden="true">' + (sm.held ? ICON.hand : ICON.done) + '</span><span class="btr-t">' + esc(sm.text) + '</span><span class="btr-ic btr-chev" aria-hidden="true">' + ICON.chev + '</span></span></button><div class="btr-body"><div class="btr-in btr-list">' + steps.map(function (s) { return rowHTML(s, false); }).join('') + (extra ? '<div class="btr-extra">' + extra + '</div>' : '') + '</div></div></div>';
   }
   /** The live list in place of the old "thinking" skeleton. */
   function live(steps) {

@@ -671,6 +671,69 @@
   }
 
   /** One block as HTML. ctx: { ti, bi, canSheets, canRequest(pkg), expired }. */
+  // ---- Typed blocks for the asker's day and work (2026-10-14): each part looks like what it is. A small header with its icon
+  // and an Open link, then rows: meetings with a time column, provider badge, faces and Join; mail with the sender's face,
+  // subject, snippet and an unread dot; files with a type icon, who changed it and tbWhen (a thumbnail for pictures); tasks with
+  // a checkbox, the project and the due date. Narrow answers (dock, phone) keep the same rows, tighter (brain.css).
+  const tbInitials = (n) => String(n || '?').replace(/[^A-Za-z@ ]/g, ' ').trim().split(/[\s@]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const tbHue = (s) => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  const tbFace = (name, email, cls = 'tb-av') => `<span class="${cls}" style="--av-h:${tbHue(email || name)}" title="${esc(name || email)}" aria-hidden="true">${esc(tbInitials(name || email))}</span>`;
+  const tbWhen = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (d >= today) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    if (d >= today - 864e5) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+  const tbHead = (icon, title, note, link, linkLabel, n) => `<div class="tb-h"><span class="tb-h__ic" aria-hidden="true">${ic(icon)}</span><b>${esc(title)}</b>${n != null ? `<span class="tb-h__n">${int(n)}</span>` : ''}${note ? `<span class="tb-h__s">${esc(note)}</span>` : ''}${link ? `<a class="tb-h__go" href="${esc(href(link))}"${/^https?:/.test(link) ? ' target="_blank" rel="noopener"' : ''}>${esc(linkLabel)}${ic('arrow')}</a>` : ''}</div>`;
+  const PROVIDER = { 'FavorOS': 'favoros', 'Google Meet': 'gmeet', 'Zoom': 'zoom' };
+  function calendarHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((e) => {
+      const ppl = e.people || [];
+      const faces = ppl.slice(0, 4).map((p) => tbFace(p.name, p.email)).join('') + (ppl.length > 4 ? `<span class="tb-av tb-av--more">+${ppl.length - 4}</span>` : '');
+      const names = ppl.slice(0, 3).map((p) => p.name || String(p.email || '').split('@')[0]).join(', ') + (ppl.length > 3 ? ` and ${ppl.length - 3} more` : '');
+      return `<li class="tb-row tb-cal"><span class="tb-cal__t">${esc(e.time || '')}</span><span class="tb-cal__ic" aria-hidden="true">${ic('cal')}</span>
+        <span class="tb-main"><span class="tb-title">${esc(e.title || 'Meeting')}</span><span class="tb-sub">${e.provider ? `<span class="tb-badge tb-badge--${PROVIDER[e.provider] || 'other'}">${esc(e.provider)}</span>` : ''}${names ? `<span class="tb-who">${esc(names)}</span>` : ''}</span></span>
+        <span class="tb-side">${faces ? `<span class="tb-faces">${faces}</span>` : ''}${e.join ? `<a class="h-btn h-btn--primary h-btn--xs" href="${esc(href(e.join))}" target="_blank" rel="noopener" aria-label="Join ${esc(e.title || 'the meeting')}">Join</a>` : ''}</span></li>`;
+    }).join('');
+    return `<div class="card tb tb--cal">${tbHead('cal', b.title || "Today's meetings", b.note, 'https://calendar.google.com/calendar/u/0/r/day', 'Open in Calendar', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No meetings today.</p>'}</div>`;
+  }
+  function mailHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((m) => {
+      const go = m.thread ? `/mail/#/INBOX/${encodeURIComponent(m.thread)}` : m.link || '';
+      return `<li class="tb-row tb-mail${m.unread ? ' is-unread' : ''}"><a class="tb-rowlink" href="${esc(href(go))}">${tbFace(m.from, m.email)}
+        <span class="tb-main"><span class="tb-top"><span class="tb-from">${esc(m.from || m.email || 'Unknown sender')}</span><span class="tb-when">${esc(tbWhen(m.at) || m.received || '')}</span></span>
+        <span class="tb-title">${m.unread ? '<i class="tb-dot" aria-label="Unread"></i>' : ''}${esc(m.subject || '(No subject)')}</span>${m.snippet ? `<span class="tb-snip">${esc(m.snippet)}</span>` : ''}</span></a></li>`;
+    }).join('');
+    return `<div class="card tb tb--mail">${tbHead('mail', b.title || 'Unread mail', b.note, '/mail/', 'Open in Mail', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No unread mail.</p>'}</div>`;
+  }
+  const FKIND = (f) => { const k = String(f.kind || '').toLowerCase(), m = String(f.mime || ''); return /image/.test(m) || k === 'image' ? 'image' : k === 'sheet' || /spreadsheet/.test(m) ? 'sheet' : k === 'slides' || /presentation/.test(m) ? 'slides' : /pdf/.test(m) || k === 'pdf' ? 'pdf' : /video/.test(m) ? 'video' : 'doc'; };
+  const FK_ICON = { doc: 'fdoc', pdf: 'fdoc', sheet: 'fgrid', slides: 'fslides', image: 'fimage', video: 'play' };
+  const FK_LABEL = { doc: 'Doc', pdf: 'PDF', sheet: 'Sheet', slides: 'Slides', image: 'Picture', video: 'Video' };
+  function filelistHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((f) => {
+      const k = FKIND(f);
+      const tile = k === 'image' && f.id ? `<span class="tb-ftile tb-ftile--pic"><img src="${esc(THUMB(f.id, 400))}" alt="" loading="lazy" onerror="this.remove()"></span>` : `<span class="tb-ftile tb-ftile--${k}" aria-hidden="true">${ic(FK_ICON[k])}</span>`;
+      const meta = [FK_LABEL[k], f.by ? 'changed by ' + f.by : '', tbWhen(f.at) || (f.modified ? dlong(f.modified) : '')].filter(Boolean).join(' · ');
+      return `<li class="tb-row tb-file"><a class="tb-rowlink" href="${esc(href(f.link))}" target="_blank" rel="noopener">${tile}<span class="tb-main"><span class="tb-title">${esc(f.name || 'File')}</span><span class="tb-sub">${esc(meta)}</span></span></a></li>`;
+    }).join('');
+    return `<div class="card tb tb--files">${tbHead('fdoc', b.title || 'Files', b.note, 'https://drive.google.com/drive/shared-with-me', 'Open in Drive', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No files changed this week.</p>'}</div>`;
+  }
+  function tasksHTML(b) {
+    const items = b.items || [];
+    const rows = items.map((t) => {
+      const due = t.due ? new Date(String(t.due).length === 10 ? t.due + 'T12:00:00' : t.due) : null;
+      const late = due && !t.done && due < new Date(new Date().toDateString());
+      return `<li class="tb-row tb-task${t.done ? ' is-done' : ''}"><span class="tb-check" role="img" aria-label="${t.done ? 'Done' : 'Open'}">${t.done ? ic('check') : ''}</span>
+        <a class="tb-main" href="${esc(href(t.link || '/projects/'))}"><span class="tb-title">${esc(t.title || 'Task')}</span><span class="tb-sub">${t.project ? `<span class="tb-chip">${esc(t.project)}</span>` : ''}${due ? `<span class="tb-due${late ? ' is-late' : ''}">${late ? 'Overdue, ' : 'Due '}${esc(due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}</span>` : ''}</span></a></li>`;
+    }).join('');
+    return `<div class="card tb tb--tasks">${tbHead('check', b.title || 'Your tasks', b.note, '/projects/', 'Open in Projects', items.length)}${items.length ? `<ul class="tb-list">${rows}</ul>` : '<p class="tb-none">No open tasks.</p>'}</div>`;
+  }
   B.render = (b, ctx) => { try { return draw(b, ctx); } catch (e) { return ''; } };
   const draw = (b, ctx) => {
     switch (b.type) {
@@ -689,6 +752,10 @@
       case 'sources': return sourcesHTML(b);
       case 'consent': return consentHTML(b, ctx);
       case 'files': return filesHTML(b);
+      case 'calendar': return calendarHTML(b);
+      case 'mail': return mailHTML(b);
+      case 'filelist': return filelistHTML(b);
+      case 'tasks': return tasksHTML(b);
       default: return b && b.md ? `<div class="blk-text">${md(b.md)}</div>` : '';
     }
   };
@@ -698,6 +765,15 @@
    */
   B.renderAll = (blocks, ctx) => {
     let bs = (blocks || []).slice();
+    // An answer the check held back is handed to Claude with a friendly card (Will, 2026-10-14: "more of an encouragement").
+    const held = bs.findIndex((b) => b && b.type === 'note' && /can.t answer this one reliably/i.test(b.title || ''));
+    if (held >= 0) {
+      const src = bs.find((b) => b && b.type === 'sources' && (b.items || []).some((i) => /Continue in Claude/i.test(i.label || '')));
+      const link = src ? (src.items.find((i) => /Continue in Claude/i.test(i.label || '')) || {}).href : '';
+      const m = /Here is how I read it:\s*(.*?)\s*That may not be/i.exec(bs[held].body || '');
+      const read = m && m[1] && m[1].length < 110 ? m[1].replace(/\.$/, '') : '';
+      return `<div class="blk-handoff"><div class="blk-handoff__ic" aria-hidden="true">${ic('spark')}</div><div class="blk-handoff__tx"><b>Let's take this one to Claude</b><p>I'm sharper in Claude for questions like this. Your question and what I found so far are ready to go.</p>${read ? `<p class="blk-handoff__rd">I read it as: ${esc(read)}.</p>` : ''}<div class="blk-handoff__acts">${link ? `<a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(link))}" target="_blank" rel="noopener">Continue in Claude ${ic('ext')}</a>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rephrase">Rephrase</button></div></div></div>`;
+    }
     // With the steps above the answer, "How I read it" lives in them; its line is not said again under the answer.
     if (ctx && ctx.steps) bs = bs.map((b) => (b && b.type === 'text' && /How I read it/i.test(b.md || '') ? { ...b, md: String(b.md).split(/\n/).filter((l) => !/^\s*_?How I read it/i.test(l)).join('\n').trim() } : b)).filter((b) => !(b && b.type === 'text' && !b.md));
     const ti = bs.findIndex((b) => b && b.type === 'tiles' && (b.tiles || []).length === 1 && typeof b.tiles[0].value === 'number' && !b.tiles[0].delta && !b.tiles[0].trend && b.tiles[0].progress == null && !b.tiles[0].compare);
@@ -920,6 +996,16 @@
   const blockOf = (turn, el) => (turn && turn.blocks ? turn.blocks[+el.dataset.bi] : null);
   const ACTIONS = {
     ask: (el, host) => host.ask(el.dataset.q, { intent: el.dataset.intent || undefined, el }),
+    // Rephrase on a handed-off answer: the question goes back in the ask box, ready to edit.
+    rephrase: (el, host) => {
+      const t = host.turn(el);
+      const box = document.getElementById('bc-input') || (el.closest('[data-brain]') || document).querySelector('[data-bask] textarea');
+      if (!box) return;
+      box.value = (t && t.q) || '';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    },
     photo: (el, host) => lightbox(el, host),
     'ask-again': (el, host) => { const t = host.turn(el); if (t) host.ask(t.asked_as || t.q, { again: true, el }); },
     choose: (el, host) => {
