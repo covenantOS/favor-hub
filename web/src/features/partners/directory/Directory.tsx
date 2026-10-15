@@ -19,7 +19,12 @@ import { SheetMark } from '../work/lists/icons';
 import { useMounted } from '../record/lib';
 
 // The toolbar icons partners-dir.js draws (its I.views, I.filter and I.down), same paths.
-const BAR_ICON: Record<'views' | 'filter' | 'down', string> = {
+const BAR_ICON: Record<'views' | 'filter' | 'down' | 'tag' | 'star' | 'merge' | 'x' | 'save', string> = {
+  tag: '<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+  star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  merge: '<path d="M6 4v5a5 5 0 0 0 5 5h7"/><path d="M6 20v-4"/><path d="m15 11 3 3-3 3"/>',
+  x: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
+  save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h8V4"/><path d="M8 20v-6h8v6"/>',
   views: '<path d="M4 6h16M4 12h16M4 18h10"/>',
   filter: '<path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/>',
   down: '<path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>',
@@ -205,7 +210,8 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
   const menus = useQuery(menusQuery);
   const m: Partial<Menus> = (mounted && menus.data) || {};
   // My partners shows only for someone who holds partners (the directory answer carries their fundraiser id), as on the classic page.
-  const fid = useQuery({ ...dirQuery(search, size), enabled: false }).data?.fid;
+  const shown = useQuery({ ...dirQuery(search, size), enabled: false }).data;
+  const fid = shown?.fid;
   const showMine = mounted && !!fid;
   const exportCsv = async (ids?: string[]) => {
     const qs = dirParams(search, ids && ids.length ? { ids: ids.join(',') } : {});
@@ -219,7 +225,7 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    say(ids ? `Exported ${N(ids.length)} partners.` : 'Exported the partners that match.');
+    say(ids ? `Exported ${N(ids.length)} partners.` : `Exported ${N(Math.min(shown?.total ?? 0, 25000))} partners.`);
   };
 
   const selectAdd = (k: ArrKey, label: string, empty: string, items?: { v: string; n: number }[], more?: string) => (
@@ -600,7 +606,7 @@ function ViewsMenu({ search, go, say }: { search: DirSearch; go: (s: DirSearch) 
       </button>
       {v.mine ? (
         <button type="button" className="pd-vdel" aria-label={'Delete ' + v.name} onClick={() => void drop(v.id)}>
-          ×
+          <BarIc n="x" />
         </button>
       ) : null}
     </div>
@@ -633,6 +639,7 @@ function ViewsMenu({ search, go, say }: { search: DirSearch; go: (s: DirSearch) 
             Share with everyone
           </label>
           <button type="submit" className="h-btn h-btn--primary h-btn--sm">
+            <BarIc n="save" />
             Save the filters, sort and columns
           </button>
         </form>
@@ -682,11 +689,11 @@ function Bulk({ sel, clear, say, exportCsv, onDone }: { sel: Set<string>; clear:
         <>
           <span className="pd-bulk__n">{N(n)}</span>
           <span>selected</span>
-          <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void tag()}>Add a tag</button>
-          <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void star()}>Star</button>
-          <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void exportCsv(ids)}>Export</button>
-          {n === 2 ? <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void merge()}>Ask to merge</button> : null}
-          <button type="button" className="pd-bulk__x" aria-label="Clear the selection" onClick={clear}>×</button>
+          <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void tag()}><BarIc n="tag" />Add a tag</button>
+          <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void star()}><BarIc n="star" />Star</button>
+          <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void exportCsv(ids)}><BarIc n="down" />Export</button>
+          {n === 2 ? <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void merge()}><BarIc n="merge" />Ask to merge</button> : null}
+          <button type="button" className="pd-bulk__x" aria-label="Clear the selection" onClick={clear}><BarIc n="x" /></button>
         </>
       ) : null}
     </div>
