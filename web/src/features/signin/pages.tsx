@@ -27,6 +27,10 @@ export function SigninFrame({ children }: { children: ReactNode }) {
   );
 }
 
+// The Pages build stamps every script address with the build id (scripts/stamp-build.mjs), so a browser keeps the file until the build changes and a
+// repeat visit does not ask for it again. The sign-in page asks the same way.
+const LOGIN_JS = '/js/login.js?v=2' + (__HUB_BUILD__ ? '&b=' + __HUB_BUILD__ : '');
+
 export function LoginPage() {
   return (
     <>
@@ -44,7 +48,7 @@ export function LoginPage() {
           Requests, expenses, receipts, foundation prospects and reports all open from here. Can't get in? Email <a href="mailto:tech@favorintl.org">tech@favorintl.org</a>.
         </p>
       </SigninFrame>
-      <script src="/js/login.js?v=2" />
+      <script src={LOGIN_JS} />
     </>
   );
 }
