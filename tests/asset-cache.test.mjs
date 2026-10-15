@@ -15,6 +15,11 @@ describe('asset cache headers', () => {
     assert.equal(cc('/css/dock-panel.css?b=1791981954849'), 'public, max-age=31536000, immutable');
     assert.equal(cc('/_astro/break-ui.CoTDCUza.css'), 'public, max-age=31536000, immutable');
   });
+  it('keeps hashed web app built files a year, and nothing else under /_w/', () => {
+    assert.equal(cc('/_w/index-Dhui8Yhc.js'), 'public, max-age=31536000, immutable');
+    assert.equal(cc('/_w/layout-CcryaVwQ.css'), 'public, max-age=31536000, immutable');
+    assert.equal(cc('/_w/ping'), 'no-cache');
+  });
   it('leaves an unstamped address alone', () => {
     assert.equal(cc('/js/dock-panel.js?v=4'), 'no-cache');
     assert.equal(cc('/js/hub-nav.js'), 'no-cache');

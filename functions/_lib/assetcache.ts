@@ -4,7 +4,9 @@
 // Astro's own build files carry a content hash in the name and are kept a year too.
 export function withAssetCache(res: Response, path: string, url: URL): Response {
   const stamped = (path.startsWith('/js/') || path.startsWith('/css/')) && /^\d+$/.test(url.searchParams.get('b') || '');
-  if (!stamped && !path.startsWith('/_astro/')) return res;
+  // The web app's built files (/_w/) carry a content hash in the name (name-Ab12Cd34.js), so an address never changes content.
+  const hashed = path.startsWith('/_w/') && /-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/.test(path);
+  if (!stamped && !hashed && !path.startsWith('/_astro/')) return res;
   const out = new Response(res.body, res);
   out.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
   return out;
