@@ -316,8 +316,14 @@ function lateText(d) { return d === 1 ? '1 day late' : d <= 60 ? d + ' days late
 /** Recurring gifts, one line each with the date it started. Identical lines (same amount, status, fund, dates) fold into one with a count; past 4 lines the rest sit behind a "more" fold. */
 function recurringList(list) {
   const by = new Map();
+  const FREQ = { WEEKLY: 'weekly', MONTHLY: 'monthly', QUARTERLY: 'quarterly', ANNUALLY: 'yearly' };
   for (const r of list) {
-    const line = `${money(r.amount)} ${esc(r.status)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.since ? ' · started ' + fd(r.since) : ''}${r.lastPayment ? ' · last ' + fd(r.lastPayment) : ''}`;
+    const freq = FREQ[String(r.frequency || '').toUpperCase()] || '';
+    const open = (r.declines || []).filter((d) => !d.recovered);
+    const missed = [];
+    if (open.length) missed.push(`<span class="pp-missed">${open.length > 1 ? open.length + ' declined charges, last ' : 'Declined '}${fd(open[0].date)}${open[0].reason ? ': ' + esc(open[0].reason) : ''}</span>`);
+    if (r.pastDue) missed.push(`<span class="pp-missed">Next charge ${lateText(r.daysLate)}</span>`);
+    const line = `${money(r.amount)}${freq ? ' ' + freq : ''}${r.method ? ' by ' + esc(r.method.toLowerCase()) : ''} ${esc(r.status)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.since ? ' · started ' + fd(r.since) : ''}${r.lastPayment ? ' · last paid ' + fd(r.lastPayment) : ''}${r.nextCharge && r.status === 'Active' && !r.pastDue ? ' · next ' + fd(r.nextCharge) : ''}${r.endDate && r.status === 'Active' ? ' · ends ' + fd(r.endDate) : ''}${missed.length ? '<br>' + missed.join(' ') : ''}`;
     by.set(line, (by.get(line) || 0) + 1);
   }
   const lines = [...by].map(([l, n]) => (n > 1 ? `${l} <small>(${n} on this date)</small>` : l));

@@ -118,7 +118,13 @@ Declines moved to **Gifts > Declines** in October 2026. The admin desk, the Supp
 
 Each row shows the partner, the card or bank, the amount that failed, the reason, how many times the same schedule has declined, who holds the partner and the last follow-up. Press **Log**, choose Call, Text, Email, Card or Note, say what happened and pick where it stands: Still open, Card or bank fixed, Partner ended the gift, Cannot reach or Nothing to do. FavorOS saves one Information Update action on the partner in Blackbaud. That type counts as no portfolio contact, so a billing call never changes who is credited. Left a message keeps the row open and sets a reminder for the next workday.
 
-A decline clears by itself when a later payment on the same schedule goes through, and moves to **Closed or paid** when the schedule has ended. Nothing on this tab charges a card or changes a schedule. Updating a card and changing a monthly amount stay in Blackbaud.
+A decline clears by itself when a later payment on the same schedule goes through, and moves to **Closed or paid** when the schedule has ended. Nothing on this tab charges a card or changes a schedule. Changing a monthly amount, how often it runs or its status is done on **Gifts > Recurring**. Updating a card stays in Blackbaud's secure form.
+
+## Recurring gifts
+
+**Gifts > Recurring** lists every recurring gift schedule: the partner, the amount, card or bank draft, the last twelve months of payments as dots, the last payment, who holds the partner and where the schedule stands. The five numbers on top are the active schedules, what they schedule each cycle, schedules paid in the last 30 days, declines since July and schedules stopped in the last 90 days. The chips under the numbers narrow the list to Active, Declined, Stopped, Held, Giving 2+ years, Card, Bank, and, when there is something in them, Past due and Past end date. Declines come first, then the largest.
+
+Press a row to open the schedule. You can change the amount, change how often it runs, hold it, resume it or stop it. FavorOS sends the change to Blackbaud, reads the schedule back and only then says it saved. If Blackbaud does not take the change, the page says so and nothing changes. Each change files one Information Update on the partner, with how the partner asked, and shows under Changes made in FavorOS. **Undo** puts the old value back for 24 hours, for the person who made the change and for admins. Stopping a schedule is final because Blackbaud does not restart a stopped one, so Stop asks you to confirm and has no Undo. The admin desk, the Support Team and Partner Care use this page. The partner page shows the same facts for one partner: how often each recurring gift runs, the next charge, and any declined or missed charges.
 
 ## Grants
 

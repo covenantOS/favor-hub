@@ -3,7 +3,7 @@
 // lists it in the hub setting web.routes AND the person is in web.audience. Everything else keeps its Astro page.
 import { normalizeRoute } from './app2';
 
-export const WEB_ROUTES = ['/web-check/'] as const;
+export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/'] as const;
 
 export const WEB_SETTING_ROUTES = 'web.routes';
 export const WEB_SETTING_AUDIENCE = 'web.audience';
