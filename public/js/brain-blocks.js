@@ -771,7 +771,7 @@
       const src = bs.find((b) => b && b.type === 'sources' && (b.items || []).some((i) => /Continue in Claude/i.test(i.label || '')));
       const link = src ? (src.items.find((i) => /Continue in Claude/i.test(i.label || '')) || {}).href : '';
       const m = /Here is how I read it:\s*(.*?)\s*That may not be/i.exec(bs[held].body || '');
-      const read = m && m[1] && m[1].length < 110 ? m[1].replace(/\.$/, '') : '';
+      const read = m && m[1] && m[1].length < 110 && !/^searched/i.test(m[1]) ? m[1].replace(/\.$/, '') : '';
       return `<div class="blk-handoff"><div class="blk-handoff__ic" aria-hidden="true">${ic('spark')}</div><div class="blk-handoff__tx"><b>Let's take this one to Claude</b><p>I'm sharper in Claude for questions like this. Your question and what I found so far are ready to go.</p>${read ? `<p class="blk-handoff__rd">I read it as: ${esc(read)}.</p>` : ''}<div class="blk-handoff__acts">${link ? `<a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(link))}" target="_blank" rel="noopener">Continue in Claude ${ic('ext')}</a>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rephrase">Rephrase</button></div></div></div>`;
     }
     // With the steps above the answer, "How I read it" lives in them; its line is not said again under the answer.

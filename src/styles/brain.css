@@ -936,7 +936,7 @@ html.plb-on { overflow: hidden; }
   .h-body .bc-root .tb-h__s { display: none; }
   .h-body .bc-root .tb-row { padding: 9px 12px; gap: 10px; }
   .h-body .bc-root .tb-cal { flex-wrap: wrap; }
-  .h-body .bc-root .tb-cal__t { width: 52px; font-size: 12.5px; }
+  .h-body .bc-root .tb-cal__t { width: 58px; font-size: 12px; white-space: nowrap; }
   .h-body .bc-root .tb-faces .tb-av:nth-child(n+3) { display: none; }
   .h-body .bc-root .tb-snip { display: none; }
 }

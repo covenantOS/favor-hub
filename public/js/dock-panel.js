@@ -400,11 +400,11 @@
       // brain-blocks.js draws answers; brain-trace.js the steps; brain-convs.js the chat list; /brain/sprite.js the icons.
       var more = function () { var need = ['/js/brain-trace.js?v=2', '/js/brain-convs.js?v=2', '/brain/sprite.js?v=2'].filter(function (u) { return u.indexOf('trace') >= 0 ? !window.BrainTrace : u.indexOf('convs') >= 0 ? !window.BrainConvs : !document.querySelector('symbol[id^="bci-"]'); }); if (!need.length) return ok(); var n = 0, one = function () { if (++n === need.length) ok(); }; need.forEach(function (u) { var x = document.createElement('script'); x.src = u; x.onload = one; x.onerror = one; document.head.appendChild(x); }); };
       if (window.BrainBlocks) { more(); return; }
-      var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=16'; s.onload = more; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
+      var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=17'; s.onload = more; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
     });
     // The Brain tab draws once its stylesheet is in, so its answers never show unstyled for a moment.
     var css = new Promise(function (ok) {
-      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/dock-brain.css?v=3';
+      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/dock-brain.css?v=4';
       l.onload = ok; l.onerror = ok; setTimeout(ok, 4000); document.head.appendChild(l);
     });
     brain.ready = Promise.all([code, css]);
