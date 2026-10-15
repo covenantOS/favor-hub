@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrainIndexRouteImport } from './routes/brain/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
@@ -17,6 +18,11 @@ import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrainIndexRoute = BrainIndexRouteImport.update({
   id: '/brain/',
   path: '/brain/',
@@ -54,6 +60,7 @@ const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/brain/': typeof BrainIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/brain': typeof BrainIndexRoute
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
@@ -73,6 +81,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/brain/': typeof BrainIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
@@ -84,6 +93,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/brain/'
     | '/churches/'
     | '/data-care/'
@@ -93,6 +103,7 @@ export interface FileRouteTypes {
     | '/gifts/recurring/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/brain'
     | '/churches'
     | '/data-care'
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '/gifts/recurring'
   id:
     | '__root__'
+    | '/'
     | '/brain/'
     | '/churches/'
     | '/data-care/'
@@ -112,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   BrainIndexRoute: typeof BrainIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
@@ -123,6 +136,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/brain/': {
       id: '/brain/'
       path: '/brain'
@@ -176,6 +196,7 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   BrainIndexRoute: BrainIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
