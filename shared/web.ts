@@ -2,8 +2,10 @@
 // (functions/_lib/web.ts), the classic swap script and the web app's links all read it. A route reaches people only when an admin
 // lists it in the hub setting web.routes AND the person is in web.audience. Everything else keeps its Astro page.
 import { normalizeRoute } from './app2';
+import { WEB_ROUTE_LIST } from './web-route-list';
 
-export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/', '/churches/', '/data-care/', '/gifts/other/', '/admin/goals/', '/brain/', '/', '/projects/', '/partners/', '/work/', '/foundations/', '/gifts/', '/online-gifts/', '/learn/', '/learn/admin/'] as const;
+// The list itself lives in shared/web-route-list.ts (one route a line, merged by union), so parallel route ports never conflict here.
+export const WEB_ROUTES = WEB_ROUTE_LIST;
 
 /**
  * Routes that own only their own address, never the paths under it. /gifts/ is the Gifts overview; /gifts/letters/ and /gifts/declines/ are

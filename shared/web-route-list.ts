@@ -1,0 +1,20 @@
+// The routes the web app has built, one per line. Several agents add routes at once, so this file merges by union (.gitattributes):
+// two branches that each add a line both keep theirs. Add a line, keep the trailing comma, change nothing else in the file.
+export const WEB_ROUTE_LIST = [
+  '/web-check/',
+  '/gifts/recurring/',
+  '/churches/',
+  '/data-care/',
+  '/gifts/other/',
+  '/admin/goals/',
+  '/brain/',
+  '/',
+  '/projects/',
+  '/partners/',
+  '/work/',
+  '/foundations/',
+  '/gifts/',
+  '/online-gifts/',
+  '/learn/',
+  '/learn/admin/',
+] as const;
