@@ -810,7 +810,6 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
                       ...(s.me && s.me.admin ? [{ v: 'admin', icon: <Ic n="gear" />, label: 'Brain admin', aside: brainRequests || undefined }] : []),
                       { v: 'access', icon: <Ic n="shield" />, label: 'What you can ask about' },
                       { v: 'connect', icon: <Ic n="link" />, label: 'Connect Claude or ChatGPT' },
-                      { v: 'intro', icon: <Ic n="play" />, label: 'Watch the one-minute intro' },
                       { v: 'help', icon: <Ic n="book" />, label: 'Help: asking well' },
                       { v: 'keys', icon: <Ic n="list" />, label: 'Keyboard shortcuts' },
                       { v: '-', label: '', sep: true },
@@ -823,7 +822,6 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
                         document.querySelector<HTMLElement>('[data-sound-switch]')?.click();
                         e.toast(soundOn() ? 'Sounds on' : 'Sounds off');
                       } else if (v === 'admin') location.href = '/brain/admin/';
-                      else if (v === 'intro') location.href = '/help/videos/meet-the-brain/';
                       else if (v === 'help') location.href = '/help/asking-well/';
                       else if (v === 'keys') setKeysOpen(true);
                     },
