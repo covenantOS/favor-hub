@@ -456,6 +456,7 @@ function Lightbox({ all, start, onClose, ctx }: { all: any[]; start: number; onC
                 key={f.id}
                 alt={f.description || f.title}
                 src={THUMB(f.id, 1600)}
+                style={err ? { display: 'none' } : undefined}
                 onLoad={() => setReady(true)}
                 onError={() => {
                   setReady(true);
