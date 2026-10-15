@@ -33,6 +33,11 @@ const step = (name, fn) => {
 const LOCK = 'Q:/work/favor-hub/ship.lock';
 for (let waited = 0; ; waited += 15) {
   if (!existsSync(LOCK) || Date.now() - statSync(LOCK).mtimeMs > 40 * 60 * 1000) break;
+  // A lock whose ship was killed (no exit handler ran) is free.
+  const holder = Number(readFileSync(LOCK, 'utf8').split(' ')[0]);
+  let alive = false;
+  try { process.kill(holder, 0); alive = true; } catch { alive = false; }
+  if (!alive) break;
   if (waited === 0) console.log('waiting for another ship: ' + readFileSync(LOCK, 'utf8'));
   if (waited > 45 * 60) { console.error('FAIL lock: another ship has held it for 45 minutes'); process.exit(1); }
   execSync('node -e "setTimeout(()=>{},15000)"');
