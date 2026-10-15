@@ -25,7 +25,7 @@ export function DataCare() {
   return (
     <div className="dc">
       <ErrorBoundary label="The Data care totals could not load." className="h-card">
-        <Suspense fallback={<section className="h-card dc-stats" style={{ minHeight: 112 }} aria-hidden="true" />}>
+        <Suspense fallback={<section className="h-card dc-stats dc-stats--wait" aria-hidden="true" />}>
           <Head />
         </Suspense>
       </ErrorBoundary>

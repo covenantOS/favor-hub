@@ -32,6 +32,9 @@ export interface ExpenseRequest {
   decline_note?: string | null;
   requester_signature?: string | null;
   approver_signature?: string | null;
+  /** The log's list leaves the pictures out and says whether each exists; Detail fetches one when the row opens. */
+  requester_signed?: boolean;
+  approver_signed?: boolean;
   pdf?: string | null;
   can_review?: boolean;
   events?: ExpenseEvent[];

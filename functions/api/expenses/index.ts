@@ -140,10 +140,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // An approver signed in with Google signs waiting requests from the log.
     const user = hubUserOf(request);
     const me = user && user.via === 'google' ? user.email.toLowerCase() : '';
-    const [rows, settings, approvers, all] = await Promise.all([listExpenses(env), getSettings(env), me ? approverEmails(env) : Promise.resolve(new Set<string>()), linesAndEvents(env)]);
+    // ?sigs=0: the log leaves the signature pictures out (2 MB of the answer) and fetches one from /api/expenses/signature when a row opens.
+    const lite = new URL(request.url).searchParams.get('sigs') === '0';
+    const [rows, settings, approvers, all] = await Promise.all([listExpenses(env, { signatures: !lite }), getSettings(env), me ? approverEmails(env) : Promise.resolve(new Set<string>()), linesAndEvents(env)]);
     const shaped = [];
     for (const row of rows) {
-      const shape = expenseShape(row, all.items.get(String(row.id)) || [], { admin: true, signatures: true });
+      const shape = expenseShape(row, all.items.get(String(row.id)) || [], { admin: true, signatures: !lite });
       const mine = Boolean(me) && (approvers.has(me) || splitEmails(row.approver_email).some((e) => e.toLowerCase() === me));
       // Event payloads can hold approver emails and decline notes. The log gets kind, actor, time and who a mail went to.
       const events = (all.events.get(String(row.id)) || []).map((ev) => {

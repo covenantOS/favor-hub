@@ -57,7 +57,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // A solo route (the Clips recorder window) draws without the frame, so it loads none of the frame's stylesheet and brings its own.
     links: [
       ...(matches.some((m) => m.staticData?.solo) ? [] : [{ rel: 'stylesheet', href: css }]),
-      { rel: 'icon', type: 'image/png', href: '/images/favor-icon.png' },
+      { rel: 'icon', type: 'image/png', href: '/images/favor-icon-64.png' },
       { rel: 'apple-touch-icon', href: '/images/apple-touch-icon.png' },
       { rel: 'manifest', href: '/manifest.webmanifest' },
     ],

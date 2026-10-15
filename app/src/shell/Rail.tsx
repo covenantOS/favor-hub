@@ -274,8 +274,8 @@ export function Rail({ view, user, rail, tours, onSignOut }: Props) {
       </button>
       <div className="h-side__in">
         <NavLink className="h-brand" href="/" aria-label="FavorOS home">
-          <img className="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" />
-          <img className="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" />
+          <img className="h-brand__full" src="/images/favor-logo-color-sm.webp" alt="Favor International" />
+          <img className="h-brand__mark" src="/images/favor-icon-sm.webp" alt="Favor International" />
           <span>OS</span>
         </NavLink>
         <div className="h-pins" id="h-pins" hidden={!pinned.length}>

@@ -57,7 +57,7 @@ export const logQuery = queryOptions({
     const viaGoogle = Boolean((me as { signedIn?: boolean }).signedIn && user && user.via === 'google');
     const signinOn = Boolean((me as { enforce?: boolean }).enforce);
     try {
-      const [list, set] = await Promise.all([readJson('/api/expenses'), readJson('/api/expenses/settings')]);
+      const [list, set] = await Promise.all([readJson('/api/expenses?sigs=0'), readJson('/api/expenses/settings')]);
       return {
         state: 'ok',
         requests: (list.requests as ExpenseRequest[]) || [],
