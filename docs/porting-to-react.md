@@ -42,7 +42,7 @@ Switching, as the signed-in person: `/?app2=1` opts in, `/?app2=0` opts out (the
 5. Put the page in `app/src/features/<name>/`. Import its stylesheets in a `styles.ts` in the same order the Astro page imported them (the cascade depends on it) and import that from the page component. Reuse the existing class names (`h-card`, `h-btn`, `r2t-*`), do not write new CSS for something that looks the same.
 6. Add the route to `MIGRATED_ROUTES` in `shared/app2.ts`. A sub-path (`/chat/general`) belongs to its listed parent.
 7. Links to other pages use `NavLink` from `@/shell/NavLink`. It stays inside the app for a served route and does a normal load otherwise.
-8. Add a tour step (`src/scripts/tours.ts`), the help article update and a What's new line, as for any feature.
+8. Add the help article update and a changelog entry (the What's new tour reads it), as for any feature. The tour is `web/src/features/tour`.
 
 ## Rules for components
 

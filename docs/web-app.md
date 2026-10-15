@@ -43,7 +43,7 @@ functions/_lib/web.ts            the middleware hand-off
 ```
 
 Aliases: `@/` is `app/src/` (the app2 shell, hooks and features, reused as they are), `@shared/` is `shared/`, `@hub/` is `src/`
-(the menu registry `@hub/data/areas`, icons, release badges, tours and the stylesheets `@hub/styles/x.css`).
+(the menu registry `@hub/data/areas`, icons, release badges, the tour's progress rules and the stylesheets `@hub/styles/x.css`).
 
 ## Add a route
 
@@ -57,7 +57,7 @@ Aliases: `@/` is `app/src/` (the app2 shell, hooks and features, reused as they 
 4. Nothing may read `window`, `document`, `localStorage` or `matchMedia` while drawing; read them in `useEffect`. Portals go through
    `BodyPortal` (`app/src/shell/BodyPortal.tsx`). External stores need a server snapshot (`useSyncExternalStore(sub, get, get)`).
 5. Add the route to `WEB_ROUTES` in `shared/web.ts` (a route owns the paths under it).
-6. Help, tour step and What's new as for any feature. UI copy follows the writing rules (no em dashes, "partners", no mention of AI).
+6. Help article and a changelog entry as for any feature. The tour (`web/src/features/tour`) shows the entry to the people who can open the page, and a role's tour needs an edit only when the page becomes one of that job's main screens (`data.ts`). UI copy follows the writing rules (no em dashes, "partners", no mention of AI).
 
 ## Work on it
 
