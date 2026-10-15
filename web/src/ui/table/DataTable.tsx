@@ -2,7 +2,7 @@
 // row selection and the list keys (j and k move, Enter opens, x selects, / goes to the search box, [ and ] turn the page). It draws
 // the hub's own classes (src/styles/ptable.css), so a list looks the same as the classic one it replaces. Data comes in as props: the
 // caller pages on the server (pass the page's rows and the total) or in the browser (pass rows sliced with pageOf).
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { SIZES, useDensity, useHiddenColumns, usePageSize, type Density } from './prefs';
 
 export type SortDir = 'asc' | 'desc';
@@ -70,6 +70,10 @@ export interface DataTableProps<T> {
   hidden?: ReadonlySet<string>;
   /** The open row (side panel), marked in the list. */
   openId?: string | null;
+  /** A heading row drawn above a row (a group's name). Return null for no heading. prev is the row above on this page. */
+  groupHead?: (row: T, prev: T | undefined) => ReactNode | null;
+  /** Extra rows drawn right under a row (an opened detail). Return <tr> elements, or null. */
+  rowAfter?: (row: T) => ReactNode | null;
 }
 
 /** One page of an array (page is 1-based). */
@@ -166,29 +170,39 @@ export function DataTable<T>(p: DataTableProps<T>) {
                   const id = ids[i];
                   const picked = !!p.select && p.select.selected.has(id);
                   const cls = [picked ? 'is-picked' : '', p.openId === id ? 'is-open' : '', p.rowClassName ? p.rowClassName(row) : ''].filter(Boolean).join(' ');
+                  const head = p.groupHead ? p.groupHead(row, i > 0 ? p.rows[i - 1] : undefined) : null;
+                  const after = p.rowAfter ? p.rowAfter(row) : null;
                   return (
-                    <tr key={id} data-pt-row="" data-id={id} tabIndex={-1} className={cls || undefined} title={p.rowTitle ? p.rowTitle(row) : undefined} onClick={(e) => rowClick(e, row)} onKeyDown={(e) => onKey(e, row, id)}>
-                      {p.select ? (
-                        <td className="pt-cb">
-                          <input
-                            type="checkbox"
-                            tabIndex={-1}
-                            checked={picked}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              p.select!.onToggle(id, !picked, e.shiftKey);
-                            }}
-                            onChange={() => undefined}
-                            aria-label="Select this row"
-                          />
-                        </td>
+                    <Fragment key={id}>
+                      {head ? (
+                        <tr className="pt-group">
+                          <td colSpan={span}>{head}</td>
+                        </tr>
                       ) : null}
-                      {cols.map((c) => (
-                        <td key={c.key} className={[c.num ? 'is-num' : '', c.className || '', c.phone === false || (!c.phone && !c.fixed) ? 'pt-nophone' : ''].filter(Boolean).join(' ') || undefined} title={c.title ? c.title(row) : undefined}>
-                          {c.cell(row, i)}
-                        </td>
-                      ))}
-                    </tr>
+                      <tr data-pt-row="" data-id={id} tabIndex={-1} className={cls || undefined} title={p.rowTitle ? p.rowTitle(row) : undefined} onClick={(e) => rowClick(e, row)} onKeyDown={(e) => onKey(e, row, id)}>
+                        {p.select ? (
+                          <td className="pt-cb">
+                            <input
+                              type="checkbox"
+                              tabIndex={-1}
+                              checked={picked}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                p.select!.onToggle(id, !picked, e.shiftKey);
+                              }}
+                              onChange={() => undefined}
+                              aria-label="Select this row"
+                            />
+                          </td>
+                        ) : null}
+                        {cols.map((c) => (
+                          <td key={c.key} className={[c.num ? 'is-num' : '', c.className || '', c.phone === false || (!c.phone && !c.fixed) ? 'pt-nophone' : ''].filter(Boolean).join(' ') || undefined} title={c.title ? c.title(row) : undefined}>
+                            {c.cell(row, i)}
+                          </td>
+                        ))}
+                      </tr>
+                      {after}
+                    </Fragment>
                   );
                 })
               : (
