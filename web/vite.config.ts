@@ -21,6 +21,9 @@ export default defineConfig({
   },
   build: { target: 'es2022', cssMinify: 'lightningcss' },
   environments: {
+    // The server build resolves stylesheet and image URLs (import x from './x.css?url') too, so it must write the same /_w/ path the
+    // client files live under. With the default it named /assets/layout-*.css, which the Worker never serves, and every page drew unstyled.
+    ssr: { build: { assetsDir: '_w' } },
     client: {
       build: {
         // Built files live under /_w/ so they never meet the Astro (/_astro/) or app2 (/_app/) files on the same domain.
