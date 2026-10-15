@@ -2,7 +2,7 @@
 // table. Search, filters, sort and pages run on the server (GET /api/partners over the hub's copy, rebuilt each hour after Blackbaud's
 // sync); the filters live in the address, so a view can be shared as a link. Stars, tags, saved views and merge requests are
 // FavorOS's own; nothing here writes to Blackbaud. Ported from public/js/partners-dir.js.
-import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import '@hub/styles/ptable.css';
@@ -14,7 +14,7 @@ import {
   dirParams, dirQuery, KIND, menusQuery, money, N, pdKeys, pdPost, pipes, short, STATUS, STATUS_TIP, todayEt, viewsQuery, whole, fd, ago,
   type DirAnswer, type DirRow, type DirSearch, type Menus, type SavedView,
 } from '../api';
-import { QueuePane, RecentPane, useMergeCount } from './Panes';
+import { RecentPane, useMergeCount } from './Panes';
 import { SheetMark } from '../work/lists/icons';
 import { useMounted } from '../record/lib';
 
@@ -66,26 +66,38 @@ export function Directory({ search }: { search: DirSearch }) {
   const navigate = useNavigate();
   const go = useCallback((next: DirSearch) => navigate({ to: '/partners/', search: next as never, replace: true }), [navigate]);
   const merges = useMergeCount();
-  const tabs: [string, string][] = [['all', 'Partners'], ['recent', 'Recently opened'], ['dups', 'Duplicates and merges']];
+  const tabs: [string, string][] = [['all', 'Partners'], ['recent', 'Recently opened']];
   return (
     <div className="pd-root">
       <div className="pd-panes" role="tablist" aria-label="Lists">
         {tabs.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={pane === k} onClick={() => go({ ...search, pane: k === 'all' ? undefined : (k as DirSearch['pane']), page: undefined })}>
             {l}
-            {k === 'dups' && merges ? <span>{merges}</span> : null}
           </button>
         ))}
+        {/* Possible duplicates and merge requests are one queue, in Data care (as on the classic page: a link, not a pane). */}
+        <a className="pd-panelink" href="/data-care/">
+          {'Duplicates and merges' + (merges ? ' ' : '')}
+          {merges ? <span>{merges}</span> : null}
+        </a>
       </div>
       {pane === 'recent' ? (
         <Suspense fallback={<PaneSkeleton />}><RecentPane /></Suspense>
       ) : pane === 'dups' || pane === 'merges' ? (
-        <Suspense fallback={<PaneSkeleton />}><QueuePane /></Suspense>
+        <GoDataCare />
       ) : (
         <AllPartners search={search} go={go} />
       )}
     </div>
   );
+}
+
+/** ?pane=dups and ?pane=merges are old addresses: the queue lives in Data care (the classic page sends them there too). */
+function GoDataCare() {
+  useEffect(() => {
+    window.location.replace('/data-care/');
+  }, []);
+  return <PaneSkeleton />;
 }
 
 function PaneSkeleton() {
@@ -157,6 +169,8 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
   const [size, setSize] = usePageSize('pd', 50);
   const [fopen, setFopen] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const selRef = useRef(sel);
+  selRef.current = sel;
   const [toast, say] = useToast();
   const qc = useQueryClient();
   const set = (patch: Partial<DirSearch>) => {
@@ -172,9 +186,12 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
       if (off) return;
       const fs = (window as unknown as { FavorSheets?: { register: (n: string, f: () => Promise<unknown>) => void; screen: (t: string, tabs: unknown[], o: unknown) => unknown } }).FavorSheets;
       fs?.register('partners', async () => {
-        const res = await fetch('/api/partners/export?format=json&' + dirParams(search), { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } });
+        // Selected rows go alone when there are any, and the filters in force are named on the sheet, as on the classic page.
+        const ids = [...selRef.current];
+        const res = await fetch('/api/partners/export?format=json&' + dirParams(search, ids.length ? { ids: ids.join(',') } : {}), { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } });
         const d = (await res.json()) as { columns: unknown[]; rows: unknown[] };
-        return fs.screen('Partners', [{ name: 'Partners', columns: d.columns, rows: d.rows }], { filters: '', classes: ['partner'] });
+        const filters = [...document.querySelectorAll('.pd-sheet .pt-chip')].map((c) => (c.textContent || '').replace('×', '').trim()).join('; ');
+        return fs.screen('Partners', [{ name: 'Partners', columns: d.columns, rows: d.rows }], { filters, classes: ['partner'] });
       });
     });
     return () => {
@@ -205,9 +222,9 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
     say(ids ? `Exported ${N(ids.length)} partners.` : 'Exported the partners that match.');
   };
 
-  const selectAdd = (k: ArrKey, label: string, empty: string, items?: { v: string; n: number }[]) => (
+  const selectAdd = (k: ArrKey, label: string, empty: string, items?: { v: string; n: number }[], more?: string) => (
     <select className={'pt-sel' + (list(search[k]).length ? ' is-set' : '')} aria-label={label} value="" onChange={(e) => e.target.value && !list(search[k]).includes(e.target.value) && set({ [k]: [...list(search[k]), e.target.value].join(',') })}>
-      <option value="">{list(search[k]).length ? 'Add ' + label.toLowerCase() : empty}</option>
+      <option value="">{list(search[k]).length && more ? more : empty}</option>
       {(items || []).map((o) => (
         <option key={o.v} value={o.v}>
           {o.v} ({N(o.n)})
@@ -253,7 +270,7 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
             </option>
           ))}
         </select>
-        {selectAdd('states', 'State', 'Any state', m.states)}
+        {selectAdd('states', 'State', 'Any state', m.states, 'Add a state')}
         <select className={'pt-sel' + (search.band ? ' is-set' : '')} aria-label="Lifetime giving" value={search.band || ''} onChange={(e) => set({ band: e.target.value || undefined })}>
           <option value="">Any lifetime</option>
           {Object.entries(m.bands || {}).map(([k, l]) => (
@@ -262,7 +279,7 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
             </option>
           ))}
         </select>
-        {selectAdd('codes', 'Code', 'Any code', m.codes)}
+        {selectAdd('codes', 'Code', 'Any code', m.codes, 'Add a code')}
         {selectAdd('tags', 'Tag', 'Any tag', (m.tags || []).map((t) => ({ v: t.tag, n: t.n })))}
         <button type="button" className={'h-btn h-btn--ghost h-btn--sm' + (fopen ? ' is-on' : '')} aria-expanded={fopen} onClick={() => setFopen(!fopen)}>
           <BarIc n="filter" />
@@ -274,7 +291,7 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
       {fopen ? <MoreFilters search={search} set={set} menus={m} /> : null}
       <Chips search={search} set={set} go={go} menus={m} />
       <Suspense fallback={<TableSkeleton />}>
-        <Rows search={search} size={size} sel={sel} setSel={setSel} onPage={(p, s) => { if (s !== size) setSize(s); set({ page: p > 1 ? p : undefined }); }} onSort={(sort, dir) => set({ sort, dir })} say={say} />
+        <Rows search={search} size={size} sel={sel} setSel={setSel} onPage={(p, s) => { if (s !== size) setSize(s); set({ page: p > 1 ? p : undefined }); }} onSort={(sort, dir) => set({ sort: sort === 'name' ? undefined : sort, dir: dir === 'asc' ? undefined : dir })} say={say} />
       </Suspense>
       <Bulk sel={sel} clear={() => setSel(new Set())} say={say} exportCsv={exportCsv} onDone={() => void qc.invalidateQueries({ queryKey: pdKeys.all })} />
       {toast}
@@ -324,7 +341,7 @@ function KindSeg({ search, size, onPick }: { search: DirSearch; size: number; on
       label="Kind"
       value={cur}
       onChange={onPick}
-      items={[{ k: '', label: 'All' }, ...KINDS.map((x) => ({ k: x, label: { individual: 'Individuals', household: 'Households', organization: 'Organizations', church: 'Churches', foundation: 'Foundations' }[x] as string, n: data.facets.kinds[x] ?? 0 }))]}
+      items={[{ k: '', label: 'All' }, ...KINDS.map((x) => ({ k: x, label: { individual: 'Individuals', household: 'Households', organization: 'Organizations', church: 'Churches', foundation: 'Foundations' }[x] as string, n: data.facets.kinds[x] }))]}
     />
   );
 }
@@ -337,7 +354,7 @@ function StatusSeg({ search, size, onPick }: { search: DirSearch; size: number; 
       label="Status"
       value={cur}
       onChange={onPick}
-      items={[{ k: '', label: 'Any status' }, ...(['active', 'lybunt', 'lapsed', 'never'] as const).map((x) => ({ k: x, label: STATUS[x], n: data.facets.status[x] ?? 0, title: STATUS_TIP[x] }))]}
+      items={[{ k: '', label: 'Any status' }, ...(['active', 'lybunt', 'lapsed', 'never'] as const).map((x) => ({ k: x, label: STATUS[x], n: data.facets.status[x], title: STATUS_TIP[x] }))]}
     />
   );
 }
@@ -376,7 +393,7 @@ function Rows(p: { search: DirSearch; size: number; sel: Set<string>; setSel: (s
   const cols: Column<DirRow>[] = useMemo(() => {
     const c = COLUMNS(today, (data as DirAnswer).contacts);
     const starCol: Column<DirRow> = {
-      key: 'star', label: '', fixed: true, className: 'pd-star', thClassName: 'pd-starth',
+      key: 'star', label: '', srLabel: 'Star', fixed: true, className: 'pd-star', thClassName: 'pd-starth',
       cell: (r) => (
         <button type="button" className={'pd-starb' + (r.star ? ' is-on' : '')} aria-pressed={r.star} aria-label={(r.star ? 'Unstar ' : 'Star ') + r.name} title={r.star ? 'Starred (s)' : 'Star (s)'} onClick={() => void star(r.id, !r.star)}>
           <Star on={r.star} />
@@ -556,7 +573,7 @@ function ViewsMenu({ search, go, say }: { search: DirSearch; go: (s: DirSearch) 
           return new Set<string>(HIDE_DEFAULT);
         }
       })();
-      const r = await pdPost<{ id: string; views: SavedView[] }>('/api/partners/views', { id: cur && cur.mine && cur.name === name ? cur.id : '', name, spec, cols: COLUMNS('2000-01-01', true).map((c) => c.key).filter((k) => !hiddenNow.has(k)), scope: all ? 'all' : 'private' });
+      const r = await pdPost<{ id: string; views: SavedView[] }>('/api/partners/views', { id: cur && cur.mine && cur.name === name ? cur.id : '', name, spec, cols: COLUMNS('2000-01-01', true).map((c) => c.key).filter((k) => k !== 'name' && !hiddenNow.has(k)), scope: all ? 'all' : 'private' });
       qc.setQueryData(viewsQuery.queryKey, r.views);
       go({ ...search, view: r.id });
       say('View saved.');
@@ -652,7 +669,7 @@ function Bulk({ sel, clear, say, exportCsv, onDone }: { sel: Set<string>; clear:
     if (note === null) return;
     try {
       await pdPost('/api/partners/merge', { keep: ids[0], other: ids[1], note });
-      say('Added to Merge requests.');
+      say('Added to the duplicates queue in Data care.');
       onDone();
     } catch (e) {
       say((e as Error).message);

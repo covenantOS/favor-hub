@@ -193,6 +193,7 @@ function App({ signedName, onLock }: { signedName: string; onLock: () => void })
   const [who, setWho] = useState('');
   const [whoBad, setWhoBad] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [pview, setPview] = useState<ProspectView>(FIRST_VIEW);
   const [addName, setAddName] = useState('');
   const whoRef = useRef<HTMLInputElement>(null);
   const qRef = useRef<HTMLInputElement>(null);
@@ -246,6 +247,18 @@ function App({ signedName, onLock }: { signedName: string; onLock: () => void })
     document.addEventListener('keydown', key);
     return () => document.removeEventListener('keydown', key);
   }, [openId, q]);
+  // "/" focuses the search. The capture phase on window runs before the frame's palette, which also opens on "/".
+  useEffect(() => {
+    const slash = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || openId || !qRef.current) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      qRef.current.focus();
+    };
+    window.addEventListener('keydown', slash, true);
+    return () => window.removeEventListener('keydown', slash, true);
+  }, [openId]);
 
   const misplaced = list.reduce((s, f) => s + Number(f.misplaced || 0), 0);
   const tabs: [string, string, number | ''][] = [
@@ -257,7 +270,7 @@ function App({ signedName, onLock }: { signedName: string; onLock: () => void })
   const body = (
     <div id="fnd-body">
       <section className="make-sheet fnd-sheet ptl-sheet" id="fnd-view-list" hidden={tab !== 'list'}>
-        {tab === 'list' ? <Prospects list={list} onOpen={setOpenId} /> : null}
+        {tab === 'list' ? <Prospects list={list} onOpen={setOpenId} view={pview} setView={setPview} /> : null}
       </section>
       <section id="fnd-view-cleanup" hidden={tab !== 'cleanup'}>
         {tab === 'cleanup' ? <Cleanup onOpen={setOpenId} /> : null}
@@ -381,10 +394,19 @@ function App({ signedName, onLock }: { signedName: string; onLock: () => void })
 }
 
 /* ------------------------------------------------------------------ prospects */
-function Prospects({ list, onOpen }: { list: any[]; onOpen: (id: string) => void }) {
-  const [filter, setFilter] = useState('all');
-  const [sort, setSort] = useState<Sort>({ col: 'contacts', dir: 'desc' });
-  const [page, setPage] = useState(1);
+/** The list's filter, sort and page. They live above the list so a search (which swaps the list for its results) and a tab change keep them, as the classic page does. */
+interface ProspectView {
+  filter: string;
+  sort: Sort;
+  page: number;
+}
+const FIRST_VIEW: ProspectView = { filter: 'all', sort: { col: 'contacts', dir: 'desc' }, page: 1 };
+
+function Prospects({ list, onOpen, view, setView }: { list: any[]; onOpen: (id: string) => void; view: ProspectView; setView: (f: (v: ProspectView) => ProspectView) => void }) {
+  const { filter, sort, page } = view;
+  const setFilter = (f: string) => setView((v) => ({ ...v, filter: f }));
+  const setSort = (s: Sort) => setView((v) => ({ ...v, sort: s }));
+  const setPage = (p: number) => setView((v) => ({ ...v, page: p }));
   const [size, setSize] = usePageSize('fnd-prospects', 50);
   useListKeys('fnd-prospects');
   const cols: Column<any>[] = useMemo(
