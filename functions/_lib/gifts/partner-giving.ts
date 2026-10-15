@@ -16,6 +16,8 @@ export interface PartnerGiving extends Giving {
   /** The household key: the smaller record id of a linked couple, else the record's own id. */
   household: string;
   members: Member[];
+  /** Each member's own credited giving by the same rule (one record, not the pair). Set only when the household has two or more records. */
+  byMember?: { id: string; giving: Giving }[];
 }
 
 const NAME = `COALESCE(NULLIF(organization_name, ''), json_extract(raw_json, '$.name'), trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')))`;
@@ -94,7 +96,9 @@ export async function partnerGiving(q: MirrorQ, id: string, asOf = todayEt()): P
   const rows = await giftRowsOf(q, ids);
   const via = rows.filter((g) => !members.has(g.giver) && g.soft).map((g) => g.giver);
   const names = await throughNames(q, via);
-  return { id, household: hh.household, members: hh.members, ...givingOf(rows, members, names, asOf) };
+  const out: PartnerGiving = { id, household: hh.household, members: hh.members, ...givingOf(rows, members, names, asOf) };
+  if (ids.length > 1) out.byMember = ids.map((m) => ({ id: m, giving: givingOf(rows, new Set([m]), names, asOf) }));
+  return out;
 }
 
 /**

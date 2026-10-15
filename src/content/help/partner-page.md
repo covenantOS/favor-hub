@@ -7,7 +7,7 @@ for: [admin, rdd, pc, ce, grants, leader]
 related: [work-center, search]
 tool: /work/partner/
 toolLabel: Find a partner
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 ## Open a partner
@@ -22,7 +22,7 @@ The four figures below are lifetime giving, this year (with the last 12 months),
 
 - A gift sent through a donor-advised fund (DAF), a foundation or a business and soft-credited to the partner counts for the partner. A partner who gives only through National Christian Foundation shows every one of those gifts, and the line under the figures reads "All through National Christian Foundation (DAF)".
 - The DAF or foundation does not count those gifts as its own. Its page shows them as gifts it passed on for others.
-- A partner and the spouse linked to them in Blackbaud are one household, so either page shows the gifts of both, once.
+- A partner and the spouse linked to them in Blackbaud are one household, so either page shows the gifts of both, once. Household giving, under the figures, lists each person's lifetime, this year, last 12 months and last gift. When a gift is soft-credited to both spouses, the line "Credited to both, counted once" shows the amount taken off so the household total counts that gift one time. The table below it gives each year for each person and for the household.
 - Active means a gift in the last 12 months. LYBUNT means the last gift was 12 to 24 months ago. Lapsed means more than 24 months. A major partner has given one gift of $1,000 or more.
 
 A word with a dotted underline, such as Soft credit, DAF or LYBUNT, shows what it means when you point at it or tap it. In Giving by year, the shaded part of a bar is giving that came through a DAF, foundation or business.

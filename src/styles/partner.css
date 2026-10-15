@@ -306,3 +306,16 @@ html.pp-locked, html.pp-locked body { overflow: hidden; }
 .pp-chartkey s { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--h-brand) 40%, #fff) 0 4px, color-mix(in srgb, var(--h-brand) 55%, #fff) 4px 8px); }
 @media (max-width: 720px) { .pp-givenote { margin: 8px 18px 0; } }
 .pp-missed { color: #a3341f; font-weight: 600; }
+
+/* Household giving */
+.pp-hh__scroll { overflow-x: auto; }
+.pp-hh__t { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pp-hh__t + .pp-hh__scroll, .pp-hh__scroll + .pp-hh__scroll { margin-top: 14px; }
+.pp-hh__t th, .pp-hh__t td { padding: 8px 10px; border-bottom: 1px solid var(--h-line); text-align: right; white-space: nowrap; }
+.pp-hh__t thead th { font: 600 12px var(--h-font); color: var(--h-ink-3); }
+.pp-hh__t th:first-child, .pp-hh__t td:first-child { text-align: left; padding-left: 0; }
+.pp-hh__t tbody th { font-weight: 500; }
+.pp-hh__t tbody th small { display: block; font-size: 12px; color: var(--h-ink-3); font-weight: 400; }
+.pp-hh__t tfoot th, .pp-hh__t tfoot td { font-weight: 700; border-top: 2px solid var(--h-line); border-bottom: 0; }
+.pp-hh__adj th, .pp-hh__adj td { color: var(--h-ink-3); font-size: 13px; }
+@media (max-width: 720px) { .pp-hh__t th, .pp-hh__t td { padding: 8px 6px; font-size: 13px; } }
