@@ -40,7 +40,7 @@ export interface Sub {
 export interface SettingsAnswer {
   area: string;
   settings: Setting[];
-  extras: Partial<WorkExtras> & { overrides?: Sub[] };
+  extras: Partial<WorkExtras> & { overrides?: Sub[]; directory?: { people: Array<{ email: string; name: string; team: string; title: string }>; teams: string[] } };
 }
 
 export const settingsQuery = (area: string) =>

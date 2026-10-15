@@ -109,7 +109,7 @@ export function PopLayer({ e, root }: { e: ChatEngine; root: React.RefObject<HTM
     const m = e.findMsg(p.id);
     if (!m || m.deleted) return null;
     return (
-      <div ref={ref} className={cls('ch-pop--menu ch-pop--more')} role="menu" style={style}>
+      <div key="more" ref={ref} className={cls('ch-pop--menu ch-pop--more')} role="menu" style={style}>
         {msgActions(e, m).map((a) => (
           <button key={a[0]} type="button" className={'ch-pop__i ch-pop__i--line' + (a[3] ? ' is-danger' : '')} role="menuitem" data-act={a[0]} onClick={() => runAction(e, a[0], m, a[4])}>
             <Ic n={a[1]} />
@@ -120,7 +120,7 @@ export function PopLayer({ e, root }: { e: ChatEngine; root: React.RefObject<HTM
     );
   }
   if (p.kind === 'emoji') {
-    if (W.FavorChatEmoji) return <div ref={(el) => { ref.current = el; emo.current = el; }} className={cls('ch-pop--emo')} role="menu" style={style} />;
+    if (W.FavorChatEmoji) return <div key="emo" ref={(el) => { ref.current = el; emo.current = el; }} className={cls('ch-pop--emo')} role="menu" style={style} />;
     return (
       <div ref={ref} className={cls('ch-pop--emoji')} role="menu" style={style}>
         {EMOJI.map((em) => (

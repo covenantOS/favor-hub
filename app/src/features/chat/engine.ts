@@ -7,6 +7,7 @@ import { hubOv } from '@/lib/hubOv';
 import { chatApi } from './api';
 import { mentionsMe, plain, type J, type Names } from './fmt';
 import { ChatSocket, type Ev } from './socket';
+import { emitLive } from './live';
 
 type Scope = 'main' | 'thread';
 type Tok = ReturnType<typeof hubOv.on>;
@@ -1294,6 +1295,8 @@ export class ChatEngine {
   /* ---------------------------------------------------------------- live events */
   onEvent = (ev: Ev) => {
     const S = this.S;
+    // The Chat page's own socket also feeds the helper scripts (huddle rings).
+    if (!this.dock) emitLive(ev);
     if (!S.me && ev.type !== 'conn') return;
     if (ev.type === 'message') this.addMessage(ev.message, ev.message.user_id === S.me.id);
     else if (ev.type === 'edit') this.patchMessage(ev.message);

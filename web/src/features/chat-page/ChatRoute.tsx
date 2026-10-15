@@ -13,6 +13,7 @@ import '@hub/styles/lint-fix.css';
 import '@hub/styles/chat2.css';
 import '@hub/styles/break-ui.css';
 import '@/features/chat/chat-native.css';
+import '@/features/chat/live';
 import { CHAT_BOOT_HTML } from './bootHtml';
 
 const ChatPage = lazy(() => import('@/features/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
