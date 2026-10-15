@@ -29,7 +29,8 @@ for (const h of hub) {
   }
   for (const m of h.match(/<script[^>]+src="[^"]+"[^>]*>/g) || []) {
     const src = /src="([^"]+)"/.exec(m)?.[1];
-    if (!src || !src.startsWith('/js/') || NATIVE.test(src)) continue;
+    // A tag a script writes (App.astro's document.write of "/js/' + f + '") is not a file; its quotes and plus signs give it away.
+    if (!src || !src.startsWith('/js/') || NATIVE.test(src) || /['+\s]/.test(src)) continue;
     const clean = src.replace(/[?&]b=\d+/, '');
     if (!js.has(clean)) js.set(clean, { n: 0, at: order++ });
     js.get(clean).n++;

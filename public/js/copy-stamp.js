@@ -38,6 +38,7 @@
       return;
     }
     el.textContent = t.label;
+    el.dataset.at = at; // the composer's Source line reads it (compose.js)
     el.classList.toggle('is-old', t.old);
     el.title = t.old
       ? 'The Blackbaud copy has not finished a full sync in over 26 hours, so these numbers may be behind.'

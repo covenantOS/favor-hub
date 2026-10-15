@@ -11,7 +11,8 @@ document.addEventListener('dragstart', (e) => {
   if (!card || !e.dataTransfer) return;
   const clip = rows.find((c) => c.id === card.dataset.id);
   if (!clip) return;
-  e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(emailItem(clip)));
+  if (window.FavorCompose && window.FavorCompose.dragStart) window.FavorCompose.dragStart(e, emailItem(clip));
+  else e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(emailItem(clip)));
   e.dataTransfer.setData('text/uri-list', linkFor(clip.id));
   e.dataTransfer.setData('text/plain', linkFor(clip.id));
   e.dataTransfer.effectAllowed = 'copy';
@@ -310,7 +311,7 @@ function wire() {
     if (btn.dataset.act === 'share') return openShare(clip.id, { onChange: ({ level }) => { clip.level = level; clip.share = level === 'public' ? 1 : 0; clip.staff_link = level === 'staff' ? 1 : 0; paint(); } });
     if (btn.dataset.act === 'copy') toast((await copyText(linkFor(clip.id))) ? 'Link copied' : 'Could not copy the link');
     if (btn.dataset.act === 'email' && window.FavorCompose) {
-      await window.FavorCompose.add(emailItem(clip));
+      await window.FavorCompose.add(emailItem(clip), { anchor: btn, from: card });
       if (!clip.share) toast('People outside FavorOS need "Anyone with the link" on to watch it');
     }
     if (btn.dataset.act === 'lesson') {

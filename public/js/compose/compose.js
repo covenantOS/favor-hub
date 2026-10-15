@@ -13,13 +13,19 @@
    Send later uses the Scheduled list (/api/mail/later).
 
    Drop onto a window: files from the computer attach; FavorOS items (dataTransfer 'application/x-favoros-item', JSON
-   {kind, title, url, text, html, rows:{columns, rows}, csv:{name, url}, partner, mayShare}) go in as clean email HTML.
-   FavorCompose.add(item) does the same for a "Send to email" button. */
+   {kind, title, url, text, html, rows:{columns, rows, title}, csv:{name, url}, headline:{value, label}, asOf, partner, mayShare})
+   go in as clean email HTML. Dropped onto any other text box in FavorOS, an item goes in as plain text.
+   FavorCompose.add(item, {anchor, from}) does the same for a "Send to email" button: with no draft open it starts a new email;
+   with drafts open it asks which one, New email first. A new email from a page on a wide screen opens side by side with the page.
+
+   Where the signature lives: under the message, folded to one small line, and added to the HTML only when the draft is saved or
+   sent (collect). The editor holds only what the person writes. */
 (function () {
   'use strict';
   if (window.FavorCompose) return;
 
-  var CSS_HREF = '/js/compose/compose.css?v=2';
+  var CSS_HREF = '/js/compose/compose.css?v=3';
+  var SIDE_MIN = 1280;
   var HOLD_MS = 15000;
   var MAX_FILES = 24 * 1048576;
   var MAX_OPEN = 3;
@@ -74,6 +80,9 @@
     chev: '<path d="m6 9 6 6 6-6"/>',
     reply: '<path d="M10 8 5 12.5l5 4.5"/><path d="M5 12.5h9a5 5 0 0 1 5 5V19"/>',
     fwd: '<path d="m14 8 5 4.5-5 4.5"/><path d="M19 12.5h-9a5 5 0 0 0-5 5V19"/>',
+    side: '<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M13 4v16"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   };
   var ic = function (n) { return '<svg class="fc-i" viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; };
   var size = function (n) { n = Number(n) || 0; return n < 1024 ? n + ' B' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; };
@@ -195,15 +204,17 @@
     });
     return cssP;
   }
-  var layer = null, dockRow = null, toastEl = null, dropEl = null;
+  var layer = null, dockRow = null, tabsEl = null, toastEl = null, dropEl = null;
   function ensureLayer() {
     if (layer && layer.isConnected) return layer;
     if (layer && document.body) { document.body.appendChild(layer); return layer; }
     layer = document.createElement('div');
     layer.className = 'fc-layer';
-    layer.innerHTML = '<div class="fc-dockrow" data-fc-dock></div><div class="fc-toast" role="status" aria-live="polite" hidden></div><div class="fc-dropstart" hidden>' + ic('mail') + '<span>Drop here to start an email</span></div>';
+    // The dock row runs right to left: the minimized drafts' stack sits in the corner, open windows to its left.
+    layer.innerHTML = '<div class="fc-dockrow" data-fc-dock><div class="fc-tabs" data-fc-tabs></div></div><div class="fc-toast" role="status" aria-live="polite" hidden></div><div class="fc-dropstart" hidden>' + ic('mail') + '<span>Drop here to start an email</span></div>';
     document.body.appendChild(layer);
     dockRow = $('[data-fc-dock]', layer);
+    tabsEl = $('[data-fc-tabs]', layer);
     toastEl = $('.fc-toast', layer);
     dropEl = $('.fc-dropstart', layer);
     wireDropStart();
@@ -254,6 +265,7 @@
       body: ed ? ed.innerHTML : w.o.body || '', quote: (q ? q.innerHTML : w.o.quote || '').slice(0, 200000), quoteOpen: !!w.quoteOpen,
       threadId: w.o.threadId || '', replyTo: w.o.replyTo || '', draftId: w.draftId || '', mb: w.mb || '', from: w.from || '',
       dirty: !!w.dirty, forward: w.forward || [], fileMeta: (w.files || []).map(function (f) { return { name: f.name, size: f.size }; }), at: Date.now(),
+      sig: w.sig || '', sigOn: w.sigOn !== false, side: !!w.side, sideHome: !!w.sideHome, kind: w.o.kind || '',
     };
   }
   function chips(w, k) {
@@ -261,9 +273,39 @@
     return $$('[data-fc-field="' + k + '"] .fc-chip', w.el).map(function (x) { return { email: x.dataset.email, name: x.dataset.name || '' }; });
   }
   function byId(id) { for (var i = 0; i < WINS.length; i++) if (WINS[i].id === id) return WINS[i]; return null; }
+  // The subject without its Re: or Fwd:, for the window's title.
   function titleOf(w) {
-    var s = w.el ? $('[data-fc-subj]', w.el).value.trim() : '';
-    return s || w.o.title || 'New message';
+    var s = w.el ? $('[data-fc-subj]', w.el).value.trim() : String(w.o.subject || '').trim();
+    s = s.replace(/^((re|fwd?|fw)\s*:\s*)+/i, '');
+    return s || (isReply(w.o) || isFwd(w.o) ? 'No subject' : 'New email');
+  }
+  function isFwd(o) { return o.kind === 'fwd' || o.title === 'Forward' || /^fwd?:/i.test(o.subject || ''); }
+  function isReply(o) { return !!o.threadId && !isFwd(o); }
+  // What the window is, said before its subject: "Reply", "Forward", "Draft" or "New email".
+  function kindOf(w) {
+    var o = w.o;
+    if (isFwd(o)) return 'Forward';
+    if (isReply(o)) return o.title === 'Reply all' ? 'Reply all' : 'Reply';
+    if (o.title === 'Draft') return 'Draft';
+    return 'New email';
+  }
+  function sigHtml(w) { return w.sig && w.sigOn !== false ? '<div><br></div><div class="gmail_signature" data-sig>' + w.sig + '</div>' : ''; }
+  // A body that already carries a signature (a Gmail draft, an older copy in this browser): the signature comes out of the text
+  // and goes under it, folded.
+  function splitSig(html) {
+    if (!html || !/gmail_signature|data-sig/.test(html)) return { body: html, sig: '' };
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    var s = box.querySelector('.gmail_signature, [data-sig]');
+    if (!s || s.closest('.gmail_quote, blockquote')) return { body: html, sig: '' };
+    var sig = s.innerHTML;
+    // The blank lines Gmail and Mail put above a signature go with it.
+    var prev = s.previousSibling;
+    s.remove();
+    while (prev && ((prev.nodeType === 3 && !prev.textContent.trim()) || (prev.nodeType === 1 && /^(BR|DIV|P)$/.test(prev.nodeName) && !prev.textContent.trim() && !prev.querySelector('img,table,a')))) {
+      var p = prev.previousSibling; prev.remove(); prev = p;
+    }
+    return { body: box.innerHTML, sig: sig };
   }
 
   function chipHtml(a) { return '<span class="fc-chip" data-email="' + esc(a.email) + '" data-name="' + esc(a.name || '') + '" title="' + esc(a.email) + '">' + esc(a.name || a.email) + '<button type="button" data-fc-unchip aria-label="Remove ' + esc(a.name || a.email) + '">' + ic('x') + '</button></span>'; }
@@ -286,18 +328,20 @@
 
   function build(w) {
     var o = w.o;
-    var reply = !!o.threadId && !/^fwd/i.test(o.subject || '');
-    var sig = !o.noSig && CTX && CTX.signature ? '<div><br></div><div class="gmail_signature" data-sig>' + CTX.signature + '</div>' : '';
+    var reply = isReply(o) || isFwd(o);
     var el = document.createElement('section');
     el.className = 'fc-win';
     el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-label', o.title || 'New message');
+    el.setAttribute('aria-label', kindOf(w) + ': ' + titleOf(w));
     el.setAttribute('data-brain-context', 'mail');
     el.dataset.id = w.id;
+    var body = o.body != null && o.body !== '' ? o.body : '<div><br></div>';
+    var sigOff = w.sigOn === false;
     el.innerHTML = (
       '<header class="fc-head" data-fc-drag>' +
-        '<button type="button" class="fc-head__t" data-fc-c="toggle-min" aria-label="Minimize or restore"><b data-fc-title>' + esc(o.title || 'New message') + '</b><span class="fc-saved" data-fc-saved></span></button>' +
+        '<button type="button" class="fc-head__t" data-fc-c="toggle-min" aria-label="Minimize or restore"><span class="fc-kind" data-fc-kind>' + esc(kindOf(w)) + '</span><b data-fc-title>' + esc(titleOf(w)) + '</b><span class="fc-saved" data-fc-saved></span></button>' +
         '<span class="fc-head__acts">' +
+          '<button type="button" class="fc-ib fc-only-float fc-wide" data-fc-c="side" aria-label="Side by side" title="Side by side with the page">' + ic('side') + '</button>' +
           '<button type="button" class="fc-ib fc-only-float" data-fc-c="min" aria-label="Minimize" title="Minimize">' + ic('min') + '</button>' +
           '<button type="button" class="fc-ib fc-only-inline" data-fc-c="pop" aria-label="Pop out" title="Pop out (Shift click Reply opens popped out)">' + ic('pop') + '</button>' +
           '<button type="button" class="fc-ib fc-only-free" data-fc-c="dock" aria-label="Dock at the bottom" title="Dock at the bottom">' + ic('dock') + '</button>' +
@@ -309,34 +353,35 @@
       '</header>' +
       '<div class="fc-scroll" data-fc-scroll>' +
         '<div class="fc-fields' + (reply ? ' is-reply' : '') + '">' +
-          (reply ? '<button type="button" class="fc-sum" data-fc-c="fields">' + ic(o.title === 'Forward' ? 'fwd' : 'reply') + '<span class="fc-sum__t" data-fc-sum></span></button>' : '') +
+          (reply ? '<button type="button" class="fc-sum" data-fc-c="fields">' + ic(isFwd(o) ? 'fwd' : 'reply') + '<span class="fc-sum__t" data-fc-sum></span></button>' : '') +
           '<div class="fc-fields__all">' +
             fromRow(w) +
-            addrRow('to', 'To', o.to, '<button type="button" class="fc-ccb" data-fc-c="cc" tabindex="-1" title="Add Cc and Bcc"' + (w.showCc ? ' hidden' : '') + '>Cc Bcc</button>') +
+            addrRow('to', 'To', o.to, '<button type="button" class="fc-ccb" data-fc-c="cc" title="Add Cc and Bcc"' + (w.showCc ? ' hidden' : '') + '>Cc Bcc</button>') +
             '<div class="fc-cc"' + (w.showCc ? '' : ' hidden') + '>' + addrRow('cc', 'Cc', o.cc) + addrRow('bcc', 'Bcc', o.bcc) + '</div>' +
-            '<div class="fc-row fc-row--subj"' + (reply ? ' hidden' : '') + '><label for="fc-subj-%ID%">Subject</label><input id="fc-subj-%ID%" class="fc-in fc-subj" maxlength="900" data-fc-subj value="' + esc(o.subject || '') + '" /></div>' +
+            '<div class="fc-row fc-row--subj"><label for="fc-subj-%ID%">Subject</label><input id="fc-subj-%ID%" class="fc-in fc-subj" maxlength="900" data-fc-subj value="' + esc(o.subject || '') + '" /></div>' +
           '</div>' +
         '</div>' +
-        '<div class="fc-ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" data-fc-ed data-brain-context="mail">' + (o.body != null && o.body !== '' ? o.body : '<div><br></div>' + sig) + '</div>' +
+        '<div class="fc-ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" data-fc-ed data-brain-context="mail">' + body + '</div>' +
+        '<div class="fc-sig' + (sigOff ? ' is-off' : '') + '" data-fc-sigbox' + (w.sig ? '' : ' hidden') + '>' +
+          '<button type="button" class="fc-sig__t" data-fc-c="sig" aria-expanded="false" title="Show the signature">' + ic('more') + '<span data-fc-sigt>' + (sigOff ? 'Signature off' : 'Signature') + '</span></button>' +
+          '<div class="fc-sig__body" data-fc-sigbody hidden><div class="fc-sig__view" data-fc-sigview>' + (w.sig || '') + '</div><button type="button" class="fc-sig__off" data-fc-c="sigoff">' + (sigOff ? 'Put it back' : 'Leave it off') + '</button></div>' +
+        '</div>' +
         (o.quote ? '<button type="button" class="fc-trim" data-fc-c="quote" aria-expanded="' + (w.quoteOpen ? 'true' : 'false') + '" aria-label="Show the earlier message" title="Show the earlier message">' + ic('more') + '</button><div class="fc-q" data-fc-q contenteditable="true"' + (w.quoteOpen ? '' : ' hidden') + '>' + o.quote + '</div>' : '') +
         '<div class="fc-files" data-fc-files></div>' +
       '</div>' +
       '<footer class="fc-tools">' +
         '<span class="fc-sendgrp"><button type="button" class="fc-send" data-fc-c="send" title="Send (Ctrl Enter)">Send</button><button type="button" class="fc-send fc-send__more" data-fc-c="later" aria-label="Send later" title="Send later">' + ic('chev') + '</button></span>' +
-        '<span class="fc-tgrp fc-fmt">' +
+        '<span class="fc-tgrp fc-fmt" role="group" aria-label="Formatting">' +
           '<button type="button" class="fc-ib" data-fc-fmt="bold" aria-label="Bold" title="Bold (Ctrl B)">' + ic('bold') + '</button>' +
           '<button type="button" class="fc-ib" data-fc-fmt="italic" aria-label="Italic" title="Italic (Ctrl I)">' + ic('ital') + '</button>' +
           '<button type="button" class="fc-ib" data-fc-fmt="underline" aria-label="Underline" title="Underline (Ctrl U)">' + ic('under') + '</button>' +
           '<button type="button" class="fc-ib" data-fc-fmt="link" aria-label="Link" title="Link (Ctrl K)">' + ic('link') + '</button>' +
-          '<button type="button" class="fc-ib" data-fc-fmt="insertUnorderedList" aria-label="Bulleted list" title="Bulleted list">' + ic('list') + '</button>' +
-          '<button type="button" class="fc-ib fc-dt" data-fc-fmt="insertOrderedList" aria-label="Numbered list" title="Numbered list">' + ic('olist') + '</button>' +
+          '<button type="button" class="fc-ib" data-fc-fmt="insertUnorderedList" aria-label="Bulleted list" title="Bulleted list (Ctrl Shift 8)">' + ic('list') + '</button>' +
+          '<button type="button" class="fc-ib fc-dt" data-fc-fmt="insertOrderedList" aria-label="Numbered list" title="Numbered list (Ctrl Shift 7)">' + ic('olist') + '</button>' +
         '</span>' +
-        '<span class="fc-tgrp">' +
+        '<span class="fc-tgrp" role="group" aria-label="Add to the email">' +
           '<button type="button" class="fc-ib" data-fc-c="attach" aria-label="Attach files" title="Attach files (or drop them here)">' + ic('clip') + '</button>' +
-          '<button type="button" class="fc-ib" data-fc-c="drive" aria-label="Link a Drive file" title="Link a Drive file">' + ic('drive') + '</button>' +
-          '<button type="button" class="fc-ib" data-fc-c="clips" aria-label="Link a clip" title="Link a clip">' + ic('rec') + '</button>' +
-          '<button type="button" class="fc-ib" data-fc-c="photos" aria-label="Photos from Drive" title="Photos from the Drive library">' + ic('image') + '</button>' +
-          '<button type="button" class="fc-ib" data-fc-c="templates" aria-label="Templates" title="Templates">' + ic('draft') + '</button>' +
+          '<button type="button" class="fc-ib fc-ib--txt" data-fc-c="insert" aria-label="Insert a Drive file, photo, clip or template" title="Insert a Drive file, photo, clip or template" aria-haspopup="menu">' + ic('plus') + '<span>Insert</span></button>' +
         '</span>' +
         '<span class="fc-grow"></span>' +
         '<button type="button" class="fc-ib" data-fc-c="discard" aria-label="Discard draft" title="Discard draft">' + ic('trash') + '</button>' +
@@ -358,51 +403,96 @@
     s.textContent = all.length ? all.map(function (a) { return a.name || a.email; }).join(', ') : 'Add who it goes to';
   }
 
-  /* Places a window where its mode says: inline in its host, in the dock row, free on the page, or full screen. */
+  /* Places a window where its mode says: inline in its host, in the dock row, side by side with the page, free on the page, in the
+     stack of minimized drafts, or full screen. */
+  // A panel the page keeps at the right edge (a task or request drawer): the composer docks to its left instead of covering it.
+  var RP = null;
+  // Mail has its own three panes: there a window docks at the bottom right as before.
+  var inMail = function () { return (document.body && document.body.dataset.nav === 'mail') || /^\/mail(\/|$)/.test(location.pathname); };
+  var sideOk = function () { return !isPhone() && innerWidth >= SIDE_MIN && !RP && !inMail(); };
+  function fixedOf(el) {
+    for (var n = el, k = 0; n && n.nodeType === 1 && n !== document.body && k < 10; n = n.parentElement, k++) if (getComputedStyle(n).position === 'fixed') return n;
+    return null;
+  }
+  function rightPanel() {
+    if (isPhone() || !document.elementsFromPoint) return null;
+    var vw = document.documentElement.clientWidth || innerWidth;
+    var els = document.elementsFromPoint(vw - 40, Math.round(innerHeight * 0.55));
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (layer && layer.contains(el)) continue;
+      if (el === document.body || el === document.documentElement) break;
+      if (!fixedOf(el)) continue;
+      // The drawer is the first box up from here shaped like one (it may sit inside a full-screen fixed frame).
+      for (var a = el, k = 0; a && a.nodeType === 1 && a !== document.body && k < 12; a = a.parentElement, k++) {
+        var r = a.getBoundingClientRect();
+        if (r.right >= vw - 40 && r.width > 200 && r.width < vw * 0.7 && r.height > innerHeight * 0.5) return r;
+      }
+    }
+    return null;
+  }
   function place(w) {
     var el = w.el;
     el.dataset.mode = w.mode;
-    var tt = $('[data-fc-title]', el);
-    if (tt) tt.textContent = w.mode === 'inline' ? (w.o.title || 'Reply') : titleOf(w);
+    var tt = $('[data-fc-title]', el); if (tt) tt.textContent = titleOf(w);
+    var kk = $('[data-fc-kind]', el); if (kk) kk.textContent = kindOf(w);
+    var side = w.mode === 'float' && !!w.side && !w.free && sideOk();
+    el.classList.toggle('is-side', side);
     el.classList.toggle('is-free', w.mode === 'float' && !!w.free);
-    el.classList.toggle('is-docked', w.mode === 'float' && !w.free);
+    el.classList.toggle('is-docked', w.mode === 'float' && !w.free && !side);
+    var sb = $('[data-fc-c="side"]', el);
+    if (sb) { sb.innerHTML = ic(side ? 'dock' : 'side'); sb.setAttribute('aria-label', side ? 'Dock at the bottom' : 'Side by side'); sb.title = side ? 'Dock at the bottom' : 'Side by side with the page'; }
     if (w.mode === 'inline') {
       if (el.parentNode !== w.host) w.host.appendChild(el);
       w.host.classList.add('has-c');
       el.style.left = el.style.top = el.style.width = el.style.height = '';
     } else {
       ensureLayer();
+      var after = tabsEl.nextSibling;
       // Full screen and free windows are position: fixed, so they stay where they are in the layer: moving a node that holds the
       // caret while the pointer drags it crashed Edge's renderer.
-      if (w.mode === 'full') { if (!layer.contains(el)) dockRow.insertBefore(el, dockRow.firstChild); el.style.left = el.style.top = el.style.width = el.style.height = ''; }
+      if (w.mode === 'full') { if (!layer.contains(el) || el.parentNode === tabsEl) dockRow.insertBefore(el, after); el.style.left = el.style.top = el.style.width = el.style.height = ''; }
       else if (w.mode === 'float' && w.free && !isPhone()) {
-        if (!layer.contains(el)) dockRow.insertBefore(el, dockRow.firstChild);
+        if (!layer.contains(el) || el.parentNode === tabsEl) dockRow.insertBefore(el, after);
         var f = w.free;
         f.w = clamp(f.w, 360, innerWidth - 16); f.h = clamp(f.h, 260, innerHeight - 16);
         f.x = clamp(f.x, 8, innerWidth - f.w - 8); f.y = clamp(f.y, 8, innerHeight - f.h - 8);
         el.style.left = f.x + 'px'; el.style.top = f.y + 'px'; el.style.width = f.w + 'px'; el.style.height = f.h + 'px';
+      } else if (w.mode === 'min') {
+        if (el.parentNode !== tabsEl) tabsEl.appendChild(el);
+        el.style.left = el.style.top = el.style.width = el.style.height = '';
       } else {
-        if (el.parentNode !== dockRow) dockRow.insertBefore(el, dockRow.firstChild);
+        if (el.parentNode !== dockRow) dockRow.insertBefore(el, after);
         el.style.left = el.style.top = '';
-        el.style.width = w.dockW ? w.dockW + 'px' : ''; el.style.height = w.dockH && w.mode === 'float' ? w.dockH + 'px' : '';
+        el.style.width = !side && w.dockW ? w.dockW + 'px' : '';
+        el.style.height = !side && w.dockH && w.mode === 'float' ? w.dockH + 'px' : '';
       }
       if (w.oldHost) { w.oldHost.classList.remove('has-c'); w.oldHost = null; }
     }
     var sc = layer && layer.querySelector('.fc-win[data-mode="full"]');
     document.documentElement.classList.toggle('fc-has-full', !!sc);
+    sideLayout();
     tidyDock();
     cover();
+    lift();
+  }
+  // One window at a time sits side by side with the page; the page gives it room (html.fc-side, compose.css).
+  function sideLayout() {
+    var on = sideOk() && WINS.some(function (x) { return !x.gone && x.mode === 'float' && x.side && !x.free; });
+    var root = document.documentElement;
+    if (on) root.style.setProperty('--fc-side-w', Math.round(clamp(innerWidth * 0.38, 460, 640)) + 'px');
+    root.classList.toggle('fc-side', on);
   }
   // Too many open windows for the width: the oldest open ones fold to tabs, as in Gmail.
   function tidyDock() {
     if (!dockRow || isPhone()) return;
-    var open = WINS.filter(function (w) { return w.mode === 'float' && !w.free && !w.gone; });
-    var room = Math.max(1, Math.floor((innerWidth - 120) / 560));
-    var keep = Math.min(MAX_OPEN, room);
-    open.sort(function (a, b) { return (b.touched || 0) - (a.touched || 0); });
-    open.slice(keep).forEach(function (w) { w.mode = 'min'; w.el.dataset.mode = 'min'; });
+    var shown = WINS.filter(function (w) { return w.mode === 'float' && !w.free && !w.gone && !(w.side && sideOk()); });
+    var room = Math.max(1, Math.floor((innerWidth - 120 - (document.documentElement.classList.contains('fc-side') ? innerWidth * 0.38 : 0)) / 560));
+    // With a window beside the page, other open windows wait as tabs under it, so nothing sits over the page.
+    var keep = document.documentElement.classList.contains('fc-side') ? 0 : Math.min(MAX_OPEN, room);
+    shown.sort(function (a, b) { return (b.touched || 0) - (a.touched || 0); });
+    shown.slice(keep).forEach(function (w) { w.mode = 'min'; w.el.dataset.mode = 'min'; if (w.el.parentNode !== tabsEl) tabsEl.appendChild(w.el); w.el.classList.remove('is-docked'); });
   }
-  // How much of the bottom right the docked windows cover, so Mail's reading pane can scroll its last line above them.
   // On a phone, what sits at the bottom of the screen (the tab bar, Mail's action bar), so the pill and the toast sit above it.
   function phoneBottom() {
     if (!layer || !isPhone()) return;
@@ -414,11 +504,68 @@
     });
     layer.style.setProperty('--fc-pill-b', Math.round(b) + 'px');
   }
+  // How much of the bottom right the docked windows cover, so Mail's reading pane can scroll its last line above them.
   function cover() {
     phoneBottom();
     var h = 0;
-    if (!isPhone()) WINS.forEach(function (w) { if (!w.gone && w.el && (w.mode === 'float' || w.mode === 'min') && !w.free && w.el.isConnected) h = Math.max(h, w.el.getBoundingClientRect().height); });
+    if (!isPhone() && dockRow) {
+      WINS.forEach(function (w) { if (!w.gone && w.el && w.mode === 'float' && !w.free && !w.side && w.el.isConnected) h = Math.max(h, w.el.getBoundingClientRect().height); });
+      if (tabsEl && tabsEl.childNodes.length) h = Math.max(h, tabsEl.getBoundingClientRect().height);
+    }
     document.documentElement.style.setProperty('--fc-cover', Math.round(h) + 'px');
+    document.documentElement.style.setProperty('--fc-tabs-h', tabsEl && tabsEl.childNodes.length ? Math.round(tabsEl.getBoundingClientRect().height) + 'px' : '0px');
+  }
+  /* The dock row never sits on a text box at the bottom of the page (the Brain's ask bar, Chat's message box): it rises above it.
+     An open Favor Brain dock panel keeps its place: the row moves to its left. */
+  var liftF = 0, liftPx = -1, rightPx = -1;
+  function lift() { cancelAnimationFrame(liftF); liftF = requestAnimationFrame(liftNow); }
+  function fixedUp(el) {
+    for (var n = el, k = 0; n && n !== document.body && k < 12; n = n.parentElement, k++) { var p = getComputedStyle(n).position; if (p === 'fixed' || p === 'sticky') return true; }
+    return false;
+  }
+  function liftNow() {
+    if (!layer || !dockRow) return;
+    var need = 0, right = 0;
+    var any = WINS.some(function (w) { return !w.gone && w.mode !== 'inline' && w.mode !== 'full' && !w.free; });
+    var phone = isPhone();
+    // On a phone the minimized draft is a pill across the screen: it rises above a text box at the bottom the same way.
+    if (phone && WINS.some(function (w) { return !w.gone && w.mode === 'min'; })) {
+      $$('textarea, input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), [contenteditable="true"]').forEach(function (el) {
+        if (layer.contains(el)) return;
+        var box = el.closest('form, .bc-compose, [data-fc-avoid]') || el;
+        var r = box.getBoundingClientRect();
+        if (!r.width || !r.height || r.bottom < innerHeight - 200 || r.top > innerHeight || !fixedUp(box) && (document.scrollingElement || document.documentElement).scrollHeight > innerHeight + 2) return;
+        need = Math.max(need, innerHeight - r.top + 4);
+      });
+      need = Math.round(Math.min(need, innerHeight * 0.45));
+    }
+    if (any && !phone) {
+      var dp = document.querySelector('.fd-open .fd-p:not([hidden]), #fd-p:not([hidden])');
+      if (dp && dp.offsetWidth && getComputedStyle(dp).display !== 'none') { var dr = dp.getBoundingClientRect(); if (dr.left > innerWidth / 2) right = Math.round(innerWidth - dr.left + 12); }
+      var rp = rightPanel();
+      if (rp) right = Math.max(right, Math.round(innerWidth - rp.left + 12));
+      // A drawer opened or closed at the right edge: the window beside the page docks to its left, or goes back beside the page.
+      if (!!rp !== !!RP) { RP = rp; WINS.forEach(function (w) { if (!w.gone && w.el && w.mode === 'float') place(w); }); return; }
+      RP = rp;
+      var rr = dockRow.getBoundingClientRect();
+      var left = rr.width ? rr.left : innerWidth - 400, rightEdge = rr.width ? rr.right : innerWidth;
+      var still = (document.scrollingElement || document.documentElement).scrollHeight <= innerHeight + 2;
+      $$('textarea, input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), [contenteditable="true"]').forEach(function (el) {
+        if (layer.contains(el) || (dp && dp.contains(el))) return;
+        var box = el.closest('form, .bc-compose, [data-fc-avoid]') || el;
+        var r = box.getBoundingClientRect();
+        if (!r.width || !r.height || r.bottom < innerHeight - 200 || r.top > innerHeight) return;
+        if (r.right <= left || r.left >= rightEdge) return;
+        if (!still && !fixedUp(box)) return;
+        need = Math.max(need, innerHeight - r.top + 10);
+      });
+      need = Math.round(Math.min(need, innerHeight * 0.45));
+    }
+    // Not enough width for an open window beside the stack of tabs (a drawer is open): the window sits on top of the stack.
+    var tabsW = tabsEl && tabsEl.childNodes.length ? tabsEl.offsetWidth + 12 : 0;
+    dockRow.classList.toggle('is-stack', !phone && !!tabsW && innerWidth - (right || 88) - 104 < 580 + tabsW);
+    if (need !== liftPx) { liftPx = need; document.documentElement.style.setProperty('--fc-lift', need + 'px'); }
+    if (right !== rightPx) { rightPx = right; document.documentElement.style.setProperty('--fc-right', right ? right + 'px' : ''); }
   }
 
   function setMode(w, mode, opts) {
@@ -429,6 +576,13 @@
     if (mode === 'min' && from !== 'min') w.preMin = opts.auto ? 'inline' : from === 'inline' ? 'inline' : from === 'full' ? 'full' : 'float';
     if (mode !== 'full' && from !== 'full') w.prevMode = '';
     if (mode === 'full') w.prevMode = from === 'full' ? w.prevMode : from === 'inline' ? 'float' : from;
+    // A tab opened while another window sits beside the page takes its place there; the other folds to a tab.
+    // A window that opened beside the page goes back there when its tab opens.
+    if (mode === 'float' && !w.free && !w.side && sideOk()) {
+      var sider = WINS.filter(function (x) { return x !== w && !x.gone && x.side && x.mode === 'float' && !x.free; })[0];
+      if (sider) { sider.side = false; sider.preMin = 'float'; sider.mode = 'min'; w.side = true; place(sider); }
+      else if (from === 'min' && w.sideHome) w.side = true;
+    }
     w.mode = mode;
     w.touched = Date.now();
     var keepSel = saveSel(w);
@@ -513,9 +667,24 @@
       id: o.id || uid(), o: o, mode: 'float', host: null, free: o.free || null, files: [], forward: (o.forward || []).slice(),
       draftId: o.draftId || '', mb: o.mb != null ? o.mb : (CTX && CTX.box && CTX.box !== CTX.me ? CTX.box : ''), from: o.from || '',
       showCc: !!(o.showCc || (o.cc && o.cc.length) || (o.bcc && o.bcc.length)), quoteOpen: !!o.quoteOpen, dirty: false, saveT: 0, saving: null, touched: Date.now(),
-      wasInline: !!o.wasInline,
+      wasInline: !!o.wasInline, side: !!o.side && !o.free, sideHome: !!(o.side || o.sideHome),
     };
     if (o.files) w.files = o.files.slice();
+    // The signature goes under the message, folded; the editor holds only what is written.
+    var sp = splitSig(o.body);
+    w.sig = o.sig ? o.sig : sp.sig || (!o.noSig && CTX && CTX.signature ? CTX.signature : '');
+    w.sigOn = o.sigOn !== false;
+    o.body = sp.body || '';
+    // Items (a Brain answer, a clip, a task) go under one empty line, where the caret waits for the person's own note.
+    var parts = (o.items || []).map(function (it) { return { it: it, p: itemParts(it || {}) }; });
+    parts.filter(function (x) { return x.p.refused; }).forEach(function (x) { toast(x.p.refused, { ms: 6000 }); });
+    parts = parts.filter(function (x) { return !x.p.refused; });
+    if (parts.length) {
+      var lead = o.body && o.body.replace(/<[^>]*>/g, '').trim() ? o.body : '<div><br></div>';
+      o.body = lead + parts.map(function (x) { return x.p.html; }).join('<div><br></div>') + '<div><br></div>';
+    }
+    // One window at a time sits beside the page: an earlier one goes back to the dock.
+    if (w.side) WINS.forEach(function (x) { if (x.side && !x.gone) { x.side = false; if (x.el) place(x); } });
     WINS.push(w);
     build(w);
     var want = o.mode || 'float';
@@ -526,12 +695,13 @@
     place(w);
     if (isPhone() && w.mode !== 'min') phoneOverlay(w, true);
     requestAnimationFrame(function () { requestAnimationFrame(function () { w.el.classList.remove('is-entering'); }); });
+    parts.forEach(function (x) { attachParts(w, x.p, x.it); });
     if (w.mode !== 'min' && !restoreSnap) {
-      restoreSel(w, null);
+      if (parts.length) { var ed = $('[data-fc-ed]', w.el); requestAnimationFrame(function () { if (!w.el.isConnected) return; ed.focus({ preventScroll: true }); caretStart(ed); keepRange(w); var sc = $('[data-fc-scroll]', w.el); if (sc) sc.scrollTop = 0; }); }
+      else restoreSel(w, null);
       if (w.mode === 'inline') w.el.scrollIntoView({ block: 'nearest' });
     }
-    if (o.items) o.items.forEach(function (it) { insertItem(w, it); });
-    if (o.body || o.items) { w.dirty = true; changed(w); }
+    if (o.body.replace(/<[^>]*>/g, '').trim() || parts.length) { w.dirty = true; changed(w); }
     writeStore();
     emit('open', { id: w.id, threadId: o.threadId || '', mode: w.mode });
     return w.id;
@@ -573,8 +743,12 @@
         if (w.mode === 'min') setMode(w, restoreMode(w));
         else if (w.mode === 'float' && !isPhone()) setMode(w, 'min');
       }
-      else if (c === 'pop') { w.free = null; setMode(w, 'float'); }
-      else if (c === 'dock') { w.free = null; setMode(w, 'float', { force: true }); }
+      else if (c === 'pop') { w.free = null; w.side = sideOk(); setMode(w, 'float'); }
+      else if (c === 'dock') { w.free = null; w.side = false; w.sideHome = false; setMode(w, 'float', { force: true }); }
+      else if (c === 'side') { var to = !(w.side && sideOk()); WINS.forEach(function (x) { if (x !== w) x.side = false; }); w.side = to; w.sideHome = to; w.free = null; setMode(w, 'float', { force: true }); WINS.forEach(function (x) { if (x !== w && !x.gone && x.el) place(x); }); }
+      else if (c === 'sig') { var sb = $('[data-fc-sigbody]', el), unfold = sb.hidden; sb.hidden = !unfold; b.setAttribute('aria-expanded', unfold ? 'true' : 'false'); b.title = unfold ? 'Fold the signature' : 'Show the signature'; }
+      else if (c === 'sigoff') { w.sigOn = w.sigOn === false; var box = $('[data-fc-sigbox]', el); box.classList.toggle('is-off', !w.sigOn); $('[data-fc-sigt]', el).textContent = w.sigOn ? 'Signature' : 'Signature off'; b.textContent = w.sigOn ? 'Leave it off' : 'Put it back'; changed(w); }
+      else if (c === 'insert') insertMenu(w, b);
       else if (c === 'full') setMode(w, w.mode === 'full' ? (w.prevMode || 'float') : 'full');
       else if (c === 'cc') { w.showCc = true; $('.fc-cc', el).hidden = false; b.hidden = true; $('[data-fc-addr="cc"]', el).focus(); }
       else if (c === 'fields') { el.querySelector('.fc-fields').classList.add('is-open'); var inp = $('[data-fc-addr="to"]', el); inp.focus(); }
@@ -597,7 +771,7 @@
     el.addEventListener('input', function (e) {
       var inp = e.target.closest('[data-fc-addr]');
       if (inp) { if (/[,;\s]$/.test(inp.value)) commitTyped(w, inp); else suggest(w, inp); return; }
-      if (e.target.closest('[data-fc-subj]')) { var t = $('[data-fc-title]', el); if (t && w.mode !== 'inline') t.textContent = titleOf(w); }
+      if (e.target.closest('[data-fc-subj]')) { var t = $('[data-fc-title]', el); if (t) t.textContent = titleOf(w); }
       changed(w);
     });
     el.addEventListener('change', function (e) {
@@ -744,7 +918,7 @@
   function collect(w) {
     ['to', 'cc', 'bcc'].forEach(function (k) { var inp = $('[data-fc-addr="' + k + '"]', w.el); if (inp && inp.value.trim()) commitTyped(w, inp); });
     var ed = $('[data-fc-ed]', w.el), q = $('[data-fc-q]', w.el);
-    var out = { to: chips(w, 'to'), cc: chips(w, 'cc'), bcc: chips(w, 'bcc'), subject: $('[data-fc-subj]', w.el).value, html: ed.innerHTML + (q ? q.innerHTML : ''), threadId: w.o.threadId || '', replyTo: w.o.replyTo || '', draftId: w.draftId, mb: w.mb || '' };
+    var out = { to: chips(w, 'to'), cc: chips(w, 'cc'), bcc: chips(w, 'bcc'), subject: $('[data-fc-subj]', w.el).value, html: ed.innerHTML + sigHtml(w) + (q ? q.innerHTML : ''), threadId: w.o.threadId || '', replyTo: w.o.replyTo || '', draftId: w.draftId, mb: w.mb || '' };
     if (w.from) { var p = w.from.split('|'); out.mb = CTX && p[0] === CTX.me ? '' : p[0]; out.from = p[1]; }
     return out;
   }
@@ -796,6 +970,7 @@
     var done = function () { el.remove(); if (host) host.classList.remove('has-c'); cover(); };
     if (host) { done(); } else setTimeout(done, 170);
     WINS = WINS.filter(function (x) { return x !== w; });
+    sideLayout(); lift();
     filesPut(w.id, null);
     phoneOverlay({}, false);
     writeStore();
@@ -816,7 +991,7 @@
     toast('Draft discarded', { undo: function () { gone.then(function () { snap.draftId = ''; snap.dirty = true; reopen(snap, files).then(function (id) { var x = byId(id); if (x) changed(x); }); }); }, ms: 8000 });
   }
   function reopen(snap, files) {
-    var o = Object.assign({}, snap, { id: uid(), mode: 'float', files: files || [], noSig: true, title: snap.title, kind: snap.kind });
+    var o = Object.assign({}, snap, { id: uid(), mode: 'float', files: files || [], noSig: true, title: snap.title, kind: snap.kind, side: !!snap.side });
     if (snap.wasInline && snap.threadId) {
       var host = findHost(snap.threadId);
       if (host && !isPhone()) { o.mode = 'inline'; o.host = host; }
@@ -953,6 +1128,19 @@
       takeDrop(w, e.dataTransfer, k, e);
     });
   }
+  // Where a dropped item goes in the text: between paragraphs (before the one under the pointer when it is on its upper half,
+  // after it otherwise), never in the middle of a line. Below everything written: at the end.
+  function dropRange(ed, x, y) {
+    var n = document.elementFromPoint(x, y);
+    if (!n || !ed.contains(n)) return null;
+    while (n && n.parentNode !== ed) n = n.parentNode;
+    var r = document.createRange();
+    if (!n || n === ed) { r.selectNodeContents(ed); r.collapse(false); return r; }
+    var b = n.getBoundingClientRect ? n.getBoundingClientRect() : null;
+    if (b && y < b.top + b.height / 2) r.setStartBefore(n); else r.setStartAfter(n);
+    r.collapse(true);
+    return r;
+  }
   function takeDrop(w, dt, k, e) {
     if (k === 'files') return addFiles(w, dt.files);
     if (k === 'item') {
@@ -961,7 +1149,7 @@
       if (it) {
         // Dropped onto the text: it goes where the pointer is.
         var ed = $('[data-fc-ed]', w.el);
-        if (e && ed.contains(e.target) && document.caretRangeFromPoint) { var r = document.caretRangeFromPoint(e.clientX, e.clientY); if (r && ed.contains(r.startContainer)) w.range = r; }
+        if (e && ed.contains(e.target)) { var r = dropRange(ed, e.clientX, e.clientY); if (r) w.range = r; }
         insertItem(w, it);
       }
       return;
@@ -974,7 +1162,7 @@
     document.addEventListener('dragenter', function (e) {
       if (dtKind(e.dataTransfer) !== 'item') return;
       dragDepth++;
-      if (!WINS.some(function (w) { return !w.gone && w.mode !== 'min'; }) && mayMail()) { dropEl.hidden = false; requestAnimationFrame(function () { dropEl.classList.add('is-in'); }); }
+      if (!WINS.some(function (w) { return !w.gone && w.mode !== 'min'; }) && mayMail()) { dropEl.hidden = false; dropEl.classList.add('is-big'); requestAnimationFrame(function () { dropEl.classList.add('is-in'); }); }
     });
     document.addEventListener('dragleave', function () { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) hideDropStart(); });
     document.addEventListener('dragend', function () { dragDepth = 0; hideDropStart(); });
@@ -988,7 +1176,7 @@
       if (it) add(it, { fresh: true });
     });
   }
-  function hideDropStart() { if (!dropEl) return; dropEl.classList.remove('is-in', 'is-hot'); setTimeout(function () { if (!dropEl.classList.contains('is-in')) dropEl.hidden = true; }, 160); }
+  function hideDropStart() { if (!dropEl) return; dropEl.classList.remove('is-in', 'is-hot'); setTimeout(function () { if (!dropEl.classList.contains('is-in')) { dropEl.hidden = true; dropEl.classList.remove('is-big'); } }, 160); }
 
   /* ------------------------------------------------------------------ FavorOS items as email HTML */
   var TABLE_STYLE = 'border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;margin:6px 0 10px';
@@ -998,11 +1186,12 @@
   function tableHtml(rows) {
     var cols = (rows.columns || []).map(function (c) { return typeof c === 'object' ? (c.label || c.key || '') : c; });
     var keys = (rows.columns || []).map(function (c) { return typeof c === 'object' ? c.key : null; });
+    var al = function (i) { return rows.align && rows.align[i] === 'right' ? ';text-align:right' : ''; };
     var body = (rows.rows || []).map(function (r) {
       var vals = Array.isArray(r) ? r : keys.map(function (k, i) { return k != null ? r[k] : r[cols[i]]; });
-      return '<tr>' + vals.map(function (v) { return '<td style="' + TD_STYLE + '">' + esc(cell(v)) + '</td>'; }).join('') + '</tr>';
+      return '<tr>' + vals.map(function (v, i) { return '<td style="' + TD_STYLE + al(i) + '">' + esc(cell(v)) + '</td>'; }).join('') + '</tr>';
     }).join('');
-    return '<table style="' + TABLE_STYLE + '" cellpadding="0" cellspacing="0"><thead><tr>' + cols.map(function (c) { return '<th style="' + TH_STYLE + '">' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table>';
+    return '<table style="' + TABLE_STYLE + '" cellpadding="0" cellspacing="0"><thead><tr>' + cols.map(function (c, i) { return '<th style="' + TH_STYLE + al(i) + '">' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table>';
   }
   function csvOf(rows) {
     var q = function (v) { v = cell(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -1016,24 +1205,38 @@
   function textHtml(t) { return String(t || '').split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join(''); }
   var abs = function (u) { try { return new URL(u, location.origin).href; } catch (e) { return u; } };
 
-  /** The HTML an item becomes, plus files it brings along. Returns null when it may not go by email. */
+  /* When an item's numbers were true: the Blackbaud copy's sync time when the answer showed one, else when it was given. */
+  function asOfText(it) {
+    var d = new Date(it.asOf || Date.now());
+    if (!isFinite(d.getTime())) d = new Date();
+    var o = { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+    try { return d.toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o)) + ' ET'; } catch (e) { return d.toLocaleString('en-US', o); }
+  }
+  var SRC_STYLE = 'margin:10px 0 0;color:#666b60;font-size:12px';
+  function rowsCount(it) { return it.rows && it.rows.rows ? it.rows.rows.length : 0; }
+
+  /** The HTML an item becomes, plus files it brings along. Returns {refused} when it may not go by email. */
   function itemParts(it) {
     if (it.partner && !it.mayShare) return { refused: 'This has partner details you are not cleared to share. Ask Favor Brain for a summary without partner details.' };
-    var title = it.title ? '<p><b>' + esc(it.title) + '</b></p>' : '';
+    var title = it.title ? '<p style="margin:0 0 6px"><b>' + esc(it.title) + '</b></p>' : '';
     var link = it.url ? abs(it.url) : '';
     var files = [], html = '';
     if (it.kind === 'brain') {
-      if (it.rows && (it.rows.rows || []).length) {
-        var n = it.rows.rows.length;
+      // A short title line, the headline number, the table (a CSV file past 40 rows), and where it came from.
+      html = title;
+      if (it.headline && it.headline.value) html += '<p style="margin:0 0 10px"><span style="font-size:20px;font-weight:bold">' + esc(it.headline.value) + '</span>' + (it.headline.label ? ' ' + esc(it.headline.label) : '') + '</p>';
+      var n = rowsCount(it);
+      if (n) {
+        if (it.rows.title) html += '<p style="margin:8px 0 2px;font-weight:bold">' + esc(it.rows.title) + '</p>';
         if (n > TABLE_ROWS) {
-          var name = slug(it.title) + '.csv', data = csvOf(it.rows);
+          var name = slug(it.rows.title || it.title) + '.csv', data = csvOf(it.rows);
           files.push({ name: name, mime: 'text/csv', size: data.length, data: b64(data) });
-          html = title + '<p>The full list (' + n.toLocaleString('en-US') + ' rows) is attached as ' + esc(name) + '.</p>';
-        } else html = title + tableHtml(it.rows);
-        if (it.text && !it.html) html += textHtml(it.text);
-      } else if (it.html) html = title + cleanHtml(it.html);
-      else html = title + textHtml(it.text);
-      return { html: html, files: files, csv: it.csv || null };
+          html += '<p style="margin:0 0 8px">The full list (' + n.toLocaleString('en-US') + ' rows) is attached as ' + esc(name) + '.</p>';
+        } else html += tableHtml(it.rows);
+      }
+      if (!n && !(it.headline && it.headline.value)) html += it.html ? cleanHtml(it.html) : textHtml(it.text);
+      html += '<p style="' + SRC_STYLE + '">Source: Favor Brain, as of ' + esc(asOfText(it)) + '</p>';
+      return { html: '<div>' + html + '</div>', files: files, csv: n > TABLE_ROWS ? null : it.csv || null };
     }
     if (it.kind === 'clip') return { html: '<p><a href="' + esc(link) + '">' + esc(it.title || 'Clip') + '</a>' + (it.sub ? ' (' + esc(it.sub) + ')' : '') + '</p>' + (it.text ? textHtml(it.text) : ''), files: [] };
     if (it.kind === 'task') return { html: '<p><a href="' + esc(link) + '">' + esc(it.title || 'Task') + '</a>' + (it.sub ? '<br><span style="color:#5d6357">' + esc(it.sub) + '</span>' : '') + '</p>' + (it.text ? textHtml(it.text) : ''), files: [] };
@@ -1041,12 +1244,38 @@
     if (it.kind === 'drive' || it.kind === 'link') return { html: '<p><a href="' + esc(link) + '">' + esc(it.title || link) + '</a>' + (it.sub ? ' (' + esc(it.sub) + ')' : '') + '</p>', files: [] };
     return { html: title + (it.html ? cleanHtml(it.html) : textHtml(it.text)) + (link ? '<p><a href="' + esc(link) + '">' + esc(link) + '</a></p>' : ''), files: [] };
   }
-  function insertItem(w, it) {
-    var p = itemParts(it || {});
-    if (p.refused) { toast(p.refused, { ms: 6000 }); return false; }
-    insertHtml(w, p.html + '<div><br></div>');
-    if (p.files.length) { w.files = w.files.concat(p.files); renderFiles(w); filesPut(w.id, w.files); }
-    // A Brain list link opens only for the person who asked, so its file goes along as an attachment.
+  /** The same item as plain text, for a text box that is not an email (a Chat message, a task note, the Brain's own ask bar). */
+  function itemText(it) {
+    it = it || {};
+    if (it.partner && !it.mayShare) return '';
+    var out = [];
+    var link = it.url ? abs(it.url) : '';
+    if (it.kind === 'brain') {
+      if (it.title) out.push(it.title);
+      if (it.headline && it.headline.value) out.push(it.headline.value + (it.headline.label ? ' ' + it.headline.label : ''));
+      var n = rowsCount(it);
+      if (n) {
+        var cols = (it.rows.columns || []).map(function (c) { return typeof c === 'object' ? (c.label || c.key || '') : c; });
+        var keys = (it.rows.columns || []).map(function (c) { return typeof c === 'object' ? c.key : null; });
+        out.push('');
+        if (it.rows.title) out.push(it.rows.title);
+        out.push(cols.join(' | '));
+        it.rows.rows.slice(0, TABLE_ROWS).forEach(function (r) { var vals = Array.isArray(r) ? r : keys.map(function (k, i) { return k != null ? r[k] : r[cols[i]]; }); out.push(vals.map(cell).join(' | ')); });
+        if (n > TABLE_ROWS) out.push('and ' + (n - TABLE_ROWS).toLocaleString('en-US') + ' more rows in Favor Brain');
+      }
+      if (!n && !(it.headline && it.headline.value) && it.text) out.push(String(it.text));
+      out.push('Source: Favor Brain, as of ' + asOfText(it));
+      return out.join('\n');
+    }
+    // A clip, task, meeting or link: its name and its address (the text only when there is no address).
+    if (it.title) out.push(it.title + (it.sub ? ' (' + it.sub + ')' : ''));
+    if (link) out.push(link);
+    else if (it.text) out.push(String(it.text));
+    return out.join('\n');
+  }
+  // Files an item brings, and a Brain list's file (its link opens only for the person who asked, so the file goes along).
+  function attachParts(w, p, it) {
+    if (p.files && p.files.length) { w.files = w.files.concat(p.files); renderFiles(w); filesPut(w.id, w.files); }
     if (p.csv && p.csv.url && /^\/api\/brain\/csv\//.test(new URL(p.csv.url, location.origin).pathname)) {
       fetch(p.csv.url, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('csv'); return r.text(); }).then(function (t) {
         var name = p.csv.name || slug(it.title) + '.csv';
@@ -1054,6 +1283,12 @@
         renderFiles(w); filesPut(w.id, w.files); changed(w);
       }).catch(function () { toast('The list file did not come along. Download it from Brain and attach it.'); });
     }
+  }
+  function insertItem(w, it) {
+    var p = itemParts(it || {});
+    if (p.refused) { toast(p.refused, { ms: 6000 }); return false; }
+    insertHtml(w, p.html + '<div><br></div>');
+    attachParts(w, p, it);
     return true;
   }
   function insertHtml(w, html) {
@@ -1174,6 +1409,29 @@
       insertItem(w, { kind: 'clip', title: c.title, url: c.url, sub: c.duration });
     });
   }
+  // One Insert menu for what comes from elsewhere in FavorOS; Attach stays its own button.
+  function insertMenu(w, anchor) {
+    keepRange(w);
+    var rows = [['drive', 'drive', 'A Drive file', 'Links it'], ['photos', 'image', 'Photos from Drive', 'From the photo library'], ['clips', 'rec', 'A clip', 'Your recorded clips'], ['templates', 'draft', 'A template', 'Saved messages']];
+    var el = pop(w, 'Insert', '<div class="fc-menu" role="menu">' + rows.map(function (r) { return '<button type="button" role="menuitem" class="fc-menu__i" data-fc-ins="' + r[0] + '">' + ic(r[1]) + '<span>' + esc(r[2]) + '</span><small>' + esc(r[3]) + '</small></button>'; }).join('') + '</div>', anchor);
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-fc-ins]'); if (!b) return;
+      var k = b.dataset.fcIns;
+      if (k === 'drive') drivePick(w, anchor, '');
+      else if (k === 'photos') drivePick(w, anchor, photoWords(w));
+      else if (k === 'clips') clipPick(w, anchor);
+      else templatesMenu(w, anchor);
+    });
+    el.addEventListener('keydown', function (e) { menuKeys(e, el); });
+  }
+  // Arrow keys move through a menu's items.
+  function menuKeys(e, box) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    var items = $$('.fc-menu__i, [data-fc-pick]', box); if (!items.length) return;
+    e.preventDefault();
+    var i = items.indexOf(document.activeElement);
+    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  }
   function templatesMenu(w, anchor) {
     keepRange(w);
     var el = pop(w, 'Templates', '<p class="fc-empty">Loading</p>', anchor);
@@ -1290,21 +1548,269 @@
   function dropPending(p) { PENDING = PENDING.filter(function (x) { return x !== p; }); writeNow(); }
 
   /* ------------------------------------------------------------------ the public face */
+  /* Send to email: with no draft open, a new email; with drafts open, a short list asks which one, New email first. Never a silent
+     guess. opts: {anchor: the button pressed (the list opens beside it), from: where the item came from (a new email on a wide
+     screen opens side by side with it), fresh: always a new email, target: a window id}. */
   function add(item, opts) {
     opts = opts || {};
-    // The open window last worked in; a minimized one only when nothing is open.
-    var open = WINS.filter(function (w) { return !w.gone && w.mode !== 'min'; }).sort(function (a, b) { return (b.touched || 0) - (a.touched || 0); });
-    var target = !opts.fresh && (lastFocus && !lastFocus.gone && lastFocus.mode !== 'min' ? lastFocus : open[0]);
-    if (target) {
-      if (target.mode === 'min') setMode(target, 'float');
-      if (insertItem(target, item)) toast('Added to ' + titleOf(target));
-      return Promise.resolve(target.id);
-    }
-    var parts = itemParts(item || {});
+    item = item || {};
+    var parts = itemParts(item);
     if (parts.refused) { toast(parts.refused, { ms: 6000 }); return Promise.resolve(null); }
-    var mine = meEmail().toLowerCase();
-    return open({ mode: 'float', subject: item.subject || item.title || '', to: (item.to || []).filter(function (a) { return a && String(a.email || '').toLowerCase() !== mine; }), items: [item] });
+    if (!mayMail() && !CTX) { toast('Mail is not open for you yet.'); return Promise.resolve(null); }
+    var target = opts.target ? byId(opts.target) : null;
+    if (target && !target.gone) return Promise.resolve(addTo(target, item));
+    var drafts = WINS.filter(function (w) { return !w.gone; }).sort(function (a, b) { return (b.touched || 0) - (a.touched || 0); });
+    if (opts.fresh || !drafts.length) return startWith(item, opts);
+    return choose(drafts, opts.anchor).then(function (pick) {
+      if (!pick) return null;
+      if (pick === 'new') return startWith(item, opts);
+      var w = byId(pick);
+      return w && !w.gone ? addTo(w, item) : startWith(item, opts);
+    });
   }
+  function addTo(w, item) {
+    if (w.mode === 'min') setMode(w, restoreMode(w));
+    if (insertItem(w, item)) toast('Added to email');
+    return w.id;
+  }
+  function startWith(item, opts) {
+    var mine = meEmail().toLowerCase();
+    var inDock = !!(opts.from && opts.from.closest && opts.from.closest('#fd-p, .fd-p'));
+    return open({ mode: 'float', side: sideOk() && !inDock, subject: item.subject || item.title || '', to: (item.to || []).filter(function (a) { return a && String(a.email || a).toLowerCase() !== mine; }), items: [item] })
+      .then(function (id) { if (id) toast('Added to email'); return id; });
+  }
+  /* "Add to which email?": New email first, then the open drafts, newest first. Resolves 'new', a window id, or null. */
+  var chooser = null;
+  function choose(drafts, anchor) {
+    if (chooser) chooser.done(null);
+    ensureLayer();
+    return css().then(function () {
+      return new Promise(function (ok) {
+        var el = document.createElement('div');
+        el.className = 'fc-choose';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Add to which email?');
+        el.innerHTML = '<p class="fc-choose__h">Add to which email?</p><div class="fc-choose__list" role="menu">' +
+          '<button type="button" role="menuitem" class="fc-choose__i is-new" data-fc-pick="new">' + ic('pen') + '<span><b>New email</b><small>Starts a fresh draft</small></span></button>' +
+          drafts.map(function (w) {
+            var who = chips(w, 'to').map(function (a) { return a.name || a.email; }).join(', ');
+            return '<button type="button" role="menuitem" class="fc-choose__i" data-fc-pick="' + esc(w.id) + '">' + ic(isFwd(w.o) ? 'fwd' : isReply(w.o) ? 'reply' : 'mail') + '<span><b>' + esc(titleOf(w)) + '</b><small>' + esc(kindOf(w) + (who ? ', to ' + who : '')) + '</small></span></button>';
+          }).join('') + '</div>';
+        layer.appendChild(el);
+        // Beside the button pressed, kept on screen; without one, at the bottom right.
+        var W = Math.min(340, innerWidth - 24), h = el.offsetHeight;
+        if (anchor && anchor.getBoundingClientRect && !isPhone()) {
+          var r = anchor.getBoundingClientRect();
+          var top = r.top - h - 8 > 8 ? r.top - h - 8 : Math.min(r.bottom + 8, innerHeight - h - 8);
+          el.style.left = clamp(r.left, 12, innerWidth - W - 12) + 'px'; el.style.top = Math.max(8, top) + 'px';
+        } else { el.style.right = '24px'; el.style.bottom = '24px'; }
+        el.style.width = W + 'px';
+        requestAnimationFrame(function () { el.classList.add('is-in'); var f = $('[data-fc-pick]', el); if (f) f.focus({ preventScroll: true }); });
+        var back = document.activeElement;
+        var finish = function (v) {
+          if (!chooser || chooser.el !== el) return;
+          chooser = null;
+          document.removeEventListener('pointerdown', outside, true);
+          el.classList.remove('is-in');
+          setTimeout(function () { el.remove(); }, 140);
+          if (!v && back && back.focus && back.isConnected) back.focus({ preventScroll: true });
+          ok(v);
+        };
+        var outside = function (e) { if (!el.contains(e.target)) finish(null); };
+        chooser = { el: el, done: finish };
+        setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
+        el.addEventListener('click', function (e) { var b = e.target.closest('[data-fc-pick]'); if (b) finish(b.dataset.fcPick); });
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); return; }
+          menuKeys(e, el);
+        });
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------------ dragging items out of pages, and dropping them on any text box */
+  /** Starts dragging an item: the item for FavorOS targets, HTML for other apps, plain text for the rest, and a preview card. */
+  function dragStart(e, it) {
+    var dt = e && e.dataTransfer; if (!dt || !it) return;
+    var p = itemParts(it);
+    dt.effectAllowed = 'copy';
+    dt.setData('text/plain', itemText(it));
+    try { dt.setData(ITEM_TYPE, JSON.stringify(it)); } catch (er) { /* older browsers: text only */ }
+    if (!p.refused) { try { dt.setData('text/html', p.html); } catch (er2) { /* text only */ } }
+    var n = rowsCount(it);
+    var sub = it.kind === 'brain' ? (n ? 'Table, ' + n.toLocaleString('en-US') + (n === 1 ? ' row' : ' rows') : 'Favor Brain answer') : it.kind === 'clip' ? 'Clip' : it.kind === 'task' ? 'Task' : it.kind === 'meeting' ? 'Meeting notes' : 'Link';
+    var g = document.createElement('div');
+    g.setAttribute('aria-hidden', 'true');
+    g.style.cssText = 'position:fixed;top:-600px;left:0;z-index:-1;width:280px;padding:12px 14px;background:#fff;border:1px solid #d3cdbd;border-left:4px solid #2f6f9f;border-radius:12px;font:500 13px/1.35 Inter,system-ui,sans-serif;color:#1d211b;display:flex;flex-direction:column;gap:3px';
+    g.innerHTML = '<b style="font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(it.title || 'FavorOS item') + '</b>' +
+      (it.headline && it.headline.value ? '<span style="font-size:18px;font-weight:700">' + esc(it.headline.value) + '</span>' : '') +
+      '<small style="color:#666b60;font-size:12px">' + esc(sub) + '. Drop it into an email or any text box.</small>';
+    document.body.appendChild(g);
+    try { dt.setDragImage(g, 18, 18); } catch (er3) { /* no preview */ }
+    setTimeout(function () { g.remove(); }, 0);
+  }
+  /* Dragging with the pointer (mouse, pen or finger) instead of the browser's drag and drop: a card follows the pointer, every place
+     the item can land shows, and letting go over one puts the item there. Used by Favor Brain answers' Drag handle.
+     getItem() returns the item, or null when it may not leave the page. */
+  var pd = null;
+  function pointerDrag(e, getItem) {
+    if (pd || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    var src = e.currentTarget && e.currentTarget.nodeType === 1 ? e.currentTarget : e.target;
+    var sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+    if (e.pointerType === 'mouse') e.preventDefault();
+    var s = { it: null, ghost: null, on: false, hot: null };
+    pd = s;
+    var start = function () {
+      s.it = getItem();
+      if (!s.it) { end(); return false; }
+      ensureLayer(); css();
+      s.on = true;
+      var n = rowsCount(s.it);
+      var g = document.createElement('div');
+      g.className = 'fc-ghost';
+      g.setAttribute('aria-hidden', 'true');
+      g.innerHTML = '<b>' + esc(s.it.title || 'FavorOS item') + '</b>' + (s.it.headline && s.it.headline.value ? '<span>' + esc(s.it.headline.value) + '</span>' : '') +
+        '<small>' + esc(s.it.kind === 'brain' ? (n ? 'Table, ' + n.toLocaleString('en-US') + (n === 1 ? ' row' : ' rows') : 'Favor Brain answer') : 'FavorOS item') + '</small>';
+      layer.appendChild(g);
+      s.ghost = g;
+      document.documentElement.classList.add('fc-dragging', 'fc-pdrag');
+      // The box that starts a new email shows big and well above the bottom edge (a Mac's Dock can cover the last inch).
+      dropEl.hidden = false; dropEl.classList.add('is-big');
+      $('span', dropEl).textContent = WINS.some(function (w) { return !w.gone; }) ? 'Drop here for a new email' : 'Drop here to start an email';
+      requestAnimationFrame(function () { dropEl.classList.add('is-in'); });
+      try { src.setPointerCapture(pid); } catch (er) { /* the window listeners still see the moves */ }
+      return true;
+    };
+    var targetAt = function (x, y) {
+      var el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      if (dropEl.contains(el)) return { kind: 'start', el: dropEl };
+      var win = el.closest('.fc-win');
+      if (win && layer.contains(win)) { var w = byId(win.dataset.id); if (w && !w.gone) return { kind: 'win', w: w, el: win }; }
+      var ed = editableAt(el);
+      if (ed && !src.contains(ed)) return { kind: 'text', el: ed };
+      return null;
+    };
+    var light = function (t) {
+      var prev = s.hot;
+      if (prev && t && prev.el === t.el) return;
+      if (prev) { if (prev.kind === 'start') dropEl.classList.remove('is-hot'); else if (prev.kind === 'win') $('.fc-drop', prev.el).hidden = true; else setHot(null); }
+      s.hot = t;
+      if (!t) return;
+      if (t.kind === 'start') dropEl.classList.add('is-hot');
+      else if (t.kind === 'win') { var ov = $('.fc-drop', t.el); $('[data-fc-droptxt]', ov).textContent = 'Drop to add to this email'; ov.hidden = false; }
+      else setHot(t.el);
+    };
+    var move = function (ev) {
+      if (ev.pointerId !== pid) return;
+      if (!s.on) {
+        if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 6) return;
+        if (!start()) return;
+      }
+      if (ev.cancelable) ev.preventDefault();
+      s.ghost.style.transform = 'translate(' + Math.round(ev.clientX + 14) + 'px,' + Math.round(ev.clientY + 14) + 'px)';
+      light(targetAt(ev.clientX, ev.clientY));
+    };
+    var up = function (ev) {
+      if (ev.pointerId !== pid) return;
+      var was = s.on, t = was ? targetAt(ev.clientX, ev.clientY) : null, it = s.it;
+      end();
+      if (!was) { if (src.matches && src.matches('[data-brain-drag]')) toast('Hold and drag it onto an email or a text box, or press Send to email.'); return; }
+      if (!t) return;
+      if (t.kind === 'start') { add(it, { fresh: true, from: src }); return; }
+      if (t.kind === 'win') {
+        var w = t.w, ed = $('[data-fc-ed]', w.el);
+        if (w.mode === 'min') setMode(w, restoreMode(w));
+        var r = dropRange(ed, ev.clientX, ev.clientY);
+        if (r) w.range = r;
+        if (insertItem(w, it)) toast('Added to email');
+        return;
+      }
+      dropText(t.el, it, ev);
+    };
+    var key = function (ev) { if (ev.key === 'Escape') { ev.preventDefault(); end(); } };
+    var end = function () {
+      removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', end, true); removeEventListener('keydown', key, true);
+      try { src.releasePointerCapture(pid); } catch (er) { /* already released */ }
+      light(null);
+      if (s.ghost) s.ghost.remove();
+      if (s.on) { document.documentElement.classList.remove('fc-dragging', 'fc-pdrag'); dropEl.classList.remove('is-big'); hideDropStart(); }
+      if (pd === s) pd = null;
+    };
+    addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('pointercancel', end, true); addEventListener('keydown', key, true);
+  }
+
+  /** Copies an item as formatted text (HTML and plain text), for pasting into an email or a document. Resolves true when copied. */
+  function copyItem(it) {
+    var p = itemParts(it || {});
+    if (p.refused) { toast(p.refused, { ms: 6000 }); return Promise.resolve(false); }
+    var txt = itemText(it);
+    var done = function () { toast('Copied. Paste it into an email or a document.'); return true; };
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        return navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([p.html], { type: 'text/html' }), 'text/plain': new Blob([txt], { type: 'text/plain' }) })]).then(done).catch(function () { return navigator.clipboard.writeText(txt).then(done); }).catch(function () { toast('Copy did not work in this browser.'); return false; });
+      }
+      return navigator.clipboard.writeText(txt).then(done).catch(function () { toast('Copy did not work in this browser.'); return false; });
+    } catch (e) { toast('Copy did not work in this browser.'); return Promise.resolve(false); }
+  }
+  // A text box an item can drop into: any text field or editable area outside the composer (the composer takes its own drops).
+  function editableAt(t) {
+    var el = t && t.closest && t.closest('textarea, input, [contenteditable="true"], [contenteditable=""]');
+    if (!el || (layer && layer.contains(el))) return null;
+    if (el.tagName === 'INPUT' && !/^(text|search|)$/i.test(el.getAttribute('type') || '')) return null;
+    if (el.disabled || el.readOnly) return null;
+    return el;
+  }
+  var hotEl = null;
+  function setHot(el) {
+    if (hotEl === el) return;
+    if (hotEl) hotEl.classList.remove('fc-drop-hot');
+    hotEl = el;
+    if (el) el.classList.add('fc-drop-hot');
+  }
+  function dropText(el, it, e) {
+    var txt = itemText(it);
+    if (!txt) { toast(itemParts(it).refused || 'That did not drop in.', { ms: 6000 }); return; }
+    var was = document.activeElement === el;
+    el.focus({ preventScroll: true });
+    if (el.isContentEditable) {
+      var r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+      if (r && el.contains(r.startContainer)) { var s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+      document.execCommand('insertText', false, txt);
+    } else {
+      if (el.tagName === 'INPUT') txt = txt.split('\n').filter(Boolean).join(' / ');
+      var at = was && typeof el.selectionStart === 'number' ? el.selectionStart : el.value.length;
+      var end = was && typeof el.selectionEnd === 'number' ? el.selectionEnd : at;
+      var lead = at > 0 && el.tagName === 'TEXTAREA' && el.value.charAt(at - 1) !== '\n' ? '\n' : '';
+      el.setRangeText(lead + txt, at, end, 'end');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    toast('Added');
+  }
+  function wireTextDrops() {
+    // After the page's own dragstart handler has set the data: mark the drag so drop targets show.
+    addEventListener('dragstart', function (e) { if (dtKind(e.dataTransfer) === 'item') { css(); document.documentElement.classList.add('fc-dragging'); } });
+    var stop = function () { document.documentElement.classList.remove('fc-dragging'); setHot(null); };
+    addEventListener('dragend', stop);
+    addEventListener('dragover', function (e) {
+      if (dtKind(e.dataTransfer) !== 'item') return;
+      var el = editableAt(e.target);
+      setHot(el);
+      if (el) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+    }, true);
+    addEventListener('dragleave', function (e) { if (hotEl && !hotEl.contains(e.relatedTarget)) setHot(null); }, true);
+    addEventListener('drop', function (e) {
+      if (dtKind(e.dataTransfer) !== 'item') return;
+      var el = editableAt(e.target);
+      if (!el) { stop(); return; }
+      var it = null; try { it = JSON.parse(e.dataTransfer.getData(ITEM_TYPE)); } catch (er) { it = null; }
+      stop();
+      if (!it) return;
+      e.preventDefault(); e.stopPropagation();
+      dropText(el, it, e);
+    }, true);
+  }
+
   /** Mail: where this conversation's inline reply goes. Called each time Mail draws the conversation. */
   function host(threadId, el) {
     if (!threadId || !el) return;
@@ -1330,8 +1836,17 @@
   }
   // A page change that replaces the body's children (hub-swap.js on some pages) takes the windows' layer with it: put it back.
   function keepLayer() { if (layer && !layer.isConnected && document.body) { document.body.appendChild(layer); cover(); } }
-  var mo = new MutationObserver(function () { keepLayer(); if (WINS.some(function (w) { return w.mode === 'inline'; })) watchHosts(); });
-  document.addEventListener('hub-swapped', keepLayer);
+  var lastPath = location.pathname;
+  var mo = new MutationObserver(function () {
+    keepLayer();
+    if (WINS.some(function (w) { return w.mode === 'inline'; })) watchHosts();
+    // The app's own routes change the address without a page swap event.
+    if (location.pathname !== lastPath) { lastPath = location.pathname; WINS.forEach(function (w) { if (!w.gone && w.el && w.mode === 'float') place(w); }); sideLayout(); }
+    if (WINS.length) lift();
+  });
+  // A new page may allow or refuse the side-by-side place (Mail refuses it): windows take the place the page allows.
+  document.addEventListener('hub-swapped', function () { keepLayer(); WINS.forEach(function (w) { if (!w.gone && w.el && w.mode === 'float') place(w); }); sideLayout(); lift(); });
+  addEventListener('scroll', function () { if (WINS.length) lift(); }, { capture: true, passive: true });
   var bodyT = 0;
   var bo = new MutationObserver(function () { cancelAnimationFrame(bodyT); bodyT = requestAnimationFrame(function () { phoneBottom(); }); });
   function startWatch() { mo.observe(document.body, { childList: true, subtree: true }); bo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
@@ -1367,24 +1882,33 @@
   }
 
   addEventListener('hashchange', function () { setTimeout(phoneBottom, 350); });
-  addEventListener('resize', function () { WINS.forEach(function (w) { if (!w.gone && w.el.isConnected && w.mode !== 'inline') place(w); }); });
+  addEventListener('resize', function () { WINS.forEach(function (w) { if (!w.gone && w.el.isConnected && w.mode !== 'inline') place(w); }); sideLayout(); lift(); });
   // Before the page goes, everything written is kept in this browser; the next page saves it to Gmail.
   addEventListener('pagehide', writeNow);
 
   window.FavorCompose = {
-    /** Opens a window. o: {mode:'inline'|'float'|'full', host, title, to, cc, bcc, subject, body, quote, threadId, replyTo, draftId, mb, noSig, forward, items, ctx, kind}. */
+    /** Opens a window. o: {mode:'inline'|'float'|'full', side, host, title, to, cc, bcc, subject, body, quote, threadId, replyTo, draftId, mb, noSig, forward, items, ctx, kind}. */
     open: open,
-    /** Adds a FavorOS item to the window in use, or starts a new email with it. */
+    /** Sends a FavorOS item to email: a new draft, or the draft the person picks. opts: {anchor, from, fresh, target}. */
     add: add,
     host: host,
     /** Windows open now, for Mail (which conversation already has a reply). */
-    list: function () { return WINS.filter(function (w) { return !w.gone; }).map(function (w) { return { id: w.id, mode: w.mode, threadId: w.o.threadId || '', kind: w.o.kind || '', draftId: w.draftId || w.o.draftId || '' }; }); },
+    list: function () { return WINS.filter(function (w) { return !w.gone; }).map(function (w) { return { id: w.id, mode: w.mode, threadId: w.o.threadId || '', kind: w.o.kind || '', draftId: w.draftId || w.o.draftId || '', title: titleOf(w), side: !!w.side }; }); },
     focus: function (id) { var w = byId(id); if (w) { if (w.mode === 'min') setMode(w, restoreMode(w)); focusWin(w); } },
     close: function (id) { var w = byId(id); if (w) closeWin(w); },
     toast: toast,
+    /** An item as email HTML ({html, files} or {refused}) and as plain text. */
+    itemHtml: itemParts,
+    itemText: itemText,
+    /** Call from a dragstart handler: sets the item, its HTML and text, and the preview card. */
+    dragStart: dragStart,
+    /** Call from a pointerdown handler: drags with the pointer (works where the browser's drag and drop does not). */
+    pointerDrag: pointerDrag,
+    /** Copy as formatted (the keyboard way to move an item). */
+    copy: copyItem,
     ITEM_TYPE: ITEM_TYPE,
   };
 
-  var boot = function () { ensureLayer(); startWatch(); if (meEmail()) restore(); };
+  var boot = function () { ensureLayer(); startWatch(); wireTextDrops(); if (meEmail()) restore(); };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
 })();

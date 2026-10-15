@@ -545,7 +545,7 @@ async function more(anchor) {
   if (v === 'meet' && ix) ix.findTime({ kind: 'task', ref: t.id });
   if (v === 'clip' && ix && ix.clipReply) ix.clipReply({ kind: 'task', ref: t.id, title: t.title });
   if (v === 'copy') copyLink();
-  if (v === 'email') window.FavorCompose.add(taskItem(t));
+  if (v === 'email') window.FavorCompose.add(taskItem(t), { anchor, from: anchor });
   if (v === 'handoff') window.FavorHandoff.open({ kind: 'task', id: t.id, title: t.title || '' });
   if (v === 'del') { const c = ctxFor(t.id); close(false); if (c === main) await main.remove([t.id]); else { try { await api.deleteTask(t.id); toast('Task removed'); } catch (err) { toast(err.message, { error: true }); } } }
 }
@@ -554,7 +554,8 @@ document.addEventListener('dragstart', (e) => {
   const chip = e.target.closest && e.target.closest('[data-task-drag]');
   if (!chip || !e.dataTransfer || !st || !st.task) return;
   const it = taskItem(st.task);
-  e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(it));
+  if (window.FavorCompose && window.FavorCompose.dragStart) window.FavorCompose.dragStart(e, it);
+  else e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(it));
   e.dataTransfer.setData('text/uri-list', it.url);
   e.dataTransfer.setData('text/plain', it.url);
   e.dataTransfer.effectAllowed = 'copy';

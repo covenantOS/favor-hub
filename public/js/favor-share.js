@@ -54,7 +54,7 @@
     var rows = [];
     if (root.classList.contains('has-chat')) rows.push(['chat', 'message', 'Chat', 'A direct message or a channel, with a note']);
     if (root.classList.contains('has-projects')) rows.push(['task', 'task', 'A Projects task', 'Starts a task you can assign']);
-    if (root.classList.contains('has-mail') && window.FavorCompose) rows.push(['email', 'send', 'Email', 'Adds it to the email you are writing, or starts one']);
+    if (root.classList.contains('has-mail') && window.FavorCompose) rows.push(['email', 'send', 'Email', 'Starts an email with it, or adds it to one you are writing']);
     if (ref.kind !== 'person') rows.push(['request', 'request', 'A request', 'Links it in a comment on a request']);
     rows.push(['brain', 'brain', 'Ask Favor Brain', 'Opens a new chat about it']);
     if (abs(ref)) rows.push(['copy', 'copy', 'Copy the link', abs(ref).replace(/^https?:\/\//, '')]);

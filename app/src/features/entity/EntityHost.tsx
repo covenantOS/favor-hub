@@ -40,7 +40,7 @@ const can = (act: string) => {
 /** Helpers from before the app that Send to, Message and Make a task still run on (public/js). Loaded the first time a card needs one. */
 async function legacy(): Promise<void> {
   await loadScript('/js/favor-ui.js?v=1');
-  await loadScript('/js/favor-share.js?v=1');
+  await loadScript('/js/favor-share.js?v=2');
 }
 
 async function run(act: string, it: EntityOut, anchor: HTMLElement | null | undefined) {

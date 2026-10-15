@@ -290,10 +290,11 @@ function draw() {
   $('#nt-copy').addEventListener('click', () => copy(location.href));
   const em = $('#nt-email');
   if (em) {
-    em.addEventListener('click', () => window.FavorCompose.add(emailItem()));
+    em.addEventListener('click', () => window.FavorCompose.add(emailItem(), { anchor: em, from: em }));
     em.addEventListener('dragstart', (e) => {
       const it = emailItem();
-      e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(it));
+      if (window.FavorCompose && window.FavorCompose.dragStart) window.FavorCompose.dragStart(e, it);
+      else e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(it));
       e.dataTransfer.setData('text/uri-list', it.url);
       e.dataTransfer.setData('text/plain', it.url);
       e.dataTransfer.effectAllowed = 'copy';
