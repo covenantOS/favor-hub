@@ -49,6 +49,8 @@ const MyWeekView = lazy(() => import('./MyWeek').then((m) => ({ default: m.MyWee
 const EntryView = lazy(() => import('./Entry').then((m) => ({ default: m.EntryView })));
 const GrantsView = lazy(() => import('./Grants').then((m) => ({ default: m.GrantsView })));
 
+import { Boundary } from '../record/Boundary';
+
 const LIST_TABS = ['gifts', 'mine', 'asks', 'cadence', 'week', 'intake', 'grants'];
 
 export function prefetchWork(qc: QueryClient, s: WorkSearch): void {
@@ -83,11 +85,15 @@ export function WorkPage({ search }: { search: WorkSearch }) {
     <div className="wc-root" id="wc-root">
       {LIST_TABS.includes(v) ? (
         <Suspense fallback={null}>
-          <TabGate search={search} v={v}>
-            {ownHeader ? null : <WorkHeader search={search} />}
-            {ownHeader ? null : <div className="wc-nav" id="wc-nav" />}
-            <Suspense fallback={null}>{view}</Suspense>
-          </TabGate>
+          {/* A person the Work Center is closed to cannot read the context a list tab starts from; they get the page's own closed-door
+              message (Actions draws it), as the classic page shows it on every tab. */}
+          <Boundary fallback={() => <ActionsView search={{ ...search, view: undefined }} />}>
+            <TabGate search={search} v={v}>
+              {ownHeader ? null : <WorkHeader search={search} />}
+              {ownHeader ? null : <div className="wc-nav" id="wc-nav" />}
+              <Suspense fallback={null}>{view}</Suspense>
+            </TabGate>
+          </Boundary>
         </Suspense>
       ) : (
         <>
