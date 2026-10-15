@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS og_gift (
   fund_id TEXT, fund_name TEXT, appeal_id TEXT, appeal_name TEXT,
   ref_text TEXT,                                   -- wire confirmation, or stock ticker and shares
   memo TEXT,
+  tribute_kind TEXT,                               -- honor | memorial (db/gift-tributes.sql adds the three tribute columns to a database made before them)
+  tribute_name TEXT, tribute_notify TEXT,
   dup_json TEXT,                                   -- why the duplicate guard flagged it, and the decision
   letter_key TEXT, letter_name TEXT, letter_mime TEXT, letter_bytes INTEGER,
   letter_status TEXT,                              -- NULL | pending | done | failed

@@ -9,6 +9,7 @@
 //     adopts the one whose Reference carries "hub <id>" before it sends again;
 //   - a 4xx from Blackbaud is final for that gift until a person edits it or presses Try again; a wait, a cap or a 5xx retries on a
 //     backoff, five attempts at most.
+import { saveEntryTribute } from '../tributes/store';
 import { nowIso, type Env } from '../http';
 import { isTester, notTesterSql } from '../testuser';
 import { BACKOFF_MIN, MAX_ATTEMPTS, recordLane } from '../gifts/flow';
@@ -113,6 +114,7 @@ export async function postGift(c: PostCtx, batch: OgBatch, gift: OgGift, force =
 async function markPosted(c: PostCtx, batch: OgBatch, g: OgGift, bbId: string, adopted: boolean): Promise<void> {
   await updateGift(c.env, g.id, { status: 'posted', bb_gift_id: bbId, error: null, next_try_at: null, posted_at: iso(c), letter_status: g.letter_key ? 'pending' : null });
   await logEvent(c.env, { batch_id: batch.id, gift_id: g.id, kind: adopted ? 'gift_found_in_blackbaud' : 'gift_posted', actor: batch.approved_by || 'system', detail: { bb_gift: bbId, simulated: Boolean(c.simulated) } });
+  await saveEntryTribute(c.env, { ...g, bb_gift_id: bbId }, batch.approved_by || 'system').catch((e) => console.error('tribute save failed', e));
   if (g.letter_key) await attachLetter(c, batch, { ...g, bb_gift_id: bbId });
 }
 

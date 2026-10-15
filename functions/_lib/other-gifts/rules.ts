@@ -41,6 +41,9 @@ export interface OgGift {
   appeal_name: string | null;
   ref_text: string | null;
   memo: string | null;
+  tribute_kind: string | null;
+  tribute_name: string | null;
+  tribute_notify: string | null;
   dup_json: string | null;
   letter_key: string | null;
   letter_name: string | null;
@@ -103,6 +106,7 @@ export function blockers(g: OgGift): string[] {
   if (g.kind === 'daf' && !(g.fund_named || '').trim()) out.push('Enter the giving fund named on the notice.');
   if (g.kind === 'stock' && !(g.ref_text || '').trim()) out.push('Enter the ticker and the number of shares.');
   if (NEEDS_SOFT_DECISION.includes(g.kind) && !g.soft_partner_id && !g.no_soft) out.push('Name who recommended this gift, or choose No partner named.');
+  if (g.tribute_kind && !(g.tribute_name || '').trim()) out.push('Enter who the tribute is for.');
   const dup = parseJson<Dup | null>(g.dup_json, null);
   if (dup && dup.decision === null) out.push('Decide about the possible duplicate.');
   return out;
@@ -190,7 +194,7 @@ export function letterState(g: Pick<OgGift, 'kind' | 'letter_key' | 'letter_stat
   return NEEDS_LETTER.includes(g.kind) ? 'needed' : 'none';
 }
 
-const EDITABLE: Record<string, 'text' | 'cents' | 'date' | 'id' | 'bool' | 'kind'> = {
+const EDITABLE: Record<string, 'text' | 'cents' | 'date' | 'id' | 'bool' | 'kind' | 'tribute'> = {
   kind: 'kind',
   partner_id: 'id',
   partner_lookup: 'text',
@@ -208,6 +212,9 @@ const EDITABLE: Record<string, 'text' | 'cents' | 'date' | 'id' | 'bool' | 'kind
   appeal_name: 'text',
   ref_text: 'text',
   memo: 'text',
+  tribute_kind: 'tribute',
+  tribute_name: 'text',
+  tribute_notify: 'text',
 };
 
 /** The fields a person may change on a row, cleaned. `today` is the Eastern date: a gift is never dated in the future. */
@@ -229,9 +236,16 @@ export function cleanEdit(patch: Record<string, unknown>, today: string): Record
       if (/^\d{1,12}$/.test(String(v))) out[k] = String(v);
     } else if (kindOf === 'bool') {
       out[k] = v ? 1 : 0;
+    } else if (kindOf === 'tribute') {
+      if (v === 'honor' || v === 'memorial') out[k] = String(v);
     } else if (kindOf === 'kind') {
       if (isKind(v)) out[k] = String(v);
     } else out[k] = String(v).slice(0, 240);
+  }
+  // No tribute kind means no name and no one to notify.
+  if ('tribute_kind' in out ? out.tribute_kind === null : false) {
+    out.tribute_name = null;
+    out.tribute_notify = null;
   }
   // Naming a recommender and "No partner named" never both stand.
   if (out.soft_partner_id) out.no_soft = 0;

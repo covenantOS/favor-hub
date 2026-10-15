@@ -24,6 +24,9 @@ export interface GiftView {
   appealName: string;
   refText: string;
   memo: string;
+  tributeKind: string;
+  tributeName: string;
+  tributeNotify: string;
   dup: Dup | null;
   letter: ReturnType<typeof letterState>;
   letterName: string;
@@ -57,6 +60,9 @@ export const giftView = (g: OgGift, me: string): GiftView => ({
   appealName: g.appeal_name || '',
   refText: g.ref_text || '',
   memo: g.memo || '',
+  tributeKind: g.tribute_kind || '',
+  tributeName: g.tribute_name || '',
+  tributeNotify: g.tribute_notify || '',
   dup: parseJson<Dup | null>(g.dup_json, null),
   letter: letterState(g),
   letterName: g.letter_name || '',

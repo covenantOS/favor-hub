@@ -57,6 +57,12 @@ function GiftLine({ g, batchStatus, canFix, onEdit }: { g: OgGift; batchStatus: 
         <span className={'og-tag og-tag--' + g.letter}>
           {{ attached: 'Letter attached', pending: 'Letter attaches on approval', failed: 'Letter did not attach', needed: 'Letter needed', none: 'No letter' }[g.letter] || ''}
         </span>
+        {g.tributeKind ? (
+          <span>
+            {g.tributeKind === 'honor' ? 'In honor of' : 'In memory of'} {g.tributeName}
+            {g.tributeNotify ? `, notify ${g.tributeNotify}` : ''}
+          </span>
+        ) : null}
         {g.bbGiftId ? <span>Blackbaud gift {g.bbGiftId}</span> : null}
       </div>
       {g.blockers.length && batchStatus === 'open' ? <ul className="og-blockers">{g.blockers.map((b) => <li key={b}>{b}</li>)}</ul> : null}
