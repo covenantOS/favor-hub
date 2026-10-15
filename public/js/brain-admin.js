@@ -16,6 +16,7 @@
     if (!res.ok || d.ok === false) {
       const err = new Error(d.message || d.error || 'The Brain did not answer (' + res.status + ').');
       err.code = d.error;
+      err.status = res.status;
       throw err;
     }
     return d;
@@ -78,7 +79,8 @@
     try {
       d = await api('admin/overview');
     } catch (err) {
-      if (err.code === 'admin_only') {
+      // The hub answers 403 forbidden for a person who is not an admin and the Brain answers 403 admin_only for an admin who is not its admin. Either way the page is closed to them.
+      if (err.status === 403 || err.code === 'admin_only') {
         document.querySelectorAll('.ba-stats, [data-apanel], .b-atabs').forEach((n) => (n.hidden = true));
         $('a-denied').hidden = false;
         return;

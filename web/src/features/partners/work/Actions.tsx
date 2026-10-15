@@ -16,6 +16,7 @@ import { applyScope, startScope, startTab } from './actions/start';
 import { clearSel, setFilters, setSel, wcGet, wcSet } from './actions/store';
 import { hasTab, isActionView, lastTab, rememberTab } from './actions/tabs';
 import { ActionBar, Ic, Skel } from './actions/ui';
+import { GateScreen } from './GateScreen';
 import { OpenView } from './actions/OpenView';
 // The views behind the header's chips load as their own files when chosen; their stylesheets stay here so the server links them.
 import './actions/opportunities.css';
@@ -38,19 +39,6 @@ export function prefetchActions(qc: QueryClient, s: WorkSearch): void {
   void qc.prefetchQuery(viewsQuery(as));
   if (s.view === 'opps') void qc.prefetchQuery(oppsQuery(as));
   if (s.view === 'giftimages') void qc.prefetchQuery(giftImagesQuery(as));
-}
-
-function GateScreen({ reason }: { reason?: string }) {
-  const before = reason === 'before_release';
-  return (
-    <div className="h-card wc-gate">
-      <div className="wc-batch__icon">
-        <Ic n="lock" />
-      </div>
-      <h2>{before ? 'The Work Center opens for you soon' : 'The Work Center is for the people whose job touches it'}</h2>
-      <p>{before ? 'This page is not open for your account yet.' : 'It holds the open actions, thank-yous and partner work of the Support Team, the regional directors, Partner Care and church engagement. If your work needs it, tell Will Hamilton through Feedback.'}</p>
-    </div>
-  );
 }
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
