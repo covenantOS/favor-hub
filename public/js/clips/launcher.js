@@ -719,6 +719,8 @@ function countdown(rec) {
   const tick = () => {
     n -= 1;
     if (n <= 0) return go();
+    // One second before the recording starts: the family's recording sound, finished before the microphone opens.
+    if (n === 1 && window.hubSound) window.hubSound.play('rec-start');
     S.countN = n;
     const nn = el.querySelector('#cr-count-n');
     nn.textContent = String(n);

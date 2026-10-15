@@ -66,27 +66,29 @@
     var live = list.filter(function (t) { return !t.gone; });
     var front = live.length ? live[live.length - 1].h : 0;
     var lift = 0;
+    // On a phone the toast spans the screen, so three dark copies behind it read as heavy slabs: one peeks, 8 px, its words hidden.
+    var narrow = innerWidth <= 860, peek = narrow ? 8 : PEEK, vis = narrow ? 2 : VISIBLE;
     for (var i = live.length - 1, k = 0; i >= 0; i--, k++) {
       var t = live[i], el = t.el;
       var y, s = 1, o = 1;
       if (open) { y = -lift; lift += t.h + GAP; }
       else {
-        y = -k * PEEK;
-        s = 1 - k * 0.05;
+        y = -k * peek;
+        s = 1 - k * (narrow ? 0.04 : 0.05);
         // A taller message behind a short one is drawn at the front one's height, so only its top edge peeks out.
         el.style.height = k && t.h !== front ? front + 'px' : '';
-        if (k >= VISIBLE) o = 0;
+        if (k >= vis) o = 0;
       }
       if (open) el.style.height = '';
       el.style.setProperty('--ht-y', y + 'px');
       el.style.setProperty('--ht-s', s);
       el.style.setProperty('--ht-o', o);
       el.style.zIndex = String(100 - k);
-      el.toggleAttribute('inert', !open && k >= VISIBLE);
+      el.toggleAttribute('inert', !open && k >= vis);
       el.classList.toggle('is-front', k === 0);
     }
     // The open stack catches the pointer across its gaps, so moving between messages does not close it.
-    host.style.setProperty('--ht-h', (open ? lift : front + Math.min(live.length - 1, VISIBLE - 1) * PEEK) + 'px');
+    host.style.setProperty('--ht-h', (open ? lift : front + Math.min(live.length - 1, vis - 1) * peek) + 'px');
   }
 
   function life(t) { return t.opts.ms != null ? t.opts.ms : t.opts.tone === 'busy' ? 0 : t.opts.action ? 8000 : t.opts.tone === 'bad' ? 6000 : t.opts.link ? 6000 : 4000; }
@@ -106,6 +108,9 @@
   function body(t) {
     var o = t.opts;
     var tone = o.tone === 'bad' || o.tone === 'ok' || o.tone === 'busy' ? o.tone : '';
+    // A message that turns into an error plays the family's error sound once (hub-sound.js; the On and Subtle levels).
+    if (tone === 'bad' && t.tone !== 'bad' && window.hubSound && !o.silent) window.hubSound.play('error');
+    t.tone = tone;
     var html = (tone ? '<span class="ht__i ht__i--' + tone + '">' + ICON[tone] + '</span>' : '') + '<span class="ht__m">' + esc(t.msg) + '</span>';
     if (o.link && o.link.href) html += '<a class="ht__b" href="' + esc(o.link.href) + '"' + (o.link.external ? ' target="_blank" rel="noopener"' : '') + '>' + esc(o.link.label || 'Open') + '</a>';
     if (o.action && o.action.label) {
@@ -164,7 +169,7 @@
       on = false;
       el.classList.remove('is-drag');
       var d = Math.max(dx, dy), v = d / Math.max(1, Date.now() - t0);
-      if (d >= SWIPE || (d > 8 && v > FLICK)) { el.style.setProperty('--ht-dx', (dx > dy ? dx + 120 : 0) + 'px'); el.style.setProperty('--ht-dy', (dy >= dx ? dy + 80 : 0) + 'px'); dismiss(t, 'swipe'); }
+      if (d >= SWIPE || (d > 8 && v > FLICK)) { if (window.hubHaptic) window.hubHaptic('light'); if (window.hubSound) window.hubSound.play('dismiss'); el.style.setProperty('--ht-dx', (dx > dy ? dx + 120 : 0) + 'px'); el.style.setProperty('--ht-dy', (dy >= dx ? dy + 80 : 0) + 'px'); dismiss(t, 'swipe'); }
       else { el.style.setProperty('--ht-dx', '0px'); el.style.setProperty('--ht-dy', '0px'); }
     };
     el.addEventListener('pointerup', end);
@@ -209,6 +214,7 @@
   hubToast.dismiss = function (id) { if (id == null) list.slice().forEach(function (t) { dismiss(t); }); else dismiss(find(id)); };
   hubToast.promise = function (p, m) {
     var t = hubToast(m.busy || 'Working', { tone: 'busy' });
+    if (window.hubProgress) window.hubProgress.wrap(p);
     var say = function (x, v) { return typeof x === 'function' ? x(v) : x; };
     Promise.resolve(p).then(function (v) { t.update(say(m.ok, v) || 'Done', { tone: 'ok' }); }, function (e) { t.update(say(m.bad, e) || (e && e.message) || 'That did not work. Try again.', { tone: 'bad' }); });
     return p;
@@ -220,6 +226,21 @@
     e.preventDefault();
     live[live.length - 1].el.focus();
   });
+  // Ctrl+Z (Cmd+Z on a Mac) presses the Undo of the newest message that offers one, while it shows, as Gmail and Linear do.
+  // Inside a text box the keys stay the box's own undo.
+  addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || (e.key !== 'z' && e.key !== 'Z') || e.defaultPrevented) return;
+    var tg = e.target;
+    if (tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName))) return;
+    var live = list.filter(function (t) { return !t.gone && t.opts.action && /^undo/i.test(t.opts.action.label || ''); });
+    if (!live.length) return;
+    e.preventDefault();
+    var t = live[live.length - 1], fn = t.opts.action.fn;
+    dismiss(t);
+    if (fn) fn();
+    if (window.hubHaptic) window.hubHaptic('light');
+  });
+  hubToast.undoable = function () { return list.some(function (t) { return !t.gone && t.opts.action && /^undo/i.test(t.opts.action.label || ''); }); };
   addEventListener('resize', function () { if (list.length) layout(); });
   document.addEventListener('hub-swapped', function () { if (list.length) layout(); });
   window.hubToast = hubToast;

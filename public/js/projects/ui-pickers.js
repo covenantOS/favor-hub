@@ -21,7 +21,9 @@ export async function pickDate({ anchor, value, title = 'Due date' }) {
   ];
   if (value) items.push({ value: null, label: 'No date' });
   items.forEach((i) => { if (i.value === value) i.on = true; });
-  const v = await choose({ anchor, title, items });
+  // Typing a date reads it (public/js/hub-date.js): fri, tomorrow, next tue, in 2 weeks, oct 20, 10/20, end of month.
+  const typed = window.hubDate ? (q) => { const d = window.hubDate.parse(q, t); if (!d) return null; const n = Math.round((Date.parse(d.ymd) - Date.parse(t)) / 86400000); return { value: d.ymd, label: d.label, hint: n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n === -1 ? 'Yesterday' : n < 0 ? -n + ' days ago' : 'In ' + n + ' days', icon: 'cal' }; } : null;
+  const v = await choose({ anchor, title, items, search: !!typed, placeholder: 'Type a date: fri, oct 20, in 2 weeks', typed });
   if (v === undefined || v === null || v !== '__pick') return v;
   return new Promise((resolve) => {
     let out;

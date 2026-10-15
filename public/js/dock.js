@@ -268,7 +268,10 @@
     paint();
     // A huddle's own card (a meeting card with no words) shows no toast: the ring card or the huddle bar already says it.
     var huddleCard = !m.body && (m.attachments || []).length === 1 && m.attachments[0].type === 'meeting';
-    if (!here && care && !c.muted && !m.visible_to && !huddleCard) toast(m, c);
+    if (!here && care && !c.muted && !m.visible_to && !huddleCard) {
+      if (page() !== 'chat' && window.hubSound) window.hubSound.play(mentionsMe(m) ? 'mention' : 'message', { key: 'm' + m.id, notified: window.Notification && Notification.permission === 'granted' && (document.hidden || !document.hasFocus()) });
+      toast(m, c);
+    }
   }
   function onEvent(ev) {
     if (ev.type === 'message') onMessage(ev.message);

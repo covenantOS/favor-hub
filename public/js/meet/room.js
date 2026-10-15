@@ -685,7 +685,9 @@ function floatEmoji(e, name) {
   n.innerHTML = '<i></i><span></span>'; n.firstChild.textContent = e; n.lastChild.textContent = name || '';
   st.appendChild(n); setTimeout(() => n.remove(), 2700);
 }
-function chime() {
+// The meeting's sounds come from the FavorOS family (hub-sound.js): knock, notify, mention, join, leave, rec-start, rec-stop.
+function chime(name) {
+  if (window.hubSound) { window.hubSound.play(name || 'notify'); return; }
   try {
     const c = new (window.AudioContext || window.webkitAudioContext)();
     [660, 880].forEach((fq, i) => { const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + i * 0.16; o.frequency.value = fq; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.15, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.16); });
@@ -1970,6 +1972,7 @@ async function stopShare() {
 }
 
 async function leaveRoom(msg) {
+  if (!S.left) chime('leave');
   S.left = true; clearIntervals();
   // The person who owns the recording sees the left screen at once while the last pieces upload.
   if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); document.documentElement.classList.remove('in-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.', { noRejoin: true, saving: true }); }
@@ -2042,6 +2045,8 @@ function applySync(r) {
   S.meeting.status = r.meeting.status;
   if (!!r.meeting.private !== !!S.private) { S.private = !!r.meeting.private; paintPriv(); paintBar(); if (S.more) paintMore(); paintFoot(); }
   S.recording = r.recording;
+  // A recording that starts or stops while you are in the room plays the family's recording sounds (not on the first sync).
+  { const recOn = !!(r.recording && r.recording.active) && !S.private; if (S.recPrimed && recOn !== S.recOn) chime(recOn ? 'rec-start' : 'rec-stop'); S.recOn = recOn; S.recPrimed = true; }
   // Lines are stamped when they arrive. The first sync brings the transcript so far, which is history, not a caption.
   for (const l of r.lines || []) { l.at = S.capPrimed ? Date.now() : 0; S.lines.push(l); S.tx = l.n; if (S.capPrimed) S.notesHeldAt = 0; }
   S.capPrimed = true;
@@ -2056,9 +2061,13 @@ function applySync(r) {
   const sideSig = JSON.stringify([S.people.map(base), S.spot, S.locked, S.sharePolicy]);
   if (hostish()) {
     const waiting = S.people.filter((p) => p.waiting); const wsig = waiting.map((p) => p.pid).join(',');
-    if (wsig !== S.waitSig) { S.waitSig = wsig; paintWait(waiting); for (const p of waiting) if (!S.seenWait.has(p.pid)) { S.seenWait.add(p.pid); toast(p.name + ' is waiting to join.'); chime(); } }
+    if (wsig !== S.waitSig) { S.waitSig = wsig; paintWait(waiting); for (const p of waiting) if (!S.seenWait.has(p.pid)) { S.seenWait.add(p.pid); toast(p.name + ' is waiting to join.'); chime('knock'); } }
   } else if (S.waitSig) { S.waitSig = ''; paintWait([]); }
-  // A hand going up tells the hosts, as Zoom and Meet do.
+  // Someone joining or leaving plays a soft sound, as Meet does, in meetings of up to twelve people (larger ones would chatter).
+  { const inRoom = new Set(S.people.filter((p) => !p.waiting && p.pid !== S.me.pid).map((p) => p.pid));
+    if (S.roomSeen && inRoom.size + 1 <= 12) { let j = 0, l = 0; for (const pid of inRoom) if (!S.roomSeen.has(pid)) j++; for (const pid of S.roomSeen) if (!inRoom.has(pid)) l++; if (j) chime('join'); else if (l) chime('leave'); }
+    else if (!S.roomSeen) chime('join');
+    S.roomSeen = inRoom; }
   // Raise order: the time this browser first saw each hand go up. Hosts get a toast and a soft chime for each new one.
   if (!S.handAt) S.handAt = new Map();
   const up = new Set(S.people.filter((p) => p.hand && !p.waiting).map((p) => p.pid));
@@ -2066,7 +2075,7 @@ function applySync(r) {
   const fresh = [];
   for (const pid of up) if (!S.handAt.has(pid)) { S.handAt.set(pid, Date.now()); if (pid !== S.me.pid) fresh.push(pid); }
   for (const pid of [...S.handAt.keys()]) if (!up.has(pid)) S.handAt.delete(pid);
-  if (S.handsPrimed && hostish() && fresh.length) { toast(fresh.map(nameOf).join(', ') + (fresh.length > 1 ? ' raised hands' : ' raised a hand')); chime(); }
+  if (S.handsPrimed && hostish() && fresh.length) { toast(fresh.map(nameOf).join(', ') + (fresh.length > 1 ? ' raised hands' : ' raised a hand')); chime('notify'); }
   S.handsPrimed = true;
   const handSig = [...S.handAt.keys()].join(',');
   if (handSig !== S.handSig) { S.handSig = handSig; S.ctlSig = null; S.sideSig = null; S.gridSig = null; }
@@ -2117,7 +2126,7 @@ function handleEvent(e) {
     if (e.body.ai && e.from !== S.me.pid && false) return;
     S.chat.push({ ...e.body, from: e.from, to: e.to, ts: e.ts });
     if ((e.body.mentions || []).includes(S.me.pid) && e.from !== S.me.pid && Date.now() - (S.joinedAt || 0) > 4000) {
-      chime(); toast((e.body.name || nameOf(e.from)) + ' mentioned you: ' + String(e.body.text || '').slice(0, 80));
+      chime('mention'); toast((e.body.name || nameOf(e.from)) + ' mentioned you: ' + String(e.body.text || '').slice(0, 80));
       if (S.panel !== 'chat') { S.mentioned = true; paintCtl(); }
     }
     if (S.panel !== 'chat' && e.from !== S.me.pid) { S.unread++; paintCtl(); if (e.body.text && Date.now() - (S.joinedAt || 0) > 4000) toast((e.body.name || nameOf(e.from)) + ': ' + String(e.body.text).slice(0, 80)); }

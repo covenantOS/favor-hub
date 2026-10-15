@@ -86,6 +86,7 @@
     setTimeout(function () {
       // The More menu: the sheet is already off the screen, so it closes without the slide-away copy hub-motion.js draws.
       if (s.k.more) { s.el.classList.add('m-nav-gone'); window.__hubSheetClosed = true; }
+      if (window.hubHaptic) window.hubHaptic('light');
       s.k.close(s.el);
       requestAnimationFrame(function () {
         s.el.style.transition = ''; s.el.style.transform = '';

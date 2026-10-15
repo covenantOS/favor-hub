@@ -143,13 +143,15 @@
     if (!shown[st.r.id]) return;
     var msgOpen = st.el.querySelector('.fr-msg:not([hidden])');
     if (!msgOpen && claim(st.r.id)) {
-      try {
+      // The family's ring (hub-sound.js) follows the person's Sounds setting; the two plain notes below are for a page without it.
+      if (window.hubSound) window.hubSound.play('ring');
+      else try {
         actx = actx || new (window.AudioContext || window.webkitAudioContext)();
         if (actx.state === 'suspended') actx.resume().catch(function () {});
         var t = actx.currentTime + 0.02;
         tone(t, 784, 0.35); tone(t + 0.42, 1046.5, 0.5);
       } catch (e) { /* no sound on this page: the card still shows */ }
-      if (navigator.vibrate && matchMedia('(max-width: 860px)').matches) { try { navigator.vibrate([250, 150, 250]); } catch (e) { /* no vibration */ } }
+      if (window.hubHaptic) window.hubHaptic('ring'); else if (navigator.vibrate && matchMedia('(max-width: 860px)').matches) { try { navigator.vibrate([250, 150, 250]); } catch (e) { /* no vibration */ } }
     }
     st.snd = setTimeout(function () { ringSound(st); }, 2400);
   }

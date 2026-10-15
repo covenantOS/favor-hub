@@ -155,13 +155,18 @@ export const sheetOpen = () => sheets.length > 0;
  * Choose one of a list. items: [{value, label, hint, dot, on, icon}]. Returns the value, or undefined when dismissed.
  * On desktop a small pop-up under `anchor`; on a phone a bottom sheet.
  */
-export function choose({ anchor, title, items, search, placeholder, source }) {
+export function choose({ anchor, title, items, search, placeholder, source, typed }) {
   return new Promise((resolve) => {
     let resolved = false;
     const done = (v) => { if (resolved) return; resolved = true; resolve(v); };
     let q = '';
     let hi = phone() ? -1 : Math.max(0, items.findIndex((i) => i.on));
-    const list = () => (q && !source ? items.filter((i) => (i.label + ' ' + (i.hint || '')).toLowerCase().includes(q.toLowerCase())) : items);
+    // typed(q): an item made from what was typed (a date read from "fri" or "oct 20"), shown first.
+    const list = () => {
+      const base = q && !source ? items.filter((i) => (i.label + ' ' + (i.hint || '')).toLowerCase().includes(q.toLowerCase())) : items;
+      const x = typed && q ? typed(q) : null;
+      return x ? [x].concat(base.filter((i) => i.value !== x.value)) : base;
+    };
     const rows = (arr) => arr.length ? arr.map((it, i) => `<button type="button" class="pj-opt${it.on ? ' is-on' : ''}${i === hi ? ' is-hi' : ''}" role="option" data-i="${i}">${it.dot ? `<i class="pj-dot" data-c="${esc(it.dot)}"></i>` : ''}${it.icon ? icon(it.icon) : ''}<span class="pj-opt__t"><b>${esc(it.label)}</b>${it.hint ? `<small>${esc(it.hint)}</small>` : ''}</span>${it.on ? icon('check', 'pj-opt__ok') : ''}</button>`).join('') : '<p class="pj-none">Nothing matches.</p>';
     const html = `${search ? `<div class="pj-search">${icon('search')}<input type="search" data-q placeholder="${esc(placeholder || 'Search')}" aria-label="${esc(placeholder || 'Search')}" autocomplete="off" /></div>` : ''}<div class="pj-opts" role="listbox" data-list>${rows(list())}</div>`;
     if (!phone() && anchor) {

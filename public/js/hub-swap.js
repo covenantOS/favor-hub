@@ -136,6 +136,8 @@
   // A thin line under the status bar shows a page is on its way, but only when it takes longer than a blink.
   let progT = 0;
   const progress = (on) => {
+    // The shared loading line (hub-progress.js) when it is there; the old line below otherwise.
+    if (window.hubProgress) { if (on) window.hubProgress.start('swap'); else window.hubProgress.done('swap'); return; }
     clearTimeout(progT);
     let el = document.getElementById('h-prog');
     if (!on) { if (el) { el.style.width = '100%'; el.style.opacity = '0'; setTimeout(() => el && el.remove(), 250); } return; }

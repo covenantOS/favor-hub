@@ -10,6 +10,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const AS = new URLSearchParams(location.search).get('as') || '';
 const ET = 'America/New_York';
 const I = {
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
   x: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>', down: '<path d="m6 9 6 6 6-6"/>', send: '<path d="M21 3 3 11l7 3 3 7z"/><path d="m10 14 4-4"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>', check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
@@ -229,9 +230,19 @@ function rowHTML(r) {
   }
   return `<a class="${cls}" href="${esc(r.href)}" data-wm-row="${esc(r.id)}" ${r.attr || ''}>${ic1}<span class="bn-main"><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></span>${side}</a>`;
 }
+// A notice that arrives while the page is open plays the notify sound once (chat rows have their own sound in Chat and the dock).
+// Everything already there in the first eight seconds after the page opens is taken as seen.
+const BELL_SEEN = new Set(), BELL_T0 = Date.now();
+function bellSound(fresh) {
+  const quiet = Date.now() - BELL_T0 < 8000;
+  let hit = '';
+  fresh.forEach((r) => { if (!BELL_SEEN.has(r.id)) { BELL_SEEN.add(r.id); if (!quiet && r.id.slice(0, 3) !== 'ch:') hit = r.id; } });
+  if (hit && window.hubSound) window.hubSound.play('notify', { key: 'bell:' + hit });
+}
 function paintBadge() {
   const b = bellBtn(); if (!b) return;
   const n = bellRows().fresh.length;
+  bellSound(bellRows().fresh);
   const em = $('em', b); em.textContent = n ? (n > 9 ? '9+' : String(n)) : '';
   b.setAttribute('aria-label', n ? 'Notifications, ' + n + ' unread' : 'Notifications');
 }
@@ -264,6 +275,8 @@ function settingsHTML() {
     rows.push(row('bell', 'Quiet hours', Q.on ? 'Pushes and emails wait, then arrive as one summary' : 'Off', '', `<label class="bn-side"><input type="checkbox" class="wm-switch" data-wm-quiet ${Q.on ? 'checked' : ''} aria-label="Quiet hours" /></label>`));
     if (Q.on) rows.push(`<div class="bn-row bn-row--set bn-quiet" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding-left:52px"><label>From <input type="time" data-wm-qstart value="${hm(Q.start)}" /></label><label>to <input type="time" data-wm-qend value="${hm(Q.end)}" /></label><label><input type="checkbox" data-wm-qwknd ${Q.weekends ? 'checked' : ''} /> All weekend</label><small style="flex-basis:100%;opacity:.7">${esc(Q.tz)} time</small></div>`);
   }
+  // Sounds: the level, the volume and a preview of each sound live in their own sheet (public/js/hub-sound.js).
+  if (window.hubSound) { const lv = window.hubSound.level(); rows.push(row('sound', 'Sounds', lv === 'on' ? 'On, every sound' : lv === 'off' ? 'Off' : 'Subtle: calls, mentions, messages, done', 'data-hs-open')); }
   // Meetings: what the meetings and huddles this person starts record (functions/_lib/meetpref.ts). The host can change it in the call.
   if (BN.rec) {
     const o = (v, l) => `<option value="${v}" ${BN.rec === v ? 'selected' : ''}>${l}</option>`;

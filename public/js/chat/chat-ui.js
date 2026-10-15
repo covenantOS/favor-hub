@@ -1294,7 +1294,7 @@
       }) : guard(api.send(S.active, payload));
       sending.then(function (m) {
         if (alsoBox) alsoBox.checked = false;
-        if (m) { S.toBottom = true; addMessage(m, true); }
+        if (m) { S.toBottom = true; addMessage(m, true); if (window.hubSound) window.hubSound.play('sent'); }
       }).catch(function () { if (!ta.value) { ta.value = raw; S.mentionMap[scope] = map; grow(ta); syncSend(scope); saveDraft(scope); } });
     }
     function addMessage(m, mine) {
