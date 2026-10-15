@@ -77,6 +77,13 @@ const ctx = () => ({ env: env(), repo: { synced: async () => '2026-10-10T09:03:1
 const page = (query, range = '12m') => asks.asksResponse(ctx(), '', range, query);
 const ids = (out) => out.rows.map((r) => r.id);
 
+describe('the asks route', () => {
+  it('hands sort and dir to the query along with the filters and the page', () => {
+    const src = readFileSync(new URL('../functions/api/work/asks.ts', import.meta.url), 'utf8');
+    for (const k of ['status', 'state', 'q', 'sort', 'dir', 'offset', 'limit']) assert.equal(src.includes('    ' + k + ': ') && src.includes("p.get('" + k + "')"), true, k + ' is read from the URL');
+  });
+});
+
 describe('paged asks', () => {
   it('returns the first 50 rows by default, with the total for the filter', async () => {
     const out = await page({});
@@ -86,14 +93,18 @@ describe('paged asks', () => {
     assert.deepEqual([out.offset, out.limit, out.status, out.state], [0, 50, 'all', '']);
   });
 
-  it('pages through every ask once, in list order: closing, then open, then gave', async () => {
+  it('pages through every ask once, newest ask first by default', async () => {
     const seen = [];
-    for (const offset of [0, 50, 100]) seen.push(...ids(await page({ offset, limit: 50 })));
+    const dates = [];
+    for (const offset of [0, 50, 100]) {
+      const out = await page({ offset, limit: 50 });
+      seen.push(...ids(out));
+      dates.push(...out.rows.map((r) => r.first));
+    }
     assert.equal(new Set(seen).size, N);
+    assert.deepEqual(dates, [...dates].sort().reverse());
+    assert.deepEqual([(await page({})).sort, (await page({})).dir], ['asked', 'desc']);
     const states = (await page({ offset: 0, limit: N })).rows.map((r) => r.state);
-    assert.deepEqual([...new Set(states)], ['closing', 'open', 'gave']);
-    assert.equal(states.lastIndexOf('closing') < states.indexOf('open'), true);
-    assert.equal(states.lastIndexOf('open') < states.indexOf('gave'), true);
     assert.equal(states.filter((s) => s === 'closing').length, 18);
     assert.equal(states.filter((s) => s === 'open').length, 72);
     assert.equal(states.filter((s) => s === 'gave').length, 30);
@@ -111,7 +122,7 @@ describe('paged asks', () => {
     assert.equal(gave.counts.gave.n, 30);
   });
 
-  it('pages inside one column, newest ask first for Asked, earliest close first for Closing', async () => {
+  it('pages inside one stage, newest ask first', async () => {
     const first = await page({ status: 'open', state: 'open', offset: 0, limit: 50 });
     const second = await page({ status: 'open', state: 'open', offset: 50, limit: 50 });
     assert.equal(first.matched, 72);
@@ -122,7 +133,54 @@ describe('paged asks', () => {
     const closing = await page({ state: 'closing', offset: 10, limit: 10 });
     assert.equal(closing.matched, 18);
     assert.equal(closing.rows.length, 8);
-    assert.deepEqual(ids(closing), [...ids(closing)].sort());
+    const all = await page({ state: 'closing', limit: 50 });
+    assert.equal(all.rows.every((r) => r.state === 'closing'), true);
+    assert.deepEqual(ids(closing), ids(all).slice(10));
+  });
+
+  it('sorts over every ask before it cuts a page: amount, partner, stage, close and director', async () => {
+    const amounts = [];
+    for (const offset of [0, 50, 100]) amounts.push(...(await page({ sort: 'amount', dir: 'desc', offset, limit: 50 })).rows.map((r) => r.amount));
+    assert.deepEqual(amounts, [...amounts].sort((a, b) => b - a));
+    assert.equal(amounts[0], 4000);
+    assert.equal(amounts[N - 1], 1000);
+    const up = await page({ sort: 'amount', dir: 'asc', limit: 5 });
+    assert.deepEqual(up.rows.map((r) => r.amount), [1000, 1000, 1000, 1000, 1000]);
+    assert.deepEqual([up.sort, up.dir], ['amount', 'asc']);
+    const names = [];
+    for (const offset of [0, 60]) names.push(...(await page({ sort: 'partner', offset, limit: 60 })).rows.map((r) => r.name.toLowerCase()));
+    assert.deepEqual(names, [...names].sort());
+    const stages = (await page({ sort: 'stage', limit: N })).rows.map((r) => r.state);
+    assert.deepEqual([...new Set(stages)], ['closing', 'open', 'gave']);
+    const flip = (await page({ sort: 'stage', dir: 'desc', limit: N })).rows.map((r) => r.state);
+    assert.deepEqual([...new Set(flip)], ['gave', 'open', 'closing']);
+    for (const dir of ['asc', 'desc']) {
+      const close = (await page({ sort: 'close', dir, limit: N })).rows;
+      const dated = close.filter((r) => r.close).length;
+      assert.equal(dated, 18);
+      assert.equal(close.slice(0, dated).every((r) => r.close), true);
+      assert.equal(close.slice(dated).every((r) => !r.close), true);
+    }
+    const who = await page({ sort: 'director', limit: 3 });
+    assert.deepEqual(who.rows.map((r) => r.ownerNames), [['Fay Alpha'], ['Fay Alpha'], ['Fay Alpha']]);
+  });
+
+  it('sorts inside a search and a stage, and falls back to the default for a bad sort or direction', async () => {
+    const out = await page({ q: 'pine', state: 'open', sort: 'amount', dir: 'asc', limit: 50 });
+    assert.equal(out.matched, 5);
+    assert.deepEqual(out.rows.map((r) => r.amount), out.rows.map((r) => r.amount).sort((a, b) => a - b));
+    const bad = await page({ sort: 'nope', dir: 'sideways' });
+    assert.deepEqual([bad.sort, bad.dir], ['asked', 'desc']);
+    assert.deepEqual([(await page({ sort: 'partner' })).dir, (await page({ sort: 'amount' })).dir], ['asc', 'desc']);
+  });
+
+  it('names who tagged each ask and keeps the full text only when the line leaves some out', async () => {
+    const out = await page({ sort: 'partner', q: 'Pine Hollow 0', limit: 5 });
+    const row = out.rows.find((r) => r.name === 'Pine Hollow 0');
+    assert.deepEqual(row.taggedNames, ['Fay Alpha']);
+    assert.equal(asks.textOf('Made-up line.', 'A call'), 'A call' + String.fromCharCode(10) + 'Made-up line.');
+    assert.equal(asks.textOf('', 'A call'), '');
+    assert.equal(asks.textOf('A call', 'A call'), '');
   });
 
   it('runs search over every page: the match count and the rows cover all asks, not the loaded page', async () => {

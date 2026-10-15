@@ -1,1 +1,103 @@
-/* Partners lists (pt-asks): see ptable.css for the shared parts. */
+/* Partners lists (pt-asks): the Asks table, its slim stat strip and its side panel. See ptable.css for the shared parts. */
+
+/* The stat strip: one line, no tiles. */
+.pa-strip { display: flex; align-items: stretch; margin-bottom: 8px; overflow: hidden; }
+.pa-stat { flex: 1 1 0; min-width: 0; display: flex; align-items: baseline; gap: 8px; padding: 6px 16px; border-left: 1px solid var(--h-line); white-space: nowrap; }
+.pa-stat:first-child { border-left: 0; }
+.pa-stat b { font: 600 17px var(--h-serif); color: var(--h-ink); font-variant-numeric: lining-nums tabular-nums; }
+.pa-stat span { font: 500 13px var(--h-font); color: var(--h-ink-2); overflow: hidden; text-overflow: ellipsis; }
+.pa-stat em { margin-left: auto; font: 600 13px var(--h-font); font-style: normal; color: var(--h-ink-3); font-variant-numeric: tabular-nums; }
+.pa-stat.is-warn b { color: var(--h-red, #a33); }
+
+/* The filter bar */
+.pa-bar .pa-sortsel, .pa-bar .wa-fbtn { display: none; }
+.pa-bar { gap: 6px; }
+.pa-bar .pt-search { flex: 0 1 150px; min-width: 120px; }
+.pa-bar .pt-search input { padding-right: 6px; }
+.pa-bar select.pt-sel { max-width: 170px; padding: 0 22px 0 8px; }
+.pa-bar .pt-seg button { padding: 0 8px; }
+.pa-bar > .h-btn, .pa-bar summary.h-btn { padding: 0 9px; }
+.pa-bar { flex-wrap: wrap; }
+
+/* The table */
+.pa-table { transition: opacity 0.15s; }
+.pa-table.is-busy { opacity: 0.5; pointer-events: none; }
+.pa-table tbody tr.pa-row { cursor: pointer; }
+.pa-table thead th.pa-c-act { width: 1%; }
+.pa-table tbody td.pa-c-amount { width: 1%; font-weight: 700; }
+.pa-table .pa-amt { font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.pa-table tbody td.pa-c-partner { max-width: 340px; }
+.pa-table tbody td.pa-about { width: 100%; max-width: 0; min-width: 180px; color: var(--h-ink-2); }
+.pa-table thead th.pa-c-about { width: 100%; }
+.pa-table tbody td.pa-c-director { max-width: 180px; }
+.pa-table tbody td.pa-c-act { width: 1%; padding-left: 4px; text-align: right; }
+.pa-table .wa-chip { height: 20px; padding: 0 9px; font: 600 12.5px var(--h-font); gap: 5px; }
+.pa-table .wa-chip .h-i { width: 12px; height: 12px; }
+.pa-table .pa-prep { width: 22px; height: 22px; }
+.pa-table tbody tr.is-past .pa-amt { color: var(--h-red, #93391f); }
+.pa-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (min-width: 861px) { [data-density='compact'] .pa-table tbody td { padding-top: 3px; padding-bottom: 3px; line-height: 1.25; } }
+[data-density='comfortable'] .pa-table .wa-chip { height: 28px; }
+[data-density='comfortable'] .pa-table .pa-prep { width: 30px; height: 30px; }
+.pa-foot { padding: 10px 14px; border-top: 1px solid var(--h-line); font: 400 12.5px/1.5 var(--h-font); color: var(--h-ink-3); }
+.pt-empty p { margin: 12px 0 0; }
+
+/* The side panel */
+#pa-side-host .pt-scrim { z-index: 119; }
+#pa-side-host .pt-side { z-index: 120; }
+.pa-side:focus { outline: none; }
+.pa-side .pt-side__head h2 { font-size: 26px; font-variant-numeric: lining-nums tabular-nums; }
+.pa-side .pt-side__head > div:first-child { min-width: 0; flex: 1; }
+.pa-side .pt-side__head .pt-sub { display: block; overflow-wrap: anywhere; }
+.pa-side .pt-icon[disabled] { opacity: 0.35; cursor: default; }
+.pa-side dd a { color: var(--h-ink); font-weight: 600; text-underline-offset: 2px; }
+.pa-side dd { overflow-wrap: anywhere; }
+.pa-block { display: grid; gap: 8px; }
+.pa-block h3 { margin: 0; font: 600 11.5px var(--h-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--h-ink-3); }
+.pa-block p { margin: 0; }
+.pa-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--h-ink); }
+.pa-now { font-weight: 600; }
+.pa-side .wa-quick { gap: 2px; }
+.pa-side .wa-q { height: 36px; }
+.pa-side .wa-foot2 { justify-content: flex-end; }
+.pa-side .pt-side__foot .h-btn { flex: 0 0 auto; }
+
+/* Phone: two lines per ask, amount and partner over stage and close. Filters sit behind the Filters button. */
+@media (max-width: 860px) {
+  .pa-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pa-stat { padding: 8px 12px; border-left: 0; border-top: 1px solid var(--h-line); }
+  .pa-stat:nth-child(-n+2) { border-top: 0; }
+  .pa-stat:nth-child(even) { border-left: 1px solid var(--h-line); }
+  .pa-stat b { font-size: 16px; }
+  .pa-bar { gap: 8px; padding: 10px; }
+  .pa-bar .pt-search { flex: 1 1 0; min-width: 0; order: -2; }
+  .pa-bar .pt-search input { height: 44px; font-size: 16px; }
+  .pa-bar .wa-fbtn { display: inline-flex; order: -1; min-height: 44px; flex: none; }
+  .pa-sheet .pa-f { display: none; }
+  .pa-sheet.is-fopen select.pa-f { display: block; flex: 1 1 100%; max-width: none; min-height: 44px; font-size: 16px; }
+  .pa-sheet.is-fopen .pt-seg.pa-f { display: flex; flex-wrap: wrap; flex: 1 1 100%; }
+  .pa-sheet.is-fopen .pt-seg.pa-f button { flex: 1 1 auto; min-height: 40px; }
+  .pa-sheet.is-fopen .h-btn.pa-f { display: inline-flex; min-height: 44px; }
+  .pa-sheet.is-fopen .pa-dens, .pa-sheet.is-fopen .pa-colsbox { display: none; }
+  .pa-bar .pt-spacer { display: none; }
+  .pt-chips { padding: 0 10px 10px; }
+  .pt-chip { height: 36px; font-size: 13px; }
+  .pa-table, .pa-table tbody { display: block; }
+  .pa-table thead { display: none; }
+  .pa-table tbody tr.pa-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'amt who prep' 'stage stage close'; gap: 0 12px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--h-line); }
+  .pa-table tbody td { display: block; padding: 0; border: 0; max-width: none; min-width: 0; width: auto; background: none; }
+  .pa-table tbody tr.pa-row td { background: none; }
+  .pa-table tbody td.pa-about, .pa-table tbody td.pa-c-asked, .pa-table tbody td.pa-c-director { display: none; }
+  .pa-table tbody td.pa-c-amount { grid-area: amt; width: auto; font-size: 16px; }
+  .pa-table tbody td.pa-c-partner { grid-area: who; max-width: none; }
+  .pa-table tbody td.pa-c-act { grid-area: prep; width: auto; padding: 0; }
+  .pa-table tbody td.pa-c-stage { grid-area: stage; }
+  .pa-table tbody td.pa-c-close { grid-area: close; justify-self: end; }
+  .pa-table .pa-amt { min-height: 40px; min-width: 56px; }
+  .pa-table .pt-name { display: inline-block; padding-block: 8px; }
+  .pa-table .wa-chip { height: 40px; padding: 0 12px; font-size: 13px; }
+  .pa-table .pa-prep { width: 40px; height: 40px; }
+  .pa-table tbody td.pa-c-partner .pt-sub { display: block; }
+  .pa-side .pt-side__head .pt-icon { width: 40px; height: 40px; }
+  .pa-side .wa-q { height: 44px; }
+}
