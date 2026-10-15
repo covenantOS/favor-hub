@@ -135,7 +135,7 @@ export function useActionTable(w: Work, listKey: string, theirsFr = '') {
         key: 'type',
         label: 'Type',
         thClassName: 'c-type',
-        phone: false,
+        phone: true,
         cell: (a) => {
           const c = w.cur(a);
           return (
@@ -176,7 +176,7 @@ export function useActionTable(w: Work, listKey: string, theirsFr = '') {
         sort: 'fr',
         firstDir: 'asc',
         thClassName: 'c-who',
-        phone: false,
+        phone: true,
         cell: (a) => {
           const c = w.cur(a);
           const theirs = !!theirsFr && !c.f.includes(theirsFr) && a.hold.includes(theirsFr);

@@ -28,3 +28,25 @@ html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: none; }
 #wc-root .wc-at .wc-open { text-align: left; }
 #wc-root .pt-wrap--fit { min-height: 280px; }
 #wc-root .wc-tools2 .pt-cols summary svg { display: none; }
+#wc-root .wc-at thead th, #wc-root .wc-at thead th .pt-th { text-transform: uppercase; letter-spacing: 0.1em; font-size: 11.5px; font-weight: 500; }
+
+/* A phone shows each action as a small card, the way the classic list did: partner and date on top, the summary, then who and type. */
+@media (max-width: 860px) {
+  #wc-root .wc-at { table-layout: auto; }
+  #wc-root .wc-at thead { display: none; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] { display: grid; grid-template-columns: 40px 1fr auto; grid-template-areas: 'cb partner due' 'cb what what' 'cb who type'; row-gap: 4px; padding: 12px 12px 12px 2px; border-bottom: 1px solid var(--h-line); align-items: start; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td { display: block; padding: 0; border: 0; min-width: 0; white-space: normal; overflow: visible; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td.pt-cb { grid-area: cb; padding-top: 2px; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td:nth-child(2) { grid-area: due; text-align: right; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td:nth-child(3) { grid-area: partner; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td:nth-child(4) { grid-area: type; text-align: right; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td:nth-child(5) { grid-area: what; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td:nth-child(6) { grid-area: who; }
+  #wc-root .wc-at.wc-grid tbody tr[data-pt-row] td:nth-child(7) { display: none; }
+  #wc-root .wc-at .wc-tags { flex-wrap: wrap; }
+  #wc-root .wc-tg.wc-at tbody tr[data-pt-row] { grid-template-areas: 'cb partner partner' 'cb task task' 'cb evid evid' 'cb . btn'; }
+  #wc-root .wc-tg.wc-at tbody tr[data-pt-row] td:nth-child(2) { grid-area: partner; text-align: left; }
+  #wc-root .wc-tg.wc-at tbody tr[data-pt-row] td:nth-child(3) { grid-area: task; text-align: left; }
+  #wc-root .wc-tg.wc-at tbody tr[data-pt-row] td:nth-child(4) { grid-area: evid; text-align: left; }
+  #wc-root .wc-tg.wc-at tbody tr[data-pt-row] td:nth-child(5) { grid-area: btn; display: block; }
+}
