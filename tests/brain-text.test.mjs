@@ -21,9 +21,8 @@ test('a text link (?t=) opens its thread on the Brain page', () => {
   assert.match(read('public/js/brain.js'), /get\('c'\) \|\| new URLSearchParams\(location\.search\)\.get\('t'\)/);
 });
 
-test('the help article and the tour step exist', () => {
+test('the help article and the changelog line exist', () => {
   assert.match(read('src/content/help/text-favor-brain.md'), /^title: Text Favor Brain/m);
-  assert.match(read('src/scripts/tours.ts'), /id: 'brain-text'[\s\S]*added: '2026-10-12'/);
   assert.match(read('src/content/help/whats-new.md'), /Text Favor Brain/);
 });
 

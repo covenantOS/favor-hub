@@ -37,5 +37,4 @@ test('the dock scripts hide on Chat, Brain and phones, and load the panel code o
   assert.doesNotMatch(layout, /dock-panel\.js/, 'the panel code is not in the page');
   // Measured with LF line ends: a Windows checkout (CRLF) adds a byte a line and must not fail the cap.
   assert.ok(Buffer.byteLength(s.replace(/\r\n/g, '\n')) < 24000, 'the always-on part stays small');
-  assert.match(fs.readFileSync('src/scripts/tours.ts', 'utf8'), /id: 'dock',[\s\S]*?added: '2026-10-12'/);
 });

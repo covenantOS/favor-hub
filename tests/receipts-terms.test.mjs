@@ -76,7 +76,7 @@ test('the Receipts help article keeps the HQ letter apart from the receipt', () 
 });
 
 test('tour text about receipts never says letter outside the HQTY tours', () => {
-  const bad = offenders(stringsOf(read('src/scripts/tours.ts')).filter((s) => /receipt/i.test(s)));
+  const bad = offenders(stringsOf(read('web/src/features/tour/data.ts')).filter((s) => /receipt/i.test(s)));
   assert.deepEqual(bad, []);
 });
 

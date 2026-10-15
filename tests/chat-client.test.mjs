@@ -37,5 +37,5 @@ test('Chat has a page, a gated nav entry, a tour step, a help article and a What
   assert.match(help, /title: Chat/);
   assert.ok(!help.includes('\u2014'));
   assert.match(fs.readFileSync('src/content/help/whats-new.md', 'utf8'), /\*\*Chat, for admins\.\*\*/);
-  assert.match(fs.readFileSync('src/scripts/tours.ts', 'utf8'), /id: 'chat',[\s\S]*?added: '2026-10-11'/);
+  assert.match(fs.readFileSync('web/src/features/tour/data.ts', 'utf8'), /id: 'chat',[\s\S]*?need: 'chat'/);
 });
