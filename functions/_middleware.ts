@@ -171,7 +171,10 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
     if (w.kind === 'switch') return new Response(null, { status: 302, headers: { Location: new URL(w.to, url).toString(), 'Set-Cookie': w.cookie, 'Cache-Control': 'no-store' } });
     if (w.kind === 'web') {
       if (enforce) noteUse(ctx, user, request.method, path);
-      return withGc(await serveWeb(env, forwarded));
+      // The page carries this person's web routes in the hub_web cookie, as classic pages do, so in-app links stay inside what is on for them.
+      const served = await serveWeb(env, forwarded);
+      served.headers.append('Set-Cookie', webCookie(w.routes));
+      return withGc(served);
     }
     webRoutes = w.routes;
     // The React app takes a page only for an admin-enabled route and a person who opted in; any other page falls through unchanged.
