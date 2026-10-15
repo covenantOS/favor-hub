@@ -18,7 +18,7 @@ import { installHubOv } from '@/lib/hubOv';
 import { afterPaint, mountShellScripts } from '@/lib/legacy';
 import { clearStored, keys } from '@/lib/query';
 import { KEYS, writeString } from '@/lib/storage';
-import { WEB_ROUTES } from '@shared/web';
+import { useWebServed } from './served';
 import { navQuery } from '../lib/queries';
 import { mountClassicHelpers } from './helpers';
 import { TourHost } from '../features/tour/TourHost';
@@ -140,6 +140,7 @@ function DockPart() {
 
 export function WebShell({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
+  const served = useWebServed();
   const nav = useQuery(navQuery);
   const { navId, title, layout } = useMeta();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -182,7 +183,7 @@ export function WebShell({ children }: { children: ReactNode }) {
 
   const layoutClass = layout === 'bare' ? 'h-bare' : layout === 'wide' ? 'h-page h-page--wide' : layout === 'full' ? 'h-page h-page--full' : 'h-page';
   return (
-    <ServedRoutes.Provider value={[...WEB_ROUTES]}>
+    <ServedRoutes.Provider value={served}>
       <a className="h-skip" href="#h-content">
         Skip to the page
       </a>

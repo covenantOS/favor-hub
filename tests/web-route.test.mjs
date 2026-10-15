@@ -165,3 +165,23 @@ describe('Other gifts carries its own switch', () => {
     assert.deepEqual(d.routes, [OG]);
   });
 });
+
+describe('the hub_web cookie a web page carries', () => {
+  const cookieRoutes = (d) => decodeURIComponent(webCookie(d.routes).split(';')[0].slice('hub_web='.length)).split('~');
+  it('a route held to testers is in a tester cookie and not in a staff cookie, on a page the web app serves', async () => {
+    const env = world({ 'web.routes': '/brain/@testers,/projects/@all' });
+    const t = await go(env, '/projects/', tester);
+    const s = await go(env, '/projects/', staff);
+    assert.equal(t.kind, 'web');
+    assert.equal(s.kind, 'web');
+    assert.ok(cookieRoutes(t).includes('/brain/') && cookieRoutes(t).includes('/projects/'));
+    assert.ok(cookieRoutes(s).includes('/projects/'));
+    assert.ok(!cookieRoutes(s).includes('/brain/'), 'staff are not given a testers-only route');
+  });
+  it('turning a route off drops it from the next answer', async () => {
+    const s = await go(world({ 'web.routes': '/projects/@all' }), '/projects/', staff);
+    assert.ok(cookieRoutes(s).includes('/projects/'));
+    const off = await go(world({ 'web.routes': '/brain/@testers' }), '/', staff);
+    assert.ok(!cookieRoutes(off).includes('/projects/'));
+  });
+});
