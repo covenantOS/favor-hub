@@ -10,6 +10,9 @@ import { useSearchParams, useSetSearch } from '../lib/url';
 import { openComposer } from './Composer';
 import { intakeDetailQuery, intakeTeamsQuery } from './queries';
 
+// Once per page load for each time the address says compose=1; reset when the address no longer says it.
+let composeAsked = false;
+
 export function useIntakeParams(openTask: (ref: string) => void): void {
   const qc = useQueryClient();
   const search = useSearchParams();
@@ -32,10 +35,13 @@ export function useIntakeParams(openTask: (ref: string) => void): void {
   useEffect(() => {
     if (compose !== '1') {
       asked.current = false;
+      composeAsked = false;
       return;
     }
-    if (asked.current) return;
+    // A page that draws again while the address still says compose=1 must not open a second composer.
+    if (asked.current || composeAsked) return;
     asked.current = true;
+    composeAsked = true;
     setSearch((p) => p.delete('compose'), 'replace');
     openComposer();
   }, [compose, setSearch]);

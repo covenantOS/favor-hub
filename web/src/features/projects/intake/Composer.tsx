@@ -359,10 +359,19 @@ function ComposerBody({ sheet, initial }: { sheet: SheetHandle; initial: string 
 }
 
 /** Opens the composer. Words typed and not sent come back the next time. */
+let openNow: SheetHandle | null = null;
+
+/** Opens the composer. Asking again while it is open returns the one that is open. */
 export function openComposer(opts: { text?: string } = {}): SheetHandle {
-  return openSheet({
+  if (openNow) return openNow;
+  const h = openSheet({
     title: 'What do you need?',
     cls: 'pj-sheet--compose',
     render: (s) => <ComposerBody sheet={s} initial={opts.text ?? draft} />,
+    onClose: () => {
+      openNow = null;
+    },
   });
+  openNow = h;
+  return h;
 }
