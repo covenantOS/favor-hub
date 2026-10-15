@@ -8,6 +8,7 @@ import { asParam, wcApi, wcPost, wcPut } from './api';
 import { toast } from './engine';
 import { mailQuery, type MailPrefs } from './queries';
 import { Ic } from './ui';
+import { useMounted } from '../../record/lib';
 
 const SEND: [string, string][] = [
   ['7:30', '7:30 AM'],
@@ -26,7 +27,9 @@ export function MailChip() {
       return () => clearTimeout(t);
     }
   }, []);
-  if (!q.data) return null;
+  // The preference streams in after the server draws: the pill shows only after mount, so the server HTML matches (React 418).
+  const mounted = useMounted();
+  if (!mounted || !q.data) return null;
   return (
     <>
       <button type="button" className="wc-pill wc-pill--btn" data-wm-mailchip="" onClick={() => setOpen(true)}>
