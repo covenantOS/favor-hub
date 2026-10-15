@@ -4,10 +4,13 @@
 import { Icon } from '@/shell/Icon';
 import { RelBadge } from '@/shell/RelBadge';
 import { topHead } from '@/shell/TopBar';
-import { tabRowHeld, tabRowCount } from '@/shell/model';
+import { useMatches } from '@tanstack/react-router';
+import { NO_HINT, tabRowHeldFor, tabRowCount, type RowHint } from '@/shell/model';
 
 export function TopWait({ navId, title }: { navId: string; title: string }) {
   const { found, area, sameAsArea, headTitle, headKey } = topHead(navId, title);
+  // From the request (role) and the cookie of the last visit: whether this person's bar has a second line, known before the menu arrives.
+  const hint = useMatches({ select: (m) => (m[0]?.loaderData as { rowHint?: RowHint } | undefined)?.rowHint }) ?? NO_HINT;
   return (
     <header className="h-top h-top--wait">
       <span className="h-top__menu" aria-hidden="true">
@@ -29,7 +32,7 @@ export function TopWait({ navId, title }: { navId: string; title: string }) {
         </div>
       </div>
       <div className="h-top__tabs">
-        {tabRowHeld(navId) && (
+        {tabRowHeldFor(navId, hint) && (
           <nav className="h-tabs h-tabs--wait" aria-hidden="true" inert>
             <div className="h-tabs__row">
               {Array.from({ length: tabRowCount(navId) }, (_, i) => (

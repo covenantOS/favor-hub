@@ -5,6 +5,7 @@ import { resolveNav } from '@hub/data/areas';
 import type { QueryClient } from '@tanstack/react-query';
 import { WebShell } from '../shell/WebShell';
 import { navQuery } from '../lib/queries';
+import { readRowHint } from '../lib/rowhint';
 import { useIdleReady } from '@/lib/idle';
 import css from '../styles/layout.css?url';
 // The classic layout inlines these three in its head, before anything draws: timer and listener ownership (hub-own), Lite mode's
@@ -60,6 +61,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   // The menu answer is asked for on the server before rendering starts and streams into the page when it arrives.
   loader: ({ context, location }) => {
     if (!isSoloPath(location.pathname)) void context.queryClient.prefetchQuery(navQuery);
+    return { rowHint: readRowHint() };
   },
   shellComponent: Document,
   component: Root,

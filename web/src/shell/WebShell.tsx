@@ -5,7 +5,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNo
 import { useMatches, useRouterState } from '@tanstack/react-router';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import type { HubUser } from '@shared/schemas';
-import { buildNav } from '@/shell/model';
+import { buildNav, tabRowDrawn } from '@/shell/model';
+import { rememberRow } from '../lib/rowhint';
 import { Rail } from '@/shell/Rail';
 import { TopBar } from '@/shell/TopBar';
 import { TopWait } from './TopWait';
@@ -14,6 +15,7 @@ import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { ServedRoutes } from '@/shell/NavLink';
 import { useRail } from '@/shell/useRail';
 import { useNav } from '@/data/hooks';
+import { resolveNav } from '@hub/data/areas';
 import { useIdleReady } from '@/lib/idle';
 import { installHubOv } from '@/lib/hubOv';
 import { afterPaint, mountShellScripts } from '@/lib/legacy';
@@ -165,6 +167,12 @@ export function WebShell({ children }: { children: ReactNode }) {
     r.toggle('has-projects', !!access.projects);
     r.toggle('has-clip-rec', !!access.clips && access.clipsRecord !== false);
   }, [access]);
+  // The next visit holds this bar's second line from its first frame (lib/rowhint.ts).
+  useEffect(() => {
+    if (!nav.data || !navId) return;
+    const found = resolveNav(navId);
+    if (found) rememberRow(found.area.id, tabRowDrawn(navId, nav.data.access as Record<string, unknown>, nav.data.kpiTeams ?? []));
+  }, [nav.data, navId]);
   useEffect(() => {
     document.body.dataset.nav = navId;
     document.title = title + ' - FavorOS';

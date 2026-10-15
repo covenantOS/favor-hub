@@ -116,6 +116,40 @@ const sharedPages = (navId: string) => {
 
 export const tabRowHeld = (navId: string): boolean => sharedPages(navId).length >= 2;
 
+/**
+ * What the server knows about the tab row before the menu answer arrives: whether the person is an admin (an admin may open every page of
+ * an area, so the row is certain wherever the area has two) and which areas had a row the last time this browser drew one (a cookie the
+ * page writes: `rows`, area id to 1 or 0). The held top bar uses it so a phone's second line has its space from the first frame.
+ */
+export interface RowHint {
+  admin: boolean;
+  rows: Record<string, 0 | 1>;
+}
+export const NO_HINT: RowHint = { admin: false, rows: {} };
+
+export const tabRowHeldFor = (navId: string, hint: RowHint): boolean => {
+  const found = resolveNav(navId);
+  if (!found) return false;
+  const { area, page } = found;
+  if (page.menu === false || page.ext || page.team) return false;
+  const seen = hint.rows[area.id];
+  if (seen === 1) return true;
+  if (seen === 0) return false;
+  if (hint.admin) return area.pages.filter((p) => !p.ext && p.menu !== false && !p.team).length >= 2;
+  return sharedPages(navId).length >= 2;
+};
+
+/** Whether the tab row is drawn for this person on this page (the rule TabRow applies), for the cookie that remembers it. */
+export function tabRowDrawn(navId: string, access: NavInput['access'], kpiTeams: string[]): boolean {
+  const found = resolveNav(navId);
+  if (!found) return false;
+  const { area } = found;
+  const pages = area.pages.filter((p) => !p.ext && p.menu !== false);
+  const visible = pages.filter((p) => pageVisible(p, access, kpiTeams));
+  const onlyOnThis = visible.length === 1 && (visible[0].id === navId || (visible[0].also || []).includes(navId));
+  return !(visible.length === 0 || onlyOnThis || pages.length < 2);
+}
+
 /** How many children the held row has: the area's tabs (six at most) and the More button, which the real row always draws (hidden when
  * nothing is under it). The header lays out differently once the row has seven children, so the held row has the count most people
  * of this area get. Someone who may open fewer pages sees the other layout, three pixels different on a mid-width desktop, no more. */
