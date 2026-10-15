@@ -1,5 +1,5 @@
 import { json, type Env } from '../../_lib/http';
-import { clearHubSessionCookie, endHubSession, hubUserOf, logAuth } from '../../_lib/session';
+import { clearHubSessionCookie, clearHubWhoCookie, endHubSession, hubUserOf, logAuth } from '../../_lib/session';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = hubUserOf(request);
@@ -9,5 +9,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } catch (err) {
     console.error('[signin] logout', err);
   }
-  return json({ ok: true, signedIn: false }, 200, { 'Set-Cookie': clearHubSessionCookie() });
+  const res = json({ ok: true, signedIn: false }, 200, { 'Set-Cookie': clearHubSessionCookie() });
+  res.headers.append('Set-Cookie', clearHubWhoCookie());
+  return res;
 };

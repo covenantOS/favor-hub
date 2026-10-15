@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { n0, TZ, type J } from './rank';
 import { useShared } from './state';
-import { helpers } from './ui';
+import { helpers, renderNow } from './ui';
 
 const stamp = (synced: string) => {
   const at = new Date(synced);
@@ -11,8 +11,8 @@ const stamp = (synced: string) => {
   const ET = { timeZone: TZ };
   const day = (x: Date) => x.toLocaleDateString('en-CA', ET);
   const time = at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', ...ET });
-  const when = day(at) === day(new Date()) ? time : at.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...ET }) + ', ' + time;
-  return { when, old: Date.now() - at.getTime() > 26 * 60 * 60 * 1000 };
+  const when = day(at) === day(new Date(renderNow())) ? time : at.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...ET }) + ', ' + time;
+  return { when, old: renderNow() - at.getTime() > 26 * 60 * 60 * 1000 };
 };
 
 function Picker({ kind, close }: { kind: 'contact' | 'task'; close: () => void }) {

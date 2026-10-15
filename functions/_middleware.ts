@@ -2,7 +2,7 @@
 // first and an API call without a user gets 401. Whoever is signed in reaches the functions as
 // X-Hub-* headers (see _lib/session.ts).
 import { json, type Env } from './_lib/http';
-import { crossSiteWrite, resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
+import { crossSiteWrite, resolveUser, signinEnforced, whoCookieFor, withUserHeaders } from './_lib/session';
 import { AREAS, REDIRECTS } from '../src/data/areas';
 import { earlyPaths } from '../src/data/early';
 import { isEarly } from './_lib/early';
@@ -203,6 +203,9 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
       // The page carries this person's web routes in the hub_web cookie, as classic pages do, so in-app links stay inside what is on for them.
       const served = await serveWeb(env, forwarded);
       served.headers.append('Set-Cookie', webCookie(w.routes));
+      // Names this session for the service worker, which keeps Today's last page under it (public/sw.js).
+      const who = await whoCookieFor(request);
+      if (who) served.headers.append('Set-Cookie', who);
       return withGc(served);
     }
     webRoutes = w.routes;

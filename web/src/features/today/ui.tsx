@@ -45,10 +45,20 @@ export function TypeChip({ t }: { t: string }) {
 /* ---------------------------------------------------------------- the clock */
 // The time a render uses. The server's answer is the moment it renders (never a value kept from when the Worker started), and the browser
 // takes its first value from the same page load and then moves once a minute, so "5m" and "Due in 2 h" tick together.
+// A repeat visit is drawn from the page the service worker kept (public/sw.js), which can be hours old. The worker says when the server drew it
+// (window.__hubNow) so the first browser render prints the same times the page already holds and hydration matches; the clock then moves to
+// the real time at once, and the value is dropped so a later visit to Today inside the app starts from the real time.
+declare global {
+  interface Window {
+    __hubNow?: number;
+  }
+}
+export const renderNow = () => (typeof window !== 'undefined' && window.__hubNow) || Date.now();
 export function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(renderNow);
   useEffect(() => {
     setNow(Date.now());
+    delete window.__hubNow;
     const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);

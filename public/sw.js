@@ -3,7 +3,9 @@
      1. keeps the app's own files (scripts, styles, fonts, icons) so the app opens on a weak or missing connection,
      2. keeps the /m/ start page so a home screen app opens offline,
      3. shows web push notices (a direct message or a mention) and opens the right conversation when one is tapped,
-     4. forgets everything it kept when the person signs out, so a shared phone leaves nothing behind.
+     4. forgets everything it kept when the person signs out, so a shared phone leaves nothing behind,
+   5. answers a repeat visit to Today (/) with the page it drew for that same person last time, then asks the server for the new one and
+      keeps it for the visit after (see "Today, kept per person" below).
    Account data (/api/...) is never stored here. The pages keep what they need for offline reading in their own store. */
 // The outbox code, shared with the pages, for background sending.
 try { importScripts('/js/phone-core.js?v=2'); } catch { /* sends from the page instead */ }
@@ -11,6 +13,7 @@ try { importScripts('/js/phone-core.js?v=2'); } catch { /* sends from the page i
 const VERSION = 'favoros-sw-1';
 const STATIC = `${VERSION}-static`;
 const SHELL = `${VERSION}-shell`;
+const TODAY = `${VERSION}-today`;
 const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/_w/', '/js/', '/css/', '/fonts/', '/images/'];
 const SHELL_PATHS = ['/m/'];
 const ICON = '/images/app-icon-192.png';
@@ -20,7 +23,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([STATIC, SHELL, 'favoros-flags']);
+      const keep = new Set([STATIC, SHELL, TODAY, 'favoros-flags']);
       for (const k of await caches.keys()) if (!keep.has(k)) await caches.delete(k);
       // The browser starts the page request itself, in parallel with this worker waking, and hands its streaming answer to fetch below.
       try { if (self.registration.navigationPreload) await self.registration.navigationPreload.enable(); } catch { /* no preload: the worker fetches the page */ }
@@ -97,6 +100,100 @@ async function keptFirst(request) {
   return refresh();
 }
 
+/* ------------------------------------------------------------ Today, kept per person
+   The web app's Today is drawn on the server, and on a phone the wait for that page (one trip to the server, then its reads) is most of
+   the time before anything shows. After a visit the page is kept here under hub_who, the cookie that names the signed-in session
+   (functions/_lib/session.ts). The next visit to / is answered from it at once, and the page the browser already asked the server for
+   (navigation preload) replaces the kept copy when it arrives; the page's own reads bring the new cards in over the old ones.
+   A kept page is used only when hub_who still names the session that drew it, only for a person the server gives the web Today (hub_web
+   lists "/", hub_web_off is not set), and for 12 hours. A server answer that is not the web Today (signed out, switched off) forgets
+   the copy and loads the page again. Sign-out empties every cache (forgetEverything). */
+const TODAY_MAX_AGE = 12 * 3600 * 1000;
+// The page starts its scripts in one of two ways (web/src/lib/defer-entry.ts): a plain async module tag for a browser that ran this build
+// before, or a loader script that holds them until the styles arrive (it carries the entry file and the preload list).
+const TODAY_PLAIN = /<script type="module" async="" src="(\/_w\/[^"]+\.js)"><\/script>/;
+const TODAY_LOADER = /<script>\(function\(u,p\)\{var d=0,t;[\s\S]*?\}\)\(("\/_w\/[^"]+\.js"),(\[[^\]]*\])\)<\/script>/;
+/** The entry file the page starts, and the text that starts it, or null when the page is not one the web app drew. */
+function todayEntry(html) {
+  const plain = TODAY_PLAIN.exec(html);
+  if (plain) return { src: plain[1], tag: plain[0], preloads: [] };
+  const l = TODAY_LOADER.exec(html);
+  if (!l) return null;
+  try { return { src: JSON.parse(l[1]), tag: l[0], preloads: JSON.parse(l[2]) }; } catch { return null; }
+}
+async function cookie(name) {
+  try { const c = self.cookieStore ? await self.cookieStore.get(name) : null; return c ? String(c.value) : ''; } catch { return ''; }
+}
+/** "<cache key>|<who>" when this navigation may be answered from a kept page, else "". */
+async function todayKey(url) {
+  if (url.pathname !== '/' || url.search || !self.cookieStore) return '';
+  const [who, web, off] = await Promise.all([cookie('hub_who'), cookie('hub_web'), cookie('hub_web_off')]);
+  if (!/^[0-9a-f]{16}$/.test(who) || off === '1') return '';
+  let routes = [];
+  try { routes = decodeURIComponent(web).split('~'); } catch { routes = []; }
+  return routes.includes('/') ? '/__today/' + who + '|' + who : '';
+}
+// The kept page starts its scripts once the page has been drawn: the document is complete at once, and React's work of attaching to it
+// (a second or more on a slow phone) would otherwise sit in front of the cards that are already in the HTML.
+const HOLD = (src) =>
+  '<script>(function(u){var d=0;function go(){if(d)return;d=1;var s=document.createElement("script");s.type="module";s.src=u;' +
+  's.onload=function(){try{document.cookie="hub_w="+u.slice(u.lastIndexOf("/")+1)+";Path=/;Max-Age=2592000;Secure;SameSite=Lax"}catch(e){}};document.head.appendChild(s)}' +
+  'function after(){requestAnimationFrame(function(){setTimeout(go,0)})}' +
+  'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",after);else after();setTimeout(go,2500)})(' + JSON.stringify(src) + ')</script>';
+async function keptToday(key) {
+  try {
+    const name = key.split('|')[0];
+    const cache = await caches.open(TODAY);
+    const hit = await cache.match(name);
+    if (!hit) return null;
+    if (!(Date.now() - Number(hit.headers.get('x-kept-at') || 0) < TODAY_MAX_AGE)) { await cache.delete(name); return null; }
+    let html = await hit.text();
+    const e = todayEntry(html);
+    if (!e) { await cache.delete(name); return null; }
+    const drawn = Number(hit.headers.get('x-drawn-at')) || 0;
+    html = html.replace(e.tag, () => (drawn ? '<script>window.__hubNow=' + drawn + '</script>' : '') + e.preloads.map((h) => '<link rel="modulepreload" href="' + h + '"/>').join('') + HOLD(e.src));
+    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-cache', 'X-Hub-Kept': hit.headers.get('x-kept-at') || '' } });
+  } catch { return null; }
+}
+const isWebToday = (res) => !!res && res.status === 200 && res.headers.get('x-hub-front') === 'web' && /text\/html/i.test(res.headers.get('content-type') || '');
+/** `own` is the server's answer when the page is being loaded from the network (nothing kept yet); null when a kept page was shown. */
+async function refreshToday(event, name, own) {
+  try {
+    const who = name.slice('/__today/'.length);
+    let res = own;
+    if (!res) {
+      try { res = await event.preloadResponse; } catch { res = null; }
+      if (!res) res = await pageFetch(event.request);
+    }
+    const cache = await caches.open(TODAY);
+    const before = await cache.match(name);
+    if (!isWebToday(res)) {
+      // The server no longer gives this person the web Today. Forget the copy; a page shown from it loads again, from the server.
+      if (before) await cache.delete(name);
+      if (before && !own) await loadAgain(event);
+      return;
+    }
+    const html = await res.text();
+    const entry = todayEntry(html);
+    if (!entry) {
+      if (before) await cache.delete(name);
+      if (before && !own) await loadAgain(event);
+      return;
+    }
+    // Only a whole page is kept, and only for the session that asked.
+    if (!/<\/html>\s*$/.test(html) || (await cookie('hub_who')) !== who) return;
+    await cache.put(name, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'x-kept-at': String(Date.now()), 'x-drawn-at': String(Date.parse(res.headers.get('date') || '') || Date.now()), 'x-entry': entry.src } }));
+    // The shown page came from an older build: its scripts do not match the server's reads any more, so the page loads again from the new copy.
+    if (before && !own && before.headers.get('x-entry') !== entry.src) await loadAgain(event);
+  } catch { /* the page already answered; the copy is tried again on the next visit */ }
+}
+async function loadAgain(event) {
+  try {
+    const c = event.resultingClientId ? await self.clients.get(event.resultingClientId) : null;
+    if (c && 'navigate' in c) await c.navigate(event.request.url);
+  } catch { /* the page stays as shown */ }
+}
+
 const LITE_PAGES = ['/', '/chat/'];
 // A page load the worker passes on goes out as a script fetch, and the server tells pages from script reads by the browser's own
 // Sec-Fetch-Dest header, which a script fetch does not carry as "document". Without a word from here, every repeat visit to a page the web app
@@ -113,8 +210,14 @@ function pageFetch(request) {
 // whole time its server reads took. Without a preload answer (an old browser, or offline) the worker's own fetch and the kept copy answer.
 async function openPage(event) {
   const request = event.request;
+  const key = await todayKey(new URL(request.url));
+  if (key) {
+    const hit = await keptToday(key);
+    if (hit) { event.waitUntil(refreshToday(event, key.split('|')[0], null)); return hit; }
+  }
   let pre = null;
   try { pre = await event.preloadResponse; } catch { pre = null; }
+  if (key && pre) event.waitUntil(refreshToday(event, key.split('|')[0], pre.clone()));
   const on = await lite();
   if (!pre) return on ? litePage(request) : pageFetch(request);
   if (on && pre.ok && !pre.redirected && pre.type === 'basic') {

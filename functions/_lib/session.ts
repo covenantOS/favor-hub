@@ -272,6 +272,33 @@ export function clearHubSessionCookie(): string {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
+/**
+ * hub_who names the session that is signed in on this browser, in a cookie the service worker can read (the session cookie is HttpOnly, so
+ * it cannot). It is a hash of the session token and nothing else. public/sw.js keeps Today's last page under it and serves that page only
+ * while the cookie still names the session that drew it, so a different sign-in (or none) never sees another person's copy.
+ */
+export const WHO_COOKIE = 'hub_who';
+
+export async function hubWho(token: string): Promise<string> {
+  return (await sha256Hex('who:' + token)).slice(0, 16);
+}
+
+export async function hubWhoCookie(token: string): Promise<string> {
+  return `${WHO_COOKIE}=${await hubWho(token)}; Path=/; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
+}
+
+export function clearHubWhoCookie(): string {
+  return `${WHO_COOKIE}=; Path=/; Secure; SameSite=Lax; Max-Age=0`;
+}
+
+/** The Set-Cookie value that makes hub_who name this request's session, or null when it already does (or there is no session cookie). */
+export async function whoCookieFor(request: Request): Promise<string | null> {
+  const token = readCookie(request, SESSION_COOKIE);
+  if (!token) return null;
+  const want = await hubWho(token);
+  return readCookie(request, WHO_COOKIE) === want ? null : await hubWhoCookie(token);
+}
+
 export async function endHubSession(env: Env, request: Request): Promise<void> {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return;
