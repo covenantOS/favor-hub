@@ -297,7 +297,7 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   const rows = await q<any>(
     `SELECT id, constituent_lookup_id AS lookup, constituent_type AS ctype, first_name AS first, last_name AS last, preferred_name AS preferred,
             organization_name AS org, title, spouse_id AS spouse, spouse_first_name AS sfirst, spouse_last_name AS slast, inactive, deceased,
-            substr(date_added, 1, 10) AS added, requests_no_email AS rne, no_valid_address AS nva, raw_json AS raw FROM constituents WHERE id = ?1`,
+            substr(date_added, 1, 10) AS added, raw_json AS raw FROM constituents WHERE id = ?1`,
     [id]
   );
   const k = rows[0];
@@ -305,7 +305,7 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   const raw = parse<any>(k.raw, {});
 
   const [emails, phones, addresses, pg, recurringRows, paymentRows, openRows, openN, doneRows, noteRows, contactRows,
-    assigns, iwRows, bbIw, oppRows, codeRows, fundraisers, synced, spouseRows, solicitRows, solicitSync] = await Promise.all([
+    assigns, iwRows, bbIw, oppRows, codeRows, fundraisers, synced, spouseRows, solicitRows, solicitSync, flagRows] = await Promise.all([
     q<any>('SELECT id AS id, email_address AS address, is_primary AS prim, do_not_email AS dne FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
     q<any>('SELECT id AS id, phone_number AS number, phone_type AS type, is_primary AS prim, do_not_call AS dnc FROM phones WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
     q<any>(
@@ -363,6 +363,7 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
       : Promise.resolve([] as any[]),
     q<any>('SELECT id, solicit_code AS code, substr(solicit_start, 1, 10) AS s, substr(solicit_end, 1, 10) AS e FROM solicit_codes WHERE constituent_record_id = ?1', [id]).catch(() => []),
     q<any>('SELECT synced_at AS at FROM solicit_sync WHERE constituent_record_id = ?1', [id]).catch(() => []),
+    q<any>('SELECT requests_no_email AS rne, no_valid_address AS nva FROM constituents WHERE id = ?1', [id]).catch(() => []),
   ]);
 
   // Names for fundraisers and funds.
@@ -474,8 +475,8 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     codes: openSolicit.map((c) => c.code),
     deceased: Number(k.deceased) === 1,
     inactive: Number(k.inactive) === 1,
-    requestsNoEmail: Number(k.rne) === 1,
-    noValidAddress: Number(k.nva) === 1,
+    requestsNoEmail: Number(flagRows[0]?.rne) === 1,
+    noValidAddress: Number(flagRows[0]?.nva) === 1,
     addressDoNotMail: !!addr?.doNotMail,
     allPhonesDoNotCall: phoneList.length > 0 && phoneList.every((p) => p.doNotCall),
     allEmailsDoNotEmail: emailList.length > 0 && emailList.every((e) => e.doNotEmail),
