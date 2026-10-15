@@ -227,10 +227,12 @@ function List() {
 }
 
 export function NeedsCard() {
+  const { swr } = useShared();
   return (
     <section className="h-card td-card td-needs" id="td-needs" aria-labelledby="td-needs-h" data-keep-h="td-needs">
       <ErrorBoundary label="Needs you could not load.">
         <Suspense
+          key={swr ? 'swr' : 'page'}
           fallback={
             <>
               <CardHead id="td-needs-h" title="Needs you" />

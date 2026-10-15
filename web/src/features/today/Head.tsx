@@ -161,6 +161,7 @@ function useRememberWelcome() {
 
 export function Head() {
   useRememberWelcome();
+  const { swr } = useShared();
   return (
     <header className="td-head">
       <section className="td-hello h-hello">
@@ -171,7 +172,7 @@ export function Head() {
         </ErrorBoundary>
         <p className="td-status" id="td-status">
           <ErrorBoundary label="">
-            <Suspense fallback={<DateOnly />}>
+            <Suspense key={swr ? 'swr' : 'page'} fallback={<DateOnly />}>
               <Status />
             </Suspense>
           </ErrorBoundary>

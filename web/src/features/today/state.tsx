@@ -1,7 +1,8 @@
 // What Today's parts share: the rows a person just cleared, whose partners the briefing shows, and the one ranked list that the status line,
 // the Needs you heading and the list itself all read, so the three counts can never disagree.
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
+import { restore, save } from './swr';
 import { briefQ, giftsQ, homeQ, inboxQ, todayQ, waitingQ } from './queries';
 import { buildItems, type Item, type Thank } from './rank';
 import { useNow } from './ui';
@@ -12,6 +13,8 @@ interface Shared {
   unmarkGone: (id: string) => void;
   owner: string;
   setOwner: (v: string) => void;
+  /** True once the last visit's answers fill the list and the schedule, which then draw without waiting for the server's page. */
+  swr: boolean;
 }
 const Ctx = createContext<Shared | null>(null);
 
@@ -27,6 +30,25 @@ export function TodayProvider({ children }: { children: ReactNode }) {
       // storage refused
     }
   }, []);
+  const qc = useQueryClient();
+  const [swr, setSwr] = useState(false);
+  // After hydration: answers still missing are filled from the saved copy, and the list and the schedule draw from it at once (a Suspense
+  // boundary the server has not finished is not drawn by the browser, so their keys change and they start over here). Then the page keeps
+  // its fresh answers for the next visit.
+  useEffect(() => {
+    if (restore(qc)) setSwr(true);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const unsub = qc.getQueryCache().subscribe((e) => {
+      if (e.query.queryKey[0] !== 'today') return;
+      clearTimeout(t);
+      t = setTimeout(() => save(qc), 2000);
+    });
+    t = setTimeout(() => save(qc), 4000);
+    return () => {
+      unsub();
+      clearTimeout(t);
+    };
+  }, [qc]);
   const markGone = useCallback((id: string) => setGone((s) => new Set(s).add(id)), []);
   const unmarkGone = useCallback((id: string) => setGone((s) => { const n = new Set(s); n.delete(id); return n; }), []);
   const setOwner = useCallback((v: string) => {
@@ -37,7 +59,7 @@ export function TodayProvider({ children }: { children: ReactNode }) {
     }
     startTransition(() => setOwnerState(v));
   }, []);
-  const value = useMemo(() => ({ gone, markGone, unmarkGone, owner, setOwner }), [gone, markGone, unmarkGone, owner, setOwner]);
+  const value = useMemo(() => ({ gone, markGone, unmarkGone, owner, setOwner, swr }), [gone, markGone, unmarkGone, owner, setOwner, swr]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

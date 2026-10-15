@@ -10,6 +10,7 @@ import { navQuery } from '../../lib/queries';
 import { clock, dayKey, et, plural, type J } from './rank';
 import { dayQ, upcomingQ } from './queries';
 import { CardHead, Ic, P, Skel, useNow } from './ui';
+import { useShared } from './state';
 
 const PV: Record<string, [string, string, string]> = {
   favor: ['pv-favor', P.leaf, 'FavorOS'],
@@ -344,13 +345,14 @@ function GoogleNote() {
 }
 
 export function ScheduleCard() {
+  const { swr } = useShared();
   return (
     <section className="h-card td-card td-sched" id="td-sched" data-td="meetings" aria-labelledby="td-sched-h" data-keep-h="td-sched">
       <CardHead id="td-sched-h" title="Schedule">
         <NavLink className="h-link td-ch__r" href="/meet/">Day view</NavLink>
       </CardHead>
       <ErrorBoundary label="The schedule could not load.">
-        <Suspense fallback={<ol className="td-evs" id="td-sched-list" aria-busy="true"><Skel n={4} /></ol>}>
+        <Suspense key={swr ? 'swr' : 'page'} fallback={<ol className="td-evs" id="td-sched-list" aria-busy="true"><Skel n={4} /></ol>}>
           <Body />
         </Suspense>
       </ErrorBoundary>
