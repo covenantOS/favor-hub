@@ -268,7 +268,12 @@
     paint();
     // A huddle's own card (a meeting card with no words) shows no toast: the ring card or the huddle bar already says it.
     var huddleCard = !m.body && (m.attachments || []).length === 1 && m.attachments[0].type === 'meeting';
-    if (!here && care && !c.muted && !m.visible_to && !huddleCard) toast(m, c);
+    if (!here && care && !c.muted && !m.visible_to && !huddleCard) {
+      // A direct message or a mention plays its sound once across open tabs; Chat's own page plays it there (chat.js).
+      var shown = typeof Notification !== 'undefined' && Notification.permission === 'granted' && (document.hidden || !document.hasFocus());
+      if (page() !== 'chat' && window.hubSound) window.hubSound.play(mentionsMe(m) ? 'mention' : 'message', { key: 'm' + m.id, notified: shown });
+      toast(m, c);
+    }
   }
   function onEvent(ev) {
     if (ev.type === 'message') onMessage(ev.message);

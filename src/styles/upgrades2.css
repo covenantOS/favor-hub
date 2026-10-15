@@ -1,0 +1,114 @@
+/* ====================================================================
+   App feel, round 2 (2026-10-14). Each section names the framework-free script that drives it (public/js), so the React app
+   loads the same file and the same stylesheet. Transform and opacity only; nothing moves when the computer asks for less motion.
+   1. toasts on a phone (fix for round 1: the copies behind the front toast read as dark slabs)
+   2. the Sounds sheet (hub-sound.js)
+   3. the loading line (hub-progress.js)
+   4. right-click and press-and-hold menus (hub-ctx.js)
+   5. the keyboard sheet (hub-keys.js)
+   6. pull to refresh in the installed phone app (hub-pull.js)
+   7. Projects drag: the card lifts when picked up and lands when let go (projects/ui-dnd.js)
+   ==================================================================== */
+
+/* ------------------------------------------------------------ 1. toasts behind the front one */
+/* As Sonner does: while the stack is closed, the toasts behind the front one show their edge only, with no words and no shadow. */
+.ht:not(.is-open) .ht__t:not(.is-front) { box-shadow: none; }
+.ht__t .ht__c { transition: opacity 200ms var(--m-out); }
+.ht:not(.is-open) .ht__t:not(.is-front) .ht__c { opacity: 0; }
+@media (max-width: 860px) {
+  .ht:not(.is-open) .ht__t:not(.is-front) { background: color-mix(in srgb, var(--h-ink, #12161a) 72%, #fff); }
+  .ht__t.is-front { box-shadow: 0 1px 2px rgba(17, 24, 39, 0.1), 0 8px 20px -10px rgba(17, 24, 39, 0.3); }
+}
+
+/* ------------------------------------------------------------ 2. the Sounds sheet */
+.hs-dlg { position: fixed; inset: 0; margin: auto; height: fit-content; width: min(440px, calc(100vw - 24px)); max-height: min(86vh, 720px); padding: 0; border: 1px solid var(--h-line); border-radius: var(--h-radius, 18px); background: var(--h-surface, #fff); color: var(--h-ink); box-shadow: var(--h-shadow-2); overflow: hidden; }
+.hs-dlg::backdrop { background: rgba(42, 39, 34, 0.28); }
+.hs-in { display: flex; flex-direction: column; gap: 14px; max-height: inherit; overflow: auto; padding: 18px 20px 20px; overscroll-behavior: contain; }
+.hs-head { display: flex; align-items: center; justify-content: space-between; }
+.hs-head h2 { margin: 0; font: 600 18px/1.3 var(--h-font); }
+.hs-x { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: var(--h-ink-2); cursor: pointer; }
+.hs-x:hover { background: var(--h-surface-2); }
+.hs-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.hs-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--h-surface-2); }
+.hs-seg__b { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--h-ink-2); font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms var(--m-out), color 150ms var(--m-out); }
+.hs-seg__b b { font: 600 14px/1.2 var(--h-font); color: var(--h-ink); }
+.hs-seg__b small { font-size: 12px; line-height: 1.3; color: var(--h-ink-3); }
+.hs-seg__b.is-on { background: var(--h-surface, #fff); box-shadow: 0 1px 2px rgba(42, 39, 34, 0.08), 0 2px 8px -4px rgba(42, 39, 34, 0.18); }
+.hs-seg__b:focus-visible { outline: 2px solid var(--h-brand); outline-offset: 1px; }
+.hs-vol { display: grid; grid-template-columns: auto 1fr 3.2em; align-items: center; gap: 12px; font-size: 14px; color: var(--h-ink-2); }
+.hs-vol input { width: 100%; accent-color: var(--h-brand); }
+.hs-vol output { text-align: right; font-variant-numeric: tabular-nums; color: var(--h-ink-3); }
+.hs-buzz { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.hs-buzz span { display: flex; flex-direction: column; gap: 2px; }
+.hs-buzz small { color: var(--h-ink-3); font-size: 12px; }
+.hs-sub { margin: 4px 0 0; font: 600 11px/1 var(--h-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--h-ink-3); }
+.hs-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.hs-row { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--h-line); font-size: 14px; }
+.hs-row:last-child { border-bottom: 0; }
+.hs-row span { flex: 1 1 auto; }
+.hs-row small { color: var(--h-ink-3); font-size: 12px; }
+.hs-row.is-off span { color: var(--h-ink-3); }
+.hs-play { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--h-line-2); border-radius: 50%; background: var(--h-surface); color: var(--h-brand); cursor: pointer; transition: background-color 120ms var(--m-out), scale 120ms var(--m-out); }
+.hs-play:hover { background: var(--h-leaf-soft); }
+.hs-play:active { scale: 0.92; }
+.hs-play svg { width: 14px; height: 14px; fill: currentColor; margin-left: 2px; }
+.hs-note { margin: 0; font-size: 12px; color: var(--h-ink-3); }
+@media (max-width: 860px) {
+  body.h-body dialog.hs-dlg[open] { inset: auto 0 0 0; margin: 0; height: auto; width: 100%; max-width: 100%; max-height: calc(100% - 56px); border: 0; border-radius: 22px 22px 0 0; }
+  .hs-in { padding: 22px 18px calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .hs-dlg[open]::before { content: ''; position: absolute; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: #d6d0c1; }
+}
+
+/* ------------------------------------------------------------ 3. the loading line */
+/* Full width, drawn by scaleX from the left, so it moves on the compositor. The old width transition (crit-shell.css) is replaced. */
+#h-prog.hp { width: 100%; transform: scaleX(0); transform-origin: 0 50%; opacity: 0; transition-property: transform, opacity; transition-duration: 300ms, 200ms; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), linear; will-change: transform; }
+#h-prog.hp.is-on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #h-prog.hp { transition-duration: 0ms, 200ms; } }
+
+/* ------------------------------------------------------------ 4. right-click menus */
+.hc { position: fixed; z-index: 1200; min-width: 208px; max-width: min(300px, calc(100vw - 16px)); padding: 5px; border: 1px solid var(--h-line); border-radius: 12px; background: var(--h-surface, #fff); color: var(--h-ink); box-shadow: 0 2px 6px rgba(42, 39, 34, 0.06), 0 16px 40px -12px rgba(42, 39, 34, 0.3); font: 500 14px/1.3 var(--h-font); outline: none; }
+.hc__i { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: default; }
+.hc__i span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc__i svg, .hc__sp { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--h-ink-3); }
+.hc__i kbd { flex: none; font: 500 11px/1 var(--h-font); color: var(--h-ink-3); background: none; border: 0; padding: 0; }
+.hc__i:hover, .hc__i:focus-visible, .hc__i:focus { background: var(--h-surface-2); outline: none; }
+.hc__i:hover svg, .hc__i:focus svg { color: var(--h-ink-2); }
+.hc__i.is-danger { color: var(--h-red); }
+.hc__i[aria-disabled] { opacity: 0.45; }
+.hc__sep { height: 1px; margin: 4px 6px; background: var(--h-line); }
+.hc--touch .hc__i { min-height: 44px; font-size: 15px; }
+.hc.is-out { opacity: 0; transition: opacity 100ms var(--m-in, ease-in); }
+@media (prefers-reduced-motion: no-preference) {
+  .hc { transition: opacity 140ms var(--m-out), scale 160ms var(--m-snap, ease-out); }
+  @starting-style { .hc { opacity: 0; scale: 0.96; } }
+}
+/* Phone: a press and hold must not also pop the system's link preview or select the words under the finger. */
+@media (pointer: coarse) {
+  .h-side a.h-area__link, .h-side a.h-pg__a, #h-tabs a.h-tab, #h-bar a.h-bar__a { -webkit-touch-callout: none; }
+}
+
+/* ------------------------------------------------------------ 5. the keyboard sheet */
+.hk-dlg { width: min(560px, calc(100vw - 24px)); }
+.hk-g + .hk-g { margin-top: 2px; }
+.hk-list { margin: 8px 0 0; display: grid; grid-template-columns: 1fr; }
+.hk-row { display: grid; grid-template-columns: minmax(150px, auto) 1fr; gap: 16px; align-items: center; min-height: 34px; border-bottom: 1px solid var(--h-line); }
+.hk-row:last-child { border-bottom: 0; }
+.hk-row dt { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.hk-row dd { margin: 0; font-size: 14px; color: var(--h-ink-2); }
+.hk-row kbd { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border: 1px solid var(--h-line-2); border-bottom-width: 2px; border-radius: 6px; background: var(--h-surface); color: var(--h-ink); font: 600 12px/1 var(--h-font); }
+.hk-or { font-size: 12px; color: var(--h-ink-3); margin: 0 2px; }
+
+/* ------------------------------------------------------------ 6. pull to refresh */
+.hpr { position: fixed; z-index: 950; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--h-surface, #fff); color: var(--h-ink-3); box-shadow: 0 2px 10px rgba(42, 39, 34, 0.18); opacity: 0; transform: translate(-50%, -44px); transition: transform 300ms var(--m-sheet, ease), opacity 200ms linear; pointer-events: none; }
+.hpr svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hpr.is-ready { color: var(--h-brand); }
+.hpr.is-busy svg { animation: hpr-spin 0.8s linear infinite; }
+@keyframes hpr-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .hpr.is-busy svg { animation-duration: 2.4s; } }
+
+/* ------------------------------------------------------------ 7. Projects drag */
+@media (prefers-reduced-motion: no-preference) {
+  body.h-body .pj-ghost { scale: 1.025; box-shadow: 0 2px 6px rgba(29, 33, 27, 0.08), 0 22px 44px -14px rgba(29, 33, 27, 0.45); transition: scale 160ms var(--m-snap, ease-out), box-shadow 160ms var(--m-out, ease-out); }
+  @starting-style { body.h-body .pj-ghost { scale: 1; box-shadow: 0 1px 2px rgba(29, 33, 27, 0.1); } }
+  body.h-body .pj-ghost.is-landing { scale: 1; box-shadow: 0 1px 2px rgba(29, 33, 27, 0.1); transition: transform 200ms var(--m-snap, ease-out), scale 200ms var(--m-snap, ease-out), box-shadow 200ms var(--m-out, ease-out); }
+}

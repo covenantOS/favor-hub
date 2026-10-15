@@ -164,6 +164,9 @@
     onUnread: paintUnread,
     // A desktop notice for a direct message, a mention or a reply, when Chat is not in front and the person turned notices on.
     onNotify: function (m, ch) {
+      // The family's message sound, or the mention sound when it names this person; one tab plays it (hub-sound.js).
+      var shown = typeof Notification !== 'undefined' && Notification.permission === 'granted' && (document.hidden || !document.hasFocus());
+      if (window.hubSound && app) window.hubSound.play(ch.kind !== 'dm' && ch.kind !== 'group' ? 'mention' : 'message', { key: 'm' + m.id, notified: shown });
       if (typeof Notification === 'undefined' || Notification.permission !== 'granted' || !app || (!document.hidden && document.hasFocus())) return;
       var who = app.user(m.user_id).name, where = ch.kind === 'dm' ? who : ch.kind === 'group' ? 'Group conversation' : '#' + ch.name;
       var text = String(m.body || '').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : app.user(id).name); }).replace(/<#[^>]+>/g, '').trim() || 'Shared an attachment';

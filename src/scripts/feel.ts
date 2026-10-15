@@ -1,46 +1,61 @@
-// How the hub sounds and moves. Sounds come from Cuelume (MIT, synthesized in the browser, no audio
-// files) and play only on a press or a finished action, never on hover. One switch in the menu turns
-// them off, and the choice is kept in this browser. Numbers count up when they first appear. A person
-// whose computer asks for less motion gets no count-ups and no movement.
-import { bind, play, setEnabled, type SoundName } from 'cuelume';
+// How the hub sounds and moves. Sounds are the FavorOS family in public/js/hub-sound.js (files rendered from code, levels On,
+// Subtle and Off, one volume, quiet hours); this file keeps the older names pages already ask for and maps them onto that family.
+// Sounds play only on a press or a finished action, never on hover. Numbers count up when they first appear. A person whose
+// computer asks for less motion gets no count-ups and no movement.
 
-const KEY = 'favor.hub.sound';
+type HubSound = { play: (n: string, o?: Record<string, unknown>) => boolean; level: () => string; setLevel: (v: string) => void };
+const hs = (): HubSound | undefined => (window as unknown as { hubSound?: HubSound }).hubSound;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LAST_ON = 'favor.hub.sound.lastOn';
+
+// The names pages used before (Cuelume's) and the family sound each one plays now.
+const MAP: Record<string, string> = { press: 'tap', release: 'tap', tick: 'tap', toggle: 'toggle', success: 'done', sparkle: 'done', ready: 'done', chime: 'notify', bloom: 'notify', droplet: 'dismiss', whisper: 'dismiss', page: 'tap', loading: 'tap', error: 'error' };
 
 export function soundOn(): boolean {
+  const s = hs();
+  if (s) return s.level() !== 'off';
   try {
-    return localStorage.getItem(KEY) !== 'off';
+    return localStorage.getItem('favor.hub.sound') !== 'off';
   } catch {
     return true;
   }
 }
 
-export function cue(name: SoundName): void {
-  if (!soundOn()) return;
-  try {
-    play(name);
-  } catch {
-    // No audio before the first press on the page; nothing to do.
-  }
+export function cue(name: string): void {
+  const s = hs();
+  if (!s) return;
+  s.play(MAP[name] || name);
 }
 
 function setSound(on: boolean) {
-  try {
-    localStorage.setItem(KEY, on ? 'on' : 'off');
-  } catch {
-    // Private windows refuse storage; the switch still holds for this page.
+  const s = hs();
+  if (!s) return;
+  if (!on) {
+    try {
+      localStorage.setItem(LAST_ON, s.level());
+    } catch {
+      // Private windows refuse storage.
+    }
+    s.setLevel('off');
+  } else {
+    let back = 'subtle';
+    try {
+      back = localStorage.getItem(LAST_ON) || 'subtle';
+    } catch {
+      // keep subtle
+    }
+    s.setLevel(back === 'on' ? 'on' : 'subtle');
+    s.play('notify', { preview: true });
   }
-  setEnabled(on);
   paintSwitch();
-  if (on) cue('chime');
 }
 
 function paintSwitch() {
   const on = soundOn();
   document.querySelectorAll<HTMLButtonElement>('[data-sound-switch]').forEach((b) => {
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    b.title = on ? 'Sounds are on. Press to turn them off.' : 'Sounds are off. Press to turn them on.';
-    b.setAttribute('aria-label', b.title);
+    b.title = on ? 'Sounds are on. Press to turn them off. Choose which in Settings under the bell.' : 'Sounds are off. Press to turn them on.';
+    b.setAttribute('aria-label', on ? 'Sounds are on. Press to turn them off.' : 'Sounds are off. Press to turn them on.');
     b.classList.toggle('is-off', !on);
   });
 }
@@ -77,25 +92,23 @@ function scan(root: ParentNode) {
 }
 
 export function initFeel() {
-  setEnabled(soundOn());
-  // data-cuelume-press on an element plays "press" when it is pressed (Cuelume's own wiring).
-  bind();
   paintSwitch();
+  document.addEventListener('hub:sound', paintSwitch);
   document.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-sound-switch]');
     if (b) setSound(!soundOn());
   });
-  // Primary buttons press softly. Pages can ask for a sound with a "favor:cue" event, for example
-  // after something sent: document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'success' })).
+  // Main buttons give a soft tap under the finger (the On level only). Pages can ask for a sound with a "favor:cue" event, for
+  // example after something sent: document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'success' })).
   document.addEventListener(
     'pointerdown',
     (e) => {
-      const el = (e.target as HTMLElement).closest('.h-btn--primary, .h-btn--warn, [data-cue-press]');
+      const el = (e.target as HTMLElement).closest('.h-btn--primary, .h-btn--warn, [data-cue-press], [data-cuelume-press]');
       if (el && !(el as HTMLButtonElement).disabled) cue('press');
     },
     { passive: true }
   );
-  document.addEventListener('favor:cue', (e) => cue(((e as CustomEvent).detail || 'success') as SoundName));
+  document.addEventListener('favor:cue', (e) => cue(String((e as CustomEvent).detail || 'success')));
   (window as unknown as { favorCue: typeof cue }).favorCue = cue;
 
   scan(document);

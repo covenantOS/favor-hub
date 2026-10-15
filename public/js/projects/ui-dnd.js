@@ -47,8 +47,8 @@ export function dnd(root, o) {
     document.body.append(ghost, line);
     item.classList.add('is-dragging');
     document.documentElement.classList.add('pj-dragging');
-    drag = { item, ghost, dx: down.x - r.left, dy: down.y - r.top, x: down.x, y: down.y, tgt: null, raf: 0, over: null };
-    if (navigator.vibrate && down.touch) { try { navigator.vibrate(8); } catch (_) { /* no haptics */ } }
+    drag = { item, ghost, dx: down.x - r.left, dy: down.y - r.top, x: down.x, y: down.y, tgt: null, raf: 0, over: null, touch: down.touch };
+    if (down.touch) { if (window.hubHaptic) window.hubHaptic('light'); else if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) { /* no haptics */ } } }
     addEventListener('keydown', key, true);
     addEventListener('contextmenu', stopMenu, true);
     place();
@@ -102,6 +102,7 @@ export function dnd(root, o) {
     }
     line.style.transform = `translate(${Math.round(left)}px, ${Math.round(top - 1)}px)`;
     line.style.width = Math.round(width) + 'px';
+    drag.lineAt = { left, top };
     line.hidden = false;
     drag.tgt = { zone: best, before: before ? before.dataset.id : null, after: !before && last ? last.dataset.id : null };
   }
@@ -145,7 +146,8 @@ export function dnd(root, o) {
     down = null; drag = null;
     if (!d) return;
     cancelAnimationFrame(d.raf);
-    d.ghost.remove(); line.remove(); line.hidden = true;
+    line.remove(); line.hidden = true;
+    settle(d, commit && d.tgt);
     d.item.classList.remove('is-dragging');
     if (d.over) d.over.classList.remove('is-over');
     document.documentElement.classList.remove('pj-dragging');
@@ -162,6 +164,21 @@ export function dnd(root, o) {
       if (same && ((d.tgt.before && d.tgt.before === nextId) || (d.tgt.after && d.tgt.after === prevId && !nextId) || (!d.tgt.before && !d.tgt.after && sibs.length === 1))) return;
       o.onDrop({ id: d.item.dataset.id, zone: zone.dataset.zone, from: from.dataset.zone, beforeId: d.tgt.before, afterId: d.tgt.after });
     }
+  }
+  // The card lands instead of vanishing (dnd-kit's drop animation): it glides to the drop line, or back home when the drag is
+  // called off, in 200 ms, and the redrawn list takes its place. Less motion: it goes at once.
+  function settle(d, landed) {
+    const g = d.ghost;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || !g.isConnected) { g.remove(); return; }
+    const gr = g.getBoundingClientRect();
+    let x; let y;
+    if (landed && d.lineAt) { x = d.lineAt.left; y = d.lineAt.top - 4; }
+    else { const r = d.item.getBoundingClientRect(); x = r.left; y = r.top; }
+    if (!isFinite(x) || !isFinite(y) || !gr.width) { g.remove(); return; }
+    g.classList.add('is-landing');
+    g.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    if (window.hubHaptic && d.touch) window.hubHaptic('light');
+    setTimeout(() => g.remove(), 210);
   }
   const up = (e) => { if (down && e.pointerId === down.id) finish(true); };
   const cancel = () => finish(false);

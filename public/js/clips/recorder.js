@@ -144,6 +144,8 @@ export class ClipRecorder {
   }
 
   set(patch) {
+    // The clip is saved: the family's recording-stopped sound (hub-sound.js), after the microphone has closed so it is not in the clip.
+    if (patch.phase === 'done' && this.state.phase !== 'done' && typeof window !== 'undefined' && window.hubSound) window.hubSound.play('rec-stop');
     this.state = { ...this.state, ...patch };
     for (const l of this.listeners) l(this.state);
   }
