@@ -3,7 +3,7 @@ title: Other gifts
 summary: Enter DAF, foundation, wire, stock and phone gifts with the soft credit, send the batch, and a second person approves it and posts it to Blackbaud.
 topic: work
 order: 8
-for: [admin, pc]
+for: [admin]
 related: [gift-entry, online-gifts, partner-page, whats-new]
 tool: /gifts/other/
 toolLabel: Open Other gifts
@@ -40,7 +40,7 @@ The 6 AM gift phase still sets the constituency and the fundraiser credit on eve
 
 ## Who can use it
 
-Other gifts is open to staff who open Gift entry, the gift desk and Partner Care, once an admin turns it on. An admin sets it in Admin > Settings > Gifts: Off, Admins only, or Everyone who opens Gift entry. Approving needs an admin or a person an admin switched on to send to Blackbaud.
+Other gifts is open to admins and the test accounts. An admin sets who else sees it in Admin > Settings > Gifts: Off, Admins only, or Everyone who opens Gift entry. Approving needs an admin or a person an admin switched on to send to Blackbaud.
 
 ## Is there an easier way?
 
