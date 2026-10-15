@@ -79,8 +79,8 @@ function GoalsBody({ year, setYear }: { year: number | undefined; setYear: (y: n
   const editable = d.year === d.currentYear;
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <section className="h-card" style={{ padding: 20, display: 'grid', gap: 12 }}>
+    <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      <section className="h-card" style={{ padding: 20, display: 'grid', gap: 12, minWidth: 0, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 22 }}>Fundraiser goals</h1>
@@ -111,7 +111,7 @@ function GoalsBody({ year, setYear }: { year: number | undefined; setYear: (y: n
         </div>
       </section>
 
-      <section className="h-card" style={{ padding: 0, overflowX: 'auto' }}>
+      <section className="h-card" style={{ padding: 0, overflowX: 'auto', minWidth: 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980 }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--h-line)' }}>
@@ -137,7 +137,8 @@ function GoalsBody({ year, setYear }: { year: number | undefined; setYear: (y: n
 function TieOut({ d, onSwitch, busy }: { d: GoalsResponse; onSwitch: (to: 'dashboard' | 'favoros') => void; busy: boolean }) {
   if (!d.tie) return <p style={{ margin: 0, color: 'var(--h-ink-3)' }}>The check against the KPI dashboard runs for the current year.</p>;
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
+    <div style={{ display: 'grid', gap: 8, minWidth: 0, gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      <div style={{ overflowX: 'auto' }}>
       <table style={{ borderCollapse: 'collapse', maxWidth: 560 }}>
         <thead>
           <tr style={{ textAlign: 'left' }}>
@@ -158,6 +159,7 @@ function TieOut({ d, onSwitch, busy }: { d: GoalsResponse; onSwitch: (to: 'dashb
           ))}
         </tbody>
       </table>
+      </div>
       {d.source === 'dashboard' ? (
         <div>
           <button type="button" className="h-btn h-btn--primary h-btn--sm" disabled={busy || !d.tie.allMatch} onClick={() => onSwitch('favoros')}>

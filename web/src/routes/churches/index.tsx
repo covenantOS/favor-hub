@@ -78,7 +78,7 @@ const SIZES = [15, 30, 60];
 
 function Churches() {
   return (
-    <ErrorBoundary label="Churches did not open." className="ch-card ch-notice">
+    <ErrorBoundary label="Churches did not open." className="chu-card chu-notice">
       <Suspense fallback={<ChurchesSkeleton />}>
         <ChurchesBody />
       </Suspense>
@@ -88,29 +88,29 @@ function Churches() {
 
 function ChurchesSkeleton() {
   return (
-    <div className="ch-page" aria-busy="true">
-      <section className="ch-band" aria-label="Church giving this year">
+    <div className="chu-page" aria-busy="true">
+      <section className="chu-band" aria-label="Church giving this year">
         {[0, 1, 2, 3, 4].map((i) => (
-          <div className="ch-stat" key={i}>
+          <div className="chu-stat" key={i}>
             <span>&nbsp;</span>
             <b>
-              <i className="ch-sk" />
+              <i className="chu-sk" />
             </b>
           </div>
         ))}
       </section>
-      <div className="ch-grid">
-        <section className="ch-card ch-list">
-          <header className="ch-head">
+      <div className="chu-grid">
+        <section className="chu-card chu-list">
+          <header className="chu-head">
             <h2>Giving churches</h2>
           </header>
-          <div className="ch-scroll">
-            <table className="ch-table">
+          <div className="chu-scroll">
+            <table className="chu-table">
               <tbody>
                 {Array.from({ length: 8 }, (_, i) => (
                   <tr key={i}>
                     <td>
-                      <i className="ch-sk wide" />
+                      <i className="chu-sk wide" />
                     </td>
                   </tr>
                 ))}
@@ -118,7 +118,7 @@ function ChurchesSkeleton() {
             </table>
           </div>
         </section>
-        <aside className="ch-card ch-panel" />
+        <aside className="chu-card chu-panel" />
       </div>
     </div>
   );
@@ -164,13 +164,13 @@ function ChurchesBody() {
   };
 
   return (
-    <div className="ch-page">
-      <section className="ch-band" aria-label="Church giving this year">
-        <div className="ch-stat">
+    <div className="chu-page">
+      <section className="chu-band" aria-label="Church giving this year">
+        <div className="chu-stat">
           <span>Church giving, {data ? data.today.slice(0, 4) : ''}</span>
-          <b>{s ? money(s.givingYtd) : <i className="ch-sk" />}</b>
+          <b>{s ? money(s.givingYtd) : <i className="chu-sk" />}</b>
           {s && s.goal > 0 ? <small>of {money(s.goal)} goal</small> : null}
-          <div className="ch-meter" role="img" aria-label={`${pct} percent of the goal`}>
+          <div className="chu-meter" role="img" aria-label={`${pct} percent of the goal`}>
             <i style={{ width: pct + '%' }} />
           </div>
         </div>
@@ -180,14 +180,14 @@ function ChurchesBody() {
         <Stat label="Church newsletter list" value={s && s.newsletter} note="Churches with an email" />
       </section>
 
-      <div className="ch-grid">
-        <section className="ch-card ch-list" aria-label="Giving churches">
-          <header className="ch-head">
+      <div className="chu-grid">
+        <section className="chu-card chu-list" aria-label="Giving churches">
+          <header className="chu-head">
             <h2>Giving churches</h2>
             <span>Gave since January last year, largest this year first</span>
           </header>
-          <div className="ch-tools">
-            <div className="ch-chips" role="group" aria-label="Filter">
+          <div className="chu-tools">
+            <div className="chu-chips" role="group" aria-label="Filter">
               <button type="button" className={region === 'All' ? 'is-on' : ''} onClick={() => setFilter('All')}>
                 All <em>{data ? data.rows.length : ''}</em>
               </button>
@@ -201,7 +201,7 @@ function ChurchesBody() {
               </button>
             </div>
             <input
-              className="ch-find"
+              className="chu-find"
               type="search"
               placeholder="Find a church or pastor"
               aria-label="Find a church or pastor"
@@ -212,8 +212,8 @@ function ChurchesBody() {
               }}
             />
           </div>
-          <div className="ch-scroll">
-            <table className="ch-table">
+          <div className="chu-scroll">
+            <table className="chu-table">
               <thead>
                 <tr>
                   <th>Church</th>
@@ -231,7 +231,7 @@ function ChurchesBody() {
                   ? Array.from({ length: 8 }, (_, i) => (
                       <tr key={i}>
                         <td colSpan={8}>
-                          <i className="ch-sk wide" />
+                          <i className="chu-sk wide" />
                         </td>
                       </tr>
                     ))
@@ -248,7 +248,7 @@ function ChurchesBody() {
                         <td className="n">{r.lastYear ? money(r.lastYear) : <span className="dim">None</span>}</td>
                         <td>{day(r.lastGift)}</td>
                         <td>{r.lastContact ? day(r.lastContact) : <span className="dim">None</span>}</td>
-                        <td>{r.call ? <span className={'ch-pill' + (r.call.overdue ? ' is-late' : r.call.soon ? ' is-soon' : '')}>{r.call.overdue ? 'Call was due ' : 'Call by '}{day(r.call.by)}</span> : null}</td>
+                        <td>{r.call ? <span className={'chu-pill' + (r.call.overdue ? ' is-late' : r.call.soon ? ' is-soon' : '')}>{r.call.overdue ? 'Call was due ' : 'Call by '}{day(r.call.by)}</span> : null}</td>
                       </tr>
                     ))}
                 {data && !slice.length ? (
@@ -261,7 +261,7 @@ function ChurchesBody() {
               </tbody>
             </table>
           </div>
-          <footer className="ch-foot">
+          <footer className="chu-foot">
             <span>
               {shown.length ? `${(at - 1) * size + 1} to ${Math.min(at * size, shown.length)} of ${shown.length}` : '0 churches'}
             </span>
@@ -282,7 +282,7 @@ function ChurchesBody() {
                 &rsaquo;
               </button>
             </nav>
-            <label className="ch-rows">
+            <label className="chu-rows">
               Rows
               <select
                 value={size}
@@ -322,19 +322,19 @@ function pageNumbers(at: number, pages: number): number[] {
 
 function Stat({ label, value, note, warn }: { label: string; value: number | undefined | null | ''; note: string; warn?: boolean }) {
   return (
-    <div className={'ch-stat' + (warn ? ' is-warn' : '')}>
+    <div className={'chu-stat' + (warn ? ' is-warn' : '')}>
       <span>{label}</span>
-      <b>{value === undefined || value === null || value === '' ? <i className="ch-sk" /> : Number(value).toLocaleString('en-US')}</b>
+      <b>{value === undefined || value === null || value === '' ? <i className="chu-sk" /> : Number(value).toLocaleString('en-US')}</b>
       <small>{note}</small>
     </div>
   );
 }
 
 function Panel({ row, today }: { row: Row | null; today: string }) {
-  if (!row) return <aside className="ch-card ch-panel" />;
+  if (!row) return <aside className="chu-card chu-panel" />;
   return (
-    <aside className="ch-card ch-panel" aria-label={row.name}>
-      <ErrorBoundary label="This church's details did not load." className="ch-notice">
+    <aside className="chu-card chu-panel" aria-label={row.name}>
+      <ErrorBoundary label="This church's details did not load." className="chu-notice">
         <Suspense fallback={<PanelBody row={row} today={today} d={null} />}>
           <PanelLoaded row={row} today={today} />
         </Suspense>
@@ -356,7 +356,7 @@ function PanelBody({ row, today, d }: { row: Row; today: string; d: Detail | nul
     <>
       <header>
         <h3>{row.name}</h3>
-        <span className={'ch-pill' + (row.call && row.call.overdue ? ' is-late' : row.toThank ? ' is-soon' : ' is-ok')}>{status}</span>
+        <span className={'chu-pill' + (row.call && row.call.overdue ? ' is-late' : row.toThank ? ' is-soon' : ' is-ok')}>{status}</span>
       </header>
       <dl>
         <div>
@@ -381,7 +381,7 @@ function PanelBody({ row, today, d }: { row: Row; today: string; d: Detail | nul
         </div>
       </dl>
       <h4>Giving by year</h4>
-      <div className="ch-bars" role="img" aria-label={years.map((y) => `${y.year} ${money(y.total)}`).join(', ')}>
+      <div className="chu-bars" role="img" aria-label={years.map((y) => `${y.year} ${money(y.total)}`).join(', ')}>
         {(years.length ? years : [0, 1, 2, 3].map((i) => ({ year: Number(today.slice(0, 4)) - 3 + i, total: 0 }))).map((y) => (
           <div key={y.year}>
             <i style={{ height: Math.max(3, Math.round((y.total / max) * 64)) + 'px' }} className={y.year === Number(today.slice(0, 4)) ? 'is-now' : ''} />
@@ -391,7 +391,7 @@ function PanelBody({ row, today, d }: { row: Row; today: string; d: Detail | nul
         ))}
       </div>
       <h4>People at the church</h4>
-      <ul className="ch-people">
+      <ul className="chu-people">
         {(d?.people ?? []).map((p) => (
           <li key={p.name + p.role}>
             <span>{p.name}</span>
@@ -401,7 +401,7 @@ function PanelBody({ row, today, d }: { row: Row; today: string; d: Detail | nul
         {d && !d.people.length ? <li className="dim">No one linked to this church yet.</li> : null}
       </ul>
       <h4>Recent contacts</h4>
-      <ul className="ch-recent">
+      <ul className="chu-recent">
         {(d?.recent ?? []).map((a, i) => (
           <li key={i}>
             <time>{day(a.date)}</time>

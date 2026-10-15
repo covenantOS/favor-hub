@@ -15,7 +15,7 @@
 .rg-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .rg-main.has-panel { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); }
 .rg-list { padding: 16px 0 0; min-width: 0; }
-.rg-list__hd { display: flex; align-items: baseline; gap: 10px; padding: 0 18px 10px; }
+.rg-list__hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 0 18px 10px; }
 .rg-list__hd h2 { margin: 0; font: 600 18px var(--h-font); color: var(--h-ink); }
 .rg-list__hd span { font: 500 13px var(--h-font); color: var(--h-ink-3); }
 .rg-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 12px; align-items: center; }
