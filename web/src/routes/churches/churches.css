@@ -20,7 +20,7 @@
 .ch-head span { font-size: 13px; color: var(--h-ink-3); }
 .ch-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 8px 18px 14px; }
 .ch-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ch-chips button { display: inline-flex; gap: 6px; align-items: baseline; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.ch-chips button { display: inline-flex; gap: 6px; align-items: center; line-height: 1; height: 34px; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
 .ch-chips button em { font-style: normal; font-weight: 500; color: var(--h-ink-3); }
 .ch-chips button.is-on { background: var(--h-ink, #1f2a1d); border-color: var(--h-ink, #1f2a1d); color: #fff; }
 .ch-chips button.is-on em { color: #d9d4c7; }
