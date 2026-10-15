@@ -206,7 +206,7 @@ function runBatch() {
     }
     sh('git push -q origin HEAD:main');
     const commit = sh('git rev-parse --short HEAD').trim();
-    execSync('npx wrangler deploy', { cwd: 'web', stdio: 'pipe' });
+    execSync('node scripts/keep-assets.mjs && npx wrangler deploy', { cwd: 'web', stdio: 'pipe' });
     execSync('npx wrangler pages deploy dist --project-name favor-hub --branch main --commit-dirty=true', { stdio: 'pipe' });
     const live = liveChecks(good);
     for (const e of good) finish(e, { state: 'shipped', commit, live: live.slice(0, 3000) });

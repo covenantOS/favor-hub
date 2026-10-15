@@ -183,7 +183,7 @@ step('push', () => {
   }
 });
 // The Worker deploy is cheap and idempotent, so it always goes out with the pages; a page and the Worker never drift apart.
-step('deploy favoros-web', () => sh('npx wrangler deploy', { cwd: 'web' }));
+step('deploy favoros-web', () => sh('node scripts/keep-assets.mjs && npx wrangler deploy', { cwd: 'web' }));
 if (!has('--no-pages')) step('deploy pages', () => sh('npx wrangler pages deploy dist --project-name favor-hub --branch main --commit-dirty=true'));
 
 if (checks.length) {
