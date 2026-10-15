@@ -16,6 +16,7 @@ import type { Work } from './model';
 import type { WorkView } from '../search';
 import type { Act, BoardData, WorkFilters } from './types';
 import { EMPTY_FILTERS } from './types';
+import { useMounted } from '../../record/lib';
 
 const DUES: [string, string][] = [
   ['', 'Any due date'],
@@ -39,7 +40,10 @@ export function OpenView({ board, w, as, focusId }: { board: BoardData; w: Work;
   const dir = useWc((s) => s.dir);
   const me = w.me;
   const nav = useNavigate();
-  const views = useQuery(viewsQuery(as)).data || [];
+  // Data that streams in after the server draws is used only after mount, so the server HTML matches the first browser frame (React 418).
+  const mounted = useMounted();
+  const viewsQ = useQuery(viewsQuery(as));
+  const views = (mounted && viewsQ.data) || [];
   const [sheet, setSheet] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const at = useActionTable(w, 'wc-open', f.fr && f.theirs ? f.fr : '');

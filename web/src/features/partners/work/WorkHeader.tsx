@@ -19,6 +19,7 @@ import { ACTION_LABEL, ACTION_VIEWS, hasTab, rememberTab, tabLabel, type ActionV
 import { WorkLayers } from './actions/ui';
 import type { Meter } from './actions/types';
 import type { WorkSearch } from './search';
+import { useMounted } from '../record/lib';
 
 const ET = { timeZone: 'America/New_York' } as const;
 const clockOf = (iso: string) => {
@@ -147,8 +148,12 @@ function ViewChipsSkel({ view }: { view: ActionView }) {
 function ViewChips({ view, as }: { view: ActionView; as?: string }) {
   const board = useSuspenseQuery(boardQuery(as)).data;
   const recent = useSuspenseQuery(recentQuery(as)).data;
-  const opps = useQuery(oppsQuery(as)).data;
-  const imgs = useQuery(giftImagesQuery(as)).data;
+  // Data that streams in after the server draws is used only after mount, so the server HTML matches the first browser frame (React 418).
+  const mounted = useMounted();
+  const oppsQ = useQuery(oppsQuery(as));
+  const imgsQ = useQuery(giftImagesQuery(as));
+  const opps = mounted ? oppsQ.data : undefined;
+  const imgs = mounted ? imgsQ.data : undefined;
   const ov = useWc((s) => s.ov);
   const gone = useWc((s) => s.gone);
   const f = useWc((s) => s.f);

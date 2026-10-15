@@ -267,11 +267,14 @@ function GiftsBody({ id }: { id: string }) {
   const p = useDeferredValue(cur);
   const as = asParam();
   const { data: d } = useSuspenseQuery(giftsQuery(id, p.page, p.size, p.sort.col, p.sort.dir, as));
+  // Data that streams in after the server draws is used only after mount, so the server HTML matches the first browser frame (React 418).
+  const mounted = useMounted();
   const xq = useQuery(extrasQuery(id));
+  const x = mounted ? xq.data : undefined;
   return (
     <>
-      <Ask x={xq.data} />
-      <Recurring x={xq.data} />
+      <Ask x={x} />
+      <Recurring x={x} />
       <div className="pc-bar">
         <b>
           {N(d.total)} {d.total === 1 ? 'gift' : 'gifts'}

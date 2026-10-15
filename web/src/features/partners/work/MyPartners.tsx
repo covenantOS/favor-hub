@@ -18,6 +18,7 @@ import { sendBatch } from './lists/batch';
 import { usePartnerOpen, partnerHref } from './lists/nav';
 import { useFit } from './lists/fit';
 import { contextQuery, addDays, dateWords, dayLabel, dowOf, moneyExact, moneyWhole, plural, telHref, useHeld, workGet, workPost } from './lists/core';
+import { useMounted } from '../record/lib';
 
 // The WorkHeader (the page bar, the view chips) is built on branch pr-actions; render it here when ./WorkHeader exists.
 // TODO: <WorkHeader view="mine" search={search} />
@@ -135,8 +136,12 @@ function MineBody({ as }: { as: string }) {
   const { data: ans, dataUpdatedAt } = useSuspenseQuery(portfolioQuery(dOwner, as));
   const busy = dOwner !== ownerPick;
   const owner = ans.owner || '';
-  const book = useQuery({ ...bookQuery(owner, as), enabled: !!owner }).data;
-  const codes = useQuery(codesQuery).data;
+  // Data that streams in after the server draws is used only after mount, so the server HTML matches the first browser frame (React 418).
+  const mounted = useMounted();
+  const bookQ = useQuery({ ...bookQuery(owner, as), enabled: !!owner });
+  const codesQ = useQuery(codesQuery);
+  const book = mounted ? bookQ.data : undefined;
+  const codes = mounted ? codesQ.data : undefined;
   const [f, setF] = useHeld('mine.f', 'q90');
   const [q, setQ] = useHeld('mine.q', '');
   const [sort, setSort] = useHeld<Sort>('mine.sort', { col: 'l12', dir: 'desc' });
