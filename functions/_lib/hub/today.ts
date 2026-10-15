@@ -27,9 +27,12 @@ import { mailMode, mailUnreadCount, mayUseMail } from '../mail/route';
 import { mayOpen as mayOpenGiftEntry } from '../gifts/perm';
 import { mayUseOther } from '../other-gifts/access';
 import { mayUseMoves } from '../moves/access';
+import { teamOf } from '../clips';
 
 export interface Access {
   admin: boolean;
+  /** The Projects page: Marketing, Early access and admins. Requests stay open to everyone through `projects`. */
+  projectsNav: boolean;
   kpi: boolean;
   approver: boolean;
   expenseLog: boolean;
@@ -91,6 +94,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     mayUseOther(env, user).catch(() => false),
     mayUseMoves(env, user).catch(() => false),
     isEarly(env, user).catch(() => false),
+    teamOf(env, email).then((t) => t === 'Marketing').catch(() => false),
   ]);
   // The access groups (functions/_lib/access.ts): read only when a feature is in group mode.
   const [chatMembers, mailMembers] = await Promise.all([chatM === 'group' ? groupMembers(env, 'chat') : null, mailM === 'group' ? groupMembers(env, 'mail') : null]);
@@ -108,6 +112,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     clipsRecord,
     chat: mayUse(chatM, user, chatMembers),
     projects,
+    projectsNav: admin || early || marketing,
     tasks: anyRequest,
     bell: true,
     learn: learn.learn,
