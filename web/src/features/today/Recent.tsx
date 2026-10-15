@@ -7,6 +7,7 @@ import { ago, clock, dayKey, et, n0, type J } from './rank';
 import { dayQ, homeQ, todayQ } from './queries';
 import { Ic, helpers, useNow } from './ui';
 import { undoChange, useUndoing } from './undo';
+import { AfterHydration } from './state';
 
 const FEED_FIRST = 6;
 const APPICON: Record<string, string> = { expenses: 'expense', receipts: 'mail', requests: 'request', meetings: 'meeting', projects: 'task', tasks: 'task', chat: 'chat', feedback: 'note', learn: 'learn' };
@@ -138,7 +139,9 @@ export function RecentCard() {
       </ErrorBoundary>
       <ErrorBoundary label="Your recent changes could not load.">
         <Suspense fallback={<div className="td-recent__c td-changes wh-card" id="wh-changes" hidden />}>
-          <Changes />
+          <AfterHydration fallback={<div className="td-recent__c td-changes wh-card" id="wh-changes" hidden />}>
+            <Changes />
+          </AfterHydration>
         </Suspense>
       </ErrorBoundary>
       <ErrorBoundary label="Shared with you could not load.">
