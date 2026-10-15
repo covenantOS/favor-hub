@@ -95,7 +95,8 @@ export async function workCtxFor(env: Env, user: HubUser, asEmail?: string): Pro
   const admin = user.role === 'admin' && !asEmail;
   const access = await workAccessFor(env, email, admin).catch(() => null);
   if (!access || !access.ok) return null;
-  const scope = (await scopeFor(env, email, admin).catch(() => null)) || { role: 'admin' as const, email, name: user.name, fid: null, team: '', all: false, fids: new Set<string>() };
+  const scope = await scopeFor(env, email, admin).catch(() => null);
+  if (!scope) return null;
   return { env, repo: blackbaudRepo(env), actor: user.name || email, email, scope, testCid: undefined };
 }
 

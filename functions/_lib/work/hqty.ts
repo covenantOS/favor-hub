@@ -25,7 +25,8 @@ export const WHYS = ['Pass-through for another ministry', 'No partner credited',
 /** The first day the desk looks at. Older gifts belong to earlier years. */
 export const DESK_SINCE = '2026-01-01';
 
-export const mayHqty = (s: Scope | undefined): boolean => !s || s.role === 'admin' || s.role === 'support';
+// A missing scope refuses: only a scope that names the admin or Support role opens the desk.
+export const mayHqty = (s: Scope | undefined): boolean => !!s && (s.role === 'admin' || s.role === 'support');
 
 const text = (v: unknown): string => (v == null ? '' : String(v));
 const num = (v: unknown): number => {

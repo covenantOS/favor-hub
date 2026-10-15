@@ -251,7 +251,8 @@ const defaultLogWriter: LogWriter = {
     const admin = user.role === 'admin';
     const access = await workAccessFor(env, user.email, admin);
     if (!access.ok) throw new HttpError(403, 'no_work_center', 'Logging on a partner record needs the Work Center.');
-    const scope = (await scopeFor(env, user.email, admin)) || undefined;
+    const scope = await scopeFor(env, user.email, admin);
+    if (!scope) throw new HttpError(403, 'no_work_center', 'Logging on a partner record needs the Work Center.');
     const ctx = { env, repo: blackbaudRepo(env), actor: user.name || user.email, email: user.email, scope } as import('../work/service').Ctx;
     const me = await edit.meFor(env, user.email);
     const types = await edit.typesByFundraiser(env);

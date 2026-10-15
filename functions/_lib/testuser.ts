@@ -17,7 +17,7 @@ export const TESTER2_NAME = 'FavorOS Tester Two';
 export const TESTERS = [TESTER_EMAIL, TESTER2_EMAIL];
 export const TESTER_COOKIE = 'hub_tester';
 /** The made-up people the privacy check reads as (functions/_lib/privacy/canaries.ts). Never real accounts: hidden from lists and Chat email like the testers. */
-export const PROBE_EMAILS = ['privacy-probe@favorintl.org', 'privacy-probe@favourafrica.org'];
+export const PROBE_EMAILS = ['privacy-probe@favorintl.org', 'privacy-probe@favourafrica.org', 'privacy-noteam@favorintl.org'];
 export const TESTER_REFUSAL = 'This is the FavorOS test user. It cannot write to Blackbaud, send email or notify staff.';
 
 export function isTester(email: string | null | undefined): boolean {

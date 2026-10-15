@@ -6,7 +6,7 @@ import { HttpError, handleError, json, type Env } from '../http';
 import { hubUserOf, type HubUser } from '../session';
 import { staffByEmail, type StaffRow } from '../work/db';
 import { workAccessFor, type WorkAccess } from '../work/gate';
-import { scopeFor } from '../work/role';
+import { LOCKED_SCOPE, scopeFor } from '../work/role';
 import { blackbaudRepo, type ActionsRepo } from '../work/repo';
 import type { Ctx } from '../work/service';
 import type { MobileEnv } from './auth';
@@ -45,7 +45,10 @@ export function mobile(
       const repo = (hooks.repo || blackbaudRepo)(env);
       // The phone gets the same scope as the web page: what the person's role sees and may change.
       const admin = user.role === 'admin';
-      const scope = (await scopeFor(env, user.email, admin).catch(() => null)) || { role: 'admin' as const, email: user.email, name: user.name || user.email, fid: null, team: '', all: false, fids: new Set<string>() };
+      // No role, no scope: a person the staff list gives no role never gets an admin-level scope. Only the config route (noGate) runs without one, on a locked scope.
+      const found = await scopeFor(env, user.email, admin).catch(() => null);
+      if (!found && !opts.noGate) throw new HttpError(403, 'not_released', 'The app is not open for your account yet.');
+      const scope = found || { ...LOCKED_SCOPE, email: user.email, name: user.name || user.email };
       const ctx: Ctx = { env, repo, actor: user.name || user.email, email: user.email, scope };
       const out = await handler({ request, env: env as MobileEnv, params: params as Record<string, string | string[]>, waitUntil, url: new URL(request.url), user, access, staff, fid, ctx });
       if (out instanceof Response) return out;

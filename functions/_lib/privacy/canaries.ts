@@ -14,6 +14,8 @@ export const OPEN_MARK = 'PRVOPEN';
 /** Made-up people the probe signs in as. Neither address exists, so no session or Google account can ever be one of them. */
 export const PROBE_STAFF = 'privacy-probe@favorintl.org';
 export const PROBE_FIELD = 'privacy-probe@favourafrica.org';
+/** A made-up staff member on the staff list with the Work Center switched on and NO team. The probe overlays this row in memory (probe.ts); nothing is written to the staff list, so no morning email or list can ever reach this address. */
+export const PROBE_NOTEAM = 'privacy-noteam@favorintl.org';
 /** An outside address on the canary rows (a stand-in partner). example.test never receives mail. */
 export const PROBE_OTHER = 'privacy-other@example.test';
 

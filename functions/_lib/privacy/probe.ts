@@ -9,7 +9,7 @@
 import type { Env } from '../http';
 import { withUserHeaders, type HubUser } from '../session';
 import { fieldMayOpen } from '../field';
-import { CANARY, IDS, MESSAGE_MARKS, OPEN_MARK, PROBE_FIELD, PROBE_STAFF } from './canaries';
+import { CANARY, IDS, MESSAGE_MARKS, OPEN_MARK, PROBE_FIELD, PROBE_NOTEAM, PROBE_STAFF } from './canaries';
 import { route as meetRoute } from '../meetroute';
 import { onRequest as chatApi } from '../../api/chat/[[path]]';
 import { onRequest as projectsApi } from '../../api/projects/[[path]]';
@@ -32,7 +32,7 @@ import { onRequestGet as fglBatchApi } from '../../api/gifts/first-gifts/batches
 import { onRequestGet as fglPdfApi } from '../../api/gifts/first-gifts/batches/[id]/pdf';
 import { onRequestGet as movesGet, onRequestPost as movesPost } from '../../api/moves/[[a]]';
 
-export type Who = 'staff' | 'field' | 'out';
+export type Who = 'staff' | 'field' | 'out' | 'noteam';
 
 export interface Probe {
   /** The matrix cell: data and what is read. */
@@ -43,9 +43,26 @@ export interface Probe {
   who: Who[];
   /** Text that must appear (a control). The canary word must never appear, in any probe. */
   must?: string;
+  /** The answer must be a refusal (401 or 403). A 200 that carries no canary still fails. */
+  refuse?: boolean;
 }
 
 const M = IDS;
+
+/**
+ * The Work Center and HQTY reads (2026-10-15). The person is on the staff list with the Work Center switched on and no team. The gate
+ * once handed that person an admin-level scope (all partners, all actions, the HQTY letters desk). Every route must refuse.
+ */
+/** Routes that check the admin flag before the Work Center gate, so their refusal says so. */
+const WORK_ADMIN_ONLY = /^\/api\/work\/(mail\/rollout|settings|staff|bbusers)/;
+const WORK_READS = [
+  '/api/work/hqty', '/api/work/hqty/pdf?ids=1', '/api/work/board', '/api/work/gifts', '/api/work/thanks', '/api/work/partners?q=a', '/api/work/partners/27202',
+  '/api/work/partners/27202/codes', '/api/work/partners/27202/comm', '/api/work/partners/27202/contact', '/api/work/partners/27202/notes', '/api/work/partners/27202/record',
+  '/api/work/portfolio', '/api/work/week', '/api/work/asks', '/api/work/cadence', '/api/work/churches', '/api/work/grants', '/api/work/giftimages', '/api/work/declines',
+  '/api/work/recent', '/api/work/opps', '/api/work/recurring', '/api/work/reminders', '/api/work/views', '/api/work/views/default', '/api/work/entry', '/api/work/codes',
+  '/api/work/health', '/api/work/mail', '/api/work/mail/preview', '/api/work/mail/rollout', '/api/work/settings', '/api/work/staff', '/api/work/bbusers', '/api/work/bbusers/jobs',
+  '/api/work/partner-add/holder', '/api/work/partner-add/options', '/api/work/prep/27202', '/api/work/actions/prvcnry-1', '/api/work/actions/prvcnry-1/extra',
+];
 const soon = () => new Date(Date.now() + 2 * 86400_000);
 
 /** The rows of the matrix the check reads. Kept in one list so the test and the smoke check read the same cells. */
@@ -142,6 +159,11 @@ export function probes(): Probe[] {
     { name: 'Move a partner (write)', path: '/api/moves/card', method: 'POST', body: { cid: '27202', stage: 'ask' }, who: both },
     { name: 'Add a relationship (write)', path: '/api/moves/relations', method: 'POST', body: { cid: '27202', otherCid: '27203', type: 'Friend' }, who: both },
     { name: 'Edit the stages (write)', path: '/api/moves/stages', method: 'POST', body: { stages: [{ label: 'A' }, { label: 'B' }] }, who: both },
+    // Work Center and HQTY for a staff-list person with no team: every read refuses, and the gate screen says closed.
+    { name: 'Work Center gate (no team): closed', path: '/api/work/gate', who: ['noteam'], must: '"open":false' },
+    ...WORK_READS.map((p): Probe => ({ name: `Work Center read (no team) ${p.split('?')[0].replace('/api/work/', '')}`, path: p, who: ['noteam'], refuse: true, must: WORK_ADMIN_ONLY.test(p) ? 'Only an admin' : 'whose job touches it' })),
+    ...['/api/moves/', '/api/moves/cards?stage=pool&q=prvcnry', '/api/moves/card?cid=27202', '/api/moves/relations?cid=27202'].map((p): Probe => ({ name: `Moves read (no team) ${p.replace('/api/moves/', '') || 'board'}`, path: p, who: ['noteam'], refuse: true, must: 'whose job touches it' })),
+    { name: 'HQTY merged letters (no team)', path: '/api/work/hqty/pdf', method: 'POST', body: { ids: ['1'] }, who: ['noteam'], refuse: true, must: 'whose job touches it' },
     // Signed out: nothing at all.
     ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry', '/api/tasks/intake/mine', `/api/tasks/intake/r/${M.request}`].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
   ];
@@ -181,9 +203,113 @@ function handlerFor(path: string, method = 'GET'): { fn: Handler; params: Record
   return null;
 }
 
-const PEOPLE: Record<'staff' | 'field', HubUser> = {
+type Mod = Record<string, unknown>;
+const WORK_ROUTES: Array<[RegExp, () => Promise<Mod>, string[]]> = [
+  [/^\/api\/work\/gate$/, () => import('../../api/work/gate'), []],
+  [/^\/api\/work\/hqty$/, () => import('../../api/work/hqty/index'), []],
+  [/^\/api\/work\/hqty\/pdf$/, () => import('../../api/work/hqty/pdf'), []],
+  [/^\/api\/work\/board$/, () => import('../../api/work/board'), []],
+  [/^\/api\/work\/gifts$/, () => import('../../api/work/gifts'), []],
+  [/^\/api\/work\/thanks$/, () => import('../../api/work/thanks'), []],
+  [/^\/api\/work\/partners$/, () => import('../../api/work/partners'), []],
+  [/^\/api\/work\/partners\/([^/]+)$/, () => import('../../api/work/partners/[id]'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/codes$/, () => import('../../api/work/partners/[id]/codes'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/comm$/, () => import('../../api/work/partners/[id]/comm'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/contact$/, () => import('../../api/work/partners/[id]/contact'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/notes$/, () => import('../../api/work/partners/[id]/notes'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/record$/, () => import('../../api/work/partners/[id]/record'), ['id']],
+  [/^\/api\/work\/portfolio$/, () => import('../../api/work/portfolio'), []],
+  [/^\/api\/work\/week$/, () => import('../../api/work/week'), []],
+  [/^\/api\/work\/asks$/, () => import('../../api/work/asks'), []],
+  [/^\/api\/work\/cadence$/, () => import('../../api/work/cadence'), []],
+  [/^\/api\/work\/churches$/, () => import('../../api/work/churches'), []],
+  [/^\/api\/work\/grants$/, () => import('../../api/work/grants'), []],
+  [/^\/api\/work\/giftimages$/, () => import('../../api/work/giftimages'), []],
+  [/^\/api\/work\/declines$/, () => import('../../api/work/declines'), []],
+  [/^\/api\/work\/recent$/, () => import('../../api/work/recent'), []],
+  [/^\/api\/work\/opps$/, () => import('../../api/work/opps'), []],
+  [/^\/api\/work\/recurring$/, () => import('../../api/work/recurring'), []],
+  [/^\/api\/work\/reminders$/, () => import('../../api/work/reminders'), []],
+  [/^\/api\/work\/views$/, () => import('../../api/work/views'), []],
+  [/^\/api\/work\/views\/default$/, () => import('../../api/work/views/default'), []],
+  [/^\/api\/work\/entry$/, () => import('../../api/work/entry/index'), []],
+  [/^\/api\/work\/codes$/, () => import('../../api/work/codes'), []],
+  [/^\/api\/work\/health$/, () => import('../../api/work/health'), []],
+  [/^\/api\/work\/mail$/, () => import('../../api/work/mail'), []],
+  [/^\/api\/work\/mail\/preview$/, () => import('../../api/work/mail/preview'), []],
+  [/^\/api\/work\/mail\/rollout$/, () => import('../../api/work/mail/rollout'), []],
+  [/^\/api\/work\/settings$/, () => import('../../api/work/settings'), []],
+  [/^\/api\/work\/staff$/, () => import('../../api/work/staff'), []],
+  [/^\/api\/work\/bbusers$/, () => import('../../api/work/bbusers'), []],
+  [/^\/api\/work\/bbusers\/jobs$/, () => import('../../api/work/bbusers/jobs'), []],
+  [/^\/api\/work\/partner-add\/holder$/, () => import('../../api/work/partner-add/holder'), []],
+  [/^\/api\/work\/partner-add\/options$/, () => import('../../api/work/partner-add/options'), []],
+  [/^\/api\/work\/prep\/([^/]+)$/, () => import('../../api/work/prep/[id]'), ['id']],
+  [/^\/api\/work\/actions\/([^/]+)$/, () => import('../../api/work/actions/[id]'), ['id']],
+  [/^\/api\/work\/actions\/([^/]+)\/extra$/, () => import('../../api/work/actions/[id]/extra'), ['id']],
+];
+
+/** The route a /api/work/ path reaches, for the method asked. Null when the table has no such route (the cell then fails: a probe must not read nothing). */
+async function workHandler(path: string, method: string): Promise<{ fn: Handler; params: Record<string, string | string[]> } | null> {
+  const p = path.split('?')[0];
+  if (p.startsWith('/api/moves/')) {
+    const fn = (await import('../../api/moves/[[a]]'))[method === 'POST' ? 'onRequestPost' : 'onRequestGet'];
+    return { fn: fn as unknown as Handler, params: { a: p.slice('/api/moves/'.length).split('/').filter(Boolean) } };
+  }
+  for (const [re, load, names] of WORK_ROUTES) {
+    const m = re.exec(p);
+    if (!m) continue;
+    const mod = await load();
+    const fn = mod[method === 'POST' ? 'onRequestPost' : 'onRequestGet'];
+    if (typeof fn !== 'function') return null;
+    return { fn: fn as unknown as Handler, params: Object.fromEntries(names.map((n, i) => [n, m[i + 1]])) };
+  }
+  return null;
+}
+
+/**
+ * The made-up no-team person, laid over the staff list in memory: on the list, active, Work Center on, team empty, with the release
+ * open. Nothing is written, so a real morning email, picker or count never sees this address. Without the overlay the probe would
+ * be refused at the first door (not on the list) and the fallback that once made admins would never run.
+ */
+const NOTEAM_ROW = { email: PROBE_NOTEAM, name: 'FavorOS Privacy Probe', team: '', bb_fundraiser_id: null, work_center: 1, entry_owner: 0, entry_type: null, sheet_tab: null, active: 1, updated_at: '' };
+const STAFF_ONE = /SELECT \* FROM act_staff WHERE email = \?/i;
+const STAFF_ALL = /SELECT \* FROM act_staff ORDER BY team, name/i;
+const RELEASE_ONE = /SELECT value FROM act_settings WHERE key = \?/i;
+function withNoTeamRow(env: Env): Env {
+  const real = env.DB as any;
+  const shape = (st: any, sql: string, args: unknown[]) => ({
+    first: async (...a: unknown[]) => {
+      if (STAFF_ONE.test(sql) && String(args[0] || '').toLowerCase() === PROBE_NOTEAM) return NOTEAM_ROW;
+      if (RELEASE_ONE.test(sql) && args[0] === 'release') return { value: 'support' };
+      return st.first(...a);
+    },
+    all: async (...a: unknown[]) => {
+      const r = await st.all(...a);
+      return STAFF_ALL.test(sql) ? { ...r, results: [...(r.results || []), NOTEAM_ROW] } : r;
+    },
+    run: (...a: unknown[]) => st.run(...a),
+    raw: (...a: unknown[]) => st.raw(...a),
+  });
+  const db = new Proxy(real, {
+    get(target, key) {
+      if (key !== 'prepare') {
+        const v = target[key];
+        return typeof v === 'function' ? v.bind(target) : v;
+      }
+      return (sql: string) => {
+        const st = target.prepare(sql);
+        return { ...shape(st, sql, []), bind: (...args: unknown[]) => shape(st.bind(...args), sql, args) };
+      };
+    },
+  });
+  return { ...env, DB: db } as Env;
+}
+
+const PEOPLE: Record<'staff' | 'field' | 'noteam', HubUser> = {
   staff: { email: PROBE_STAFF, name: 'FavorOS Privacy Probe', picture: '', role: 'staff', via: 'google', kpi: true },
   field: { email: PROBE_FIELD, name: 'FavorOS Privacy Probe', picture: '', role: 'field', via: 'google', kpi: false },
+  noteam: { email: PROBE_NOTEAM, name: 'FavorOS Privacy Probe', picture: '', role: 'staff', via: 'google', kpi: false },
 };
 
 export interface Cell { name: string; who: Who; path: string; status: number; ok: boolean; why?: string }
@@ -193,7 +319,7 @@ export async function readCell(env: Env, origin: string, probe: Probe, who: Who)
   const base = { name: probe.name, who, path: probe.path };
   // Field staff reach only the field paths; everything else stops in the middleware before any route runs.
   if (who === 'field' && !fieldMayOpen(probe.path.split('?')[0])) return { ...base, status: 403, ok: !probe.must, ...(probe.must ? { why: 'control needs a path field staff may open' } : {}) };
-  const h = handlerFor(probe.path, probe.method || 'GET');
+  const h = who === 'noteam' ? await workHandler(probe.path, probe.method || 'GET') : handlerFor(probe.path, probe.method || 'GET');
   if (!h) return { ...base, status: 0, ok: false, why: 'no handler for this path' };
   // Signed out: only the open doors run their route; the middleware answers 401 for the rest.
   const open = /^\/api\/(book|meet-guest)\//.test(probe.path) || /^\/api\/clips\/[0-9a-f]{32}\/(info|media|views)$/.test(probe.path.split('?')[0]);
@@ -205,7 +331,7 @@ export async function readCell(env: Env, origin: string, probe: Probe, who: Who)
   let status = 0, text = '';
   try {
     const waits: Array<Promise<unknown>> = [];
-    const res = await h.fn({ request: req, env, params: h.params, waitUntil: (p) => { waits.push(p.catch(() => undefined)); }, next: async () => new Response('not found', { status: 404 }), data: {} });
+    const res = await h.fn({ request: req, env: who === 'noteam' ? withNoTeamRow(env) : env, params: h.params, waitUntil: (p) => { waits.push(p.catch(() => undefined)); }, next: async () => new Response('not found', { status: 404 }), data: {} });
     status = res.status;
     text = await res.text();
   } catch (err) {
@@ -213,6 +339,7 @@ export async function readCell(env: Env, origin: string, probe: Probe, who: Who)
     text = String((err as Error)?.message || err);
   }
   if (text.includes(CANARY)) return { ...base, status, ok: false, why: `LEAK: the answer carries ${CANARY}: ${snippet(text)}` };
+  if (probe.refuse && status !== 401 && status !== 403) return { ...base, status, ok: false, why: `LEAK: expected a refusal, the answer was ${status}: ${text.slice(0, 160).replace(/\s+/g, ' ')}` };
   if (probe.must && !text.includes(probe.must)) return { ...base, status, ok: false, why: `control missing (${probe.must}): ${snippet(text)}` };
   return { ...base, status, ok: true };
 }

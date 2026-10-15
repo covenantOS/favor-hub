@@ -624,3 +624,113 @@ describe('clip sharing levels (2026-10-14): private, specific people, anyone at 
     assert.ok(canaryStatements(NOW).some(([sql, args]) => args.includes(IDS.clipPublic)));
   });
 });
+
+describe('Work Center and HQTY gate: no team, no access (2026-10-15)', () => {
+  const origin = 'https://dash.favorintl.org';
+  const staffRow = (d1, email, team, extra = '') =>
+    d1.prepare(`INSERT OR REPLACE INTO act_staff (email, name, team, bb_fundraiser_id, work_center, entry_owner, active, updated_at) VALUES (?, 'Made Up', ?, NULL, 1, 0, 1, '2026-10-15')`).bind(email, team).run();
+  const asUser = async (email, role = 'staff') => {
+    const { withUserHeaders } = await import('../functions/_lib/session.ts');
+    return withUserHeaders(new Request(origin + '/api/work/hqty'), { email, name: 'Made Up', picture: '', role, via: 'google', kpi: false });
+  };
+  const gateOf = async (d1, email, role) => {
+    const { requireWork } = await import('../functions/_lib/work/gate.ts');
+    return requireWork({ DB: d1 }, await asUser(email, role)).then((wu) => ({ ok: true, wu }), (e) => ({ ok: false, status: e.status }));
+  };
+  const open = async (team) => {
+    const { d1 } = await world();
+    await d1.prepare(`INSERT OR REPLACE INTO act_settings (key, value, updated_at) VALUES ('release', 'support', '2026-10-15')`).run();
+    await staffRow(d1, 'madeup@favorintl.org', team);
+    return d1;
+  };
+
+  it('a staff-list person with no team, or a team that carries no role, is refused and never gets a scope', async () => {
+    const { workAccessFor } = await import('../functions/_lib/work/gate.ts');
+    const { scopeFor } = await import('../functions/_lib/work/role.ts');
+    for (const team of ['', 'admin', 'nonsense']) {
+      const d1 = await open(team);
+      const a = await workAccessFor({ DB: d1 }, 'madeup@favorintl.org', false);
+      assert.equal(a.ok, false, `team "${team}" opened the gate`);
+      assert.equal(a.admin, false);
+      assert.equal(await scopeFor({ DB: d1 }, 'madeup@favorintl.org', false), null);
+      const r = await gateOf(d1, 'madeup@favorintl.org', 'staff');
+      assert.equal(r.ok, false, `team "${team}" passed requireWork`);
+      assert.equal(r.status, 403);
+    }
+  });
+
+  it('a person on a team with a role still gets that role, and only that role', async () => {
+    const d1 = await open('support');
+    const r = await gateOf(d1, 'madeup@favorintl.org', 'staff');
+    assert.equal(r.ok, true);
+    assert.equal(r.wu.scope.role, 'support');
+    assert.equal(r.wu.scope.all, false);
+    const { mayHqty } = await import('../functions/_lib/work/hqty.ts');
+    assert.equal(mayHqty(r.wu.scope), true);
+    const care = await open('partner_care');
+    assert.equal((await gateOf(care, 'madeup@favorintl.org', 'staff')).wu.scope.role, 'partner_care');
+    assert.equal(mayHqty((await gateOf(care, 'madeup@favorintl.org', 'staff')).wu.scope), false, 'Partner Care does not open HQTY');
+  });
+
+  it('the hub admin flag alone gives all-access, and an admin with no staff row keeps it', async () => {
+    const { d1 } = await world();
+    const r = await gateOf(d1, 'ann@favorintl.org', 'admin');
+    assert.equal(r.ok, true);
+    assert.equal(r.wu.scope.role, 'admin');
+    assert.equal(r.wu.scope.all, true);
+  });
+
+  it('HQTY refuses a missing scope as well as a wrong one', async () => {
+    const { mayHqty } = await import('../functions/_lib/work/hqty.ts');
+    assert.equal(mayHqty(undefined), false);
+    assert.equal(mayHqty({ role: 'director' }), false);
+    assert.equal(mayHqty({ role: 'admin' }), true);
+  });
+
+  it('no fallback to an admin-level scope is left anywhere in the server code', async () => {
+    const { readdirSync, statSync } = await import('node:fs');
+    const walk = (dir) => readdirSync(new URL('../' + dir, import.meta.url)).flatMap((f) => {
+      const p = `${dir}/${f}`;
+      return statSync(new URL('../' + p, import.meta.url)).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+    });
+    for (const f of walk('functions')) {
+      const text = src(f);
+      assert.doesNotMatch(text, /scopeFor\([^)]*\)[^\n]*\|\|\s*\{\s*role:\s*'admin'/, `${f} falls back to an admin scope`);
+      assert.doesNotMatch(text, /scopeFor\([^)]*\)\)?\s*\|\|\s*undefined/, `${f} falls back to no scope (which reads as admin)`);
+    }
+  });
+
+  it('the probe covers every Work Center read and the HQTY desk for the no-team person', () => {
+    const cells = probes().filter((p) => p.who.includes('noteam'));
+    assert.ok(cells.length >= 40, `only ${cells.length} no-team cells`);
+    const paths = cells.map((p) => p.path);
+    for (const needle of ['/api/work/gate', '/api/work/hqty', '/api/work/hqty/pdf', '/api/work/board', '/api/work/gifts', '/api/work/partners/27202', '/api/work/portfolio', '/api/work/week']) {
+      assert.ok(paths.some((p) => p.startsWith(needle)), needle);
+    }
+    for (const c of cells.filter((p) => p.path !== '/api/work/gate')) assert.equal(c.refuse, true, c.name);
+  });
+
+  it('every GET route under /api/work is in the probe (add a cell when a route is added)', async () => {
+    const { readdirSync, statSync } = await import('node:fs');
+    const walk = (dir) => readdirSync(new URL('../' + dir, import.meta.url)).flatMap((f) => {
+      const p = `${dir}/${f}`;
+      return statSync(new URL('../' + p, import.meta.url)).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+    });
+    const norm = (p) => p.replace(/\?.*/, '').replace(/\/\d{3,}(?=\/|$)/g, '/[id]').replace(/\/prvcnry-1(?=\/|$)/, '/[id]');
+    const covered = new Set(probes().filter((p) => p.who.includes('noteam')).map((p) => norm(p.path)));
+    const missing = [];
+    for (const f of walk('functions/api/work')) {
+      if (!/export const onRequestGet\b/.test(src(f))) continue;
+      const route = '/' + f.replace(/^functions\//, '').replace(/\.ts$/, '').replace(/\/index$/, '').replace(/\[id\]/g, '[id]');
+      if (!covered.has(route)) missing.push(route);
+    }
+    assert.deepEqual(missing, [], 'a /api/work GET route has no no-team probe cell');
+  });
+
+  it('the no-team overlay never reaches the real staff list: nothing is written for the probe', async () => {
+    const { d1 } = await world();
+    await runPrivacyProbe({ DB: d1, MEET_RELEASE: 'staff', HUB_SIGNIN: 'on' });
+    const n = await d1.prepare(`SELECT COUNT(*) AS n FROM act_staff WHERE email LIKE 'privacy-%'`).first();
+    assert.equal(n.n, 0);
+  });
+});

@@ -25,6 +25,9 @@ const TEAM_WORDS: Record<string, string> = { support: 'Support', rdd: 'RDD', par
 
 export const ADMIN_SCOPE: Scope = { role: 'admin', email: '', name: '', fid: null, team: '', all: true, fids: new Set() };
 
+/** For a caller that must carry a scope but has no Work Center role: the narrowest role, no portfolio, nothing visible. Never a stand-in for admin. */
+export const LOCKED_SCOPE: Scope = { role: 'grants', email: '', name: '', fid: null, team: '', all: false, fids: new Set() };
+
 export const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
   support: 'Support Team',
