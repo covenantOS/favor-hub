@@ -9,9 +9,10 @@ export const WEB_ROUTES = WEB_ROUTE_LIST;
 
 /**
  * Routes that own only their own address, never the paths under it. /gifts/ is the Gifts overview; /gifts/letters/ and /gifts/declines/ are
- * still Astro pages, so listing /gifts/ must not hand them to the web app.
+ * still Astro pages, so listing /gifts/ must not hand them to the web app. The same holds for /brain/ (Brain admin and Text Favor Brain are separate
+ * pages) and /admin/ (the Overview; each settings page under it is listed on its own).
  */
-export const WEB_EXACT_ROUTES = ['/gifts/'] as const;
+export const WEB_EXACT_ROUTES = ['/gifts/', '/brain/', '/admin/'] as const;
 
 /** Routes that have no Astro page. Anyone signed in who may use the hub gets them once an admin lists them in web.routes, whatever the audience. */
 export const WEB_ONLY_ROUTES = ['/churches/', '/data-care/'] as const;

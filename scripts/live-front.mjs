@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process';
 const BASE = process.env.HUB_ORIGIN || 'https://dash.favorintl.org';
 // Copies of FULL_LOAD (shared/app2.ts), WEB_EXACT_ROUTES and WEB_OWN_SWITCH (shared/web.ts); tests/web-route.test.mjs checks they match.
 const FULL_LOAD = ['/dashboard/', '/meet/room/', '/meet/g/', '/clips/rec/', '/login/', '/help/videos/'];
-const EXACT = ['/gifts/'];
+const EXACT = ['/gifts/', '/brain/', '/admin/'];
 const OWN_SWITCH = ['/gifts/other/'];
 const key = process.env.HUB_AGENT_KEY;
 if (!key) throw new Error('HUB_AGENT_KEY is not set');

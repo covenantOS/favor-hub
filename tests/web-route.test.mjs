@@ -179,7 +179,7 @@ describe('Other gifts carries its own switch', () => {
 });
 
 describe('the hub_web cookie a web page carries', () => {
-  const cookieRoutes = (d) => decodeURIComponent(webCookie(d.routes).split(';')[0].slice('hub_web='.length)).split('~');
+  const cookieRoutes = (d) => decodeURIComponent(webCookie(d.routes).split(';')[0].slice('hub_web='.length)).split('~').map((r) => r.replace(/\$$/, ''));
   it('a route held to testers is in a tester cookie and not in a staff cookie, on a page the web app serves', async () => {
     const env = world({ 'web.routes': '/brain/@testers,/projects/@all' });
     const t = await go(env, '/projects/', tester);
@@ -199,7 +199,7 @@ describe('the hub_web cookie a web page carries', () => {
 });
 
 describe('a test account set to staff', () => {
-  const cookieRoutes = (d) => decodeURIComponent(webCookie(d.routes).split(';')[0].slice('hub_web='.length)).split('~');
+  const cookieRoutes = (d) => decodeURIComponent(webCookie(d.routes).split(';')[0].slice('hub_web='.length)).split('~').map((r) => r.replace(/\$$/, ''));
   it('gets the routes held to testers and all, and the classic page on a route held to admins', async () => {
     const tester2staff = user('tester2@favorintl.org', 'staff');
     const env = world({ 'web.routes': '/brain/@testers,/projects/@all,/partners/@admin' });
