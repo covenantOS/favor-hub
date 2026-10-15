@@ -1,0 +1,3 @@
+/* A fresh read of Blackbaud keeps the page where it is, dimmed and out of reach, so nothing below it jumps. */
+#rcp-app.is-reading { opacity: 0.55; pointer-events: none; transition: opacity 0.15s; }
+@media (prefers-reduced-motion: reduce) { #rcp-app.is-reading { transition: none; } }

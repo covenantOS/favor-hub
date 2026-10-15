@@ -13,6 +13,7 @@ import '@hub/styles/crit-forms.css';
 import '@hub/styles/q3-desk.css';
 import '@hub/styles/lint-fix.css';
 import '@hub/styles/break-ui.css';
+import './styles.css';
 import { Boundary } from '../partners/record/Boundary';
 import { hubGet } from '../../lib/hub';
 import { rcpApi, rcpKeys, meQuery, waitingPath, waitingQuery, batchesQuery, DEFAULT_DAYS, type Batch, type Me, type RcpError, type Waiting } from './api';
@@ -288,6 +289,9 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
   const [loadError, setLoadError] = useState('');
+  // The page keeps the height it had while Blackbaud is read again, so nothing below it jumps when the lists come back.
+  const appRef = useRef<HTMLDivElement>(null);
+  const [held, setHeld] = useState(0);
   const [downloadedHere, setDownloadedHere] = useState<Record<string, string>>({});
 
   // The latest values, for handlers that run after an await.
@@ -328,6 +332,7 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
     return () => clearTimeout(t);
   }, [loading]);
 
+  // A fresh read keeps the page where it is, dimmed and out of reach, so nothing jumps; its numbers are replaced the moment the read answers.
   const { askFirst, box } = useAsk(() => whoRef.current, saveWho);
   const setBusyBoth = (b: boolean) => {
     busyRef.current = b;
@@ -341,6 +346,7 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
 
   /** Read the waiting list and the print files again from Blackbaud, the way the classic page does after every change. */
   async function reload(nextDays = S.current.days): Promise<void> {
+    setHeld(appRef.current ? appRef.current.offsetHeight : 0);
     setLoading(true);
     setLoadError('');
     const [v, past] = await Promise.allSettled([
@@ -353,6 +359,7 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
       if (err && err.status === 401) onLocked();
       setLoadError((err && err.message) || 'Something went wrong. Try again.');
       setLoading(false);
+      setHeld(0);
       return;
     }
     const nv = v.value;
@@ -360,6 +367,7 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
     setLeft((cur) => new Set([...cur].filter((id) => nv.letters.some((l) => l.id === id))));
     setAdded((cur) => new Set([...cur].filter((id) => nv.held.some((h) => h.id === id && h.canAdd))));
     setLoading(false);
+    setHeld(0);
   }
 
   // A run that stopped partway (a closed tab, a lost connection) was already confirmed by the person who pressed Mark, so the page finishes
@@ -519,7 +527,7 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
 
   // While Blackbaud is read, or when the read failed, the page keeps every list mounted and hidden (the Open in Google Sheets button must not be
   // unmounted), and shows the totals' skeleton or the error where the totals go.
-  const idle = !loading && !loadError;
+  const idle = !loadError;
 
   const sheetsRows = (fs: { screen: (t: string, tabs: unknown[], o?: unknown) => unknown }) => {
     const cv = S.current.view;
@@ -552,7 +560,10 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
   };
 
   return (
-    <div id="rcp-app">
+    <div id="rcp-app" ref={appRef} style={held ? { minHeight: held } : undefined} className={loading ? 'is-reading' : undefined} aria-busy={loading || undefined} inert={loading || undefined}>
+      <p className="sr-only" role="status">
+        {loading ? (slow ? 'Still reading Blackbaud' : 'Reading Blackbaud') : ''}
+      </p>
       <section className="ticker fnd-band rcp-band" aria-label="Waiting">
         <div className="ticker__label" id="rcp-band-label">
           Waiting for a receipt{idle ? ' ' : ''}
@@ -579,12 +590,12 @@ function Desk({ who, whoRef, needWho, saveWho, onLocked }: DeskProps) {
           </select> : null}
         </div>
         <div className="fnd-band__row" id="rcp-stats">
-          {loading ? <StatsSkeleton slow={slow} /> : loadError ? <ListError message={loadError} onRetry={() => void reload()} /> : <Stats list={list} open={Boolean(open)} />}
+          {loadError ? <ListError message={loadError} onRetry={() => void reload()} /> : <Stats list={list} open={Boolean(open)} />}
         </div>
       </section>
 
       <section className="make-sheet rcp-make" id="rcp-make" aria-live="polite">
-        {loading ? <MakeSkeleton /> : loadError ? null : open ? (
+        {loadError ? null : open ? (
           <BatchSteps
             b={open}
             busy={busy}
