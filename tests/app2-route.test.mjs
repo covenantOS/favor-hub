@@ -63,6 +63,9 @@ describe('who gets the app', () => {
     // The service worker passes a page load on as a script fetch and says so.
     const sw = page('/', { dest: 'empty' }).request;
     assert.equal(isPageLoad(new Request(sw.url, { headers: { 'Sec-Fetch-Dest': 'empty', 'X-Hub-Doc': '1' } })), true);
+    // The browser's own read-ahead of a linked page (speculation rules prefetch) is a page load; a script read is not.
+    assert.equal(isPageLoad(new Request('https://hub.test/', { headers: { 'Sec-Fetch-Dest': 'empty', 'Sec-Purpose': 'prefetch' } })), true);
+    assert.equal(isPageLoad(new Request('https://hub.test/', { headers: { 'Sec-Fetch-Dest': 'empty', 'Sec-Purpose': 'prefetch', 'X-Hub-Request': '1' } })), false);
   });
   it('settings default to off and admin-only', async () => {
     assert.deepEqual(await readApp2Settings(world()), { routes: [], audience: 'admin' });

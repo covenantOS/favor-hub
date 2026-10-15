@@ -24,9 +24,9 @@ function world(settings = {}, bind = true) {
   for (const [k, v] of Object.entries(settings)) d1.db.prepare('INSERT INTO hub_settings VALUES (?, ?, ?, ?)').run(k, v, 't', 'now');
   return { DB: d1, ...(bind ? { WEB: { fetch: async () => new Response('web') } } : {}) };
 }
-const go = (env, path, u, { cookie = '', dest = 'document' } = {}) => {
+const go = (env, path, u, { cookie = '', dest = 'document', purpose = '' } = {}) => {
   const url = new URL('https://dash.test' + path);
-  return decideWeb(env, new Request(url, { headers: { 'Sec-Fetch-Dest': dest, ...(cookie ? { Cookie: cookie } : {}) } }), url, u);
+  return decideWeb(env, new Request(url, { headers: { 'Sec-Fetch-Dest': dest, ...(purpose ? { 'Sec-Purpose': purpose } : {}), ...(cookie ? { Cookie: cookie } : {}) } }), url, u);
 };
 const R = WEB_ROUTES[0];
 
@@ -60,6 +60,8 @@ describe('who gets the web app', () => {
   it('a script reading the page, ?classic=1, the opt-out cookie and a missing binding all keep Astro', async () => {
     const on = { 'web.routes': '*', 'web.audience': 'all' };
     assert.equal((await go(world(on), R, staff, { dest: 'empty' })).kind, 'pass');
+    // The browser's read-ahead of a linked page is a page load: answering it with Astro left a classic copy for Back and Forward.
+    assert.equal((await go(world(on), R, staff, { dest: 'empty', purpose: 'prefetch' })).kind, 'web');
     assert.equal((await go(world(on), R + '?classic=1', staff)).kind, 'pass');
     assert.equal((await go(world(on), R, staff, { cookie: 'hub_web_off=1' })).kind, 'pass');
     assert.equal((await go(world(on, false), R, staff)).kind, 'pass');

@@ -39,12 +39,18 @@ export function hasOptInCookie(request: Request): boolean {
   return new RegExp(`(?:^|;\\s*)${APP2_COOKIE}=[^;]+`).test(request.headers.get('Cookie') || '');
 }
 
-/** A browser opening the page (not a script reading it). Older browsers without Sec-Fetch headers count when they accept HTML. */
+/**
+ * A browser opening the page (not a script reading it). Older browsers without Sec-Fetch headers count when they accept HTML.
+ * A speculation-rules prefetch (the rail and tab links read the next page ahead on hover) is a page load too: it says Sec-Fetch-Dest
+ * empty and Sec-Purpose prefetch. Answered as a script read, it came back as the Astro page for a web route, and the browser kept that
+ * copy for Back and Forward.
+ */
 export function isPageLoad(request: Request): boolean {
   if (request.method !== 'GET') return false;
   // The service worker re-sends a page load as a script fetch (Sec-Fetch-Dest: empty), so it says so itself (public/sw.js).
   if (request.headers.get('X-Hub-Doc') === '1') return true;
   const dest = request.headers.get('Sec-Fetch-Dest');
+  if (dest === 'empty' && /prefetch|prerender/i.test(request.headers.get('Sec-Purpose') || '') && !request.headers.get('X-Hub-Request')) return true;
   if (dest) return dest === 'document';
   return (request.headers.get('Accept') || '').includes('text/html') && !request.headers.get('X-Hub-Request');
 }
