@@ -16,6 +16,7 @@ import {
 // Favor Brain's contacts package, except on partners the person holds. Nothing here writes to Blackbaud.
 //   GET  /api/partners                     one page of the directory (?q, filters, sort, dir, page, size), counts and menus
 //   GET  /api/partners/export              the matching partners as CSV (?ids= for a selection)
+//   GET  /api/partners/menus                codes, solicit codes, states, holders and tags with counts
 //   GET  /api/partners/views | stars | recent | tags[?cid] | duplicates | merges[?state]
 //   GET  /api/partners/record/<id>/gifts | actions | extras
 //   POST /api/partners/views               save a view; POST /api/partners/views/<id>/delete
@@ -144,6 +145,10 @@ export const onRequestGet = work(async (a) => {
     return new Response('﻿' + csv, {
       headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="partners-${todayET()}.csv"`, 'Cache-Control': 'private, no-store' },
     });
+  }
+  if (what === 'menus') {
+    const [m, tags, all] = await Promise.all([meta(env), allTags(env), contactsAll(a)]);
+    return { menus: { ...m.menus, tags, bands: BAND_LABEL, kinds: KIND_LABEL, statuses: STATUS_LABEL }, builtAt: m.builtAt, records: m.records, contacts: all, fid: wu.scope.fid || null };
   }
   if (what === 'views') return { views: await views(env, wu.email) };
   if (what === 'stars') return { rows: await cards(env, await stars(env, wu.email)) };

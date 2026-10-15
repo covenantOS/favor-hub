@@ -137,3 +137,7 @@
   .pt-side { width: 100vw; }
   .pt-side dl { grid-template-columns: 110px 1fr; }
 }
+
+/* React lists (web/src/ui/table): columns marked for computers only, and a page being read. */
+.pt-table.is-busy tbody { opacity: 0.55; transition: opacity 0.15s; }
+@media (max-width: 860px) { .pt-table .pt-nophone { display: none; } }
