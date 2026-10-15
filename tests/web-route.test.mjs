@@ -65,7 +65,7 @@ describe('who gets the web app', () => {
     assert.equal((await go(world(on, false), R, staff)).kind, 'pass');
   });
   it('a pass tells classic pages which routes are on (for hub-swap.js)', async () => {
-    const d = await go(world({ 'web.routes': '*', 'web.audience': 'all' }), '/gifts/', staff);
+    const d = await go(world({ 'web.routes': '*', 'web.audience': 'all' }), '/gifts/letters/', staff);
     assert.equal(d.kind, 'pass');
     assert.deepEqual(d.routes, WEB_ROUTES.filter((r) => r !== '/gifts/other/'));
     assert.match(webCookie(d.routes), /^hub_web=/);
@@ -86,6 +86,12 @@ describe('the route list', () => {
     assert.deepEqual(parseWebRoutes(''), []);
     assert.equal(webServes(R + 'deeper', [R]), true);
     assert.equal(webServes('/', ['/x/']), false);
+    // /gifts/ is the overview only; the letters and declines pages are still Astro.
+    assert.equal(webServes('/gifts/', ['/gifts/']), true);
+    assert.equal(webServes('/gifts/letters/', ['/gifts/']), false);
+    assert.equal(webServes('/gifts/declines/', ['/gifts/']), false);
+    assert.equal(webServes('/gifts/recurring/', ['/gifts/recurring/']), true);
+    assert.equal(decodeURIComponent(webCookie(['/gifts/', '/projects/'])).includes('/gifts/$~/projects/'), true);
   });
 });
 

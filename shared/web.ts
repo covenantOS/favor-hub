@@ -3,7 +3,13 @@
 // lists it in the hub setting web.routes AND the person is in web.audience. Everything else keeps its Astro page.
 import { normalizeRoute } from './app2';
 
-export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/', '/churches/', '/data-care/', '/gifts/other/', '/admin/goals/', '/brain/', '/', '/projects/', '/partners/', '/work/', '/foundations/'] as const;
+export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/', '/churches/', '/data-care/', '/gifts/other/', '/admin/goals/', '/brain/', '/', '/projects/', '/partners/', '/work/', '/foundations/', '/gifts/', '/online-gifts/'] as const;
+
+/**
+ * Routes that own only their own address, never the paths under it. /gifts/ is the Gifts overview; /gifts/letters/ and /gifts/declines/ are
+ * still Astro pages, so listing /gifts/ must not hand them to the web app.
+ */
+export const WEB_EXACT_ROUTES = ['/gifts/'] as const;
 
 /** Routes that have no Astro page. Anyone signed in who may use the hub gets them once an admin lists them in web.routes, whatever the audience. */
 export const WEB_ONLY_ROUTES = ['/churches/', '/data-care/'] as const;
@@ -61,7 +67,7 @@ export const formatWebEntries = (entries: WebEntry[]): string => entries.map((e)
 /** "/" matches only itself. Any other route owns the paths under it (/projects/ owns /projects/p/). */
 export function webServes(path: string, routes: readonly string[]): boolean {
   const p = normalizeRoute(path);
-  return routes.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r)));
+  return routes.some((r) => (r === '/' || (WEB_EXACT_ROUTES as readonly string[]).includes(r) ? p === r : p === r || p.startsWith(r)));
 }
 
 /** The own-switch route this path belongs to, if any. */

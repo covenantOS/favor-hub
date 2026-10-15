@@ -10,7 +10,7 @@
   const pathOf = (u) => { const x = new URL(u, location.href); return x.origin === location.origin ? x.pathname.replace(/\/?$/, '/') : null; };
   // Routes the web app (web/) serves this person, from the hub_web cookie the middleware sets. They load whole, never swapped in.
   const WEBR = (() => { try { const m = document.cookie.match(/(?:^|;\s*)hub_web=([^;]*)/); return m ? decodeURIComponent(m[1]).split('~').filter(Boolean) : []; } catch (e) { return []; } })();
-  const isWeb = (p) => !!p && WEBR.some((r) => (r === '/' ? p === '/' : p.indexOf(r) === 0));
+  const isWeb = (p) => !!p && WEBR.some((r) => (r === '/' ? p === '/' : r.slice(-1) === '$' ? p === r.slice(0, -1) : p.indexOf(r) === 0));
   const swappable = (u) => { const p = pathOf(u); return !!p && allow.has(p) && !isWeb(p) && !new URL(u, location.href).search; };
   // A page that was loaded whole and keeps global state (the Work Center, the dashboard) is left by a full load too.
   // The page you are on may carry a query (a Projects tab, an open deposit); leaving it can still swap. Only the destination must be a plain address.

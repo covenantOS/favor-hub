@@ -6,7 +6,7 @@
 //   4. the request is a page load (hub-swap.js reads classic pages with fetch and must keep getting them),
 //   5. the WEB binding exists (a preview without it keeps every Astro page).
 // Everyone else gets the Astro page, unchanged. See the plan: Obsidian Projects/FavorOS React migration plan.md.
-import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_OWN_SWITCH, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebEntries, webServes, type WebAudience, type WebEntry } from '../../shared/web';
+import { WEB_COOKIE, WEB_EXACT_ROUTES, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_OWN_SWITCH, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebEntries, webServes, type WebAudience, type WebEntry } from '../../shared/web';
 import { mayUseOther } from './other-gifts/access';
 import { isPageLoad } from './app2';
 import { hubSettings } from './admin/hubcache';
@@ -97,7 +97,9 @@ async function ownRoutesFor(env: Env, user: HubUser): Promise<string[]> {
 /** The cookie classic pages read (hub-swap.js) so a link to a web route loads the page whole instead of swapping the Astro body in. */
 export function webCookie(routes: string[]): string {
   if (!routes.length) return `${WEB_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax`;
-  return `${WEB_COOKIE}=${encodeURIComponent(routes.join('~'))}; Path=/; Max-Age=86400; Secure; SameSite=Lax`;
+  // An exact route carries a $ so hub-swap.js loads only that address whole (/gifts/$ leaves /gifts/letters/ to swap in as before).
+  const list = routes.map((r) => ((WEB_EXACT_ROUTES as readonly string[]).includes(r) ? r + '$' : r));
+  return `${WEB_COOKIE}=${encodeURIComponent(list.join('~'))}; Path=/; Max-Age=86400; Secure; SameSite=Lax`;
 }
 
 /** Hand the request (with the X-Hub-* person headers the middleware set) to the web app. */
