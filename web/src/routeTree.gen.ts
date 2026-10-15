@@ -23,8 +23,10 @@ import { Route as WorkIndexRouteImport } from './routes/work/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
+import { Route as LearnAdminIndexRouteImport } from './routes/learn/admin/index'
 import { Route as ProjectsPIndexRouteImport } from './routes/projects/p/index'
 import { Route as WorkPartnerIdRouteImport } from './routes/work/partner/$id'
+import { Route as LearnAdminCourseIndexRouteImport } from './routes/learn/admin/course/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -96,6 +98,11 @@ const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
   path: '/gifts/recurring/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LearnAdminIndexRoute = LearnAdminIndexRouteImport.update({
+  id: '/learn/admin/',
+  path: '/learn/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsPIndexRoute = ProjectsPIndexRouteImport.update({
   id: '/projects/p/',
   path: '/projects/p/',
@@ -104,6 +111,11 @@ const ProjectsPIndexRoute = ProjectsPIndexRouteImport.update({
 const WorkPartnerIdRoute = WorkPartnerIdRouteImport.update({
   id: '/work/partner/$id',
   path: '/work/partner/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnAdminCourseIndexRoute = LearnAdminCourseIndexRouteImport.update({
+  id: '/learn/admin/course/',
+  path: '/learn/admin/course/',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -123,7 +135,9 @@ export interface FileRoutesByFullPath {
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
+  '/learn/admin/': typeof LearnAdminIndexRoute
   '/projects/p/': typeof ProjectsPIndexRoute
+  '/learn/admin/course/': typeof LearnAdminCourseIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,7 +155,9 @@ export interface FileRoutesByTo {
   '/admin/goals': typeof AdminGoalsIndexRoute
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
+  '/learn/admin': typeof LearnAdminIndexRoute
   '/projects/p': typeof ProjectsPIndexRoute
+  '/learn/admin/course': typeof LearnAdminCourseIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -160,7 +176,9 @@ export interface FileRoutesById {
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
+  '/learn/admin/': typeof LearnAdminIndexRoute
   '/projects/p/': typeof ProjectsPIndexRoute
+  '/learn/admin/course/': typeof LearnAdminCourseIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,7 +198,9 @@ export interface FileRouteTypes {
     | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
+    | '/learn/admin/'
     | '/projects/p/'
+    | '/learn/admin/course/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,7 +218,9 @@ export interface FileRouteTypes {
     | '/admin/goals'
     | '/gifts/other'
     | '/gifts/recurring'
+    | '/learn/admin'
     | '/projects/p'
+    | '/learn/admin/course'
   id:
     | '__root__'
     | '/'
@@ -216,7 +238,9 @@ export interface FileRouteTypes {
     | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
+    | '/learn/admin/'
     | '/projects/p/'
+    | '/learn/admin/course/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -235,7 +259,9 @@ export interface RootRouteChildren {
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
+  LearnAdminIndexRoute: typeof LearnAdminIndexRoute
   ProjectsPIndexRoute: typeof ProjectsPIndexRoute
+  LearnAdminCourseIndexRoute: typeof LearnAdminCourseIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -338,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GiftsRecurringIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learn/admin/': {
+      id: '/learn/admin/'
+      path: '/learn/admin'
+      fullPath: '/learn/admin/'
+      preLoaderRoute: typeof LearnAdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/p/': {
       id: '/projects/p/'
       path: '/projects/p'
@@ -350,6 +383,13 @@ declare module '@tanstack/react-router' {
       path: '/work/partner/$id'
       fullPath: '/work/partner/$id'
       preLoaderRoute: typeof WorkPartnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/admin/course/': {
+      id: '/learn/admin/course/'
+      path: '/learn/admin/course'
+      fullPath: '/learn/admin/course/'
+      preLoaderRoute: typeof LearnAdminCourseIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -371,7 +411,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
+  LearnAdminIndexRoute: LearnAdminIndexRoute,
   ProjectsPIndexRoute: ProjectsPIndexRoute,
+  LearnAdminCourseIndexRoute: LearnAdminCourseIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
