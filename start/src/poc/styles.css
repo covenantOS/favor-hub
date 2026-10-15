@@ -1,0 +1,26 @@
+/* The frame's stylesheets in the order app/src/styles/shell.ts imports them, then the Projects page's own. */
+@import '../../../src/styles/global.css';
+@import '../../../src/styles/app.css';
+@import '../../../src/styles/feel.css';
+@import '../../../src/styles/elevate.css';
+@import '../../../src/styles/phone.css';
+@import '../../../src/styles/settle.css';
+@import '../../../src/styles/clipbtn.css';
+@import '../../../src/styles/color.css';
+@import '../../../src/styles/nav.css';
+@import '../../../src/styles/round2.css';
+@import '../../../src/styles/ux-night.css';
+@import '../../../src/styles/ux-pass.css';
+@import '../../../src/styles/polish.css';
+@import '../../../src/styles/mobile.css';
+@import '../../../src/styles/fix-shell.css';
+@import '../../../src/styles/crit-shell.css';
+@import '../../../src/styles/crit-shell2.css';
+@import '../../../src/styles/night-desk.css';
+@import '../../../src/styles/night-phone.css';
+@import '../../../src/styles/design-pass.css';
+@import '../../../src/styles/release.css';
+@import '../../../app/src/styles/cmdk.css';
+@import '../../../src/styles/projects.css';
+@import '../../../src/styles/projects-views.css';
+@import '../../../src/styles/projects-nav.css';

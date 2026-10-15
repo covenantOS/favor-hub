@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Proof of concept only. Lives on workers.dev, never on dash.favorintl.org. Reads production APIs with the caller's own session, GET only.
+  "name": "favoros-react-poc",
+  "compatibility_date": "2026-10-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./src/server.ts",
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": { "enabled": true }
+}
