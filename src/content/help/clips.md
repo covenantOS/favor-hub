@@ -16,7 +16,7 @@ Clips records your screen, a window, a browser tab or your camera and gives you 
 
 Press the camera at the top right of any page, or choose **Record a clip** from the menu under your name. A small recorder window opens next to FavorOS.
 
-The card shows what will be recorded. Pick Full screen, Window, Tab or Camera only. Turn the camera, the microphone and computer sound on or off. With the camera on, your face shows as a round bubble on the preview: S, M and L set its size, and dragging it sets where it sits in the video. The bars next to Microphone move when it hears you. Press Start recording. Your browser asks which screen, window or tab to share, a 3, 2, 1 countdown runs, and then the timer starts.
+The card shows what will be recorded. Pick Full screen, Window, Tab or Camera only. **Record a clip** at the top right of the Clips page opens the same recorder. Turn the camera, the microphone and computer sound on or off. With the camera on, your face shows as a round bubble on the preview: S, M and L set its size, and dragging it sets where it sits in the video. The bars next to Microphone move when it hears you. Press Start recording. Your browser asks which screen, window or tab to share, a 3, 2, 1 countdown runs, and then the timer starts.
 
 ## The controls follow you
 
@@ -50,7 +50,7 @@ Signed-in staff can react with an emoji and write comments tied to a moment in t
 
 ## Share it
 
-Share opens a window where you choose who can watch the clip. There are four levels.
+Share opens a window with a Who can watch box and the clip link. There are four levels.
 
 - **Private.** Only you and FavorOS admins.
 - **Specific people.** You, admins, the people you add by name, and the members of any Chat conversation where you post the clip. This is where a new clip starts.
@@ -81,7 +81,7 @@ On the watch page, the Help article tab writes a draft in the shape FavorOS's he
 
 ## Your clips and your space
 
-**Clips** in the menu, **My clips** under your name and the small clips button beside the camera all open your list. Search it by title, summary, what was said or what was on screen. **All**, **Shared** and **Private** filter the list. Each card shows who can watch it, and pressing that label opens the share window. **Select** lets you tick several clips and set them to Private, Specific people or Anyone at Favor, or delete them together. On a card, **Send to email** adds the clip to a Mail draft, and **Help article** and **Learn lesson** appear once the clip is ready. Hover a clip to preview it. You can rename a clip, copy its link, switch sharing, or delete it. Delete removes the video, the transcript, the screen text and every comment for good, and the link stops working.
+**Clips** in the menu, **My clips** under your name and the small clips button beside the camera all open your list. Search it by title, summary, what was said or what was on screen. **All**, **Shared** and **Private** filter the list, and the sort box orders it by Newest, Oldest, Most viewed, Title A to Z or Largest. Each card shows who can watch it, and pressing that label opens the share window. **Select** lets you tick several clips, press **Select all**, and set them to Private, Specific people or Anyone at Favor, or Delete them together. **Done** leaves Select. On a card, **Send to email** adds the clip to a Mail draft, and **Help article** and **Learn lesson** appear once the clip is ready. Hover a clip to preview it. You can rename a clip, copy its link, switch sharing, or delete it. Delete removes the video, the transcript, the screen text and every comment for good, and the link stops working.
 
 Each person has 10 GB for clips. The top of your list shows how much you have used. Past 80%, it lists your oldest clips that nobody has watched, with a Delete button on each. At 10 GB a new recording waits until you delete something.
 

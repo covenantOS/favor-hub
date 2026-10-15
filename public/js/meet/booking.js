@@ -75,9 +75,9 @@ function prefsCard() {
 
 function bookingsCard() {
   const rows = S.bookings.map((b) => {
-    const ans = (b.answers || []).filter(Boolean);
+    const ans = (b.answers || []).filter((a) => a && (typeof a !== 'object' || a.a));
     return `<div class="bk-bk"><b>${esc(b.name)}</b> <span class="bk-muted">${esc(b.title || '')}</span><div>${esc(b.email)}${b.phone ? ', ' + esc(b.phone) : ''}</div><div class="bk-muted">${esc(fmtDay(b.starts_at))}, ${esc(fmtTime(b.starts_at))} to ${esc(fmtTime(b.ends_at))}</div>
-      ${ans.length ? `<ul class="bk-ans">${ans.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
+      ${ans.length ? `<ul class="bk-ans">${ans.map((a) => (typeof a === 'object' ? `<li>${a.q ? '<b>' + esc(a.q) + '</b> ' : ''}${esc(a.a || '')}</li>` : `<li>${esc(a)}</li>`)).join('')}</ul>` : ''}
       <div class="bk-row" style="margin-top:8px">${b.meeting_id ? `<a class="bk-btn bk-btn--ghost bk-btn--sm" href="/meet/room/?m=${esc(b.meeting_id)}">Open</a>` : ''}<button type="button" class="bk-btn bk-btn--danger bk-btn--sm" data-act="cancel" data-id="${esc(b.id)}">Cancel</button></div></div>`;
   }).join('');
   return `<section class="bk-card"><h2 class="bk-h2">Upcoming bookings</h2>${rows || '<p class="bk-muted">No upcoming bookings.</p>'}</section>`;
