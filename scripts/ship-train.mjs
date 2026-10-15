@@ -86,6 +86,11 @@ let lastLock = '';
 let treeKey = '';
 let treeGreen = false;
 const keyOf = (list) => list.map((e) => e.id).join('|');
+// The lines of a failed run that say what failed (test names, assertions, type errors), so a rejection is readable at a glance.
+const why = (out) => {
+  const lines = String(out).split('\n').filter((l) => /FAIL |error TS|AssertionError|Expected|Received|✖ |❯ .*:\d+|Error:/.test(l)).slice(0, 14);
+  return lines.length ? lines.join('\n') : String(out).slice(-800);
+};
 
 /** Every gate on the tree as it stands. Returns { ok, reason }. */
 function gates() {
@@ -96,7 +101,7 @@ function gates() {
     lastLock = lock;
   }
   let r = trySh('npm run build');
-  if (!r.ok || !existsSync('dist/images/favor-icon.png')) return { ok: false, reason: 'pages build: ' + r.out.slice(-600) };
+  if (!r.ok || !existsSync('dist/images/favor-icon.png')) return { ok: false, reason: 'pages build: ' + why(r.out) };
   let tests = '';
   try {
     tests = sh('node --test "tests/**/*.test.mjs"');
@@ -115,9 +120,9 @@ function gates() {
     if (still.length) return { ok: false, reason: 'tests failing: ' + still.join(' | ') };
   }
   r = trySh('npm run typecheck && npm run app:test');
-  if (!r.ok) return { ok: false, reason: 'typecheck or app tests: ' + r.out.slice(-800) };
+  if (!r.ok) return { ok: false, reason: 'typecheck or app tests: ' + why(r.out) };
   r = trySh('npm --prefix web exec -- tsc --noEmit -p web && npm --prefix web run build');
-  if (!r.ok) return { ok: false, reason: 'web typecheck or build: ' + r.out.slice(-800) };
+  if (!r.ok) return { ok: false, reason: 'web typecheck or build: ' + why(r.out) };
   return { ok: true };
 }
 
