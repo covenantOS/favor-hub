@@ -77,3 +77,5 @@
   .dc-table > * { padding: 10px 10px; font-size: 14px; }
   .dc-search { width: 100%; }
 }
+
+.dc-note { display: block; font: 400 12px var(--h-font); color: var(--r-ink-2); white-space: normal; }

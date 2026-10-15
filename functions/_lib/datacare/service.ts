@@ -52,11 +52,12 @@ export interface FlagOut {
   state: string;
   fixedAt: string | null;
   fixedHow: string | null;
+  note: string | null;
 }
 
 const flagOut = (r: any): FlagOut => ({
   cid: String(r.cid), lookup: String(r.lookup), name: String(r.name), why: String(r.why), gave: Number(r.gave || 0), gifts: Number(r.gifts || 0),
-  lastGift: r.last_gift || null, email: r.email || null, state: String(r.state), fixedAt: r.fixed_at || null, fixedHow: r.fixed_how || null,
+  lastGift: r.last_gift || null, email: r.email || null, state: String(r.state), fixedAt: r.fixed_at || null, fixedHow: r.fixed_how || null, note: r.note || null,
 });
 
 export interface Summary {
