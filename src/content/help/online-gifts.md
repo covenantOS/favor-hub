@@ -7,22 +7,24 @@ for: [admin]
 related: [gift-entry, whats-new]
 tool: /online-gifts/
 toolLabel: Open Online gifts
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
 Online gifts is for Partner Care and the admin desk. It lists every gift that came in online: the website's giving form, the Blackbaud donation forms and international giving.
+
+The **Period** menu at the top right picks Today, Last 3 days, Last 7 days or Last 14 days. The line under the title gives the total, how many gifts carry a comment and how many are waiting to approve.
 
 ## Each gift
 
 A row shows the partner, the amount, where the gift came from and its date. An international gift also shows what the partner gave in their own currency. Under it is what the partner wrote with the gift.
 
-The designation under the comment is read from the partner's words. A partner who picked Where Needed Most on the form and wrote "for the trauma care ministry" is read as Trauma Counseling, and the row is marked Changes fund. With no comment, the designation is the one the partner picked on the form.
+The designation under the comment is read from the partner's words. A partner who picked Where Needed Most on the form and wrote "for the trauma care ministry" is read as Trauma Counseling, and the row is marked Changes fund. With no comment, the designation is the one the partner picked on the form, and the row says From the form.
 
 ## Approve
 
-Change the designation if it is wrong, then press Approve. Approve all approves every gift in the list with the designation shown. FavorOS keeps who approved each gift, when, and the fund it had before.
+Change the designation if it is wrong, then press Approve. Approve all approves every gift in the list with the designation shown. FavorOS keeps who approved each gift, when, and the fund it had before. Approved gifts move to the **Approved** list under the open ones, each with who approved it and **Change** to reopen it.
 
-When an approved designation differs from the fund on the gift, the change goes to Blackbaud while writes are on. An admin turns writes on and off at the bottom of the page. A gift split across two funds is changed in Blackbaud.
+When an approved designation differs from the fund on the gift, the change goes to Blackbaud while writes are on. An admin turns writes on and off in Admin > Settings > Gifts. The line at the bottom of the page says whether they are on and links there. A gift split across two funds is changed in Blackbaud.
 
 An international gift shows Not in Blackbaud yet until the admin desk enters it. The approved designation stays on the row for whoever enters it.
 

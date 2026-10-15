@@ -3,14 +3,24 @@ title: Projects
 summary: Task lists, a board, a calendar and a timeline, tied into Chat, Meetings, Clips, Drive, Google Calendar and expense requests.
 topic: work
 order: 8
-for: [admin]
+for: [all]
 related: [chat, meetings, clips, whats-new]
 tool: /projects/
 toolLabel: Open Projects
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
-Projects is where FavorOS keeps work that has an owner and a date. It is open to FavorOS admins for now, and Admin > Projects changes who can use it.
+Projects is where FavorOS keeps work that has an owner and a date. Admin > Projects changes who can use it.
+
+## The pages
+
+The Projects page has three tabs. **My tasks** counts what is assigned to you, with tiles for Overdue, Due today and Open, a search box, **Show completed**, and your tasks grouped under Today, Next 7 days, Later and No date. Each group has a line to add a task. **All projects** lists the projects, with Active, All and Archived filters. **Team workload** is described below. **Add task**, **Plan a project** and **New project** sit at the top right. **Requests**, beside Projects in the page tabs, is the [request board](/help/request-board/).
+
+A project opens with its own page: a project list in the left column and, across the top, **List**, **Board**, **Calendar**, **Timeline** and **Workload**, with **Filter**, **Select**, **Add task**, Assignee, Due, Status, Tag and **Show completed** under them.
+
+## Asana
+
+Projects shows **Synced with Asana** beside its title. Tasks in the projects Favor has switched on are read from Asana and changes made here are written back, so the two stay the same. A person asked to connect Asana sees **Connect your Asana account** before Projects opens. Press **Connect Asana** so changes you make go to Asana under your name. On a project, **Connected as** your name shows with **Disconnect**. An admin chooses which projects sync, and who must connect, in Admin > Projects.
 
 ## Projects and tasks
 

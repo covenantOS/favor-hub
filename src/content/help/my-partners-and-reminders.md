@@ -7,18 +7,18 @@ for: [admin, rdd, ce, pc, leader]
 related: [work-center, partner-page]
 tool: /work/?view=mine
 toolLabel: Open My partners
-updated: 2026-10-10
+updated: 2026-10-15
 ---
 
 ## My partners
 
 My partners is a tab on the Work Center for regional directors and church engagement. It lists every partner you hold as Regional Development Director, Prospect Steward or Church Engagement Director, with the biggest givers of the last 12 months first.
 
-Each row shows the days since your last contact and what it was, the last gift, the last 12 months against the 12 before, lifetime giving and the next step. The next step is an open task, or a + Task button that adds a call for the next weekday. The phone button dials, and it is crossed out when no number is on file or every number is marked do not call. Prep opens the partner, and Log adds a contact.
+Each row shows the days since your last contact and what it was, the last gift, the last 12 months against the 12 before, lifetime giving and the next step. The next step is an open task, or a + Task button that adds a call for the next weekday. The phone button opens Call mode, and it is crossed out when no number is on file or every number is marked do not call. Open shows the call brief and the partner, and Log adds a contact.
 
 A contact is a completed call, visit or email. A printed receipt is not one, so a partner who only gets mail still shows as quiet.
 
-The five numbers at the top are filters. Press Quiet 90 days or more to see who needs a call. Gave this year, no contact in 30 days shows partners who gave recently and heard nothing from you. Gave last year, not this year shows partners who may have lapsed. The buttons above the list do the same, and the search box finds a name, a city or a lookup id.
+The five numbers at the top are filters. Press Quiet 90 days or more to see who needs a call. Gave this year, no contact in 30 days shows partners who gave recently and heard nothing from you. Gave last year, not this year shows partners who may have lapsed. The buttons above the list do the same: 90 days, 180 days, Gave, not contacted, Gave last year, not this year and All. The search box finds a name, a city or a lookup id. No phone to call counts the partners with no number you may dial.
 
 Support and admins pick any director from the list at the top. Open in Google Sheets sends the rows on the screen to a sheet only you can open.
 

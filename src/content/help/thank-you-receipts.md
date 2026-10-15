@@ -7,17 +7,17 @@ for: [marketing, pc, admin, leader]
 related: [whats-new]
 tool: /receipts/
 toolLabel: Open Receipts
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
 The page reads Blackbaud for every gift that has not been thanked yet and lays out one receipt per partner, on the receipt paper. Every partner who gives gets one. A thank-you letter from headquarters for a gift of $5,000 or more is separate: it is handwritten, and its list is Gifts > Thank-you letters.
 
 ## Steps
 
-1. Open **Receipts** and put your name in **Your name**.
-2. The totals at the top show how many receipts are waiting and how many gifts they cover.
-3. Under **Receipts to print**, every receipt is ticked. Untick any you want to leave for later. **Find a partner** searches the list.
-4. Check the date for the receipts and press **Make the print file**.
+1. Open **Receipts**. Signed in with Google, your name goes on the print file for you. Otherwise put your name in **Your name** first.
+2. The totals at the top show how many receipts are waiting and how many gifts they cover: regular, $200 and up, and monthly. **Waiting for a receipt** has a menu for how far back to look (the last 30, 60, 90 or 180 days).
+3. Under **Receipts to print**, every receipt is ticked. Untick any you want to leave for later. **Find a partner** searches the list, and **Open in Google Sheets** sends the receipts shown to a sheet.
+4. Check **Date on the receipts**. The **Reply code** beside it follows the month of that date. Press **Make the print file**.
 5. Open the proof first: every page drawn on a picture of the receipt paper. Look at the first few and the last few. Then print the file on the receipt paper.
 6. Come back and press **Mark as thanked in Blackbaud**, then **Yes, mark them thanked**. Do this only after the receipts are printed.
 
