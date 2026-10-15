@@ -95,65 +95,66 @@
 .rg-wait:has(.rg-sk-grid) { display: block; padding: 0; }
 
 /* ---- The week in giving as cards (2026-10-14, app/src/features/highlights/HighlightCards.tsx, drawn by the hl-cards island).
+   Class prefix wkc- (week cards); .hc is the hover menu in upgrades2.css.
    All of Favor runs the full width; the teams share the next row, growing to fill it so no row ends in a gap.
    Facts only: a label over each figure, the details in the hover titles. */
 #rg-hl-root[data-cards] { display: block; }
-.hc-grid { display: flex; flex-wrap: wrap; gap: 14px; }
-.hc { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 16px; border-radius: 14px; font-variant-numeric: tabular-nums; }
-.hc--lead { flex-basis: 100%; }
-.hc-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.hc-h h3 { margin: 0; font: 600 15px/1.2 var(--h-font); color: var(--r-ink, var(--h-ink)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hc-pill { margin-left: auto; flex: none; padding: 3px 10px; border-radius: 999px; font: 600 12px/1.4 var(--h-font); }
-.hc-pill.is-ahead { background: #e1efdc; color: #2a5a24; }
-.hc-pill.is-close { background: #f8edd2; color: #7a5300; }
-.hc-pill.is-behind { background: #fbe7e0; color: #a8381f; }
-.hc-lab { display: block; font: 600 12px/1.3 var(--h-font); letter-spacing: 0.02em; color: var(--r-ink-3, var(--h-ink-3)); }
-.hc-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; min-width: 0; }
-.hc-big { display: grid; gap: 2px; min-width: 0; }
-.hc-big b { font: 600 34px/1.05 var(--h-serif); font-variant-numeric: lining-nums tabular-nums; color: var(--r-ink, var(--h-ink)); white-space: nowrap; }
-.hc-count { font: 500 13px var(--h-font); color: var(--r-ink-2, var(--h-ink-2)); }
-.hc-spark { flex: none; display: block; overflow: visible; }
-.hc-spark rect { fill: #d9e6d4; transition: fill var(--m-fast, 120ms); }
-.hc-spark rect.is-now { fill: var(--tc-leaf, #3d7a35); }
-.hc-spark rect:hover { fill: #9cc092; }
-.hc-delta { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; font: 700 13px/1.4 var(--h-font); }
-.hc-delta svg { width: 10px; height: 10px; fill: currentColor; }
-.hc-delta__l { font-weight: 500; opacity: 0.85; }
-.hc-delta.is-up { background: #e1efdc; color: #2a5a24; }
-.hc-delta.is-down { background: #fbe7e0; color: #a8381f; }
-.hc-delta.is-flat { background: var(--r-sunk, #ebe8de); color: var(--r-ink-2, #464c42); font-weight: 600; padding-left: 10px; }
-.hc-goal, .hc-grants { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--r-line, #e4e0d4); }
-.hc-goal__row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.hc-goal__row .hc-lab { margin-right: auto; }
-.hc-goal__row b { font: 700 15px var(--h-font); }
-.hc-goal__of { font: 500 13px var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); white-space: nowrap; }
-.hc-bar { display: block; height: 8px; border-radius: 999px; background: var(--r-sunk, #ebe8de); overflow: hidden; }
-.hc-bar i { display: block; height: 100%; border-radius: inherit; background: var(--tc-leaf, #3d7a35); }
-.hc-bar--grants i { background: var(--tc-sky, #2f6f9f); }
-.hc-pair { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.hc-pair span { display: grid; gap: 1px; min-width: 0; font: 700 14px var(--h-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hc-pair em { font: 500 12px var(--h-font); font-style: normal; color: var(--r-ink-3, var(--h-ink-3)); }
-.hc-facts { display: grid; gap: 10px; margin: auto 0 0; padding-top: 12px; border-top: 1px solid var(--r-line, #e4e0d4); }
-.hc-fact dt { font: 500 12px var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); }
-.hc-fact dd { margin: 1px 0 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 500 13px var(--h-font); }
-.hc-fact dd b { font: 700 14px var(--h-font); flex: none; }
-.hc-fact--pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.hc-partner { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--r-ink, var(--h-ink)); text-decoration: underline; text-decoration-color: var(--r-line-2, #d3cdbd); text-underline-offset: 3px; }
-a.hc-partner:hover { text-decoration-color: currentColor; }
-.hc-date { flex: none; color: var(--r-ink-3, var(--h-ink-3)); }
+.wkc-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.wkc { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 16px; border-radius: 14px; font-variant-numeric: tabular-nums; }
+.wkc--lead { flex-basis: 100%; }
+.wkc-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wkc-h h3 { margin: 0; font: 600 15px/1.2 var(--h-font); color: var(--r-ink, var(--h-ink)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wkc-pill { margin-left: auto; flex: none; padding: 3px 10px; border-radius: 999px; font: 600 12px/1.4 var(--h-font); }
+.wkc-pill.is-ahead { background: #e1efdc; color: #2a5a24; }
+.wkc-pill.is-close { background: #f8edd2; color: #7a5300; }
+.wkc-pill.is-behind { background: #fbe7e0; color: #a8381f; }
+.wkc-lab { display: block; font: 600 12px/1.3 var(--h-font); letter-spacing: 0.02em; color: var(--r-ink-3, var(--h-ink-3)); }
+.wkc-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; min-width: 0; }
+.wkc-big { display: grid; gap: 2px; min-width: 0; }
+.wkc-big b { font: 600 34px/1.05 var(--h-serif); font-variant-numeric: lining-nums tabular-nums; color: var(--r-ink, var(--h-ink)); white-space: nowrap; }
+.wkc-count { font: 500 13px var(--h-font); color: var(--r-ink-2, var(--h-ink-2)); }
+.wkc-spark { flex: none; display: block; overflow: visible; }
+.wkc-spark rect { fill: #d9e6d4; transition: fill var(--m-fast, 120ms); }
+.wkc-spark rect.is-now { fill: var(--tc-leaf, #3d7a35); }
+.wkc-spark rect:hover { fill: #9cc092; }
+.wkc-delta { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; font: 700 13px/1.4 var(--h-font); }
+.wkc-delta svg { width: 10px; height: 10px; fill: currentColor; }
+.wkc-delta__l { font-weight: 500; opacity: 0.85; }
+.wkc-delta.is-up { background: #e1efdc; color: #2a5a24; }
+.wkc-delta.is-down { background: #fbe7e0; color: #a8381f; }
+.wkc-delta.is-flat { background: var(--r-sunk, #ebe8de); color: var(--r-ink-2, #464c42); font-weight: 600; padding-left: 10px; }
+.wkc-goal, .wkc-grants { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--r-line, #e4e0d4); }
+.wkc-goal__row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.wkc-goal__row .wkc-lab { margin-right: auto; }
+.wkc-goal__row b { font: 700 15px var(--h-font); }
+.wkc-goal__of { font: 500 13px var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); white-space: nowrap; }
+.wkc-bar { display: block; height: 8px; border-radius: 999px; background: var(--r-sunk, #ebe8de); overflow: hidden; }
+.wkc-bar i { display: block; height: 100%; border-radius: inherit; background: var(--tc-leaf, #3d7a35); }
+.wkc-bar--grants i { background: var(--tc-sky, #2f6f9f); }
+.wkc-pair { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wkc-pair span { display: grid; gap: 1px; min-width: 0; font: 700 14px var(--h-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wkc-pair em { font: 500 12px var(--h-font); font-style: normal; color: var(--r-ink-3, var(--h-ink-3)); }
+.wkc-facts { display: grid; gap: 10px; margin: auto 0 0; padding-top: 12px; border-top: 1px solid var(--r-line, #e4e0d4); }
+.wkc-fact dt { font: 500 12px var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); }
+.wkc-fact dd { margin: 1px 0 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 500 13px var(--h-font); }
+.wkc-fact dd b { font: 700 14px var(--h-font); flex: none; }
+.wkc-fact--pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wkc-partner { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--r-ink, var(--h-ink)); text-decoration: underline; text-decoration-color: var(--r-line-2, #d3cdbd); text-underline-offset: 3px; }
+a.wkc-partner:hover { text-decoration-color: currentColor; }
+.wkc-date { flex: none; color: var(--r-ink-3, var(--h-ink-3)); }
 /* All of Favor: the three parts side by side when there is room. */
-.hc--lead { display: grid; grid-template-columns: minmax(0, 1fr); }
-.hc--lead > * { min-width: 0; }
+.wkc--lead { display: grid; grid-template-columns: minmax(0, 1fr); }
+.wkc--lead > * { min-width: 0; }
 @media (min-width: 1100px) {
-  .hc--lead { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr); column-gap: 28px; align-items: start; }
-  .hc--lead > .hc-h { grid-column: 1 / -1; }
-  .hc--lead > .hc-top { grid-column: 1; grid-row: 2; }
-  .hc--lead > .hc-delta { grid-column: 1; grid-row: 3; justify-self: start; margin-top: 10px; }
-  .hc--lead > .hc-goal { grid-column: 2; grid-row: 2 / span 2; border-top: 0; padding-top: 0; padding-left: 28px; border-left: 1px solid var(--r-line, #e4e0d4); }
-  .hc--lead > .hc-facts { grid-column: 3; grid-row: 2 / span 2; border-top: 0; padding-top: 0; padding-left: 28px; border-left: 1px solid var(--r-line, #e4e0d4); margin: 0; }
-  .hc--lead .hc-big b { font-size: 40px; }
+  .wkc--lead { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr); column-gap: 28px; align-items: start; }
+  .wkc--lead > .wkc-h { grid-column: 1 / -1; }
+  .wkc--lead > .wkc-top { grid-column: 1; grid-row: 2; }
+  .wkc--lead > .wkc-delta { grid-column: 1; grid-row: 3; justify-self: start; margin-top: 10px; }
+  .wkc--lead > .wkc-goal { grid-column: 2; grid-row: 2 / span 2; border-top: 0; padding-top: 0; padding-left: 28px; border-left: 1px solid var(--r-line, #e4e0d4); }
+  .wkc--lead > .wkc-facts { grid-column: 3; grid-row: 2 / span 2; border-top: 0; padding-top: 0; padding-left: 28px; border-left: 1px solid var(--r-line, #e4e0d4); margin: 0; }
+  .wkc--lead .wkc-big b { font-size: 40px; }
 }
 @media (max-width: 860px) {
-  .hc { flex-basis: 100%; padding: 16px; }
-  .hc-big b { font-size: 30px; }
+  .wkc { flex-basis: 100%; padding: 16px; }
+  .wkc-big b { font-size: 30px; }
 }

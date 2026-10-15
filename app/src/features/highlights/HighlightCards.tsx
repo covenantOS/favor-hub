@@ -50,14 +50,14 @@ function Delta({ h }: { h: Highlight }) {
   const diff = h.amount - h.prevAmount;
   const noun = h.noun || 'gift';
   const tip = `Week before: ${plural(h.prevGifts, noun)}, ${money0(h.prevAmount)}`;
-  if (!h.prevGifts && !(h.prevAmount > 0)) return <span className="hc-delta is-flat" title={tip}>No {noun}s the week before</span>;
-  if (Math.abs(diff) < 1) return <span className="hc-delta is-flat" title={tip}>Same as the week before</span>;
+  if (!h.prevGifts && !(h.prevAmount > 0)) return <span className="wkc-delta is-flat" title={tip}>No {noun}s the week before</span>;
+  if (Math.abs(diff) < 1) return <span className="wkc-delta is-flat" title={tip}>Same as the week before</span>;
   const up = diff > 0;
   return (
-    <span className={'hc-delta ' + (up ? 'is-up' : 'is-down')} title={tip}>
+    <span className={'wkc-delta ' + (up ? 'is-up' : 'is-down')} title={tip}>
       <svg viewBox="0 0 12 12" aria-hidden="true"><path d={up ? 'M6 2.5 10 8H2z' : 'M6 9.5 2 4h8z'} /></svg>
       {money0(Math.abs(diff))}
-      <span className="hc-delta__l">vs. week before</span>
+      <span className="wkc-delta__l">vs. week before</span>
     </span>
   );
 }
@@ -71,7 +71,7 @@ function Spark({ weeks, noun }: { weeks: Week[]; noun: string }) {
   const H = 40;
   const width = weeks.length * (W + G) - G;
   return (
-    <svg className="hc-spark" viewBox={`0 0 ${width} ${H}`} width={width} height={H} role="img" aria-label={`Last ${weeks.length} weeks`}>
+    <svg className="wkc-spark" viewBox={`0 0 ${width} ${H}`} width={width} height={H} role="img" aria-label={`Last ${weeks.length} weeks`}>
       {weeks.map((w, i) => {
         const h = Math.max(2, Math.round((w.amount / top) * (H - 2)));
         return (
@@ -90,16 +90,16 @@ function Goal({ h }: { h: Highlight }) {
   const pct = Math.max(0, Math.min(100, g.pctGoal));
   const tip = `${money0(g.raised)} of ${money0(g.goal)}. ${money0(g.toGo)} left, ${money0(g.perWeekNeeded)} a week for ${Math.round(g.weeksLeft)} weeks.${h.status ? ' ' + STATUS_LONG[h.status] + '.' : ''}`;
   return (
-    <div className="hc-goal" title={tip}>
-      <div className="hc-goal__row">
-        <span className="hc-lab">Annual goal</span>
+    <div className="wkc-goal" title={tip}>
+      <div className="wkc-goal__row">
+        <span className="wkc-lab">Annual goal</span>
         <b>{g.pctGoal.toFixed(1)}%</b>
-        <span className="hc-goal__of">of {money0(g.goal)}</span>
+        <span className="wkc-goal__of">of {money0(g.goal)}</span>
       </div>
-      <span className="hc-bar" aria-hidden="true">
+      <span className="wkc-bar" aria-hidden="true">
         <i style={{ width: pct + '%' }} />
       </span>
-      <div className="hc-pair">
+      <div className="wkc-pair">
         <span>
           <em>Left</em>
           {money0(g.toGo)}
@@ -120,16 +120,16 @@ function Goal({ h }: { h: Highlight }) {
 function Grants({ g }: { g: NonNullable<Highlight['grants']> }) {
   const got = g.awarded > 0 ? Math.max(0, Math.min(100, (g.received / g.awarded) * 100)) : 0;
   return (
-    <div className="hc-grants" title={g.enteredThrough ? `Awards entered through ${dayLabel(g.enteredThrough)}` : undefined}>
-      <div className="hc-goal__row">
-        <span className="hc-lab">Received</span>
+    <div className="wkc-grants" title={g.enteredThrough ? `Awards entered through ${dayLabel(g.enteredThrough)}` : undefined}>
+      <div className="wkc-goal__row">
+        <span className="wkc-lab">Received</span>
         <b>{money0(g.received)}</b>
-        <span className="hc-goal__of">of {money0(g.awarded)} awarded</span>
+        <span className="wkc-goal__of">of {money0(g.awarded)} awarded</span>
       </div>
-      <span className="hc-bar hc-bar--grants" aria-hidden="true">
+      <span className="wkc-bar wkc-bar--grants" aria-hidden="true">
         <i style={{ width: got + '%' }} />
       </span>
-      <div className="hc-pair">
+      <div className="wkc-pair">
         <span>
           <em>Awards</em>
           {g.count.toLocaleString('en-US')}
@@ -151,25 +151,25 @@ function Facts({ h }: { h: Highlight }) {
   const g = h.grants;
   const big = h.largest;
   return (
-    <dl className="hc-facts">
+    <dl className="wkc-facts">
       {big ? (
-        <div className="hc-fact hc-fact--wide">
+        <div className="wkc-fact wkc-fact--wide">
           <dt>Largest</dt>
           <dd>
             <b>{money0(big.amount)}</b>
             {big.cid ? (
-              <a className="hc-partner" href={'/work/partner/' + encodeURIComponent(big.cid)} data-entity={'partner:' + big.cid} data-label={big.partner}>
+              <a className="wkc-partner" href={'/work/partner/' + encodeURIComponent(big.cid)} data-entity={'partner:' + big.cid} data-label={big.partner}>
                 {big.partner}
               </a>
             ) : (
-              <span className="hc-partner">{big.partner}</span>
+              <span className="wkc-partner">{big.partner}</span>
             )}
-            <span className="hc-date">{dayLabel(big.date)}</span>
+            <span className="wkc-date">{dayLabel(big.date)}</span>
           </dd>
         </div>
       ) : null}
       {h.month ? (
-        <div className="hc-fact hc-fact--pair">
+        <div className="wkc-fact wkc-fact--pair">
           <div>
             <dt>{monthName(h.month.key)} so far</dt>
             <dd>
@@ -184,19 +184,19 @@ function Facts({ h }: { h: Highlight }) {
           </div>
         </div>
       ) : g && g.thisMonth && g.lastMonth ? (
-        <div className="hc-fact hc-fact--pair">
+        <div className="wkc-fact wkc-fact--pair">
           <div>
             <dt>{monthName(h.to.slice(0, 7))} awards</dt>
             <dd>
               <b>{money0(g.thisMonth.awarded)}</b>
-              <span className="hc-date">{plural(g.thisMonth.awards, 'award')}</span>
+              <span className="wkc-date">{plural(g.thisMonth.awards, 'award')}</span>
             </dd>
           </div>
           <div>
             <dt>Last month</dt>
             <dd>
               <b>{money0(g.lastMonth.awarded)}</b>
-              <span className="hc-date">{plural(g.lastMonth.awards, 'award')}</span>
+              <span className="wkc-date">{plural(g.lastMonth.awards, 'award')}</span>
             </dd>
           </div>
         </div>
@@ -208,16 +208,16 @@ function Facts({ h }: { h: Highlight }) {
 export function HighlightCard({ h, lead }: { h: Highlight; lead?: boolean }) {
   const noun = h.noun || 'gift';
   return (
-    <article className={'hc h-card' + (lead ? ' hc--lead' : '')} data-hl={h.key}>
-      <header className="hc-h">
+    <article className={'wkc h-card' + (lead ? ' wkc--lead' : '')} data-hl={h.key}>
+      <header className="wkc-h">
         <h3>{h.name}</h3>
-        {h.status ? <span className={'hc-pill is-' + h.status}>{STATUS[h.status]}</span> : null}
+        {h.status ? <span className={'wkc-pill is-' + h.status}>{STATUS[h.status]}</span> : null}
       </header>
-      <div className="hc-top">
-        <div className="hc-big">
-          <span className="hc-lab">Last 7 days</span>
+      <div className="wkc-top">
+        <div className="wkc-big">
+          <span className="wkc-lab">Last 7 days</span>
           <b>{money0(h.amount)}</b>
-          <span className="hc-count">{plural(h.gifts, noun)}</span>
+          <span className="wkc-count">{plural(h.gifts, noun)}</span>
         </div>
         <Spark weeks={h.weeks || []} noun={noun} />
       </div>
@@ -231,7 +231,7 @@ export function HighlightCard({ h, lead }: { h: Highlight; lead?: boolean }) {
 
 export function HighlightCards({ overall, teams }: { overall: Highlight; teams: Highlight[] }) {
   return (
-    <div className={'hc-grid' + (teams.length ? '' : ' hc-grid--solo')} data-n={teams.length}>
+    <div className={'wkc-grid' + (teams.length ? '' : ' wkc-grid--solo')} data-n={teams.length}>
       <HighlightCard h={overall} lead />
       {teams.map((t) => (
         <HighlightCard key={t.key} h={t} />
