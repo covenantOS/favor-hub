@@ -55,7 +55,8 @@ function specFromUrl() {
     else s[k] = v;
   }
   S.page = Math.max(1, Number(u.get('page')) || 1);
-  S.pane = ['all', 'recent', 'dups', 'merges'].includes(u.get('pane')) ? u.get('pane') : 'all';
+  S.pane = u.get('pane') === 'recent' ? 'recent' : 'all';
+  if (u.get('pane') === 'dups' || u.get('pane') === 'merges') { location.replace('/data-care/'); }
   S.view = u.get('view') || '';
   return s;
 }
@@ -275,8 +276,9 @@ function footHTML() {
 }
 
 function paneTabs() {
-  const t = [['all', 'Partners'], ['recent', 'Recently opened'], ['dups', 'Possible duplicates'], ['merges', 'Merge requests']];
-  return `<div class="pd-panes" role="tablist" aria-label="Lists">${t.map(([k, l]) => `<button type="button" role="tab" aria-selected="${S.pane === k}" data-pane="${k}">${l}${k === 'merges' && S.merges && S.merges.length ? ` <span>${S.merges.length}</span>` : ''}</button>`).join('')}</div>`;
+  const t = [['all', 'Partners'], ['recent', 'Recently opened']];
+  // Possible duplicates and merge requests are one queue, in Data care.
+  return `<div class="pd-panes" role="tablist" aria-label="Lists">${t.map(([k, l]) => `<button type="button" role="tab" aria-selected="${S.pane === k}" data-pane="${k}">${l}</button>`).join('')}<a class="pd-panelink" href="/data-care/">Duplicates and merges${S.merges ? ` <span>${S.merges}</span>` : ''}</a></div>`;
 }
 
 function paint() {
@@ -325,7 +327,7 @@ function paintPane() {
   }
   root.innerHTML = `${paneTabs()}<section class="h-card pd-sheet">${body}</section>`;
 }
-function loadMerges() { api('/api/partners/merges').then((d) => { S.merges = d.merges; if (S.pane === 'merges') paint(); else { const t = $('.pd-panes'); if (t) t.outerHTML = paneTabs(); } }).catch(() => { S.merges = []; }); }
+function loadMerges() { api('/api/partners/merges').then((d) => { S.merges = d.waiting || 0; const t = $('.pd-panes'); if (t) t.outerHTML = paneTabs(); }).catch(() => { S.merges = 0; }); }
 
 /* ------------------------------------------------------------------ bulk bar */
 function bulk() {
@@ -366,9 +368,9 @@ async function exportCsv(ids) {
   toast(ids ? `Exported ${N(ids.length)} partners.` : `Exported ${N(Math.min(S.data.total, 25000))} partners.`);
 }
 function askMerge(a, b) {
-  const note = prompt('Ask the Support Team to merge these two records. Add a note for them (which one to keep, why they are the same):', '');
+  const note = prompt('Ask for these two records to be merged. Add a note (which one to keep, why they are the same):', '');
   if (note === null) return;
-  post('/api/partners/merge', { keep: a, other: b, note }).then(() => { toast('Sent to the Support Team. It shows under Merge requests.'); S.merges = null; loadMerges(); }).catch((e) => toast(e.message));
+  post('/api/partners/merge', { keep: a, other: b, note }).then(() => { toast('Added to the duplicates queue in Data care.'); loadMerges(); }).catch((e) => toast(e.message));
 }
 
 document.addEventListener('click', (e) => {

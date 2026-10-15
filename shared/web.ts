@@ -3,7 +3,7 @@
 // lists it in the hub setting web.routes AND the person is in web.audience. Everything else keeps its Astro page.
 import { normalizeRoute } from './app2';
 
-export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/', '/churches/', '/data-care/', '/gifts/other/', '/admin/goals/', '/brain/'] as const;
+export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/', '/churches/', '/data-care/', '/gifts/other/', '/admin/goals/', '/brain/', '/partners/'] as const;
 
 /** Routes the web app serves at their own address only; the pages under them (/brain/admin/, /brain/text/) stay classic. */
 export const WEB_EXACT_ROUTES: readonly string[] = ['/brain/'];

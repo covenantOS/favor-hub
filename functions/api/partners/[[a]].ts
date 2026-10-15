@@ -6,9 +6,9 @@ import { logEvent } from '../../_lib/work/db';
 import { todayET } from '../../_lib/lists/service.ts';
 import { refreshSnapshot } from '../../_lib/lists/refresh.ts';
 import { body, work, type RouteArgs } from '../../_lib/work/route';
-import { BAND_LABEL, exportQuery, facetQueries, KIND_LABEL, listQuery, specFromParams, STATUS_LABEL, DUP_SQL, type Ctx } from '../../_lib/partners/query.ts';
+import { BAND_LABEL, exportQuery, facetQueries, KIND_LABEL, listQuery, specFromParams, STATUS_LABEL, type Ctx } from '../../_lib/partners/query.ts';
 import {
-  actionPage, addTag, allTags, cards, checkId, decideMerge, dropTag, dropView, extras, giftPage, merges, noteRecent, recent, requestMerge, saveView, setStar, stars, tagsOf, views,
+  actionPage, addTag, allTags, cards, checkId, dropTag, dropView, extras, giftPage, mergeCount, noteRecent, recent, requestMerge, saveView, setStar, stars, tagsOf, views,
 } from '../../_lib/partners/service.ts';
 
 // The Partners directory: every Blackbaud record (functions/_lib/partners). Read by anyone the Work Center lets in; partner records are
@@ -17,12 +17,12 @@ import {
 //   GET  /api/partners                     one page of the directory (?q, filters, sort, dir, page, size), counts and menus
 //   GET  /api/partners/export              the matching partners as CSV (?ids= for a selection)
 //   GET  /api/partners/menus                codes, solicit codes, states, holders and tags with counts
-//   GET  /api/partners/views | stars | recent | tags[?cid] | duplicates | merges[?state]
+//   GET  /api/partners/views | stars | recent | tags[?cid] | merges (the count waiting in Data care's queue)
 //   GET  /api/partners/record/<id>/gifts | actions | extras
 //   POST /api/partners/views               save a view; POST /api/partners/views/<id>/delete
 //   POST /api/partners/stars/<id>          { on }      POST /api/partners/recent/<id>
 //   POST /api/partners/tags                { cids, tag, remove }
-//   POST /api/partners/merge               { keep, other, note }   POST /api/partners/merges/decide { id | keep+other, state }
+//   POST /api/partners/merge               { keep, other, note }: adds the pair to Data care's review queue
 //   POST /api/partners/rebuild             admins and the agent key: rebuild the copy now
 
 type Row = Record<string, any>;
@@ -157,13 +157,8 @@ export const onRequestGet = work(async (a) => {
     const cid = url.searchParams.get('cid');
     return cid ? { tags: await tagsOf(env, cid) } : { tags: await allTags(env) };
   }
-  if (what === 'duplicates') {
-    const pairs = await hub(env, DUP_SQL, []);
-    const ids = [...new Set(pairs.flatMap((p) => [String(p.a), String(p.b)]))];
-    const by = new Map((await cards(env, ids)).map((c) => [String(c.id), c]));
-    return { pairs: pairs.map((p) => ({ a: by.get(String(p.a)) || { id: p.a }, b: by.get(String(p.b)) || { id: p.b }, why: String(p.why || '').split(',') })) };
-  }
-  if (what === 'merges') return { merges: await merges(env, url.searchParams.get('state') === 'done' ? 'done' : 'open') };
+  // Possible duplicates and merge requests are one queue in Data care (/api/datacare/pairs); this answers the count only.
+  if (what === 'merges') return { waiting: await mergeCount(env) };
   if (what === 'record') {
     const id = checkId(seg(params, 1));
     const part = seg(params, 2);
@@ -206,14 +201,9 @@ export const onRequestPost = work(async (a) => {
     return { tags: cids.length === 1 ? await tagsOf(env, cids[0]) : await allTags(env) };
   }
   if (what === 'merge') {
+    if (wu.testCid || (wu.user.email || '').startsWith('tester')) throw new HttpError(403, 'test_account', 'A test account cannot ask for a merge.');
     const id = await requestMerge(env, { email: wu.email, name: wu.actor }, String(b.keep || ''), String(b.other || ''), String(b.note || ''));
     return { id };
-  }
-  if (what === 'merges' && seg(params, 1) === 'decide') {
-    const role = wu.scope.role;
-    if (!(wu.user.role === 'admin' || role === 'support')) throw new HttpError(403, 'support_only', 'The Support Team and admins mark merge requests.');
-    await decideMerge(env, wu.email, b);
-    return { merges: await merges(env, 'open') };
   }
   if (what === 'rebuild') {
     if (wu.user.role !== 'admin' && wu.user.via !== 'agent') throw new HttpError(403, 'admin_only', 'Only an admin can rebuild the directory.');
