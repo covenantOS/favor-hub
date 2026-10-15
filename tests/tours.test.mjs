@@ -94,6 +94,8 @@ test('Mail, Chat, Learn, Meetings and Projects stops show only to people who can
     }
     void grants;
   }
+  // Nothing points at the top bar's buttons (Make a request, Help, Feedback, Clips): the chrome moves and the stops must not.
+  for (const s of D.allStepDefs()) for (const sel of s.at) assert.doesNotMatch(sel, /\.h-top|#lp-btn|#h-fb|#clip-|h-help/, `${s.id}: ${sel}`);
   // The Mail stop points at Compose.
   const mail = D.allStepDefs().find((s) => s.id === 'mail');
   assert.deepEqual(mail.at[0], '.ml-compose');
@@ -141,7 +143,7 @@ test('every stop names a page and a menu item that exist, and something to point
   const navIds = new Set(AREAS.flatMap((a) => a.pages.map((p) => p.id)));
   const hrefs = new Set(AREAS.flatMap((a) => a.pages.map((p) => p.href.replace(/\/+$/, '').split('?')[0])));
   for (const s of D.allStepDefs()) {
-    if (s.id !== 'request') assert.ok(s.page, `${s.id}: a page`);
+    assert.ok(s.page, `${s.id}: a page`);
     if (s.page) {
       assert.ok(s.via, `${s.id}: how to get there`);
       assert.ok(navIds.has(s.via), `${s.id}: nav id ${s.via}`);
