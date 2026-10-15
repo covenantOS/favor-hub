@@ -301,7 +301,7 @@ function AsksBody({ as }: { as: string }) {
     { key: 'director', label: 'Director', sort: 'director', phone: false, hidden: oneOwner, className: 'pa-c-director', thClassName: 'pa-c-director', title: directors, cell: (r) => directors(r) },
     { key: 'stage', label: 'Stage', sort: 'stage', phone: true, className: 'pa-c-stage', thClassName: 'pa-c-stage', cell: (r) => stageBadge(r) },
     {
-      key: 'act', label: '', fixed: true, className: 'pa-c-act', thClassName: 'pa-c-act',
+      key: 'act', label: '', srLabel: 'Prep', srClass: 'pa-vh', fixed: true, className: 'pa-c-act', thClassName: 'pa-c-act',
       cell: (r) => (
         <button type="button" className="pt-icon pa-prep" title="Call prep" aria-label={'Prep for ' + r.name} onClick={() => void openPrep(r.cid)}>
           <Ic n="brief" />
@@ -402,9 +402,9 @@ function AsksBody({ as }: { as: string }) {
             <DensitySwitch />
           </span>
           <span className="pa-f pa-colsbox">
-            <ColumnsMenu columns={columns} hidden={hiddenNow} onChange={setHidden} />
+            <ColumnsMenu showFixed columns={columns} hidden={hiddenNow} onChange={setHidden} />
           </span>
-          <SheetsButton name="asks" label="Google Sheets" title="Open in Google Sheets" className="h-btn h-btn--ghost h-btn--sm pa-f" />
+          <SheetsButton grid name="asks" label="Google Sheets" title="Open in Google Sheets" className="h-btn h-btn--ghost h-btn--sm pa-f" />
         </div>
         <div className="pt-chips" aria-label="Filters set">
           {active.map(([k, l]) => (
@@ -450,7 +450,6 @@ function AsksBody({ as }: { as: string }) {
           total={d.matched}
           page={page}
           size={size}
-          noun="asks"
           onPage={(p, s) => {
             if (s !== size) setSize(s);
             setPage(p);

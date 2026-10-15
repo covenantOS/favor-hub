@@ -15,7 +15,7 @@ import { ListBoundary } from './lists/Boundary';
 import { WgDialog } from './lists/Dlg';
 import { WorkToast, driveBatch, failureOf, showToast } from './lists/toast';
 import { CommPanel, SheetsButton, sheetScreen, useSheetSource } from './lists/legacy';
-import { partnerHref, usePartnerOpen } from './lists/nav';
+import { partnerHref, pressRowOpen } from './lists/nav';
 import { useFit } from './lists/fit';
 import { dateWords, reqId, telHref, useHeld, workGet, workPost, WorkError } from './lists/core';
 
@@ -133,7 +133,6 @@ function CadenceBody({ as }: { as: string }) {
   const [pop, setPop] = useState<{ anchor: HTMLElement; row: CadRow; k: string } | null>(null);
   const [printing, setPrinting] = useState(false);
   const { ref, fit } = useFit(390);
-  const openPartner = usePartnerOpen();
   const today = d.today;
 
   const ov: Ov = ovHeld && ovHeld.at === dataUpdatedAt ? ovHeld : { at: dataUpdatedAt, local: {}, left: {}, week: 0 };
@@ -349,7 +348,7 @@ function CadenceBody({ as }: { as: string }) {
     { key: 'holder', label: 'Held by', className: 'c-holder', title: (r) => r.holderNames.join(', '), cell: (r) => <span className="pt-sub">{r.holderNames.join(', ')}</span> },
     { key: 'found', label: 'Came in through', hidden: true, className: 'c-found', title: (r) => (r.found ? r.found.code : ''), cell: (r) => <span className="pt-sub">{r.found ? r.found.label : ''}</span> },
     {
-      key: 'acts', label: '', fixed: true, phone: false, className: 'c-acts cd-c-acts',
+      key: 'acts', label: '', srLabel: 'Actions', fixed: true, phone: false, className: 'c-acts cd-c-acts',
       cell: (r) => (
         <div className="pt-acts">
           {r.phone ? (
@@ -417,14 +416,14 @@ function CadenceBody({ as }: { as: string }) {
           </div>
           <span className="pt-spacer" />
           <span className="pl-f">
-            <ColumnsMenu columns={columns} hidden={hidden} onChange={setHidden} />
+            <ColumnsMenu showFixed columns={columns} hidden={hidden} onChange={setHidden} />
           </span>
           <DensitySwitch />
           <button type="button" className="h-btn h-btn--ghost h-btn--sm pl-f" onClick={() => setPrinting(true)}>
             <Ic n="print" />
             Print the three lists
           </button>
-          <SheetsButton name="cadence" className="h-btn h-btn--ghost h-btn--sm pl-f" />
+          <SheetsButton grid name="cadence" className="h-btn h-btn--ghost h-btn--sm pl-f" />
         </div>
         <DataTable
           listKey={KEY}
@@ -436,7 +435,10 @@ function CadenceBody({ as }: { as: string }) {
           sort={sortH.col ? sortH : undefined}
           onSort={setSortH}
           hidden={hidden}
-          onOpen={(r) => (window.matchMedia('(max-width: 860px)').matches ? setPanelCid(r.cid) : openPartner(r.cid))}
+          onRowClick={(r) => {
+            if (window.matchMedia('(max-width: 860px)').matches) setPanelCid(r.cid);
+          }}
+          onOpen={() => pressRowOpen()}
           openId={panelCid}
           rowClassName={(r) => 'cd-row' + (cm.includes(r.cid) ? ' is-open' : '') + (leaving.includes(r.cid) ? ' is-leaving' : '')}
           rowAfter={(r) =>
@@ -462,7 +464,6 @@ function CadenceBody({ as }: { as: string }) {
           total={list.length}
           page={curPage}
           size={size}
-          noun="partners"
           onPage={(p, s) => {
             if (s !== size) setSize(s);
             setPage(p);
@@ -687,7 +688,7 @@ function PrintDialog({ lists, needText, onClose }: { lists: [string, CadRow[]][]
       <div className="wg-dlg__foot">
         <small>Ordered by how long each partner has waited</small>
         <span>
-          <SheetsButton name="cadence-lists" />
+          <SheetsButton grid name="cadence-lists" />
           <button
             type="button"
             className="h-btn h-btn--primary h-btn--sm"

@@ -12,7 +12,9 @@ export function useFit(guess = 440, below = 10) {
       const wrap = host?.querySelector<HTMLElement>('.pt-wrap');
       if (!host || !wrap) return;
       const pg = host.querySelector<HTMLElement>('.pt-pager');
-      const next = Math.round(wrap.getBoundingClientRect().top + window.scrollY + (pg ? pg.offsetHeight : 48) + below);
+      // Everything under the table inside the card (the pager, a footer note) stays on screen with it.
+      const under = host.getBoundingClientRect().bottom - wrap.getBoundingClientRect().bottom;
+      const next = Math.round(wrap.getBoundingClientRect().top + window.scrollY + (under > 0 ? under : pg ? pg.offsetHeight : 48) + below);
       setFit((f) => (Math.abs(f - next) > 1 ? next : f));
     };
     measure();

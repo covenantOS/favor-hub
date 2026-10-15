@@ -15,7 +15,7 @@ import { WorkToast } from './lists/toast';
 import { SheetsButton, openCallMode, sheetScreen, useSheetSource } from './lists/legacy';
 import { Term } from './lists/Term';
 import { sendBatch } from './lists/batch';
-import { usePartnerOpen, partnerHref } from './lists/nav';
+import { partnerHref, pressRowOpen } from './lists/nav';
 import { useFit } from './lists/fit';
 import { contextQuery, addDays, dateWords, dayLabel, dowOf, moneyExact, moneyWhole, plural, telHref, useHeld, workGet, workPost } from './lists/core';
 import { useMounted } from '../record/lib';
@@ -155,7 +155,6 @@ function MineBody({ as }: { as: string }) {
   const [plan, setPlan] = useState<MineRow[] | null>(null);
   const [trip, setTrip] = useState(false);
   const { ref, fit } = useFit(440);
-  const openPartner = usePartnerOpen();
   const today = ctx.today;
 
   // The director a person last looked at (an admin or Support picks one) comes back in this browser tab.
@@ -381,7 +380,7 @@ function MineBody({ as }: { as: string }) {
         ),
     },
     {
-      key: 'acts', label: '', fixed: true, className: 'c-acts mp-c-acts',
+      key: 'acts', label: '', srLabel: 'Actions', fixed: true, className: 'c-acts mp-c-acts',
       cell: (r) => {
         const name = String(r.name || '').trim() || 'No name on file';
         const callOff = r.dnc ? 'Do not call' : 'No phone to call';
@@ -500,7 +499,7 @@ function MineBody({ as }: { as: string }) {
           </div>
           <span className="pt-spacer" />
           <span className="pl-f">
-            <ColumnsMenu columns={columns} hidden={hidden} onChange={setHidden} />
+            <ColumnsMenu showFixed columns={columns} hidden={hidden} onChange={setHidden} />
           </span>
           <DensitySwitch />
           <SheetsButton name="work-partners" className="h-btn h-btn--ghost h-btn--sm pl-f" />
@@ -520,7 +519,10 @@ function MineBody({ as }: { as: string }) {
             onToggle: (id, on) => setSelList((s) => (on ? (s.includes(id) ? s : [...s, id]) : s.filter((x) => x !== id))),
             onPage: (on) => setSelList((s) => (on ? [...new Set([...s, ...shown.map((r) => r.cid)])] : s.filter((x) => !shown.some((r) => r.cid === x)))),
           }}
-          onOpen={(r) => (window.matchMedia('(max-width: 860px)').matches ? setPanelCid(r.cid) : openPartner(r.cid))}
+          onRowClick={(r) => {
+            if (window.matchMedia('(max-width: 860px)').matches) setPanelCid(r.cid);
+          }}
+          onOpen={() => pressRowOpen()}
           openId={panelCid}
           busy={busy}
           fit={fit}
@@ -536,7 +538,6 @@ function MineBody({ as }: { as: string }) {
           total={list.length}
           page={curPage}
           size={size}
-          noun="partners"
           onPage={(p, s) => {
             if (s !== size) setSize(s);
             setPage(p);
