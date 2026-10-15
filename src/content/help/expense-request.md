@@ -24,4 +24,4 @@ You see a document number (it starts with EXP) and who will approve it. The appr
 
 ## Checking on it
 
-Your expense requests show under **Your requests** on Today with their status.
+Your expense requests show under **My requests** on the Expenses page and under **Your requests** on Today, with their status.

@@ -23,6 +23,10 @@ Day by day, what you do, what your supervisor does and what training covers.
 
 Your supervisor comes first, then the people who set up your accounts and training, then your team. Each shows a face, a title and why you will talk to them.
 
+## Find your way around
+
+Shortcuts to Today, Requests, Meetings and the help docs sit at the bottom of the page.
+
 ## The tour
 
 Press **Take the FavorOS tour** for a guided walk through Today, requests, Chat, meetings and search. You can run it again from Help at any time.

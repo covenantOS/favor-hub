@@ -12,7 +12,7 @@ updated: 2026-10-09
 
 ## When a request comes in
 
-You get an email with a link, and the request shows on Today and beside **Staff > Expenses** in the menu. The log sits on the Expenses page under your own requests.
+You get an email with a link, and the request shows on Today and beside **Staff > Expenses** in the menu. The log sits on the Expenses page under **My requests**.
 
 1. Open the link or press the request in the **Expense log**.
 2. Read the trip details, each expense, the total and the reason.
@@ -23,7 +23,7 @@ Requests that have waited a week or more show in gold on Today.
 
 ## The log
 
-The expense log lists every request with its status, document number, requester, amount, approver and the signed PDF. Use the filter chips and the search box to find a name or an EXP number.
+The expense log lists every request with its status, document number, requester, amount, approver and the signed PDF. Use the filter chips (All, Waiting, Approved, Declined) and the search box to find a name or an EXP number. **Open in Google Sheets** opens the log as a sheet.
 
 ## Log settings (FavorOS admin)
 
