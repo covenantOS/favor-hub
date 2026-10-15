@@ -109,7 +109,7 @@ const COLUMNS = (today: string, contacts: boolean): Column<DirRow>[] => [
       </>
     ),
   },
-  { key: 'kind', label: 'Kind', cell: (r) => (r.kind === 'individual' && r.spouse_id ? <span title={`Household with ${r.spouse_name || 'a spouse'}`}>Household</span> : KIND[r.kind] || r.kind) },
+  { key: 'kind', label: 'Kind', phone: true, cell: (r) => (r.kind === 'individual' && r.spouse_id ? <span title={`Household with ${r.spouse_name || 'a spouse'}`}>Household</span> : KIND[r.kind] || r.kind) },
   { key: 'place', label: 'City and state', sort: 'place', cell: (r) => [r.city, r.state].filter(Boolean).join(', ') || <span className="pt-mute">No address</span> },
   { key: 'holder', label: 'Holder', sort: 'holder', cell: (r) => r.holder_names || <span className="pt-mute">No one</span> },
   {
@@ -230,7 +230,7 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
         <span className="pt-spacer" />
         <ViewsMenu search={search} go={go} say={say} />
         <ColumnsPart />
-        <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void exportCsv()}>
+        <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-export="" onClick={() => void exportCsv()}>
           <BarIc n="down" />
           Export
         </button>
@@ -659,7 +659,8 @@ function Bulk({ sel, clear, say, exportCsv, onDone }: { sel: Set<string>; clear:
     }
   };
   return BodyPortal(
-    <div className={'pd-bulk' + (n ? ' is-on' : '')} role="region" aria-label="Selected partners">
+    // Hidden while empty: drawn into <body>, its empty padded box would peek up from the bottom edge over the phone bar.
+    <div className={'pd-bulk' + (n ? ' is-on' : '')} role="region" aria-label="Selected partners" style={n ? undefined : { visibility: 'hidden' }}>
       {n ? (
         <>
           <span className="pd-bulk__n">{N(n)}</span>
