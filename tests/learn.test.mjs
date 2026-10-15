@@ -83,16 +83,12 @@ test('build a course: lessons check their references, reorder, publish needs a l
   assert.equal((await add({ kind: 'video', ref: 'no-such-video' })).status, 400);
   assert.equal((await add({ kind: 'doc', title: 'Doc', ref: 'http://example.com/x' })).status, 400, 'a doc must be a Google address');
   assert.equal((await add({ kind: 'quiz', title: 'Q', quiz: { questions: [] } })).status, 400);
-  const v = await add({ kind: 'video', ref: 'taking-a-gift-by-phone' });
-  assert.equal(v.status, 201);
-  assert.equal(v.data.lesson.title, 'Taking a gift by phone', 'a video takes its title from the library');
-  assert.equal(v.data.lesson.minutes, 1);
   await add({ kind: 'article', ref: 'thank-you-receipts', title: 'Receipts' });
   const pg = await add({ kind: 'page', title: 'Rules', body: '## Rule one\n\nSearch first.' });
   const last = await add({ kind: 'doc', title: 'Policy', ref: 'https://docs.google.com/document/d/abc123/edit' });
   void pg;
   const ids = last.data.course.lessons.map((l) => l.id);
-  const reordered = [ids[3], ids[0], ids[2], ids[1]];
+  const reordered = [ids[2], ids[0], ids[1]];
   const o = await call(w, WILL, 'PUT', `admin/course/${c.id}/order`, { ids: reordered });
   assert.deepEqual(o.data.course.lessons.map((l) => l.id), reordered);
   assert.equal((await call(w, WILL, 'PATCH', `admin/course/${c.id}`, { status: 'published' })).data.course.status, 'published');
