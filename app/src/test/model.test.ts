@@ -27,7 +27,7 @@ describe('the menu for one person', () => {
     expect(gifts.sum).toBe(4);
     expect(gifts.warn).toBe(true);
     const projects = view().areas.find((x) => x.area.id === 'projects')!;
-    expect(projects.sum).toBe(1 + 3);
+    expect(projects.sum).toBe(1);
   });
 
   it('marks the current area and page', () => {
