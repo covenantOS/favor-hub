@@ -22,6 +22,7 @@ import { givenBy, handOff, handoffFor, pickUp, syncPickups } from '../../_lib/in
 import { peopleFor } from '../../_lib/integrations/ping';
 import { mailEvents, noteLogged } from '../../_lib/integrations/mentions';
 import { newGifts } from '../../_lib/integrations/gifts';
+import { accessOf } from '../../_lib/hub/today';
 
 const body = async (request: Request): Promise<Record<string, unknown>> => ((await request.json().catch(() => ({}))) || {}) as Record<string, unknown>;
 const NO_STORE = { 'Cache-Control': 'private, no-store' };
@@ -41,12 +42,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const part = new URL(request.url).searchParams.get('part') || 'fast';
 
     if (a === 'inbox' && !b && method === 'GET') {
+      // Today shows only what the person can open: no Mail rows without Mail, no chat or meeting rows without Chat or Meetings.
+      const acc = await accessOf(env, request, user);
       if (part === 'mail') {
+        if (!acc.mail) return json({ ok: true, part, items: [], connected: false }, 200, NO_STORE);
         const r = await capped(mailItems(env, user), 6000, { items: [], connected: true, slow: true } as { items: never[]; connected: boolean; slow?: boolean });
         return json({ ok: true, part, ...r }, 200, NO_STORE);
       }
       waitUntil(syncPickups(env, user.email).catch(() => undefined));
-      return json({ ok: true, part, items: await fastItems(env, request, user) }, 200, NO_STORE);
+      const items = (await fastItems(env, request, user)).filter((i) => !(((i.kind === 'mention' || i.kind === 'dm' || i.kind === 'reply') && !acc.chat) || (i.kind === 'meeting' && !acc.meetings) || ((i.kind === 'task' || i.kind === 'request' || i.kind === 'review') && !acc.projects && !acc.tasks)));
+      return json({ ok: true, part, items }, 200, NO_STORE);
     }
     if (a === 'inbox' && b === 'clear' && method === 'POST') {
       const x = await body(request);
