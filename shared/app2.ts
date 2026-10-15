@@ -56,6 +56,7 @@ export function parseRoutes(value: string | null | undefined): string[] {
 /** "/" matches only itself. Any other listed route also owns the paths under it (/chat/ owns /chat/general). */
 export function routeServed(path: string, routes: string[]): boolean {
   const p = normalizeRoute(path);
-  if (FULL_LOAD.some((f) => p === f || p.startsWith(f))) return false;
+  // The KPI dashboard is a full-load page for the old app, but the web app lists it as a route of its own, and then it moves in the app.
+  if (FULL_LOAD.some((f) => (p === f || p.startsWith(f)) && !(f === '/dashboard/' && routes.includes(f)))) return false;
   return routes.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r)));
 }
