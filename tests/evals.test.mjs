@@ -270,6 +270,10 @@ describe('the cycle, week by week', () => {
 
     // An outsider and a person not asked see nothing.
     await assert.rejects(() => call(OZZY, 'GET', `case/${id}`), /not part of/);
+    // Their own list is empty: nobody else's evaluation, feedback request, team line or signature item appears on Evaluations.
+    const ozMe = await call(OZZY, 'GET', 'me');
+    assert.deepEqual([ozMe.own, ozMe.owe, ozMe.team, ozMe.needsSign, ozMe.manage], [[], [], [], [], false]);
+    await assert.rejects(() => call(OZZY, 'GET', 'admin/pick'), /HR and hub administrators/);
     await assert.rejects(() => call(REV[3], 'GET', `case/${id}`), /not part of/);
     await assert.rejects(() => call(REV[3], 'PUT', `case/${id}/answers`, { form: 'B', answers: [] }), /not asked/);
 
