@@ -26,8 +26,8 @@ const TODAY = '2026-10-14';
 const q = async () => [];
 
 const FULL = (over = {}) => ({
-  kind: 'daf', partner_id: '18698', partner_name: 'Example Giving Foundation', fund_named: 'The Sample Family Giving Fund',
-  soft_partner_id: '16269', soft_partner_name: 'Sample Recommender', amount_cents: 100000, gift_date: '2026-10-13', fund_id: '79', fund_name: 'Where Needed Most',
+  kind: 'daf', partner_id: '37974', partner_name: 'Example Giving Foundation', fund_named: 'The Sample Family Giving Fund',
+  soft_partner_id: '37975', soft_partner_name: 'Sample Recommender', amount_cents: 100000, gift_date: '2026-10-13', fund_id: '79', fund_name: 'Where Needed Most',
   appeal_id: '2298', appeal_name: 'P200-RDAD', ...over,
 });
 
@@ -99,10 +99,10 @@ describe('rules', () => {
     assert.deepEqual(rules.cleanEdit({ kind: 'card' }, TODAY), {});
   });
   it('the Blackbaud gift carries the soft credit for the full amount, an Other payment, FavorOS id and who entered and approved', () => {
-    const g = { ...base, kind: 'daf', partner_id: '18698', amount_cents: 100000, gift_date: '2026-10-13', fund_id: '79', appeal_id: '2298', fund_named: 'Sample Fund', soft_partner_id: '16269', created_by: 'Alex Entry' };
+    const g = { ...base, kind: 'daf', partner_id: '37974', amount_cents: 100000, gift_date: '2026-10-13', fund_id: '79', appeal_id: '2298', fund_named: 'Sample Fund', soft_partner_id: '37975', created_by: 'Alex Entry' };
     const body = rules.giftBody(g, { batchName: 'Other gifts Oct 14', enteredBy: 'Alex Entry', approvedBy: 'Blake Second' });
     assert.equal(body.type, 'Donation');
-    assert.deepEqual(body.soft_credits, [{ constituent_id: '16269', amount: { value: 1000 } }]);
+    assert.deepEqual(body.soft_credits, [{ constituent_id: '37975', amount: { value: 1000 } }]);
     assert.deepEqual(body.payments, [{ payment_method: 'Other' }]);
     assert.equal(body.date, '2026-10-13T00:00:00');
     assert.match(body.reference, /^\[Channel: DAF\] Other gifts Oct 14, entered by Alex Entry, approved by Blake Second/);
@@ -188,7 +188,7 @@ describe('posting to Blackbaud', () => {
     await acts.approve(ctx, B, g1.batch_id);
     const posts = s.calls.filter((c) => c.method === 'POST');
     assert.equal(posts.length, 2);
-    assert.deepEqual(posts[0].body.soft_credits, [{ constituent_id: '16269', amount: { value: 1000 } }]);
+    assert.deepEqual(posts[0].body.soft_credits, [{ constituent_id: '37975', amount: { value: 1000 } }]);
     assert.ok(!('soft_credits' in posts[1].body));
     assert.match(posts[0].body.reference, /entered by Alex Entry, approved by Blake Second/);
     const batch = await store.getBatch(env, g1.batch_id);
