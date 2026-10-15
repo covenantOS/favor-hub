@@ -16,14 +16,15 @@ export class HubReadError extends Error {
   }
 }
 
-async function read(url: string, cookie: string | undefined, key?: string): Promise<unknown> {
+async function read(url: string, cookie: string | undefined, key?: string, loose = false): Promise<unknown> {
   const headers: Record<string, string> = { 'X-Hub-Request': '1', accept: 'application/json' };
   if (cookie) headers.cookie = cookie;
   if (key) headers['X-Web-Key'] = key;
   // A server read that hangs must not hold the page: after 8 s it fails, its Suspense boundary is drawn in the browser instead.
   const res = await fetch(url, { headers, credentials: 'same-origin', ...(typeof window === 'undefined' ? { signal: AbortSignal.timeout(8000) } : {}) });
   const data = (await res.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
-  if (!res.ok || !data || data.ok === false) throw new HubReadError((data && data.message) || 'Something went wrong. Try again.', res.status);
+  // A route whose answer carries ok:false with a 200 as a plain fact (the booking status of a person with no calendar) reads loose.
+  if (!res.ok || !data || (data.ok === false && !loose)) throw new HubReadError((data && data.message) || 'Something went wrong. Try again.', res.status);
   return data;
 }
 
@@ -35,6 +36,14 @@ async function read(url: string, cookie: string | undefined, key?: string): Prom
 const NAV_TTL_MS = 20_000;
 const NAV_MAX = 300;
 const navKept = new Map<string, { at: number; data: unknown }>();
+
+/** Like hubGet, but an answer with ok:false and a good status comes back as data instead of an error. */
+export const hubGetLoose = createIsomorphicFn()
+  .server(async (path: string) => {
+    const { env } = await import('cloudflare:workers');
+    return read(HUB_ORIGIN + path, getRequestHeader('cookie'), (env as unknown as { WEB_KEY?: string }).WEB_KEY, true);
+  })
+  .client((path: string) => read(path, undefined, undefined, true));
 
 export const hubGet = createIsomorphicFn()
   .server(async (path: string) => {

@@ -4,10 +4,11 @@
 // Exits 1 when a page answers from the wrong front, is not 200, or a web page has no rail in its HTML.
 import { execSync } from 'node:child_process';
 const BASE = process.env.HUB_ORIGIN || 'https://dash.favorintl.org';
-// Copies of FULL_LOAD (shared/app2.ts), WEB_EXACT_ROUTES and WEB_OWN_SWITCH (shared/web.ts); tests/web-route.test.mjs checks they match.
+// Copies of FULL_LOAD (shared/app2.ts), WEB_EXACT_ROUTES, WEB_WHOLE_PAGE_ROUTES and WEB_OWN_SWITCH (shared/web.ts); tests/web-route.test.mjs checks they match.
 const FULL_LOAD = ['/dashboard/', '/meet/room/', '/meet/g/', '/clips/rec/', '/login/', '/help/videos/'];
 const SOLO = ['/clips/rec/', '/dashboard/'];
-const EXACT = ['/gifts/', '/brain/', '/admin/'];
+const EXACT = ['/gifts/', '/brain/', '/admin/', '/meet/'];
+const WHOLE = ['/meet/room/'];
 const OWN_SWITCH = ['/gifts/other/', '/moves/'];
 const key = process.env.HUB_AGENT_KEY;
 if (!key) throw new Error('HUB_AGENT_KEY is not set');
@@ -58,6 +59,6 @@ function readListed() {
 // and the help videos under /help/videos/ always load from Astro.
 function serves(path, routes) {
   const p = path.endsWith('/') ? path : path + '/';
-  if (FULL_LOAD.some((f) => !SOLO.includes(f) && (p === f || p.startsWith(f)))) return false;
+  if (FULL_LOAD.some((f) => !SOLO.includes(f) && !WHOLE.includes(f) && (p === f || p.startsWith(f)))) return false;
   return routes.some((r) => (r === '/' || EXACT.includes(r) ? p === r : p.startsWith(r)));
 }

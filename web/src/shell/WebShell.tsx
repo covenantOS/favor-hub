@@ -42,7 +42,7 @@ function useMeta() {
   // A page whose title comes from its data (a help article) hands the menu entry and title back from its loader as `shell`.
   const own = useMatches({ select: (m) => (m.at(-1)?.loaderData as { shell?: { nav: string; title: string } } | undefined)?.shell });
   const by = own || (meta.navOf ? meta.navOf(search) : null);
-  return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || 'FavorOS', layout: meta.layout };
+  return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || 'FavorOS', layout: meta.layout, lean: !!meta.lean };
 }
 
 function useView() {
@@ -149,7 +149,7 @@ export function WebShell({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const served = useWebServed();
   const nav = useQuery(navQuery);
-  const { navId, title, layout } = useMeta();
+  const { navId, title, layout, lean } = useMeta();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const access = nav.data?.access as Record<string, unknown> | undefined;
   const rail = useRail(nav.data?.user?.email ?? '', '');
@@ -233,11 +233,13 @@ export function WebShell({ children }: { children: ReactNode }) {
           <EntityPart />
         </Suspense>
       </ErrorBoundary>
-      <Suspense fallback={null}>
-        <DockPart />
-      </Suspense>
+      {lean ? null : (
+        <Suspense fallback={null}>
+          <DockPart />
+        </Suspense>
+      )}
       <ClientBoot />
-      <TourHost />
+      {lean ? null : <TourHost />}
     </ServedRoutes.Provider>
   );
 }

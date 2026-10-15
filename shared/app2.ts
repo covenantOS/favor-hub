@@ -58,5 +58,6 @@ export function routeServed(path: string, routes: string[]): boolean {
   const p = normalizeRoute(path);
   // The KPI dashboard is a full-load page for the old app, but the web app lists it as a route of its own, and then it moves in the app.
   if (FULL_LOAD.some((f) => (p === f || p.startsWith(f)) && !(f === '/dashboard/' && routes.includes(f)))) return false;
-  return routes.some((r) => (r === '/' ? p === '/' : p === r || p.startsWith(r)));
+  // An exact route arrives from the hub_web cookie with a $ (functions/_lib/web.ts webCookie): it owns only its own address.
+  return routes.some((r) => (r.endsWith('$') ? p === normalizeRoute(r.slice(0, -1)) : r === '/' ? p === '/' : p === r || p.startsWith(r)));
 }
