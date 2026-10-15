@@ -16,16 +16,12 @@ test('jobs come from the Work Center team, the meetings roster and the access fl
   assert.deepEqual(jobsFrom('rdd', 'Grants', { admin: true }), ['admin']);
 });
 
-test('the rail: Partners and Gifts for the people who do that work, Staff for leadership, HR and approvers, under More for everyone else', () => {
-  const ids = (mine) => { const r = railAreas(AREAS, mine); return { rail: r.rail.map((a) => a.id), more: r.more.map((a) => a.id) }; };
-  assert.deepEqual(ids(['giftdesk', 'hr']).more, ['partners']);
-  assert.deepEqual(ids(['rdd']).more, ['gifts', 'staff']);
-  assert.deepEqual(ids([]).more, ['partners', 'gifts', 'staff']);
-  assert.deepEqual(ids(['partner_care']).more, ['staff']);
-  assert.deepEqual(ids(['exec']).more, ['gifts']);
-  assert.deepEqual(ids(['admin']).more, []);
-  assert.deepEqual(ids(null).more, [], 'before the menu answers, every area shows');
-  assert.deepEqual(ids([]).rail, ['today', 'projects', 'meet', 'chat', 'mail', 'ask', 'kpi']);
+test('the rail has no More menu: every area is in it, in one order, whatever the jobs are', () => {
+  assert.deepEqual(railAreas(AREAS).map((a) => a.id), ['today', 'partners', 'gifts', 'projects', 'ask', 'kpi', 'staff', 'meet', 'chat', 'mail']);
+  for (const a of AREAS) assert.equal(a.jobs, undefined, `${a.id}: an area is never hidden by a job`);
+  const layout = fs.readFileSync('src/layouts/App.astro', 'utf8');
+  assert.doesNotMatch(layout, /h-area--more|moreAreas|railmore|is-more/, 'the layout draws no rail More');
+  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), railAreas(AREAS).map((a) => a.id), 'the registry lists the areas in rail order too');
 });
 
 test('jobs never gate: a job match is only an order', () => {

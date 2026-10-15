@@ -37,6 +37,15 @@ describe('the menu for one person', () => {
     expect(v.areas.find((x) => x.area.id === 'partners')!.pages.find((p) => p.page.id === 'work')!.on).toBe(true);
   });
 
+  it('the rail lists every area the person can open in one order, with no More', () => {
+    const order = ['today', 'partners', 'gifts', 'projects', 'ask', 'kpi', 'staff', 'meet', 'chat', 'mail'];
+    for (const n of [nav, staffNav]) {
+      const ids = view(n).main.filter((a) => a.visible).map((a) => a.area.id);
+      expect(ids).toEqual(order.filter((id) => ids.includes(id)));
+    }
+    expect(view().main.map((a) => a.area.id)).toEqual(order);
+  });
+
   it('the phone bar holds four areas, lowest rank first, and More adds up the rest', () => {
     const v = view();
     expect(v.bar).toHaveLength(4);

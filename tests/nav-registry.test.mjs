@@ -14,7 +14,7 @@ test('page ids are unique', () => {
 });
 
 test('Work is split: ten working areas in rail order, Admin and Help at the foot', () => {
-  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'partners', 'gifts', 'projects', 'meet', 'chat', 'mail', 'ask', 'kpi', 'staff']);
+  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'partners', 'gifts', 'projects', 'ask', 'kpi', 'staff', 'meet', 'chat', 'mail']);
   assert.deepEqual(AREAS.filter((a) => a.foot).map((a) => a.id), ['admin', 'help']);
   assert.ok(!AREAS.some((a) => a.id === 'work' || a.id === 'learn' || a.id === 'tools'));
 });
