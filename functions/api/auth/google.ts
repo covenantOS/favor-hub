@@ -7,6 +7,7 @@ import {
   accountOf,
   hubSessionCookie,
   hubWhoCookie,
+  whoScope,
   logAuth,
   recordSignIn,
   verifyGoogleIdToken,
@@ -30,7 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await logAuth(env, request, email, 'signed_in');
     const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     headers.append('Set-Cookie', hubSessionCookie(token));
-    headers.append('Set-Cookie', await hubWhoCookie(token));
+    { const who = await hubWhoCookie(env, token, whoScope(user)); if (who) headers.append('Set-Cookie', who); }
     headers.append('Set-Cookie', clearNonceCookie());
     return new Response(JSON.stringify({ ok: true, user }), { status: 200, headers });
   } catch (err) {

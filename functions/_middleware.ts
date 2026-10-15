@@ -2,7 +2,7 @@
 // first and an API call without a user gets 401. Whoever is signed in reaches the functions as
 // X-Hub-* headers (see _lib/session.ts).
 import { json, type Env } from './_lib/http';
-import { crossSiteWrite, resolveUser, signinEnforced, whoCookieFor, withUserHeaders } from './_lib/session';
+import { crossSiteWrite, resolveUser, signinEnforced, nameSession, whoScope, withUserHeaders } from './_lib/session';
 import { AREAS, REDIRECTS } from '../src/data/areas';
 import { earlyPaths } from '../src/data/early';
 import { isEarly } from './_lib/early';
@@ -72,14 +72,17 @@ function isHtml(res: Response): boolean {
   return (res.headers.get('Content-Type') || '').includes('text/html');
 }
 
+type Who = { tester: boolean; closed: boolean; scope: string };
+
 export const onRequest: PagesFunction<Env> = async (ctx) => {
   // Who is asking, for the AI budget guard: filled in once the user is known.
-  const who = { tester: false, closed: false };
+  const who: Who = { tester: false, closed: false, scope: '' };
   honorSavedCookie(ctx.request.headers.get('Cookie'));
-  return withAiCaller(who, () => withHubWrites(() => handle(ctx, who)));
+  const res = await withAiCaller(who, () => withHubWrites(() => handle(ctx, who)));
+  return await nameSession(ctx.env, ctx.request, who.scope, res);
 };
 
-const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boolean; closed: boolean }): Promise<Response> => {
+const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: Who): Promise<Response> => {
   const { request, env } = ctx;
   const url = new URL(request.url);
   const path = url.pathname;
@@ -131,6 +134,7 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   } catch (err) {
     console.error('[signin] resolve', err);
   }
+  if (user) who.scope = whoScope(user);
   if (user && isTester(user.email)) {
     who.tester = true;
     who.closed = /(?:^|;\s*)hub_ai_closed=1/.test(request.headers.get('Cookie') || '');
@@ -203,9 +207,6 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
       // The page carries this person's web routes in the hub_web cookie, as classic pages do, so in-app links stay inside what is on for them.
       const served = await serveWeb(env, forwarded);
       served.headers.append('Set-Cookie', webCookie(w.routes));
-      // Names this session for the service worker, which keeps Today's last page under it (public/sw.js).
-      const who = await whoCookieFor(request);
-      if (who) served.headers.append('Set-Cookie', who);
       return withGc(served);
     }
     webRoutes = w.routes;

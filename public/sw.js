@@ -106,9 +106,9 @@ async function keptFirst(request) {
    (functions/_lib/session.ts). The next visit to / is answered from it at once, and the page the browser already asked the server for
    (navigation preload) replaces the kept copy when it arrives; the page's own reads bring the new cards in over the old ones.
    A kept page is used only when hub_who still names the session that drew it, only for a person the server gives the web Today (hub_web
-   lists "/", hub_web_off is not set), and for 12 hours. A server answer that is not the web Today (signed out, switched off) forgets
+   lists "/", hub_web_off is not set), and for 24 hours (the last visit of a workday is about 15 hours before the first of the next). A server answer that is not the web Today (signed out, switched off) forgets
    the copy and loads the page again. Sign-out empties every cache (forgetEverything). */
-const TODAY_MAX_AGE = 12 * 3600 * 1000;
+const TODAY_MAX_AGE = 24 * 3600 * 1000;
 // The page starts its scripts in one of two ways (web/src/lib/defer-entry.ts): a plain async module tag for a browser that ran this build
 // before, or a loader script that holds them until the styles arrive (it carries the entry file and the preload list).
 const TODAY_PLAIN = /<script type="module" async="" src="(\/_w\/[^"]+\.js)"><\/script>/;
@@ -128,7 +128,7 @@ async function cookie(name) {
 async function todayKey(url) {
   if (url.pathname !== '/' || url.search || !self.cookieStore) return '';
   const [who, web, off] = await Promise.all([cookie('hub_who'), cookie('hub_web'), cookie('hub_web_off')]);
-  if (!/^[0-9a-f]{16}$/.test(who) || off === '1') return '';
+  if (!/^[0-9a-f]{32}$/.test(who) || off === '1') return '';
   let routes = [];
   try { routes = decodeURIComponent(web).split('~'); } catch { routes = []; }
   return routes.includes('/') ? '/__today/' + who + '|' + who : '';
@@ -155,7 +155,7 @@ async function keptToday(key) {
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-cache', 'X-Hub-Kept': hit.headers.get('x-kept-at') || '' } });
   } catch { return null; }
 }
-const isWebToday = (res) => !!res && res.status === 200 && res.headers.get('x-hub-front') === 'web' && /text\/html/i.test(res.headers.get('content-type') || '');
+const isWebToday = (res) => !!res && res.status === 200 && !res.redirected && res.headers.get('x-hub-front') === 'web' && /text\/html/i.test(res.headers.get('content-type') || '');
 /** `own` is the server's answer when the page is being loaded from the network (nothing kept yet); null when a kept page was shown. */
 async function refreshToday(event, name, own) {
   try {

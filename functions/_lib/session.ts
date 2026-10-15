@@ -273,30 +273,62 @@ export function clearHubSessionCookie(): string {
 }
 
 /**
- * hub_who names the session that is signed in on this browser, in a cookie the service worker can read (the session cookie is HttpOnly, so
- * it cannot). It is a hash of the session token and nothing else. public/sw.js keeps Today's last page under it and serves that page only
- * while the cookie still names the session that drew it, so a different sign-in (or none) never sees another person's copy.
+ * hub_who labels the kept copy of Today that the service worker holds (public/sw.js). The worker cannot read the session cookie (it is
+ * HttpOnly), so this second cookie says which sign-in a kept page belongs to. Its value is an HMAC-SHA256 of the session token under a
+ * server secret (the agent key), cut to 128 bits: it carries nothing the token could be rebuilt from, opens nothing on its own, differs for
+ * every sign-in, and a different person or a new sign-in in the same browser gets a different value, so the old copy is not served. It also
+ * covers the role and KPI access (whoScope): when either changes, the next response of any kind sets a new value and the copy drawn under the
+ * old role is not served again. With no
+ * secret configured the cookie is not set and nothing is kept. It lives exactly as long as the session cookie it is set beside, is cleared at
+ * sign-out, and is never extended after sign-in except for a session that predates it (one day).
  */
 export const WHO_COOKIE = 'hub_who';
+const WHO_LAZY_SECONDS = 86400;
 
-export async function hubWho(token: string): Promise<string> {
-  return (await sha256Hex('who:' + token)).slice(0, 16);
+/** What a kept page depends on besides the sign-in: the role and KPI access the server drew it for. A change in either gives a new hub_who. */
+export const whoScope = (user: Pick<HubUser, 'role' | 'kpi'>): string => `${user.role}:${user.kpi ? 1 : 0}`;
+
+export async function hubWho(env: Pick<Env, 'AGENT_API_KEY'>, token: string, scope: string): Promise<string> {
+  const secret = env.AGENT_API_KEY;
+  if (!secret || !token) return '';
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('hub_who:v2:' + scope + ':' + token));
+  return Array.from(new Uint8Array(mac).slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function hubWhoCookie(token: string): Promise<string> {
-  return `${WHO_COOKIE}=${await hubWho(token)}; Path=/; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
+/** The Set-Cookie for a new sign-in (same lifetime as the session cookie), or null when no secret is set. */
+export async function hubWhoCookie(env: Pick<Env, 'AGENT_API_KEY'>, token: string, scope: string, seconds = SESSION_DAYS * 86400): Promise<string | null> {
+  const who = await hubWho(env, token, scope);
+  return who ? `${WHO_COOKIE}=${who}; Path=/; Secure; SameSite=Lax; Max-Age=${seconds}` : null;
 }
 
 export function clearHubWhoCookie(): string {
   return `${WHO_COOKIE}=; Path=/; Secure; SameSite=Lax; Max-Age=0`;
 }
 
-/** The Set-Cookie value that makes hub_who name this request's session, or null when it already does (or there is no session cookie). */
-export async function whoCookieFor(request: Request): Promise<string | null> {
+/** The Set-Cookie that makes hub_who name this request's session and scope when it does not (an older session, or a role that changed), else null. */
+export async function whoCookieFor(env: Pick<Env, 'AGENT_API_KEY'>, request: Request, scope: string): Promise<string | null> {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
-  const want = await hubWho(token);
-  return readCookie(request, WHO_COOKIE) === want ? null : await hubWhoCookie(token);
+  const want = await hubWho(env, token, scope);
+  if (!want || readCookie(request, WHO_COOKIE) === want) return null;
+  return await hubWhoCookie(env, token, scope, WHO_LAZY_SECONDS);
+}
+
+/**
+ * Keeps hub_who naming the signed-in session and its role on every answer the server gives that person (public/sw.js keeps Today's last page
+ * under it). A role change, or a session from before the cookie, gets the new value on the next response of any kind, so the copy drawn under the
+ * old role stops being served. It costs one HMAC; the response is copied only when the cookie has to change.
+ */
+export async function nameSession(env: Pick<Env, 'AGENT_API_KEY'>, request: Request, scope: string, res: Response): Promise<Response> {
+  if (!scope || res.status === 101 || (res as Response & { webSocket?: unknown }).webSocket) return res;
+  // A response that sets or clears hub_who itself (sign-in, sign-out) is left alone, so sign-out is never undone.
+  if (res.headers.getSetCookie().some((c) => c.startsWith('hub_who='))) return res;
+  const cookie = await whoCookieFor(env, request, scope).catch(() => null);
+  if (!cookie) return res;
+  const out = new Response(res.body, res);
+  out.headers.append('Set-Cookie', cookie);
+  return out;
 }
 
 export async function endHubSession(env: Env, request: Request): Promise<void> {

@@ -5,7 +5,7 @@ import '@hub/styles/today2.css';
 import '@hub/styles/work-home.css';
 import '@hub/styles/qa2-workhome.css';
 import '@hub/styles/today3.css';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { AfterHydration, TodayProvider } from './state';
 import { Head, FirstWeek } from './Head';
@@ -15,9 +15,30 @@ import { DoingCard } from './Doing';
 import { Modules } from './Modules';
 import { RecentCard } from './Recent';
 
+/**
+ * The service worker (public/sw.js) keeps Today's last page for the signed-in person and opens the next visit from it. Lite mode and Chat
+ * notices register the worker for some people; this registers it for anyone who opens the web Today, once the page is idle, so the visit after
+ * this one is the fast one. Registering twice is harmless, and a person with no worker support (or a refusal) simply loads from the server.
+ */
+function useKeptToday() {
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const register = () => {
+      navigator.serviceWorker
+        .getRegistration('/')
+        .then((r) => (r ? undefined : navigator.serviceWorker.register('/sw.js', { scope: '/' })))
+        .catch(() => undefined);
+    };
+    const idle = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const t = setTimeout(() => (idle ? idle(register, { timeout: 4000 }) : register()), 2000);
+    return () => clearTimeout(t);
+  }, []);
+}
+
 function Page() {
   const [doingHidden, setDoingHidden] = useState(false);
   useNeedsRefresh();
+  useKeptToday();
   return (
     <div className="td" id="td-root">
       <Head />
