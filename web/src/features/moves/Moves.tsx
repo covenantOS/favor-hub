@@ -10,9 +10,10 @@ import { send } from '@/lib/api';
 import { money0, dayShort } from '@/lib/format';
 import { RelationshipMap } from '../partners/record/RelationshipMap';
 import { boardQuery, cardQuery, listQuery, mvKeys } from './queries';
+import { hubGet } from '../../lib/hub';
 import type { Board, MoveRow } from './types';
 
-export interface MovesSearch { cid?: string; view?: 'board' | 'list'; owner?: string; q?: string; sort?: string }
+export interface MovesSearch { cid?: number; view?: 'board' | 'list'; owner?: number; q?: string; sort?: string }
 const SORTS: [string, string][] = [['asked', 'Amount asked'], ['due', 'Next step due'], ['contact', 'Longest since contact'], ['largest', 'Largest gift'], ['name', 'Name']];
 const LIST_PAGE = 25;
 const day = (d: string | null) => (d ? dayShort(d) : '');
@@ -46,32 +47,33 @@ function MovesSkeleton() {
 }
 
 function Body({ search, set }: { search: MovesSearch; set: (p: Partial<MovesSearch>, replace?: boolean) => void }) {
-  const owner = search.owner || '';
+  const owner = search.owner ? String(search.owner) : '';
   const sort = search.sort || 'asked';
   const view = search.view === 'list' ? 'list' : 'board';
   const [find, setFind] = useState(search.q || '');
   const [q, setQ] = useState(search.q || '');
   const [per, setPer] = useState(12);
   const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
   useEffect(() => {
     const t = window.setTimeout(() => setQ(find.trim()), 250);
     return () => window.clearTimeout(t);
   }, [find]);
   const { data } = useSuspenseQuery(boardQuery(owner, q, sort, per));
   const qc = useQueryClient();
-  const openCid = search.cid || '';
+  const openCid = search.cid ? String(search.cid) : '';
   const moveTo = useMove(qc, owner, q, sort, per);
   return (
     <>
       <Band data={data} />
       <section className="h-card mv-tools" aria-label="Filters">
         <div className="mv-seg" role="group" aria-label="View">
-          <button type="button" aria-pressed={view === 'board'} onClick={() => set({ view: 'board' })}>Board</button>
-          <button type="button" aria-pressed={view === 'list'} onClick={() => set({ view: 'list' })}>List</button>
+          <button type="button" aria-pressed={view === 'board'} onClick={() => set({ view: undefined }, false)}>Board</button>
+          <button type="button" aria-pressed={view === 'list'} onClick={() => set({ view: 'list' }, false)}>List</button>
         </div>
         <input className="mv-find" type="search" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a partner or next step" aria-label="Find a partner or next step" />
         {data.owners.length > 1 ? (
-          <select value={data.owner} onChange={(e) => set({ owner: e.target.value || undefined })} aria-label="Fundraiser">
+          <select value={data.owner} onChange={(e) => set({ owner: e.target.value ? Number(e.target.value) : undefined })} aria-label="Fundraiser">
             <option value="">Every fundraiser</option>
             {data.owners.map((o) => (
               <option key={o.id} value={o.id}>{`${o.name} (${o.n})`}</option>
@@ -83,14 +85,18 @@ function Body({ search, set }: { search: MovesSearch; set: (p: Partial<MovesSear
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
+        <button type="button" className="mv-link" onClick={() => setAdding((v) => !v)} aria-expanded={adding}>
+          {adding ? 'Close' : 'Add a partner'}
+        </button>
         {data.admin ? (
-          <button type="button" className="mv-link" onClick={() => setEditing(true)}>
+          <button type="button" className="mv-link mv-link--tight" onClick={() => setEditing(true)}>
             Edit stages
           </button>
         ) : null}
       </section>
+      {adding ? <AddPartner stages={data.stages.filter((s) => s.id !== 'pool')} onAdded={(cid) => { setAdding(false); set({ cid: Number(cid) }, false); }} /> : null}
       <div className={'mv-main' + (openCid ? ' has-panel' : '')}>
-        {view === 'board' ? <BoardView data={data} per={per} setPer={setPer} open={openCid} onOpen={(cid) => set({ cid }, false)} onMove={moveTo} /> : <ListView data={data} owner={owner} q={q} sort={sort} open={openCid} onOpen={(cid) => set({ cid }, false)} />}
+        {view === 'board' ? <BoardView data={data} per={per} setPer={setPer} open={openCid} onOpen={(cid) => set({ cid: Number(cid) }, false)} onMove={moveTo} /> : <ListView data={data} owner={owner} q={q} sort={sort} open={openCid} onOpen={(cid) => set({ cid: Number(cid) }, false)} />}
         {openCid ? (
           <ErrorBoundary label="The partner panel could not load." className="h-card">
             <Panel key={openCid} cid={openCid} onClose={() => set({ cid: undefined })} onMove={moveTo} />
@@ -112,7 +118,7 @@ function Band({ data }: { data: Board }) {
       <div className="mv-stat"><small>Partners in a stage</small><b>{inPlay.toLocaleString('en-US')}</b><span>{pool ? `${pool.n.toLocaleString('en-US')} major partners not staged` : ''}</span></div>
       <div className="mv-stat"><small>Open asks</small><b>{money0(data.askedTotal)}</b><span>Same total as Open on the Asks board</span></div>
       {staged.slice(0, 3).map((s) => (
-        <div className="mv-stat" key={s.id}><small>{s.label}</small><b>{s.n.toLocaleString('en-US')}</b><span>{s.asked ? money0(s.asked) + ' asked' : 'No ask amount'}</span></div>
+        <div className="mv-stat mv-stat--stage" key={s.id}><small>{s.label}</small><b>{s.n.toLocaleString('en-US')}</b><span>{s.asked ? money0(s.asked) + ' asked' : 'No ask amount'}</span></div>
       ))}
       <span className="mv-sr" aria-live="polite">{due ? `${due} next steps due` : ''}</span>
     </section>
@@ -427,5 +433,60 @@ function StageEditor({ data, onClose }: { data: Board; onClose: () => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------- add a partner who is not on the board */
+
+function AddPartner({ stages, onAdded }: { stages: { id: string; label: string }[]; onAdded: (cid: string) => void }) {
+  const qc = useQueryClient();
+  const [find, setFind] = useState('');
+  const [hits, setHits] = useState<{ cid: string; name: string; place: string }[]>([]);
+  const [pick, setPick] = useState<{ cid: string; name: string } | null>(null);
+  const [stage, setStage] = useState(stages[0] ? stages[0].id : '');
+  const [msg, setMsg] = useState('');
+  const look = async (v: string) => {
+    setFind(v);
+    setPick(null);
+    if (v.trim().length < 2) return setHits([]);
+    try {
+      const r = (await hubGet('/api/work/partners?q=' + encodeURIComponent(v.trim()))) as { rows: { cid: string; name: string; place: string }[] };
+      setHits(r.rows.slice(0, 6));
+    } catch {
+      setHits([]);
+    }
+  };
+  const add = useMutation({
+    mutationFn: async () => await send('/api/moves/card', { cid: pick!.cid, stage }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: mvKeys.all });
+      onAdded(pick!.cid);
+    },
+    onError: (e) => setMsg((e as Error).message),
+  });
+  return (
+    <form className="h-card mv-addp" onSubmit={(e) => { e.preventDefault(); if (pick && stage) add.mutate(); }}>
+      <label>
+        Partner
+        <input type="search" value={pick ? pick.name : find} onChange={(e) => void look(e.target.value)} placeholder="Name, email or phone" autoComplete="off" />
+      </label>
+      <label>
+        Stage
+        <select value={stage} onChange={(e) => setStage(e.target.value)}>
+          {stages.map((s) => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      </label>
+      <button type="submit" className="h-btn h-btn--primary" disabled={!pick || add.isPending}>{add.isPending ? 'Adding' : 'Add to the board'}</button>
+      {msg ? <span role="alert" className="mv-note">{msg}</span> : null}
+      {!pick && hits.length ? (
+        <ul className="mv-hits">
+          {hits.map((h) => (
+            <li key={h.cid}><button type="button" onClick={() => { setPick(h); setHits([]); }}><b>{h.name}</b> <span>{h.place}</span></button></li>
+          ))}
+        </ul>
+      ) : null}
+    </form>
   );
 }
