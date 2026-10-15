@@ -2,7 +2,7 @@
 // (%2Frdds is the RDD team); no page is Executive. The page itself is in features/dashboard.
 import { createFileRoute } from '@tanstack/react-router';
 import { DashboardPage } from '../../features/dashboard/DashboardPage';
-import { navIdOf, pageOf } from '../../features/dashboard/pages';
+import { EARLY, navIdOf, pageOf } from '../../features/dashboard/pages';
 
 export const Route = createFileRoute('/dashboard/')({
   validateSearch: (raw: Record<string, unknown>): { page?: string } => {
@@ -11,6 +11,8 @@ export const Route = createFileRoute('/dashboard/')({
   },
   // The header keeps the area name and the menu follows the page; the team pages are entries of the Reporting menu.
   staticData: { nav: 'kpi', title: 'Reporting', layout: 'wide', navOf: (s) => ({ nav: navIdOf(pageOf(s.page)), title: 'Reporting' }) },
+  // Messages the dashboard sends before the page hydrates are kept by this script, which runs as the head is read.
+  head: () => ({ scripts: [{ children: EARLY }] }),
   component: DashboardRoute,
 });
 
