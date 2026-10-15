@@ -3,7 +3,7 @@ title: Data care
 summary: Find partners who gave and have no mailing address, and line up possible duplicate records to merge, from one page under Partners.
 topic: partners
 order: 5
-for: [admin, rdd, pc, ce, leader]
+for: [admin]
 related: [partner-page, thank-you-receipts, all-partners]
 tool: /data-care/
 toolLabel: Open Data care
