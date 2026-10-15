@@ -32,6 +32,16 @@ export const BRAIN_PAID_CEILING_USD = 10;
 export const BRAIN_PAID_NEURONS = Math.floor((BRAIN_PAID_CEILING_USD / NEURON_USD_PER_1K) * 1_000);
 export const BRAIN_CEILING = Math.floor((FREE_UNITS + BRAIN_PAID_NEURONS) / 1_000) * 1_000;
 
+// Test traffic (the Brain exam, the bake-off and the grader, run through wrangler dev against the real AI binding) books under
+// brain-test with a ceiling of its own: 1,500,000 neurons a day, about $16 (Will, 2026-10-14: spending on testing is fine, spend
+// carefully). It never enters the day's running estimate, and the reconciler takes it out of Cloudflare's total before it decides
+// on the kill flag, so testing cannot switch off a staff feature.
+export const TEST_FEATURE = 'brain-test';
+export const TEST_CEILING = 1_500_000;
+// The Drive indexer has its own $0.50 a day (50,000 neurons), counted from its own bookings. It runs past the day's kill flag.
+export const DRIVE_INDEX_CEILING = 50_000;
+const NO_DAY_CAP = 1_000_000_000;
+
 /** How far into the day's units each tier may go. Tier 1 keeps the last 1,500 to itself, tier 2 the next 1,500, and so on. */
 export const TIER_CAP: Record<number, number> = { 1: 8_000, 2: 6_500, 3: 5_000, 4: 2_500 };
 
@@ -44,6 +54,10 @@ export interface Feature {
   nightOnly?: boolean;
   /** A cap of its own in place of the tier's. Such a feature also runs past the KILL_AT stop, up to this cap. */
   cap?: number;
+  /** A ceiling on this feature's own neurons for the day, counted from ai_budget_use. */
+  own?: number;
+  /** Books in ai_budget_use only: no share of the day's running estimate, removed from Cloudflare's total by the reconciler. */
+  test?: boolean;
 }
 
 /** Every feature that calls a model. A call with a name not listed here runs as tier 3 under "other". */
@@ -61,8 +75,6 @@ export const FEATURES: Record<string, Feature> = {
   'check-reading': { tier: 3, label: 'Gift entry: reading checks', offByDefault: true },
   'online-gift-reading': { tier: 3, label: 'Online gifts: reading a comment the rules could not place' },
   'mail-draft': { tier: 3, label: 'Mail: drafts and summaries' },
-  // "Ask about this email" (2026-10-14). Counts against the same $10 a day ceiling as Favor Brain, and refuses past it.
-  'mail-ask': { tier: 3, label: 'Mail: ask about one email', cap: BRAIN_CEILING },
   'request-route': { tier: 3, label: 'Requests: sorting new requests' },
   'chat-voice': { tier: 3, label: 'Chat: voice notes to text' },
   'chat-catchup': { tier: 3, label: 'Chat: catch-up summaries' },
@@ -76,7 +88,10 @@ export const FEATURES: Record<string, Feature> = {
   // Any other name starting brain- or clef- (drive answers, photo matching, in-meeting asks) runs under this entry.
   'brain-other': { tier: 3, label: 'Favor Brain: other', cap: BRAIN_CEILING },
   other: { tier: 3, label: 'Other' },
-  'drive-index': { tier: 4, label: 'Drive index (overnight)', nightOnly: true },
+  // "Ask about this email" (2026-10-14). Counts against the same $10 a day ceiling as Favor Brain, and refuses past it.
+  'mail-ask': { tier: 3, label: 'Mail: ask about one email', cap: BRAIN_CEILING },
+  'brain-test': { tier: 3, label: 'Favor Brain: exam, bake-off and grader runs', cap: TEST_CEILING, own: TEST_CEILING, test: true },
+  'drive-index': { tier: 4, label: 'Drive index (overnight)', nightOnly: true, cap: NO_DAY_CAP, own: DRIVE_INDEX_CEILING },
 };
 
 /** The name a call is booked under: itself when listed, brain-other for an unlisted brain- or clef- name, else other. */
@@ -111,8 +126,18 @@ export const isAiPaused = (e: unknown): e is AiPaused => !!e && typeof e === 'ob
 // Neurons per million tokens, input and output, from Cloudflare's price list and checked against the account's own totals on
 // 2026-10-12 (token counts and neurons from aiInferenceAdaptiveGroups). Where a model is not listed the guard charges the
 // highest rates on the list.
-interface Rate { in: number; out: number; perAudioMinute?: number }
+interface Rate { in: number; out: number; perAudioMinute?: number; cachedIn?: number }
 export const RATES: Record<string, Rate> = {
+  // Added 2026-10-14 from Cloudflare's Workers AI price list (developers.cloudflare.com/workers-ai/platform/pricing). Without them the
+  // guard booked these models at the unknown rate: 339,367 neurons for qwen where Cloudflare billed 45,075, 148,256 for glm where it
+  // billed 12,968. glm-5.3-flash bills cached input tokens at its lower cached rate.
+  // qwen3-30b-a3b: 6,719,775 input and 459,365 output tokens billed 45,075 neurons on 2026-10-14; these rates reproduce it to 0.1%.
+  '@cf/qwen/qwen3-30b-a3b-fp8': { in: 4_625, out: 30_475 },
+  '@cf/zai-org/glm-4.7-flash': { in: 5_500, out: 36_400 },
+  // glm-5.3-flash: 2026-10-14 analytics (aiInferenceAdaptiveGroups) show 1,599,896 input and 102,229 output tokens billed 12,968
+  // neurons. At the list rates that is 26,500, 2x high, because most input tokens are cached and the calls do not always report
+  // them. The input rate here is the blended rate the account was billed (12,968 less output, over the input tokens).
+  '@cf/zai-org/glm-5.3-flash': { in: 5_200, out: 45_455 },
   '@cf/cloudflare/clef-flash': { in: 3_455, out: 3_455 },
   '@cf/cloudflare/clef': { in: 21_819, out: 21_819 },
   '@cf/cloudflare/clef-omni': { in: 31_876, out: 50_488 },
@@ -133,6 +158,7 @@ export const RATES: Record<string, Rate> = {
   '@cf/baai/bge-small-en-v1.5': { in: 1_841, out: 0 },
   '@cf/baai/bge-large-en-v1.5': { in: 18_582, out: 0 },
   '@cf/baai/bge-m3': { in: 1_075, out: 0 },
+  '@cf/baai/bge-reranker-base': { in: 283, out: 0 },
   '@cf/openai/whisper-large-v3-turbo': { in: 0, out: 0, perAudioMinute: 46.63 },
   '@cf/openai/whisper': { in: 0, out: 0, perAudioMinute: 41.14 },
   // toMarkdown on an image runs a vision model; the guard charges it as one.
@@ -221,8 +247,12 @@ export function actualNeurons(model: string, output: unknown): number | null {
   const pin = Number(u.prompt_tokens ?? u.input_tokens);
   const pout = Number(u.completion_tokens ?? u.output_tokens ?? 0);
   if (!Number.isFinite(pin) || pin <= 0) return null;
+  // Cached input tokens bill at the cached rate where the price list has one; every other input token at the full rate.
+  const details = (u as Record<string, any>).prompt_tokens_details;
+  const cached = rate.cachedIn != null ? Math.min(pin, Math.max(0, Number(details?.cached_tokens) || 0)) : 0;
+  const inNeurons = (pin - cached) * rate.in + cached * (rate.cachedIn ?? rate.in);
   // Ten percent over what the model reported keeps the running estimate above Cloudflare's own count.
-  return Math.ceil(((pin * rate.in + (Number.isFinite(pout) ? pout : 0) * rate.out) / 1_000_000) * 1.1) + 1;
+  return Math.ceil(((inNeurons + (Number.isFinite(pout) ? pout : 0) * rate.out) / 1_000_000) * 1.1) + 1;
 }
 
 // ---- Storage ----------------------------------------------------------------------------------------------------------
@@ -302,6 +332,8 @@ export interface GuardOpts {
   now?: Date;
   /** The length of the sound in a speech call, from the caller (CallMeta.audioSec). */
   audioSec?: number;
+  /** Exam, bake-off and grader traffic: every call books under brain-test whatever its name. */
+  testTraffic?: boolean;
 }
 
 async function bump(store: GuardStore, day: string, feature: string, model: string, neurons: number, refused: boolean) {
@@ -319,9 +351,9 @@ async function bump(store: GuardStore, day: string, feature: string, model: stri
  * Reserves the call's estimate against today's cap. Returns the reservation, or throws AiPaused. Exported for callers that do not
  * go through a binding (toMarkdown, REST from scripts): reserve, make the call, then settle().
  */
-export async function reserve(store: GuardStore, opts: GuardOpts, model: string, input: unknown): Promise<{ day: string; est: number; test: boolean }> {
+export async function reserve(store: GuardStore, opts: GuardOpts, model: string, input: unknown): Promise<{ day: string; est: number; test: boolean; feature: string }> {
   const day = opts.day || utcDay();
-  const feature = featureName(opts.feature);
+  const feature = opts.testTraffic ? TEST_FEATURE : featureName(opts.feature);
   const f = featureOf(feature);
   if (opts.closed) {
     await bump(store, day, feature, model, 0, true);
@@ -346,6 +378,19 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
     throw new AiPaused('off', feature);
   }
   const est = estimateNeurons(model, input, { audioSec: opts.audioSec });
+  if (f.own != null) {
+    const row = await store.db
+      .prepare('SELECT COALESCE(SUM(neurons), 0) AS n FROM ai_budget_use WHERE day = ? AND feature = ?')
+      .bind(day, feature)
+      .first<{ n: number }>()
+      .catch(() => null);
+    if (!row || (Number(row.n) || 0) + est > f.own) {
+      await bump(store, day, feature, model, 0, true);
+      throw new AiPaused(row ? 'budget' : 'unavailable', feature);
+    }
+  }
+  // Test traffic books in ai_budget_use only. It takes no share of the day's estimate, so it cannot hold a staff feature.
+  if (f.test) return { day, est, test: false, feature };
   let cap = f.cap ?? TIER_CAP[f.tier] ?? TIER_CAP[3];
   let test = false;
   if (opts.test) {
@@ -375,13 +420,17 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
     await bump(store, day, feature, model, 0, true);
     throw new AiPaused('budget', feature);
   }
-  return { day, est, test };
+  return { day, est, test, feature };
 }
 
 /** Corrects the reservation from what the model reported, records the call, and mirrors the day's total to KV. */
-export async function settle(store: GuardStore, r: { day: string; est: number }, feature: string, model: string, output: unknown): Promise<void> {
+export async function settle(store: GuardStore, r: { day: string; est: number; feature?: string }, feature: string, model: string, output: unknown): Promise<void> {
   const real = actualNeurons(model, output);
   const used = real ?? r.est;
+  if (r.feature && FEATURES[r.feature]?.test) {
+    await bump(store, r.day, r.feature, model, used, false);
+    return;
+  }
   const delta = used - r.est;
   try {
     let total: { est: number; truth: number } | null;
@@ -390,7 +439,7 @@ export async function settle(store: GuardStore, r: { day: string; est: number },
     } else {
       total = await store.db.prepare('SELECT est, truth FROM ai_budget_day WHERE day = ?').bind(r.day).first();
     }
-    await bump(store, r.day, featureName(feature), model, used, false);
+    await bump(store, r.day, r.feature || featureName(feature), model, used, false);
     if (store.kv && total) {
       const v = Math.ceil(Math.max(Number(total.est) || 0, Number(total.truth) || 0));
       // KV takes one write a second per key; a lost write is made good by the next call or the reconciler.
@@ -405,7 +454,7 @@ export async function settle(store: GuardStore, r: { day: string; est: number },
 export async function guardedRun(store: GuardStore, run: (model: string, input: unknown) => Promise<unknown>, opts: GuardOpts, model: string, input: unknown): Promise<unknown> {
   const r = await reserve(store, opts, model, input);
   const out = await run(model, input);
-  await settle(store, r, opts.feature, model, out);
+  await settle(store, r, r.feature, model, out);
   return out;
 }
 
@@ -416,7 +465,7 @@ export interface GuardedAi {
   guarded: true;
 }
 
-export function guardBinding(store: GuardStore, ai: { run(model: string, input: unknown, opts?: unknown): Promise<unknown> }, base: Omit<GuardOpts, 'feature'> & { closedFor?: () => boolean; testFor?: () => boolean } = {}): GuardedAi {
+export function guardBinding(store: GuardStore, ai: { run(model: string, input: unknown, opts?: unknown): Promise<unknown> }, base: Omit<GuardOpts, 'feature'> & { closedFor?: () => boolean; testFor?: () => boolean; testTraffic?: boolean } = {}): GuardedAi {
   const call = (feature: string, model: string, input: unknown, meta: CallMeta = {}) =>
     guardedRun(store, (m, i) => ai.run(m, i), { ...base, feature, closed: base.closed || base.closedFor?.() || false, test: base.test || base.testFor?.() || false, audioSec: meta.audioSec }, model, input);
   return { guarded: true, run: (model, input) => call('other', model, input), runFor: call };
@@ -451,20 +500,33 @@ export async function trueTotals(auth: { account: string; email: string; key: st
   return out;
 }
 
+/** Neurons booked under brain-test on a UTC day. */
+export async function testUsed(store: GuardStore, day: string): Promise<number> {
+  const row = await store.db
+    .prepare('SELECT COALESCE(SUM(neurons), 0) AS n FROM ai_budget_use WHERE day = ? AND feature = ?')
+    .bind(day, TEST_FEATURE)
+    .first<{ n: number }>()
+    .catch(() => null);
+  return Number(row?.n) || 0;
+}
+
 /** Writes Cloudflare's totals for the last `days` days into D1 and KV, and sets today's kill flag past KILL_AT. */
 export async function reconcile(store: GuardStore, totals: Record<string, number>, today = utcDay(), days = 7): Promise<{ day: string; est: number; truth: number; used: number; off: boolean }> {
   const settings = await readSettings(store.kv);
   const stamp = new Date().toISOString();
   for (let i = days - 1; i >= 0; i--) {
     const day = utcDay(new Date(Date.parse(`${today}T12:00:00Z`) - i * 86_400_000));
-    const truth = Math.round((totals[day] || 0) * 100) / 100;
+    // Cloudflare's total less what exam, bake-off and grader runs booked that day: the staff-facing total the kill flag judges.
+    const test = await testUsed(store, day);
+    const truth = Math.max(0, Math.round(((totals[day] || 0) - test) * 100) / 100);
     await store.db.prepare('INSERT OR IGNORE INTO ai_budget_day (day) VALUES (?)').bind(day).run();
-    await store.db.prepare('UPDATE ai_budget_day SET truth = MAX(truth, ?), reconciled_at = ? WHERE day = ?').bind(truth, stamp, day).run();
+    // With test traffic booked the value is set outright (a max would keep a total that still held the test runs).
+    await store.db.prepare(test > 0 ? 'UPDATE ai_budget_day SET truth = ?, reconciled_at = ? WHERE day = ?' : 'UPDATE ai_budget_day SET truth = MAX(truth, ?), reconciled_at = ? WHERE day = ?').bind(truth, stamp, day).run();
   }
   // The estimate errs high on purpose, and the error builds up through the day (2026-10-13: an estimate of 5,044 against a true
   // 3,354 held a meeting's notes). Today's estimate comes back down to the true total plus the calls since the count.
   if (totals[today] != null) {
-    const t = Math.round((totals[today] || 0) * 100) / 100;
+    const t = Math.max(0, Math.round(((totals[today] || 0) - (await testUsed(store, today))) * 100) / 100);
     await store.db.prepare('UPDATE ai_budget_day SET est = ?2 WHERE day = ?1 AND est > ?2').bind(today, t + RECONCILE_SLACK).run();
   }
   const row = (await store.db.prepare('SELECT est, truth, off, test_over FROM ai_budget_day WHERE day = ?').bind(today).first<{ est: number; truth: number; off: number; test_over: number }>()) || { est: 0, truth: 0, off: 0, test_over: 0 };
