@@ -1,0 +1,38 @@
+/* Entry in React: the classic grid rows (work.css .wc-ig .wc-row and pt-actions.css compact Entry) drawn on the shared table. The table,
+   its head and body become blocks; each row is the same grid the classic page used, so the layouts match at every width. */
+#wc-root .wc-ig-t { display: block; font: inherit; }
+#wc-root .wc-ig-t thead, #wc-root .wc-ig-t tbody { display: block; }
+#wc-root .wc-ig-t thead { position: sticky; top: 0; z-index: 3; }
+#wc-root .wc-ig-t thead tr { display: grid; grid-template-columns: var(--cols); grid-template-areas: 'cb partner date how state'; align-items: center; column-gap: 12px; padding: 0 16px 0 6px; height: 40px; background: color-mix(in srgb, var(--h-ivory) 94%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-bottom: 1px solid var(--h-line); }
+#wc-root .wc-ig-t thead th { font: 500 13px var(--h-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--h-ink-3); position: static; display: block; padding: 0; height: auto; border: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; white-space: nowrap; overflow: visible; }
+#wc-root .wc-ig-t thead th.pt-cb { grid-area: cb; width: auto; min-height: 0; display: grid; place-items: center; }
+#wc-root .wc-ig-t thead th.wc-h-pc { grid-area: partner; }
+#wc-root .wc-ig-t thead th.wc-h-dc { grid-area: date; }
+#wc-root .wc-ig-t thead th.wc-h-hc { grid-area: how; }
+#wc-root .wc-ig-t thead th.wc-h-st { grid-area: state; justify-self: end; }
+#wc-root .wc-ig-t thead th.wc-h-sc, #wc-root .wc-ig-t thead th.wc-h-tc { display: none; }
+#wc-root .wc-ig-t tbody td { display: block; padding: 0; border: 0; max-width: none; white-space: normal; overflow: visible; text-overflow: clip; background: transparent; }
+#wc-root .wc-ig-t tbody tr[data-pt-row]:hover td, #wc-root .wc-ig-t tbody tr.is-picked td, #wc-root .wc-ig-t tbody tr.is-cursor td, #wc-root .wc-ig-t tbody tr:focus td { background: transparent; box-shadow: none; }
+#wc-root .wc-ig-t tbody tr[data-pt-row] { cursor: default; }
+#wc-root .wc-ig-t tbody tr:focus-visible { box-shadow: inset 3px 0 0 var(--h-brand); background: #fbf9f4; }
+#wc-root .wc-ig-t tbody td.wc-cb { width: auto; padding: 0; }
+#wc-root .wc-ig-t tbody .wc-cb input { margin: 0; }
+#wc-root .wc-ig-t .wc-cb input:disabled { cursor: default; }
+#wc-root .wc-ig-t .wc-pc a.wc-ppage { color: inherit; text-decoration: none; }
+#wc-root .wc-ig-t .wc-pc a.wc-ppage:hover { color: var(--h-brand-ink); text-decoration: underline; text-underline-offset: 2px; }
+#wc-root .wc-ig-t.is-busy tbody { opacity: .55; }
+
+@media (min-width: 1600px) {
+  html[data-density='compact'] body.h-body #wc-root .wc-ig-t thead tr { grid-template-areas: 'cb partner date how state sum tags'; }
+  html[data-density='compact'] body.h-body #wc-root .wc-ig-t thead th.wc-h-st { justify-self: start; }
+  html[data-density='compact'] body.h-body #wc-root .wc-ig-t thead th.wc-h-sc { display: block; grid-area: sum; }
+  html[data-density='compact'] body.h-body #wc-root .wc-ig-t thead th.wc-h-tc { display: block; grid-area: tags; }
+}
+@media (min-width: 861px) {
+  html[data-density='compact'] body.h-body #wc-root .wc-ig-t thead tr { height: 32px; }
+}
+
+/* A phone: the head goes, each row stacks as the classic page's did. */
+@media (max-width: 860px) {
+  #wc-root .wc-ig-t thead { display: none; }
+}

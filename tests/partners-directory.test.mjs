@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { before, describe, it } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { buildDirectory, kindOf, sortNameOf } from '../functions/_lib/partners/directory.ts';
-import { DUP_SQL, exportQuery, facetQueries, listQuery, normalizeSpec } from '../functions/_lib/partners/query.ts';
+import { exportQuery, facetQueries, listQuery, normalizeSpec } from '../functions/_lib/partners/query.ts';
 
 const TODAY = '2026-10-14';
 
@@ -186,14 +186,21 @@ describe('directory list', () => {
     const e = exportQuery(normalizeSpec({}), ctx, true, ['107', '101']);
     assert.deepEqual(q(e.sql, e.params).map((r) => r.id).sort(), ['101', '107']);
   });
-  it('offers two people as possible duplicates only when they share a last name or a name and ZIP', () => {
-    const pairs = q(DUP_SQL);
-    // Carol Solo and Dan Never share an email but not a last name.
-    assert.ok(!pairs.some((p) => p.a === '103' && p.b === '104'));
-    hub.prepare("UPDATE pd_partner SET sort_name = 'solo, dan' WHERE id = '104'").run();
-    assert.ok(q(DUP_SQL).some((p) => p.a === '103' && p.b === '104' && p.why.includes('email')));
-    hub.prepare("UPDATE pd_partner SET sort_name = 'never, dan' WHERE id = '104'").run();
-    // Spouses are never offered as duplicates.
-    assert.ok(!pairs.some((p) => p.a === '101' && p.b === '102'));
+});
+
+describe('merge requests go to the Data care queue', () => {
+  it('adds a pair for review, ordered by id, and keeps a decision already made', async () => {
+    const { requestMerge } = await import('../functions/_lib/partners/service.ts');
+    const { d1Of } = await import('./support/lists-fixture.mjs');
+    hub.exec(fs.readFileSync(new URL('../db/datacare.sql', import.meta.url), 'utf8'));
+    const env = { DB: d1Of(hub) };
+    const id = await requestMerge(env, { email: 'a@favorintl.org', name: 'Ann Staff' }, '107', '101', 'same church');
+    assert.equal(id, '101-107');
+    const row = q("SELECT state, score, why, a_name, b_name FROM dc_pair WHERE id = '101-107'")[0];
+    assert.deepEqual([row.state, row.score, row.why, row.a_name, row.b_name], ['review', 99, 'Asked to merge by Ann Staff: same church', 'Alice Tester', 'The Test Church']);
+    hub.prepare("UPDATE dc_pair SET state = 'not_same', why = 'decided' WHERE id = '101-107'").run();
+    await requestMerge(env, { email: 'b@favorintl.org', name: 'Bo Staff' }, '101', '107', 'again');
+    const after = q("SELECT state, why FROM dc_pair WHERE id = '101-107'")[0];
+    assert.deepEqual([after.state, after.why], ['not_same', 'decided']);
   });
 });

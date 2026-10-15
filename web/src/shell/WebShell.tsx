@@ -33,7 +33,10 @@ type RailState = ReturnType<typeof useRail>;
 
 function useMeta() {
   const meta = useMatches({ select: (m) => m.map((x) => x.staticData).filter(Boolean).at(-1) }) ?? {};
-  return { navId: meta.nav || '', title: meta.title || 'FavorOS', layout: meta.layout };
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  // A page whose tabs live in its address names the menu entry and title for the tab shown.
+  const by = meta.navOf ? meta.navOf(search) : null;
+  return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || 'FavorOS', layout: meta.layout };
 }
 
 function useView() {
@@ -59,6 +62,16 @@ function TopPart({ rail }: { rail: RailState }) {
 function BarPart({ rail }: { rail: RailState }) {
   const { view } = useView();
   return <PhoneBar view={view} navOpen={rail.navOpen} onMore={() => rail.setNavOpen(!rail.navOpen)} />;
+}
+
+/** The area color (Work green, Meet teal and so on) the classic layout puts on <body data-area>; round2.css reads --a from it. */
+function AreaPart() {
+  const { view } = useView();
+  useEffect(() => {
+    if (view.curArea) document.body.dataset.area = view.curArea;
+    else delete document.body.dataset.area;
+  }, [view.curArea]);
+  return null;
 }
 
 function PalettePart() {
@@ -199,6 +212,7 @@ export function WebShell({ children }: { children: ReactNode }) {
         </div>
         <Suspense fallback={null}>
           <BarPart rail={rail} />
+          <AreaPart />
         </Suspense>
       </div>
       <ErrorBoundary label="Search could not load." className="h-card">
