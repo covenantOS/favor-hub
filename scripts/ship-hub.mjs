@@ -82,7 +82,21 @@ step('no live meeting', () => {
   const n = Number((out.match(/"n":\s*(\d+)/) || [])[1]);
   if (!(n === 0)) throw new Error('someone is in a meeting (' + n + '), wait');
 });
-step('push', () => sh('git push origin HEAD:main'));
+// Others push while the tests run. Take their commits, rebuild what deploys (tests already passed; the rebase is theirs plus ours),
+// and push; try three times.
+step('push', () => {
+  for (let i = 0; i < 3; i++) {
+    sh('git fetch -q origin');
+    const behind = sh('git rev-list --count HEAD..origin/main', { capture: true }).trim();
+    if (behind !== '0') {
+      sh('git rebase origin/main');
+      sh('npm install --no-audit --no-fund && npm --prefix web install --no-audit --no-fund');
+      if (!has('--no-pages')) { sh('npm run build'); if (!existsSync('dist/images/favor-icon.png')) throw new Error('dist is incomplete'); }
+      sh('npm --prefix web run build');
+    }
+    try { sh('git push origin HEAD:main'); return; } catch (e) { if (i === 2) throw e; }
+  }
+});
 // The Worker deploy is cheap and idempotent, so it always goes out with the pages; a page and the Worker never drift apart.
 step('deploy favoros-web', () => sh('npx wrangler deploy', { cwd: 'web' }));
 if (!has('--no-pages')) step('deploy pages', () => sh('npx wrangler pages deploy dist --project-name favor-hub --branch main --commit-dirty=true'));
