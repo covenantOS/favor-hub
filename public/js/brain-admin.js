@@ -79,7 +79,7 @@
     try {
       d = await api('admin/overview');
     } catch (err) {
-      // The hub answers 403 forbidden for a person who is not an admin and the Brain answers 403 admin_only for an admin who is not its admin. Either way the page is closed to them.
+      // FavorOS answers 403 forbidden for a person who is not an admin and the Brain answers 403 admin_only for an admin who is not its admin. Either way the page is closed to them.
       if (err.status === 403 || err.code === 'admin_only') {
         document.querySelectorAll('.ba-stats, [data-apanel], .b-atabs').forEach((n) => (n.hidden = true));
         $('a-denied').hidden = false;

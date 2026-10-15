@@ -30,7 +30,7 @@ function runBrainAdmin(status, body) {
   return new Promise((resolve) => setTimeout(() => resolve({ chrome, denied: get('a-denied') }), 20));
 }
 
-test('Brain admin closes for a staff member the hub refuses with 403 forbidden', async () => {
+test('Brain admin closes for a staff member FavorOS refuses with 403 forbidden', async () => {
   const r = await runBrainAdmin(403, { ok: false, error: 'forbidden', message: 'Only an admin can use that.' });
   assert.equal(r.denied.hidden, false);
   assert.ok(r.chrome.every((n) => n.hidden === true));
