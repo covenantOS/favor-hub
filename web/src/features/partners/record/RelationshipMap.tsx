@@ -8,7 +8,7 @@ import { useRouter } from '@tanstack/react-router';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { NavLink } from '@/shell/NavLink';
 import { send } from '@/lib/api';
-import { money0, dayShort } from '@/lib/format';
+import { money0, dayShort, initials } from '@/lib/format';
 import { hubGet } from '../../../lib/hub';
 import { mvKeys, relQuery } from '../../moves/queries';
 import type { MapNode, RelGraph } from '../../moves/types';
@@ -52,7 +52,7 @@ function Body({ id, compact, canAdd }: { id: string; compact: boolean; canAdd: b
   const ry = 128;
   const pos = drawn.map((_, i) => {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / Math.max(drawn.length, 1);
-    return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) };
+    return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a), s: Math.sin(a) };
   });
   return (
     <>
@@ -76,6 +76,11 @@ function Body({ id, compact, canAdd }: { id: string; compact: boolean; canAdd: b
             ))}
             {drawn.map((n, i) => {
               const right = pos[i].x >= cx;
+              // Nodes at the top and bottom of the ring carry their label above or below, centered, so neighbors never overlap.
+              const pole = Math.abs(pos[i].s) > 0.9;
+              const lx = pole ? 0 : right ? 15 : -15;
+              const ly = pole ? (pos[i].s < 0 ? -30 : 22) : -2;
+              const anchor = pole ? 'middle' : right ? 'start' : 'end';
               return (
                 <g
                   key={n.cid + n.role}
@@ -93,14 +98,14 @@ function Body({ id, compact, canAdd }: { id: string; compact: boolean; canAdd: b
                   }}
                 >
                   <circle r={n.major ? 11 : 8} />
-                  <text x={right ? 15 : -15} y={-2} textAnchor={right ? 'start' : 'end'} className="mv-nt">{clip(n.name, 22)}</text>
-                  <text x={right ? 15 : -15} y={13} textAnchor={right ? 'start' : 'end'} className="mv-ns">{clip(n.role + (n.lifetime ? ' · ' + money0(n.lifetime) : ''), 28)}</text>
+                  <text x={lx} y={ly} textAnchor={anchor} className="mv-nt">{clip(n.name, 22)}</text>
+                  <text x={lx} y={ly + 15} textAnchor={anchor} className="mv-ns">{clip(n.role + (n.lifetime ? ' · ' + money0(n.lifetime) : ''), 28)}</text>
                 </g>
               );
             })}
             <g className="mv-center" transform={`translate(${cx},${cy})`}>
               <circle r={26} />
-              <text y={5} textAnchor="middle">{clip(data.center.name.split(' ').slice(-1)[0] || data.center.name, 9)}</text>
+              <text y={5} textAnchor="middle">{initials(data.center.name)}</text>
             </g>
           </svg>
           {data.nodes.length > MAX_DRAWN ? <p className="mv-note">The map draws the first {MAX_DRAWN}. Every person is in the list below.</p> : null}

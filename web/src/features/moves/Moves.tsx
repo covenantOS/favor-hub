@@ -12,7 +12,7 @@ import { RelationshipMap } from '../partners/record/RelationshipMap';
 import { boardQuery, cardQuery, listQuery, mvKeys } from './queries';
 import type { Board, MoveRow } from './types';
 
-export interface MovesSearch { cid?: string; view?: 'board' | 'list'; owner?: string; q?: string; sort?: string }
+export interface MovesSearch { cid?: number; view?: 'board' | 'list'; owner?: number; q?: string; sort?: string }
 const SORTS: [string, string][] = [['asked', 'Amount asked'], ['due', 'Next step due'], ['contact', 'Longest since contact'], ['largest', 'Largest gift'], ['name', 'Name']];
 const LIST_PAGE = 25;
 const day = (d: string | null) => (d ? dayShort(d) : '');
@@ -46,7 +46,7 @@ function MovesSkeleton() {
 }
 
 function Body({ search, set }: { search: MovesSearch; set: (p: Partial<MovesSearch>, replace?: boolean) => void }) {
-  const owner = search.owner || '';
+  const owner = search.owner ? String(search.owner) : '';
   const sort = search.sort || 'asked';
   const view = search.view === 'list' ? 'list' : 'board';
   const [find, setFind] = useState(search.q || '');
@@ -59,19 +59,19 @@ function Body({ search, set }: { search: MovesSearch; set: (p: Partial<MovesSear
   }, [find]);
   const { data } = useSuspenseQuery(boardQuery(owner, q, sort, per));
   const qc = useQueryClient();
-  const openCid = search.cid || '';
+  const openCid = search.cid ? String(search.cid) : '';
   const moveTo = useMove(qc, owner, q, sort, per);
   return (
     <>
       <Band data={data} />
       <section className="h-card mv-tools" aria-label="Filters">
         <div className="mv-seg" role="group" aria-label="View">
-          <button type="button" aria-pressed={view === 'board'} onClick={() => set({ view: 'board' })}>Board</button>
-          <button type="button" aria-pressed={view === 'list'} onClick={() => set({ view: 'list' })}>List</button>
+          <button type="button" aria-pressed={view === 'board'} onClick={() => set({ view: undefined }, false)}>Board</button>
+          <button type="button" aria-pressed={view === 'list'} onClick={() => set({ view: 'list' }, false)}>List</button>
         </div>
         <input className="mv-find" type="search" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a partner or next step" aria-label="Find a partner or next step" />
         {data.owners.length > 1 ? (
-          <select value={data.owner} onChange={(e) => set({ owner: e.target.value || undefined })} aria-label="Fundraiser">
+          <select value={data.owner} onChange={(e) => set({ owner: e.target.value ? Number(e.target.value) : undefined })} aria-label="Fundraiser">
             <option value="">Every fundraiser</option>
             {data.owners.map((o) => (
               <option key={o.id} value={o.id}>{`${o.name} (${o.n})`}</option>
@@ -90,7 +90,7 @@ function Body({ search, set }: { search: MovesSearch; set: (p: Partial<MovesSear
         ) : null}
       </section>
       <div className={'mv-main' + (openCid ? ' has-panel' : '')}>
-        {view === 'board' ? <BoardView data={data} per={per} setPer={setPer} open={openCid} onOpen={(cid) => set({ cid }, false)} onMove={moveTo} /> : <ListView data={data} owner={owner} q={q} sort={sort} open={openCid} onOpen={(cid) => set({ cid }, false)} />}
+        {view === 'board' ? <BoardView data={data} per={per} setPer={setPer} open={openCid} onOpen={(cid) => set({ cid: Number(cid) }, false)} onMove={moveTo} /> : <ListView data={data} owner={owner} q={q} sort={sort} open={openCid} onOpen={(cid) => set({ cid: Number(cid) }, false)} />}
         {openCid ? (
           <ErrorBoundary label="The partner panel could not load." className="h-card">
             <Panel key={openCid} cid={openCid} onClose={() => set({ cid: undefined })} onMove={moveTo} />
@@ -112,7 +112,7 @@ function Band({ data }: { data: Board }) {
       <div className="mv-stat"><small>Partners in a stage</small><b>{inPlay.toLocaleString('en-US')}</b><span>{pool ? `${pool.n.toLocaleString('en-US')} major partners not staged` : ''}</span></div>
       <div className="mv-stat"><small>Open asks</small><b>{money0(data.askedTotal)}</b><span>Same total as Open on the Asks board</span></div>
       {staged.slice(0, 3).map((s) => (
-        <div className="mv-stat" key={s.id}><small>{s.label}</small><b>{s.n.toLocaleString('en-US')}</b><span>{s.asked ? money0(s.asked) + ' asked' : 'No ask amount'}</span></div>
+        <div className="mv-stat mv-stat--stage" key={s.id}><small>{s.label}</small><b>{s.n.toLocaleString('en-US')}</b><span>{s.asked ? money0(s.asked) + ' asked' : 'No ask amount'}</span></div>
       ))}
       <span className="mv-sr" aria-live="polite">{due ? `${due} next steps due` : ''}</span>
     </section>

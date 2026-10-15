@@ -6,10 +6,11 @@ import { boardQuery } from '../../features/moves/queries';
 export const Route = createFileRoute('/moves/')({
   validateSearch: (raw: Record<string, unknown>): MovesSearch => {
     const out: MovesSearch = {};
-    if (typeof raw.cid === 'string' && /^\d{1,12}$/.test(raw.cid)) out.cid = raw.cid;
-    else if (typeof raw.cid === 'number') out.cid = String(raw.cid);
+    const cid = typeof raw.cid === 'number' ? String(raw.cid) : typeof raw.cid === 'string' ? raw.cid.replace(/"/g, '') : '';
+    if (/^\d{1,12}$/.test(cid)) out.cid = Number(cid);
     if (raw.view === 'list') out.view = 'list';
-    if (typeof raw.owner === 'string' && /^\d{1,12}$/.test(raw.owner)) out.owner = raw.owner;
+    const owner = typeof raw.owner === 'number' ? String(raw.owner) : typeof raw.owner === 'string' ? raw.owner.replace(/"/g, '') : '';
+    if (/^\d{1,12}$/.test(owner)) out.owner = Number(owner);
     if (typeof raw.q === 'string' && raw.q.trim()) out.q = raw.q.slice(0, 100);
     if (typeof raw.sort === 'string' && ['due', 'contact', 'largest', 'name'].includes(raw.sort)) out.sort = raw.sort;
     return out;
