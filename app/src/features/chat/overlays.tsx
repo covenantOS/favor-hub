@@ -67,6 +67,9 @@ export function PopLayer({ e, root }: { e: ChatEngine; root: React.RefObject<HTM
   const p = e.ui.pop;
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  // A different menu starts hidden until it is measured. This runs before the measuring effect below, in the same commit, so the measured place wins
+  // (as a passive effect it ran after it under React and wiped the place until some other redraw).
+  useLayoutEffect(() => setPos(null), [p && p.kind, p && p.id, p && p.scope]);
   useLayoutEffect(() => {
     const el = ref.current;
     const r = root.current;
@@ -80,7 +83,6 @@ export function PopLayer({ e, root }: { e: ChatEngine; root: React.RefObject<HTM
     if (top + pr.height > rr.height - 8) top = Math.max(8, rr.height - pr.height - 8);
     setPos((o) => (o && o.left === left && o.top === top ? o : { left, top }));
   });
-  useEffect(() => setPos(null), [p && p.kind, p && p.id, p && p.scope]);
   // A press outside the menu closes it.
   useEffect(() => {
     if (!p) return;
