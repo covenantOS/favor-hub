@@ -63,7 +63,8 @@ function Changes() {
   const now = useNow();
   const { data } = useSuspenseQuery(homeQ);
   const list: J[] = ((data && data.work && data.work.recent) || []).filter((b: J) => b.mine && Date.parse(b.undo_until) > now);
-  const undoing = (window as unknown as { favorUndoing?: Set<string> }).favorUndoing;
+  // Read in the browser only: the server has no window, and that throw was React error 419.
+  const undoing = typeof window === 'undefined' ? undefined : (window as unknown as { favorUndoing?: Set<string> }).favorUndoing;
   return (
     <div className="td-recent__c td-changes wh-card" id="wh-changes" hidden={!list.length}>
       <header className="td-ch"><h2 id="wh-changes-h">Your recent changes</h2><span className="td-ch__r td-ch__meta">Undo for 24 hours</span></header>
