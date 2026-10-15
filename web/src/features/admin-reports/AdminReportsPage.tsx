@@ -58,11 +58,14 @@ function Rows() {
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(adminReportsQuery);
   const [msgs, setMsgs] = useState<Record<string, { ok: boolean; text: string }>>({});
+  // Every answer redraws the rows from the list the server sent, as the classic page does.
+  const [rev, setRev] = useState(0);
   const save = (r: AdminReport, body: Record<string, unknown>) => {
     setMsgs((m) => ({ ...m, [r.id]: { ok: true, text: 'Saving' } }));
     hubSend('/api/admin/reports', 'POST', { id: r.id, ...body }, (d) => d as AdminReports)
       .then((d) => {
         qc.setQueryData(adminReportsQuery.queryKey, (old: AdminReports | undefined) => (old ? { ...old, reports: d.reports } : d));
+        setRev((n) => n + 1);
         setMsgs((m) => ({ ...m, [r.id]: { ok: true, text: 'Saved' } }));
       })
       .catch((e: Error) => setMsgs((m) => ({ ...m, [r.id]: { ok: false, text: e.message } })));
@@ -75,7 +78,7 @@ function Rows() {
           {data.reports
             .filter((r) => r.group === g.id)
             .map((r) => (
-              <Row key={r.id} r={r} audiences={data.audiences} msg={msgs[r.id] || null} onSave={save} />
+              <Row key={r.id + ':' + rev} r={r} audiences={data.audiences} msg={msgs[r.id] || null} onSave={save} />
             ))}
         </section>
       ))}

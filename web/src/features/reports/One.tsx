@@ -152,8 +152,14 @@ function Cell({ c, v, row, res, onEdit }: { c: Col; v: unknown; row: Row; res: R
         inputMode={c.type === 'cellint' ? 'numeric' : 'decimal'}
         aria-label={c.label}
         // A typed cell saves when the person leaves it or presses Enter, once, and only if the text changed.
+        onFocus={(e) => {
+          e.currentTarget.dataset.was = e.currentTarget.value;
+        }}
         onBlur={(e) => {
-          if (e.currentTarget.value !== shown) onEdit(key, c.key, e.currentTarget.value);
+          if (e.currentTarget.value !== (e.currentTarget.dataset.was ?? shown)) {
+            e.currentTarget.dataset.was = e.currentTarget.value;
+            onEdit(key, c.key, e.currentTarget.value);
+          }
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
@@ -229,8 +235,14 @@ function Param({ f, value, onSet }: { f: Filter; value: string; onSet: (id: stri
         key={value}
         maxLength={80}
         // A text filter asks when the person leaves it or presses Enter, once, and only if the text changed (the classic page's change event).
+        onFocus={(e) => {
+          e.currentTarget.dataset.was = e.currentTarget.value;
+        }}
         onBlur={(e) => {
-          if (e.currentTarget.value !== value) onSet(f.id, e.currentTarget.value);
+          if (e.currentTarget.value !== (e.currentTarget.dataset.was ?? value)) {
+            e.currentTarget.dataset.was = e.currentTarget.value;
+            onSet(f.id, e.currentTarget.value);
+          }
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
