@@ -6,6 +6,7 @@ export const WEB_ROUTE_LIST = [
   '/churches/',
   '/data-care/',
   '/gifts/other/',
+  '/gifts/first-gifts/',
   '/admin/goals/',
   '/brain/',
   '/',

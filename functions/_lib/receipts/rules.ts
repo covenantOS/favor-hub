@@ -51,7 +51,7 @@ export interface Verdict {
   letter: boolean;
   /** Short label for the list. Empty when the gift gets a letter. */
   reason: string;
-  key: '' | 'small' | 'no_mail' | 'preference' | 'deceased' | 'no_address' | 'abroad' | 'pass_through' | 'organization' | 'inactive' | 'gift_type';
+  key: '' | 'small' | 'no_mail' | 'preference' | 'deceased' | 'no_address' | 'abroad' | 'pass_through' | 'organization' | 'inactive' | 'gift_type' | 'first_gift' | 'first_gift_file';
   /** Staff may send it anyway. */
   canAdd: boolean;
 }
@@ -178,11 +178,12 @@ export function isUnitedStates(g: Gift): boolean {
   return c === '' && /^[A-Z]{2}$/.test(g.state) && /^\d{5}/.test(g.zip);
 }
 
-export function verdict(g: Gift): Verdict {
+/** `minAmount` is the smallest gift that gets a letter; first-gift letters pass 0, since acquisition gifts of $5 were always thanked. */
+export function verdict(g: Gift, minAmount: number = MIN_AMOUNT): Verdict {
   if (!LETTER_TYPES.includes(g.type)) {
     return { letter: false, key: 'gift_type', reason: `Gift type is ${g.type || 'blank'}`, canAdd: true };
   }
-  if (g.amount < MIN_AMOUNT) return { letter: false, key: 'small', reason: 'Under $10', canAdd: false };
+  if (g.amount < minAmount) return { letter: false, key: 'small', reason: 'Under $10', canAdd: false };
   const noLetter = g.solicitCodes.find((c) => NO_LETTER_CODES.includes(c.toLowerCase()));
   if (noLetter) return { letter: false, key: 'no_mail', reason: `Marked ${noLetter}`, canAdd: false };
   if (!g.sendMail) return { letter: false, key: 'no_mail', reason: 'Address marked no mail', canAdd: false };

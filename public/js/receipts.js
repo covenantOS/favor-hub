@@ -25,6 +25,8 @@
     no_mail: ['No mail', 'The record is marked Do Not Mail, Do Not Contact or Do Not Mail Thank You, or its address is marked not to send mail.'],
     small: ['Under $10', 'Gifts under $10 never got a receipt.'],
     gift_type: ['Other gift types', ''],
+    first_gift: ['First-gift letter', 'Their first gift came from an acquisition mailing, so it gets a first-gift letter and no receipt. It is on Gifts, First-gift letters.'],
+    first_gift_file: ['In a first-gift letters print file', 'It is marked acknowledged when that print file is marked, and then it leaves this list.'],
   };
 
   const state = {
