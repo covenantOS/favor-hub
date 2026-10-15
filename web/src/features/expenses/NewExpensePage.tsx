@@ -145,7 +145,7 @@ export function NewExpensePage() {
         <form ref={form} className={'make-sheet is-stepped' + (at === steps - 1 ? ' is-last' : '')} id="exp-form" noValidate hidden={!!done} onSubmit={submit} onKeyDown={onKeyDown}>
           <div className="exp-progress" id="exp-progress" aria-hidden="true">
             {STEP_TITLES.map((t, k) => (
-              <span key={t} className={k <= at ? 'is-on' : ''}></span>
+              <span key={t} className={k <= at ? 'is-on' : undefined}></span>
             ))}
           </div>
           <p className="exp-stepname" id="exp-stepname">

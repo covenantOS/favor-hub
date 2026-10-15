@@ -238,6 +238,12 @@ function Loaded({ search, o }: { search: ReturnType<typeof ogSearch>; o: OgOverv
   const qc = useQueryClient();
   const [pick, setPick] = useState<Record<string, string>>({});
   const [reopened, setReopened] = useState<Record<string, boolean>>({});
+  // A new answer (another period, or after a write) closes every reopened row, as the classic page's reload did.
+  const [seen, setSeen] = useState(o);
+  if (seen !== o) {
+    setSeen(o);
+    setReopened({});
+  }
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [toastMsg, setToastMsg] = useState({ t: '', n: 0 });
@@ -341,7 +347,7 @@ function Loaded({ search, o }: { search: ReturnType<typeof ogSearch>; o: OgOverv
                 type="button"
                 className="h-btn h-btn--primary h-btn--sm"
                 id="og-all"
-                onClick={() => void approve(todo.map((r) => ({ key: r.key, fundId: chosen(r) })).filter((x) => x.fundId))}
+                onClick={() => void approve(o.rows.filter((r) => !r.review || reopened[r.key]).map((r) => ({ key: r.key, fundId: chosen(r) })).filter((x) => x.fundId))}
               >
                 Approve all {todo.length}
               </button>

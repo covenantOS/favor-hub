@@ -76,10 +76,10 @@ export function Signature({ prefill = '', handle }: { prefill?: string; handle: 
   return (
     <>
       <div className="exp-sig-tabs">
-        <button type="button" data-m="type" className={mode === 'type' ? 'on' : ''} onClick={() => setMode('type')}>
+        <button type="button" data-m="type" className={mode === 'type' ? 'on' : undefined} onClick={() => setMode('type')}>
           Type
         </button>
-        <button type="button" data-m="draw" className={mode === 'draw' ? 'on' : ''} onClick={() => setMode('draw')}>
+        <button type="button" data-m="draw" className={mode === 'draw' ? 'on' : undefined} onClick={() => setMode('draw')}>
           Draw
         </button>
       </div>

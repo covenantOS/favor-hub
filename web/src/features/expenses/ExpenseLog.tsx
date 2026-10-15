@@ -26,9 +26,11 @@ function LogBody() {
   if (data?.state === 'none') return null;
   return (
     <>
-      <h2 className="exp-mine__h exp-logh" id="exp-logh">
-        The expense log
-      </h2>
+      {data?.state !== 'locked' ? (
+        <h2 className="exp-mine__h exp-logh" id="exp-logh">
+          The expense log
+        </h2>
+      ) : null}
       {!data || data.state === 'signin' ? <div className="h-card h-skel" id="exp-skel" aria-hidden="true" style={{ minHeight: 420 }} /> : null}
       {data?.state === 'locked' ? <CodeForm /> : null}
       {data?.state === 'ok' ? <Admin data={data} /> : null}
@@ -123,7 +125,7 @@ function Admin({ data }: { data: Ok }) {
           <SheetsButton name="expenses" />
         </div>
         <div id="exp-log">
-          <LogTable rows={shown} none={rows.length ? 'No requests match.' : 'No expense requests yet.'} />
+          <LogTable key={filter.status + '|' + filter.q} rows={shown} none={rows.length ? 'No requests match.' : 'No expense requests yet.'} />
         </div>
       </div>
       <Settings data={data} />
