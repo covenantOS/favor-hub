@@ -90,3 +90,44 @@ describe('the words', () => {
     assert.match(w.FavorUI.term('soft'), /data-term="Someone else/);
   });
 });
+
+describe('household members', () => {
+  it('each member keeps their own figure and the household counts a shared gift once', async () => {
+    const P = await import('../functions/_lib/gifts/partner-giving.ts');
+    const rows = [
+      gift('a', 100, '2026-01-01', '900', [sc('1', 100), sc('2', 100)]),
+      gift('b', 40, '2025-05-01', '1'),
+      gift('c', 60, '2025-06-01', '2'),
+      gift('d', 25, '2025-07-01', '1', [sc('900', 25)]),
+    ];
+    const hh = G.givingOf(rows, new Set(['1', '2']), names, '2026-10-14');
+    const one = G.givingOf(rows, new Set(['1']), names, '2026-10-14');
+    const two = G.givingOf(rows, new Set(['2']), names, '2026-10-14');
+    assert.equal(hh.total, 200);
+    assert.equal(one.total, 140);
+    assert.equal(two.total, 160);
+    assert.equal(one.total + two.total - hh.total, 100, 'the gift credited to both counts once in the household');
+    assert.equal(hh.passedOn.count, 1, 'a gift passed on to another partner never counts for the household');
+    assert.ok(typeof P.partnerGiving === 'function');
+  });
+
+  it('partnerGiving adds byMember for a couple and leaves it off for a single record', async () => {
+    const P = await import('../functions/_lib/gifts/partner-giving.ts');
+    const gifts = [
+      { id: 'a', amount: 100, date: '2026-01-01', type: 'Donation', giver: '900', soft: JSON.stringify([sc('1', 100), sc('2', 100)]) },
+      { id: 'b', amount: 40, date: '2025-05-01', type: 'Donation', giver: '1', soft: null },
+    ];
+    const people = { 1: { id: '1', sid: '2', name: 'Ann Test' }, 2: { id: '2', sid: '1', name: 'Bo Test' }, 3: { id: '3', sid: null, name: 'Cy Test' }, 900: { id: '900', sid: null, name: 'NCF' } };
+    const q = async (sql, params = []) => {
+      if (/FROM constituents WHERE id = \?1/.test(sql) && /spouse_id AS sid/.test(sql) && !/IN/.test(sql)) return [people[params[0]]].filter(Boolean);
+      if (/FROM constituents WHERE id IN/.test(sql) && /OR spouse_id IN/.test(sql)) return Object.values(people).filter((p) => params.includes(p.id) || params.includes(p.sid));
+      if (/FROM gifts/.test(sql)) return gifts.map((g) => ({ ...g, soft: g.soft }));
+      return [];
+    };
+    const two = await P.partnerGiving(q, '1', '2026-10-14');
+    assert.equal(two.total, 140);
+    assert.deepEqual(two.byMember.map((b) => [b.id, b.giving.total]), [['1', 140], ['2', 100]]);
+    const solo = await P.partnerGiving(q, '3', '2026-10-14');
+    assert.equal(solo.byMember, undefined);
+  });
+});

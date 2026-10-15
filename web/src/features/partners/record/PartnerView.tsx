@@ -1,6 +1,7 @@
 // One partner, one view everywhere (port of public/js/partner.js): the slide-over drawer (mode 'drawer'), the full page (mode 'full') and
 // the compact copy beside the Work Center's edit panel (mode 'compact'). Reads /api/work/partners/:id (the D1 copy of Blackbaud) and the
 // partner's notes. Writes go through /api/work/batches like the Work Center: saved, sent to Blackbaud, checked, and undone from the toast.
+import { HouseholdGiving } from './Household';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Boundary } from './Boundary';
@@ -475,6 +476,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
         {composer}
         {holderStory}
         <Giving p={p} />
+        <HouseholdGiving p={p} />
         <div className="pp-cols">
           <div className="pp-colmain">
             <Comm id={p.id} canFlag={p.canEdit !== false} />
@@ -500,6 +502,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
       {composer}
       {holderStory}
       <Giving p={p} />
+      <HouseholdGiving p={p} />
       <Comm id={p.id} canFlag={p.canEdit !== false} />
       <Due c={ctx} tasks={tasks} />
       <NotesSection c={ctx} list={notes} />

@@ -27,6 +27,20 @@ const ACTION_COLUMNS = `a.id AS id, substr(a.action_date_due, 1, 10) AS due, sub
        json_extract(a.raw_json, '$.outcome') AS outcome, json_extract(a.raw_json, '$.fundraisers') AS frs,
        json_extract(a.raw_json, '$.completed') AS completed`;
 
+export interface PartnerMemberGiving {
+  id: string;
+  name: string;
+  relation: string;
+  total: number;
+  count: number;
+  ytd: number;
+  last12: number;
+  first: string;
+  lastDate: string;
+  lastAmount: number;
+  years: { year: string; total: number }[];
+}
+
 export interface PartnerGift {
   id: string;
   amount: number;
@@ -101,6 +115,10 @@ export interface PartnerView {
     /** Gifts this record sent for other partners (a DAF or foundation). */
     passedOn: { total: number; count: number; partners: number; line: string };
     household: { id: string; name: string; relation: string }[];
+    /** Two or more records in the household: each member's own credited giving, and what was counted once between them. */
+    members: PartnerMemberGiving[];
+    /** Member totals added up, less the household total: gifts that credit both spouses and count once. */
+    sharedOnce: number;
   };
   recurring: {
     id: string;
@@ -393,6 +411,22 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     else if (c.giver !== id) out.by = memberName.get(c.giver) || '';
     return out;
   };
+  const memberRows: PartnerMemberGiving[] = (pg?.byMember || []).map((b) => {
+    const m = pg!.members.find((x) => x.id === b.id)!;
+    return {
+      id: b.id,
+      name: m.name,
+      relation: m.relation === 'self' ? 'This partner' : 'Spouse',
+      total: b.giving.total,
+      count: b.giving.count,
+      ytd: b.giving.ytd,
+      last12: b.giving.last12,
+      first: b.giving.first || '',
+      lastDate: b.giving.last?.date || '',
+      lastAmount: b.giving.last?.amount || 0,
+      years: b.giving.years.slice(0, 30).map((y) => ({ year: y.year, total: y.total })),
+    };
+  });
   const softGifts = softList.map(shown);
   const softTotal = (pg?.through || []).reduce((t, x) => t + x.total, 0);
   const softCount = (pg?.through || []).reduce((t, x) => t + x.count, 0);
@@ -519,6 +553,8 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
       major: !!pg?.major,
       passedOn: { ...(pg?.passedOn || { total: 0, count: 0, partners: 0 }), line: pg ? passedOnLine(pg) : '' },
       household: (pg?.members || []).map((m) => ({ id: m.id, name: m.name, relation: m.relation === 'self' ? 'This partner' : 'Spouse' })),
+      members: memberRows,
+      sharedOnce: memberRows.length ? Math.round((memberRows.reduce((t, m) => t + m.total, 0) - (pg?.total || 0)) * 100) / 100 : 0,
     },
     recurring: recurringRows.map((r: any) => {
       const sch = schedBy.get(String(r.id));
