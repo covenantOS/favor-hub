@@ -48,7 +48,7 @@ if (has('--train')) {
   const dirty = execSync('git status --porcelain --untracked-files=no', { encoding: 'utf8' }).split('\n').filter((l) => l && !/routeTree\.gen\.ts$/.test(l));
   if (dirty.length) { console.error('FAIL train: commit first:\n' + dirty.join('\n')); process.exit(1); }
   try { execSync('git checkout -- app/src/routeTree.gen.ts web/src/routeTree.gen.ts', { stdio: 'ignore' }); } catch { /* clean */ }
-  try { execSync('git fetch -q origin && git rebase -q origin/main', { stdio: 'inherit' }); } catch { console.error('FAIL train: the branch does not rebase onto origin/main; resolve and try again'); process.exit(1); }
+  try { execSync('git fetch -q origin && git rebase --autostash -q origin/main', { stdio: 'inherit' }); } catch { console.error('FAIL train: the branch does not rebase onto origin/main; resolve and try again'); process.exit(1); }
   const pi = args.indexOf('--priority');
   const id = `${new Date().toISOString().replace(/[:.]/g, '-')}-${branch.replace(/[^\w.-]/g, '_')}`;
   // The checks come back to their plain /path even when Git Bash rewrote them.
@@ -94,7 +94,7 @@ step('clean tree', () => {
   if (dirty.length) throw new Error('commit first:\n' + dirty.join('\n'));
   sh('git checkout -- app/src/routeTree.gen.ts web/src/routeTree.gen.ts');
 });
-step('fetch and rebase', () => sh('git fetch -q origin && git rebase origin/main'));
+step('fetch and rebase', () => sh('git fetch -q origin && git rebase --autostash origin/main'));
 step('no conflict markers', () => {
   const out = sh('git grep -nE "^(<<<<<<<|>>>>>>>) " -- functions src public app web shared tests || true', { capture: true });
   if (out.trim()) throw new Error(out);
@@ -160,7 +160,7 @@ step('push', () => {
     if (behind !== '0') {
       // The builds rewrite the generated route trees; they are written again after the rebase.
       sh('git checkout -- app/src/routeTree.gen.ts web/src/routeTree.gen.ts');
-      sh('git rebase origin/main');
+      sh('git rebase --autostash origin/main');
       sh('npm install --no-audit --no-fund && npm --prefix web install --no-audit --no-fund');
       if (!has('--no-pages')) { sh('npm run build'); if (!existsSync('dist/images/favor-icon.png')) throw new Error('dist is incomplete'); }
       sh('npm --prefix web run build');
