@@ -8,6 +8,7 @@ import type { HubUser } from '@shared/schemas';
 import { buildNav } from '@/shell/model';
 import { Rail } from '@/shell/Rail';
 import { TopBar } from '@/shell/TopBar';
+import { TopWait } from './TopWait';
 import { PhoneBar } from '@/shell/PhoneBar';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { ServedRoutes } from '@/shell/NavLink';
@@ -198,15 +199,7 @@ export function WebShell({ children }: { children: ReactNode }) {
         <div className="h-scrim" id="h-scrim" aria-hidden="true" onClick={() => { rail.setPeek(false); rail.closeNav(); }} />
         <div className="h-main">
           <ErrorBoundary label="The top bar could not load." className="h-top">
-            <Suspense
-              fallback={
-                <header className="h-top h-top--wait">
-                  <div className="h-top__head">
-                    <div className="h-top__title">{title}</div>
-                  </div>
-                </header>
-              }
-            >
+            <Suspense fallback={<TopWait navId={navId} title={title} />}>
               <TopPart rail={rail} onSignOut={signOut} />
             </Suspense>
           </ErrorBoundary>

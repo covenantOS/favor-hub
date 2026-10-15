@@ -1,6 +1,6 @@
 // What the menu shows for one person, worked out from the registry (src/data/areas.ts) and the answer from /api/hub/nav.
 // Pure functions, so the rules the classic menu kept in DOM code (hubNavLayout in src/layouts/App.astro) have tests here.
-import { AREAS, resolveNav, type NavArea, type NavPage } from '@hub/data/areas';
+import { AREAS, TAB_CAP, resolveNav, type NavArea, type NavPage } from '@hub/data/areas';
 import type { Access } from '@shared/schemas';
 
 export interface NavInput {
@@ -98,3 +98,28 @@ export const railCount = (n: number) => n.toLocaleString('en-US');
 export function pageOf(navId: string) {
   return resolveNav(navId);
 }
+
+/**
+ * Whether this page's tab row is certain to be drawn, known before the menu answer arrives. The web app streams the top bar's frame
+ * first and the tab row with the menu answer; on a phone the row is a second line, so the frame holds its space when the row will come.
+ * The row is certain when the area has another menu page that anyone who may open this page may open too (same `need`, no KPI team),
+ * so the row never ends up with fewer than two tabs. When it is not certain the frame holds nothing, the same as before.
+ */
+const sharedPages = (navId: string) => {
+  const found = resolveNav(navId);
+  if (!found) return [];
+  const { area, page } = found;
+  if (page.menu === false || page.ext || page.team) return [];
+  return area.pages.filter((p) => !p.ext && p.menu !== false && !p.team && (p.need || '') === (page.need || ''));
+};
+
+export const tabRowHeld = (navId: string): boolean => sharedPages(navId).length >= 2;
+
+/** How many children the held row has: the area's tabs (six at most) and the More button, which the real row always draws (hidden when
+ * nothing is under it). The header lays out differently once the row has seven children, so the held row has the count most people
+ * of this area get. Someone who may open fewer pages sees the other layout, three pixels different on a mid-width desktop, no more. */
+export const tabRowCount = (navId: string): number => {
+  const found = resolveNav(navId);
+  const n = found ? found.area.pages.filter((p) => !p.ext && p.menu !== false && !p.team).length : 0;
+  return Math.min(n, TAB_CAP) + 1;
+};

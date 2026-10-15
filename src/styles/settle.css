@@ -25,3 +25,10 @@
 .has-gate #pp-headsearch[hidden] { display: block; }
 .has-gate .h-top__search { display: none; }
 @media (max-width: 860px) { .has-gate .h-top .h-top__crumb, .has-gate .h-top .h-top__title { display: none; } }
+
+/* The web app's top bar before the menu answer holds the tab row's space (a phone puts the row on its own line) and shows nothing in it.
+   The right-hand cluster is held as tall as the buttons that fill it. */
+.h-tabs--wait { visibility: hidden; pointer-events: none; }
+.h-top__hold { display: block; width: 240px; height: 54px; }
+@media (max-width: 860px) { .h-top__hold { width: 180px; height: 44px; } }
+@media (min-width: 861px) { body.h-body .h-top.h-top--wait:has(.h-tabs--wait) { padding-bottom: 0; } }
