@@ -26,6 +26,9 @@ interface Form {
   appealName: string;
   refText: string;
   memo: string;
+  tributeKind: '' | 'honor' | 'memorial';
+  tributeName: string;
+  tributeNotify: string;
   file: File | null;
 }
 
@@ -51,6 +54,9 @@ const empty = (kind: OgKindId, today: string, defaultFund: string, funds: OgInde
   appealName: '',
   refText: '',
   memo: '',
+  tributeKind: '',
+  tributeName: '',
+  tributeNotify: '',
   file: null,
 });
 
@@ -68,6 +74,9 @@ const fromGift = (g: OgGift): Form => ({
   appealName: g.appealName,
   refText: g.refText,
   memo: g.memo,
+  tributeKind: g.tributeKind === 'honor' || g.tributeKind === 'memorial' ? g.tributeKind : '',
+  tributeName: g.tributeName,
+  tributeNotify: g.tributeNotify,
   file: null,
 });
 
@@ -136,6 +145,9 @@ export function AddGift({
     appeal_name: f.appealName || null,
     ref_text: f.refText.trim() || null,
     memo: f.memo.trim() || null,
+    tribute_kind: f.tributeKind || null,
+    tribute_name: f.tributeKind ? f.tributeName.trim() || null : null,
+    tribute_notify: f.tributeKind ? f.tributeNotify.trim() || null : null,
   });
 
   const missing = (): string => {
@@ -146,6 +158,7 @@ export function AddGift({
     if (!f.appealId) return 'Pick the appeal.';
     if (copy.namedRequired && !f.fundNamed.trim()) return 'Enter the giving fund named on the notice.';
     if (copy.refRequired && !f.refText.trim()) return 'Enter the ticker and the number of shares.';
+    if (f.tributeKind && !f.tributeName.trim()) return 'Enter who the tribute is for.';
     if (kindInfo?.needsSoft && !f.soft && !f.noSoft) return 'Name who recommended this gift, or choose No partner named.';
     return '';
   };
@@ -265,6 +278,27 @@ export function AddGift({
         <label htmlFor="og-memo">Memo (optional)</label>
         <input id="og-memo" className="og-input" value={f.memo} onChange={(e) => set({ memo: e.target.value })} />
       </div>
+
+      <div className="og-field">
+        <label htmlFor="og-tribute">Tribute (optional)</label>
+        <select id="og-tribute" className="og-input" value={f.tributeKind} onChange={(e) => set({ tributeKind: e.target.value as Form['tributeKind'] })}>
+          <option value="">Not a tribute gift</option>
+          <option value="honor">In honor of</option>
+          <option value="memorial">In memory of</option>
+        </select>
+      </div>
+      {f.tributeKind ? (
+        <>
+          <div className="og-field">
+            <label htmlFor="og-tribute-name">{f.tributeKind === 'honor' ? 'In honor of' : 'In memory of'}</label>
+            <input id="og-tribute-name" className="og-input" value={f.tributeName} onChange={(e) => set({ tributeName: e.target.value })} />
+          </div>
+          <div className="og-field">
+            <label htmlFor="og-tribute-notify">Who to notify (optional)</label>
+            <input id="og-tribute-notify" className="og-input" value={f.tributeNotify} onChange={(e) => set({ tributeNotify: e.target.value })} placeholder="Name and address or email" />
+          </div>
+        </>
+      ) : null}
 
       <div className="og-field">
         <label htmlFor="og-file">{kindInfo?.needsLetter ? 'Letter or notice' : 'Letter or notice (optional)'}</label>
