@@ -12,6 +12,9 @@ import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 
+// A plain wait with no child process (a background Git Bash cannot always find `node` on its PATH).
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
 const Q = 'Q:/work/favor-hub/train-queue';
 const DONE = Q + '/done';
 const LOCK = 'Q:/work/favor-hub/ship.lock';
@@ -31,10 +34,22 @@ const trySh = (cmd) => {
 };
 
 function queued() {
-  return readdirSync(Q)
+  const all = readdirSync(Q)
     .filter((f) => f.endsWith('.json'))
-    .map((f) => ({ file: Q + '/' + f, ...JSON.parse(readFileSync(Q + '/' + f, 'utf8')) }))
-    .sort((a, b) => (a.priority ?? 50) - (b.priority ?? 50) || String(a.at).localeCompare(String(b.at)));
+    .map((f) => ({ file: Q + '/' + f, ...JSON.parse(readFileSync(Q + '/' + f, 'utf8')) }));
+  // One entry per branch: the newest wins (it may carry new commits or checks); older ones are closed as superseded, pointing at it,
+  // so a waiter on an old entry follows the new one. The batch keeps the best priority any of them asked for.
+  const newest = new Map();
+  for (const e of all) { const n = newest.get(e.branch); if (!n || String(e.at) > String(n.at)) newest.set(e.branch, e); }
+  for (const e of all) {
+    const n = newest.get(e.branch);
+    if (n !== e) {
+      n.priority = Math.min(n.priority ?? 50, e.priority ?? 50);
+      n.checks = [...new Set([...(n.checks || []), ...(e.checks || [])])];
+      finish(e, { state: 'superseded', supersededBy: n.id, reason: 'a newer entry for the same branch replaced this one' });
+    }
+  }
+  return [...newest.values()].sort((a, b) => (a.priority ?? 50) - (b.priority ?? 50) || String(a.at).localeCompare(String(b.at)));
 }
 
 function finish(entry, result) {
@@ -53,7 +68,7 @@ function takeLock() {
     }
     if (free) break;
     if (waited % 120 === 0) log('waiting for the ship lock: ' + readFileSync(LOCK, 'utf8'));
-    execSync('node -e "setTimeout(()=>{},15000)"');
+    pause(15000);
   }
   writeFileSync(LOCK, `${process.pid} ${process.cwd()} train ${new Date().toISOString()}`);
 }
@@ -144,7 +159,7 @@ function solve(base, cands) {
 function liveChecks(entries) {
   const checks = entries.flatMap((e) => e.checks || []);
   if (!checks.length) return '';
-  execSync('node -e "setTimeout(()=>{},45000)"');
+  pause(45000);
   const key = readFileSync(homedir() + '/.claude/secrets/favor-hub-agent-key.txt', 'utf8').split('\n')[0].trim();
   const r = (() => {
     try { return { ok: true, out: execSync('node scripts/live-front.mjs', { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CHECKS: checks.join(' ') } }) }; } catch (e) { return { ok: false, out: String(e.stdout || '') }; }
@@ -179,7 +194,7 @@ function runBatch() {
     for (let i = 0; meetingLive(); i++) {
       if (i === 0) log('a real person is in a meeting; waiting');
       if (i > 60) { for (const e of good) finish(e, { state: 'rejected', reason: 'a meeting ran for over an hour; queue again' }); return true; }
-      execSync('node -e "setTimeout(()=>{},60000)"');
+      pause(60000);
     }
     // Others may have pushed by hand meanwhile: merge their commits in and rebuild before pushing.
     sh('git fetch -q origin');
@@ -209,5 +224,5 @@ for (;;) {
     log('runner error', String(e.message || e).slice(0, 600));
   }
   if (once) break;
-  if (!worked) execSync('node -e "setTimeout(()=>{},20000)"');
+  if (!worked) pause(20000);
 }

@@ -9,6 +9,9 @@ import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 
+// A plain wait with no child process (a background Git Bash cannot always find `node` on its PATH).
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const checks = args.flatMap((a, i) => (a === '--check' ? [args[i + 1]] : []));
@@ -32,6 +35,12 @@ const step = (name, fn) => {
 // queued branch onto main, runs the gates once, deploys once, and finds and rejects a branch that breaks the batch. This waits for
 // the result and exits 0 when the branch shipped, 1 when it was rejected (the reason is printed). --priority N puts it earlier
 // (default 50; production fixes use 0 to 10).
+if (has('--result')) {
+  const want = args[args.indexOf('--result') + 1];
+  const f = `Q:/work/favor-hub/train-queue/done/${want}.json`;
+  console.log(existsSync(f) ? readFileSync(f, 'utf8') : `no result yet for ${want} (still queued or running)`);
+  process.exit(0);
+}
 if (has('--train')) {
   const QDIR = 'Q:/work/favor-hub/train-queue';
   const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
@@ -47,14 +56,16 @@ if (has('--train')) {
   mkdirSync(QDIR + '/done', { recursive: true });
   writeFileSync(`${QDIR}/${id}.json`, JSON.stringify({ id, branch, checks: checks.map(fix), priority: pi >= 0 ? Number(args[pi + 1]) : 50, by: process.cwd(), at: new Date().toISOString() }, null, 1));
   console.log(`queued ${branch} as ${id}; waiting for the merge train`);
-  for (;;) {
-    const f = `${QDIR}/done/${id}.json`;
+  // The result stays in done/<id>.json, so it can be read later even if this wait is stopped: node scripts/ship-hub.mjs --result <id>.
+  for (let want = id; ;) {
+    const f = `${QDIR}/done/${want}.json`;
     if (existsSync(f)) {
       const r = JSON.parse(readFileSync(f, 'utf8'));
+      if (r.state === 'superseded' && r.supersededBy) { console.log(`${want} was replaced by ${r.supersededBy}; following it`); want = r.supersededBy; continue; }
       console.log(r.state === 'shipped' ? `shipped ${r.commit}\n${r.live || ''}` : `REJECTED: ${r.reason}`);
       process.exit(r.state === 'shipped' ? 0 : 1);
     }
-    execSync('node -e "setTimeout(()=>{},15000)"');
+    pause(15000);
   }
 }
 
@@ -70,7 +81,7 @@ for (let waited = 0; ; waited += 15) {
   if (!alive) break;
   if (waited === 0) console.log('waiting for another ship: ' + readFileSync(LOCK, 'utf8'));
   if (waited > 45 * 60) { console.error('FAIL lock: another ship has held it for 45 minutes'); process.exit(1); }
-  execSync('node -e "setTimeout(()=>{},15000)"');
+  pause(15000);
 }
 writeFileSync(LOCK, `${process.pid} ${process.cwd()} ${new Date().toISOString()}`);
 process.on('exit', () => { try { if (readFileSync(LOCK, 'utf8').startsWith(String(process.pid) + ' ')) unlinkSync(LOCK); } catch { /* gone */ } });
@@ -164,7 +175,7 @@ if (!has('--no-pages')) step('deploy pages', () => sh('npx wrangler pages deploy
 if (checks.length) {
   const key = readFileSync(homedir() + '/.claude/secrets/favor-hub-agent-key.txt', 'utf8').split('\n')[0].trim();
   step('live check', () => {
-    execSync('node -e "setTimeout(()=>{},45000)"');
+    pause(45000);
     return execSync('node scripts/live-front.mjs', { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CHECKS: checks.join(' ') } });
   });
 }
