@@ -398,7 +398,7 @@ function LogDialog({ data: d, today, start, onClose, onSubmit }: { data: GrantsA
               <span className="wc-note">Pick the foundation first.</span>
             )}
           </div>
-          <PartnerFind autoFocus placeholder="Find the foundation: name, email, phone or lookup id" onPick={(h) => { setCid(h.cid); setName(h.name); }} />
+          <PartnerFind placeholder="Find the foundation: name, email, phone or lookup id" onPick={(h) => { setCid(h.cid); setName(h.name); }} />
         </div>
         <div className="wc-field">
           <span className="lab">What</span>

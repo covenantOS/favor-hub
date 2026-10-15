@@ -171,9 +171,18 @@ export function DataTable<T>(p: DataTableProps<T>) {
   };
   const onKey = (e: KeyboardEvent<HTMLTableRowElement>, row: T, id: string) => {
     if (e.target !== e.currentTarget) return;
-    if (e.key === 'Enter' && p.onOpen) {
-      e.preventDefault();
-      p.onOpen(row);
+    if (e.key === 'Enter') {
+      // With no onOpen the row presses its own open control, or its first link (public/js/ptable.js).
+      if (p.onOpen) {
+        e.preventDefault();
+        p.onOpen(row);
+      } else {
+        const o = e.currentTarget.querySelector<HTMLElement>('[data-pt-open]') || e.currentTarget.querySelector<HTMLElement>('a[href]');
+        if (o) {
+          e.preventDefault();
+          o.click();
+        }
+      }
     } else if ((e.key === 'x' || e.key === ' ') && p.select) {
       e.preventDefault();
       if (p.select.disabled?.(id)) return;
@@ -374,7 +383,7 @@ export function DensitySwitch() {
 }
 
 /** The Columns menu. */
-/** showFixed: also list the always-on columns, ticked and greyed (what ptable.js colsHTML draws on the Work Center list tabs). */
+/** showFixed: the Work Center list tabs' menu (ptable.js colsHTML): it also lists the always-on columns, ticked and greyed, and it closes when a choice is made (the classic list redraws). */
 export function ColumnsMenu<T>({ columns, hidden, onChange, showFixed }: { columns: Column<T>[]; hidden: ReadonlySet<string>; onChange: (s: Set<string> | null) => void; showFixed?: boolean }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDetailsElement>(null);
@@ -409,12 +418,16 @@ export function ColumnsMenu<T>({ columns, hidden, onChange, showFixed }: { colum
                   if (e.target.checked) s.delete(c.key);
                   else s.add(c.key);
                   onChange(s);
+                  if (showFixed) setOpen(false);
                 }}
               />
               {c.label}
             </label>
           ))}
-        <button type="button" className="pt-cols__reset" onClick={() => onChange(null)}>
+        <button type="button" className="pt-cols__reset" onClick={() => {
+          onChange(null);
+          if (showFixed) setOpen(false);
+        }}>
           Show the usual columns
         </button>
       </div>
@@ -437,7 +450,7 @@ export function useListKeys(listKey: string, opts: { search?: string } = {}) {
       }
       // An open dialog or side panel takes the keys (the search palette stays in the page while closed, so only a visible one counts).
       // A closed side panel stays in the page, parked off screen with aria-hidden, and must not count.
-      const open = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"], .pt-side.is-on')).some((d) => d.getAttribute('aria-hidden') !== 'true' && d.getClientRects().length > 0 && getComputedStyle(d).visibility !== 'hidden');
+      const open = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"], .pt-side.is-on, .wc-dlg.is-on, .wc-drawer.is-on')).some((d) => d.getAttribute('aria-hidden') !== 'true' && d.getClientRects().length > 0 && getComputedStyle(d).visibility !== 'hidden');
       if (open) return;
       const list = document.querySelector(`[data-pt-list="${CSS.escape(listKey)}"]`);
       if (!list || !(list as HTMLElement).offsetParent) return;

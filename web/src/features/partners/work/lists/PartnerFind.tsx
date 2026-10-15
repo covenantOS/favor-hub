@@ -12,19 +12,43 @@ export interface PartnerHit {
   deceased?: boolean;
 }
 
+// The last eight partners opened in this browser (localStorage, written by the partner page and drawer), shown when the box is focused.
+const RECENT_KEY = 'favor.hub.recent.v1';
+function recent(): PartnerHit[] {
+  try {
+    const a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    return Array.isArray(a) ? a.filter((x) => x && x.cid).slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function PartnerFind({ placeholder, onPick, autoFocus }: { placeholder: string; onPick: (h: PartnerHit) => void; autoFocus?: boolean }) {
   const [text, setText] = useState('');
   const [hits, setHits] = useState<PartnerHit[]>([]);
   const [hi, setHi] = useState(-1);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState('');
+  const [head, setHead] = useState('');
   const seq = useRef(0);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = text.trim();
     if (t.length < 2) {
-      setOpen(false);
+      // A short text shows the recent partners while the box has the focus (the list is empty until then).
+      seq.current++;
+      const r = recent();
+      if (r.length && box.current?.contains(document.activeElement)) {
+        setHits(r);
+        setHi(-1);
+        setErr('');
+        setHead('Recent partners');
+        setOpen(true);
+      } else {
+        setHead('');
+        setOpen(false);
+      }
       return;
     }
     const mine = ++seq.current;
@@ -34,6 +58,7 @@ export function PartnerFind({ placeholder, onPick, autoFocus }: { placeholder: s
         if (mine !== seq.current) return;
         setHits(d.rows || []);
         setHi(d.rows && d.rows.length ? 0 : -1);
+        setHead('');
         setErr('');
         setOpen(true);
       } catch (e) {
@@ -68,6 +93,20 @@ export function PartnerFind({ placeholder, onPick, autoFocus }: { placeholder: s
           autoFocus={autoFocus}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => {
+            if (text.trim().length >= 2) return;
+            const r = recent();
+            if (!r.length) {
+              setOpen(false);
+              return;
+            }
+            seq.current++;
+            setHits(r);
+            setHi(-1);
+            setErr('');
+            setHead('Recent partners');
+            setOpen(true);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown' && hits.length) {
               e.preventDefault();
@@ -83,6 +122,11 @@ export function PartnerFind({ placeholder, onPick, autoFocus }: { placeholder: s
         />
       </label>
       <ul className="pv-find__list" role="listbox" hidden={!open}>
+        {head ? (
+          <li className="pv-find__head" role="presentation">
+            {head}
+          </li>
+        ) : null}
         {err ? (
           <li className="is-none">{err}</li>
         ) : hits.length ? (
@@ -90,6 +134,7 @@ export function PartnerFind({ placeholder, onPick, autoFocus }: { placeholder: s
             <li key={h.cid} role="option" aria-selected={i === hi} className={i === hi ? 'is-hi' : ''}>
               <a
                 href={'/work/partner/' + h.cid}
+                data-i={i}
                 onClick={(e) => {
                   e.preventDefault();
                   pick(h);
