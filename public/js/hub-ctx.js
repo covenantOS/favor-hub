@@ -156,7 +156,7 @@
   // Links in the menu rail, the tab row and the phone bar: open, open in a new tab, copy the link, pin.
   add('.h-side a.h-area__link, .h-side a.h-pg__a, #h-tabs a.h-tab, #h-bar a.h-bar__a', function (a) {
     var href = a.href, name = linkName(a);
-    if (!href || a.closest('.h-area--pop') && a.classList.contains('h-area__link') && a.closest('.h-area--more')) return null;
+    if (!href) return null;
     var rows = [
       { label: 'Open ' + name, icon: 'open', run: function () { a.click(); } },
       { label: 'Open in a new tab', icon: 'tab', run: function () { window.open(href, '_blank', 'noopener'); } },

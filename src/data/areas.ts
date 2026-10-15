@@ -5,9 +5,9 @@
 // `need` is an access flag from /api/hub/nav (admin, kpi, expenseLog, workCenter, clips, meetings).
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
-// `jobs` says whose daily work a page or an area is (the jobs /api/hub/nav returns for the signed-in person). An area with
-// jobs sits in the rail for those people and under More for everyone else; a page with jobs comes first in the tab row for
-// those people and sits in the row's More menu for everyone else. Nothing is locked by a job: `need` alone decides access.
+// `jobs` says whose daily work a page is (the jobs /api/hub/nav returns for the signed-in person). A page with jobs comes first in
+// the tab row for those people and sits in the row's More menu for everyone else. Nothing is locked by a job: `need` alone decides access.
+// The rail has no More menu (Will, 2026-10-15): every area a person can open sits in the rail, in barRank order.
 
 export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'moves' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
 
@@ -83,8 +83,6 @@ export interface NavArea {
   beta?: boolean;
   /** Tools pop out of the rail as a small menu. */
   pop?: boolean;
-  /** Whose daily work the area is. Without it the area is in everyone's rail. */
-  jobs?: Job[];
   pages: NavPage[];
 }
 
@@ -108,7 +106,6 @@ export const AREAS: NavArea[] = [
     icon: 'users',
     key: 'p',
     barRank: 2,
-    jobs: PARTNER_JOBS,
     pages: [
       { id: 'work', label: 'Actions', href: '/work/', desc: 'Open actions on your partners: finish many together, thank gifts, enter the week', keywords: 'work center actions bulk select complete thank you entry tracking stale reassign reschedule support partner partners', need: 'workCenter', count: 'workOpen', learn: 'work-center', swap: true, jobs: PARTNER_JOBS, was: 'Work > Work Center' },
       { id: 'partners-all', label: 'All partners', href: '/partners/', desc: 'Every partner record in Blackbaud, givers or not: search, filter, sort, save a view and export', keywords: 'all partners directory every partner record constituent search find crm lookup id email phone address individual household organization church foundation lybunt lapsed tags star saved view export duplicates merge', need: 'workCenter', learn: 'work-center', swap: true, jobs: PARTNER_JOBS },
@@ -131,7 +128,6 @@ export const AREAS: NavArea[] = [
     icon: 'gift',
     key: 'g',
     barRank: 3,
-    jobs: GIFT_JOBS,
     pages: [
       { id: 'gifts-home', label: 'Overview', href: '/gifts/', desc: 'The gift day on one screen: the mail, online gifts, review, Blackbaud, receipts and thank-you letters', keywords: 'gifts overview gift day deposits mail online review blackbaud receipts letters chart month', need: 'giftEntry', learn: 'gift-entry', swap: true, jobs: GIFT_JOBS },
       { id: 'gift-entry', label: 'Gift entry', href: '/gift-entry/', desc: 'Photograph checks and reply slips, review each gift, approve, and send the batch to Blackbaud', keywords: 'gift entry check checks photo photograph reply slip deposit tape batch approve mail day white mail', need: 'giftEntry', learn: 'gift-entry', jobs: ['giftdesk', 'support'], was: 'Work > Gift entry', swap: true },
@@ -156,46 +152,12 @@ export const AREAS: NavArea[] = [
     ],
   },
   {
-    id: 'meet',
-    label: 'Meetings',
-    icon: 'video',
-    key: 'm',
-    barRank: 5,
-    pages: [
-      { id: 'meet', label: 'Calendar', href: '/meet/', desc: 'Start and join meetings', keywords: 'meeting meetings join start room video call', need: 'meetings', count: 'meetingsNow', learn: 'meetings', swap: true },
-      { id: 'meet-book', label: 'Book', href: '/meet/book/', desc: 'Book a meeting from everyone’s calendars', keywords: 'book meeting schedule calendar invite', need: 'meetings', learn: 'meetings', swap: true },
-      { id: 'meet-booking', label: 'Booking page', href: '/meet/booking/', desc: 'Your page where partners and staff book time with you', keywords: 'booking page book time with me calendly schedule partner appointment availability', need: 'meetings', learn: 'meetings', swap: true },
-      { id: 'meet-notes', label: 'Notes', href: '/meet/library/', desc: 'Notes, action items and transcripts from meetings', keywords: 'meeting notes transcript action items recording', need: 'meetings', learn: 'meetings', swap: true },
-      { id: 'clips', label: 'Clips', href: '/clips/', desc: 'Your recorded clips, searchable by what was said', keywords: 'clips clip loom screen record recording video walkthrough share link transcript', need: 'clips', learn: 'clips', swap: true },
-    ],
-  },
-  {
-    id: 'chat',
-    label: 'Chat',
-    icon: 'chat',
-    key: 'c',
-    barRank: 6,
-    pages: [
-      { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat', swap: true },
-    ],
-  },
-  {
-    id: 'mail',
-    label: 'Mail',
-    icon: 'mail',
-    key: 'e',
-    barRank: 7,
-    pages: [
-      { id: 'mail', label: 'Mail', href: '/mail/', desc: 'Your Gmail inside FavorOS: read, reply, archive, labels, drafts and search', keywords: 'mail email gmail inbox reply forward compose send draft archive label star snooze', need: 'mail', count: 'mailUnread', learn: 'mail' },
-    ],
-  },
-  {
     id: 'ask',
     label: 'Favor Brain',
     short: 'Brain',
     icon: 'brain',
     key: 'b',
-    barRank: 8,
+    barRank: 5,
     beta: true,
     pages: [
       { id: 'brain', label: 'Brain', href: '/brain/', desc: 'Ask about partners, giving, team numbers and the manuals', keywords: 'brain favor ask ai claude chatgpt question query beta chat', learn: 'ask-favor', swap: true },
@@ -208,7 +170,7 @@ export const AREAS: NavArea[] = [
     short: 'Reporting',
     icon: 'chart',
     key: 'k',
-    barRank: 9,
+    barRank: 6,
     pages: [
       { id: 'kpi', label: 'Executive', href: '/dashboard/', desc: "The year's numbers", keywords: 'kpi dashboard revenue goals executive year', need: 'kpi', kpiPage: '/', learn: 'kpi-dashboard' },
       { id: 'reporting', label: 'Highlights', href: '/highlights/', desc: 'Where each goal ends the year, the week in plain language for each team, and your pinned Favor Brain answers', keywords: 'highlights pace pacing projection year end goal weekly week summary my dashboard pinned pins brain explain', need: 'kpi', learn: 'reporting' },
@@ -229,10 +191,7 @@ export const AREAS: NavArea[] = [
     label: 'Staff',
     icon: 'badge',
     key: 's',
-    barRank: 10,
-    // Leadership, HR and expense approvers keep Staff in the rail; everyone else reaches Expenses, My learning and Evaluations from the
-    // account menu in the header, and Staff sits under More (Will, 2026-10-14 chrome cleanup).
-    jobs: ['exec', 'hr', 'approver'],
+    barRank: 7,
     pages: [
       { id: 'expenses', label: 'Expenses', href: '/expenses/', desc: 'Your expense requests with their status and signed PDFs, a new request, and for approvers the log and the schedule', keywords: 'expense expenses request requests log approver approve sign signed pdf schedule travel purchase reimbursement', count: 'expensesWaiting', learn: 'expense-request', swap: true, was: 'Work > Expenses and Admin > Expense log' },
       { id: 'expense', label: 'New expense request', href: '/expenses/new/', desc: 'Expense request, signed online', keywords: 'new expense request travel pre-travel approval signature purchase', learn: 'expense-request', swap: true, menu: false, parent: 'expenses', was: 'Work > Expenses' },
@@ -244,6 +203,40 @@ export const AREAS: NavArea[] = [
       { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn learning manage admin author build course path assign report overdue scores hr', need: 'learnAdmin', learn: 'learn', group: 'Learning', was: 'Learn > Manage', swap: true },
       // learn: end
       { id: 'onboarding', label: 'Onboarding', href: '/onboarding/', desc: 'Start a new hire or an exit: the checklist, who owns each step, and what FavorOS sets up', keywords: 'onboarding offboarding new hire start staff exit leaving checklist welcome orientation hr', need: 'hr', also: ['onboarding-run'], learn: 'onboarding', jobs: ['hr'], was: 'Admin > Onboarding', swap: true },
+    ],
+  },
+  {
+    id: 'meet',
+    label: 'Meetings',
+    icon: 'video',
+    key: 'm',
+    barRank: 8,
+    pages: [
+      { id: 'meet', label: 'Calendar', href: '/meet/', desc: 'Start and join meetings', keywords: 'meeting meetings join start room video call', need: 'meetings', count: 'meetingsNow', learn: 'meetings', swap: true },
+      { id: 'meet-book', label: 'Book', href: '/meet/book/', desc: 'Book a meeting from everyone’s calendars', keywords: 'book meeting schedule calendar invite', need: 'meetings', learn: 'meetings', swap: true },
+      { id: 'meet-booking', label: 'Booking page', href: '/meet/booking/', desc: 'Your page where partners and staff book time with you', keywords: 'booking page book time with me calendly schedule partner appointment availability', need: 'meetings', learn: 'meetings', swap: true },
+      { id: 'meet-notes', label: 'Notes', href: '/meet/library/', desc: 'Notes, action items and transcripts from meetings', keywords: 'meeting notes transcript action items recording', need: 'meetings', learn: 'meetings', swap: true },
+      { id: 'clips', label: 'Clips', href: '/clips/', desc: 'Your recorded clips, searchable by what was said', keywords: 'clips clip loom screen record recording video walkthrough share link transcript', need: 'clips', learn: 'clips', swap: true },
+    ],
+  },
+  {
+    id: 'chat',
+    label: 'Chat',
+    icon: 'chat',
+    key: 'c',
+    barRank: 9,
+    pages: [
+      { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat', swap: true },
+    ],
+  },
+  {
+    id: 'mail',
+    label: 'Mail',
+    icon: 'mail',
+    key: 'e',
+    barRank: 10,
+    pages: [
+      { id: 'mail', label: 'Mail', href: '/mail/', desc: 'Your Gmail inside FavorOS: read, reply, archive, labels, drafts and search', keywords: 'mail email gmail inbox reply forward compose send draft archive label star snooze', need: 'mail', count: 'mailUnread', learn: 'mail' },
     ],
   },
   {
@@ -326,10 +319,9 @@ export function arrangeTabs<T extends { jobs?: readonly string[]; on?: boolean }
   return { row, more, moreOn: more.some((t) => t.on) };
 }
 
-/** Areas in the rail for a person, and the areas under the rail's More. `mine` null shows every area in the rail. */
-export function railAreas(areas: NavArea[], mine: readonly string[] | null): { rail: NavArea[]; more: NavArea[] } {
-  const main = areas.filter((a) => !a.foot);
-  return { rail: main.filter((a) => jobMatch(a.jobs, mine)), more: main.filter((a) => !jobMatch(a.jobs, mine)) };
+/** Areas in the rail, top to bottom: every main area in barRank order. The rail has no More menu, so a person's jobs never hide an area. */
+export function railAreas(areas: NavArea[]): NavArea[] {
+  return areas.filter((a) => !a.foot).sort((x, y) => x.barRank - y.barRank);
 }
 
 /** Old and short URLs that still land in the right place. The middleware applies them (functions/_middleware.ts). */
@@ -404,7 +396,7 @@ export function paletteItems() {
         team: p.team || '',
         area: area.id,
         page: p.id,
-        jobs: (p.jobs || area.jobs || []).join(' '),
+        jobs: (p.jobs || []).join(' '),
         was: p.was || '',
         menu: p.menu !== false,
       });

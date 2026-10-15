@@ -57,17 +57,6 @@ body.h-body .h-tabmenu .h-tab.is-job .h-tab__who { display: none; }
 body.h-body .h-tabmenu .h-tab .h-nav__count { margin-left: auto; }
 body.h-body .h-tabmenu .h-rel--tab { width: auto; height: auto; padding: 0 5px; font-size: 10px; border-radius: 4px; }
 
-/* ------------------------------------------------------------ the rail's More: areas outside this person's job */
-.h-area--more .h-area__pages .h-pg--area .h-pg__a { gap: 10px; }
-.h-area--more .h-pg--area .h-i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; }
-.h-area--more .h-pg--area .h-pg__t { display: flex; flex-direction: column; line-height: 1.25; text-align: left; }
-.h-area--more .h-pg--area .h-pg__t small { font: 500 11px/1.3 var(--h-font); color: var(--r-ink-3, #7d7a72); white-space: normal; }
-html.nav-wide .h-area--more .h-pg--area .h-pg__t small, .h-app.is-peek .h-area--more .h-pg--area .h-pg__t small, .h-app.is-nav .h-area--more .h-pg--area .h-pg__t small { color: rgba(255, 255, 255, 0.55); }
-.h-area--more .h-pg--area[hidden] { display: none; }
-body.h-body .h-area--more .h-area__pages { top: var(--more-top, auto); bottom: auto; }
-html.nav-wide body.h-body .h-area--more .h-pg--area .h-pg__a, body.h-body .h-app.is-peek .h-area--more .h-pg--area .h-pg__a, body.h-body .h-app.is-nav .h-area--more .h-pg--area .h-pg__a { padding-left: 14px; }
-.h-area--more.is-cur > .h-area__link { color: #fff; }
-
 /* ------------------------------------------------------------ phone: the tab row is a chip row under the title */
 @media (max-width: 860px) {
   body.h-body .h-tabs__row { gap: 6px; overflow-x: auto; scrollbar-width: none; }
@@ -108,14 +97,6 @@ body.h-body #h-content.is-settling { position: relative; }
 body.h-body #h-content.is-settling > * { visibility: hidden; }
 body.h-body #h-content.is-settling::before { content: ''; position: absolute; z-index: 1; left: 28px; right: 28px; top: 22px; height: 320px; border-radius: 14px; border: 1px solid var(--r-line, #e6e0d2); background: linear-gradient(90deg, #fff 0%, #f4f5f7 50%, #fff 100%); background-size: 200% 100%; animation: h-shimmer 1.2s ease-in-out infinite; }
 @media (max-width: 860px) { body.h-body #h-content.is-settling::before { left: 14px; right: 14px; top: 16px; height: 260px; } }
-
-/* Phone menu sheet: the areas outside the person's job are listed in place, not behind a second More. */
-@media (max-width: 860px) {
-  body.h-body .h-app.is-nav .h-area--more > .h-area__link, body.h-body .h-app.is-nav .h-area--more > .h-area__tog { display: none; }
-  body.h-body .h-app.is-nav .h-area--more .h-area__pages { display: block; position: static; padding: 0; border: 0; box-shadow: none; background: none; }
-  body.h-body .h-app.is-nav .h-area--more .h-pg--area .h-pg__a { color: rgba(255, 255, 255, 0.86); padding-left: 14px; min-height: 48px; font-size: 13px; }
-  body.h-body .h-app.is-nav .h-area--more .h-pg--area .h-i { color: var(--soft-slate); }
-}
 
 /* Full sidebar: an area's name never gives way to its badge and count ("Proje..." beside Alpha and 11). */
 html.nav-wide body.h-body .h-area__link .h-area__label, body.h-body .h-app.is-peek .h-area__link .h-area__label, body.h-body .h-app.is-nav .h-area__link .h-area__label { flex: 0 0 auto; overflow: visible; }

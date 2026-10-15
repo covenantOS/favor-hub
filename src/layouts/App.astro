@@ -71,7 +71,7 @@ import { icon } from '../data/icons';
 import { badgeFor, pageBadge } from '../data/release';
 import Rel from '../components/Rel.astro';
 import { BUILD } from '../data/build';
-import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, TAB_CAP, TOOL_LINKS, jobWho, resolveNav } from '../data/areas';
+import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, TAB_CAP, TOOL_LINKS, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
 import NavTabs from '../components/NavTabs.astro';
 import NavBar from '../components/NavBar.astro';
@@ -89,8 +89,6 @@ const crumbHref = found ? (found.area.pages.find((p) => p.menu !== false) || fou
 const crumbText = found ? found.area.label : crumb;
 const mainAreas = AREAS.filter((a) => !a.foot).sort((x, y) => x.barRank - y.barRank);
 const footAreas = AREAS.filter((a) => a.foot);
-// Areas that are some people's job (Partners, Gifts) sit under the rail's More for everyone else. Nothing in More is locked.
-const moreAreas = mainAreas.filter((a) => a.jobs && a.jobs.length);
 // Links to pages that swap in place need nothing fetched ahead by the browser (hub-swap.js reads them itself). Links to pages that load whole
 // are fetched ahead, as HTML only: a prerendered page would run its scripts (reads, presence, polling) before anyone opened it.
 const lightPaths = SWAP_PATHS.filter((p) => !FULL_LOAD_PATHS.includes(p));
@@ -178,25 +176,6 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           <div class="h-pins" id="h-pins" hidden><div class="h-nav__label">Pinned</div><div class="h-pins__list" id="h-pins-list"></div></div>
           <nav class="h-areas" aria-label="Areas">
             {mainAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
-            <div class="h-area h-area--pop h-area--more" data-area="more" hidden>
-              <a class="h-nav__item h-area__link" href="#" data-area-link="more" aria-haspopup="true" title="More areas">
-                <Fragment set:html={icon('more')} />
-                <span class="h-area__label">More</span>
-                <span class="h-nav__count h-area__sum" data-sum="railmore" hidden></span>
-              </a>
-              <button type="button" class="h-area__tog" aria-expanded="false" aria-label="Show more areas"><Fragment set:html={icon('chev')} /></button>
-              <div class="h-area__pages" role="group" aria-label="More areas">
-                {moreAreas.map((a) => (
-                  <div class="h-pg h-pg--area" data-more-area={a.id} hidden>
-                    <a class="h-nav__item h-pg__a" href={(a.pages.find((p) => p.menu !== false) || a.pages[0]).href} data-astro-prefetch="hover" data-more-link={a.id} aria-current={a.id === curArea ? 'true' : undefined}>
-                      <Fragment set:html={icon(a.icon)} />
-                      <span class="h-pg__t">{a.label}<small>{jobWho(a.jobs)}</small></span>
-                      <span class="h-nav__count" data-sum={a.id} hidden></span>
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
           </nav>
           <div class="h-areas h-areas--foot">
             {footAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
@@ -215,7 +194,6 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           return window.__hubGateP;
         };
         // Areas with nothing this person may open disappear; the rail, the tab row and the phone bar follow.
-        // Areas that are other people's job (src/data/areas.ts `jobs`) leave the rail for its More menu. Nothing there is locked.
         window.hubJobMatch = function (jobs, mine) {
           if (!jobs || !jobs.length || !mine) return true;
           if (mine.indexOf('admin') >= 0) return true;
@@ -224,44 +202,23 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         };
         window.hubNavLayout = function () {
           var q = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
-          var mine = window.__hubJobs || null;
-          var jobsOf = function (el) { var j = el.getAttribute('data-jobs'); return j ? j.split(' ') : null; };
           var sums = {};
           q('.h-area').forEach(function (a) {
             var id = a.dataset.area;
-            if (id === 'more') return;
             var pages = q('.h-pg:not([hidden])', a);
-            var outside = !a.classList.contains('h-area--foot') && !window.hubJobMatch(jobsOf(a), mine);
-            a.classList.toggle('is-more', outside && pages.length > 0);
-            a.hidden = !pages.length || outside;
+            a.hidden = !pages.length;
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
             // An area shows the sum of the numbers beside its pages, so the area and its pages always read the same.
             pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden]):not([data-count="tours"])'); if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
-            // Unfinished tours show beside Help's tour item only. In the area sum they turned More into a red 12 that asked nothing of anyone.
+            // Unfinished tours show beside Help's tour item only. In the area sum they turned Help into a red 12 that asked nothing of anyone.
             // Help's own number is nothing: the Feedback count beside its item belongs to Feedback, and the bell and Today carry it.
             if (id === 'help') { n = 0; warn = false; }
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
-            q('[data-area-link="' + id + '"], [data-more-link="' + id + '"]').forEach(function (l) { if (!l.closest('.h-area--pop') || l.dataset.moreLink) l.setAttribute('href', href); });
+            q('[data-area-link="' + id + '"]').forEach(function (l) { if (!l.closest('.h-area--pop')) l.setAttribute('href', href); });
           });
-          // The rail's More: the areas outside this person's job that they may open.
-          var moreArea = document.querySelector('.h-area--more');
-          var railMore = { n: 0, warn: false };
-          if (moreArea) {
-            var any = false;
-            q('[data-more-area]', moreArea).forEach(function (pg) {
-              var src = document.querySelector('.h-area[data-area="' + pg.dataset.moreArea + '"]');
-              var on = !!src && src.classList.contains('is-more');
-              pg.hidden = !on;
-              if (on) { any = true; var t = sums[pg.dataset.moreArea]; if (t) { railMore.n += t.n; railMore.warn = railMore.warn || t.warn; } }
-            });
-            moreArea.hidden = !any;
-            var curMore = document.querySelector('.h-area.is-more.is-cur');
-            moreArea.classList.toggle('is-cur', !!curMore);
-          }
-          sums.railmore = railMore;
           var tabs = document.getElementById('h-tabs');
           // One tab left is still shown when it is not the open page: a person on a page outside their access sees the page they may open.
           if (tabs) { var vt = q('a.h-tab[data-nav-id]:not([hidden])', tabs); tabs.hidden = !document.documentElement.classList.contains('nav-pending') && (!vt.length || (vt.length === 1 && vt[0].classList.contains('is-on'))); }
@@ -494,7 +451,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=14" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=11" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=12" defer></script>
     <script is:inline src="/js/hub-swap.js?v=27" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
@@ -516,7 +473,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/hub-sound.js?v=1" defer></script>
     <script is:inline src="/js/hub-haptic.js?v=1" defer></script>
     <script is:inline src="/js/hub-progress.js?v=1" defer></script>
-    <script is:inline src="/js/hub-ctx.js?v=1" defer></script>
+    <script is:inline src="/js/hub-ctx.js?v=2" defer></script>
     <script is:inline src="/js/hub-keys.js?v=1" defer></script>
     <script is:inline src="/js/hub-range.js?v=1" defer></script>
     <script is:inline src="/js/hub-pull.js?v=1" defer></script>

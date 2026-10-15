@@ -139,8 +139,7 @@
     const k = e.key.toLowerCase();
     if (gAt && Date.now() - gAt < 1200) {
       gAt = 0;
-      // An area under the rail's More is hidden in the rail and still jumps (nothing there is locked).
-      const a = $(`.h-area[data-key="${k}"]:not([hidden]):not(.h-area--pop)`) || $(`.h-area.is-more[data-key="${k}"]`);
+      const a = $(`.h-area[data-key="${k}"]:not([hidden]):not(.h-area--pop)`);
       if (a) { e.preventDefault(); const l = $('.h-area__link', a); location.href = l.getAttribute('href'); }
       return;
     }
@@ -191,8 +190,6 @@
     if (pop) {
       e.preventDefault(); e.stopPropagation();
       const a = pop.closest('.h-area'); const on = !a.classList.contains('is-pop');
-      // The rail's More opens beside its own button, wherever the rail put it.
-      if (on && a.classList.contains('h-area--more')) { const r = pop.getBoundingClientRect(); a.style.setProperty('--more-top', Math.max(8, Math.min(r.top, window.innerHeight - 220)) + 'px'); }
       $$('.h-area--pop.is-pop').forEach((x) => { if (x !== a) x.classList.remove('is-pop'); });
       a.classList.toggle('is-pop', on); if (isFull() || phoneMq.matches) a.classList.toggle('is-open', on); return;
     }

@@ -67,6 +67,14 @@ body.h-body .ch-jump span { white-space: nowrap; overflow: hidden; text-overflow
   /* The header keeps its own Search button, so the rail drops its copy before anything is cut off. */
   html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-side .h-search { display: none; }
 }
+/* The rail draws every area (no More menu), twelve rows for an admin. Below 680 px the rows tighten again; past that the rail scrolls. */
+@media (min-width: 861px) and (max-height: 680px) {
+  html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-side__in { padding-top: 6px; padding-bottom: 4px; gap: 0; }
+  html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-brand { padding-bottom: 4px; }
+  html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__link { min-height: 41px; padding: 2px; gap: 1px; }
+  html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__link .h-i { width: 17px; height: 17px; }
+  html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-areas { gap: 0; }
+}
 
 /* People and roles: a team name broke inside a word ("Leadershi p") because every cell may break anywhere, for long emails. */
 @media (min-width: 861px) {

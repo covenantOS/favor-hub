@@ -77,7 +77,8 @@ export function buildNav(input: NavInput): NavView {
       inBar: false,
     };
   });
-  const main = areas.filter((a) => !a.area.foot);
+  // The rail draws every area the person can open, top to bottom in barRank order. There is no More menu (Will, 2026-10-15).
+  const main = areas.filter((a) => !a.area.foot).sort((x, y) => x.area.barRank - y.area.barRank);
   const foot = areas.filter((a) => a.area.foot);
   const ranked = main.filter((a) => a.visible).sort((x, y) => x.area.barRank - y.area.barRank);
   const bar = ranked.slice(0, 4);
