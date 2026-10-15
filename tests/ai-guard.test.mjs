@@ -250,9 +250,12 @@ describe('the meeting notes ceiling (2026-10-14)', () => {
   });
   it('still holds every other tier once the total passes its cap, and the kill flag still stops them', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 9500)`);
-    for (const feature of ['brief', 'translate', 'drive-index', 'clip-text']) {
+    for (const feature of ['brief', 'translate', 'clip-text']) {
       await assert.rejects(G.guardedRun(store(), model().run, { feature, day: DAY, now: new Date('2026-10-14T03:00:00Z') }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget', feature);
     }
+    // The Drive index has its own 50,000 (2026-10-14) and runs past the day total and the kill flag.
+    await G.guardedRun(store(), model().run, { feature: 'drive-index', day: DAY, now: new Date('2026-10-14T03:00:00Z') }, M, small);
+    calls.length = 0;
     d1.exec(`UPDATE ai_budget_day SET est = 50000, off = 1 WHERE day = '${DAY}'`);
     kv.m.set(`ai:off:${DAY}`, '1');
     G.resetGuardCache();
