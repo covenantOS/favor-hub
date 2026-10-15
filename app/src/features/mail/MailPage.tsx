@@ -809,12 +809,16 @@ export function MailPage() {
   const dropDraft = (mid: string) => {
     const x = S.current;
     const did = x.drafts[mid];
-    if (!did) return;
+    if (!did) return say('FavorOS could not find this draft in Gmail. Open it in Gmail to delete it.');
     api()
       .dropDraft(did, boxOf(x.open))
       .then(() => {
         say('Draft discarded');
-        if (x.open) void openThread(x.open);
+        if (x.open) {
+          delete PRE[x.open];
+          void device.drop(x.open);
+          void openThread(x.open);
+        }
       })
       .catch((e: any) => failed(e));
   };
@@ -1329,6 +1333,11 @@ export function MailPage() {
   useEffect(() => {
     const sent = (e: Event) => {
       const d = ((e as CustomEvent).detail || {}) as { threadId?: string };
+      // A conversation that changed is read again from Gmail, never from the copies kept on this device.
+      if (d.threadId) {
+        delete PRE[d.threadId];
+        void device.drop(d.threadId);
+      }
       window.setTimeout(() => {
         const x = S.current;
         if (x.open && d.threadId === x.open) void openThread(x.open);
@@ -1341,12 +1350,22 @@ export function MailPage() {
       if (!x.thread || (d.threadId && d.threadId !== x.thread.id)) return;
       startReply(d.kind || 'reply', undefined, undefined, false, d.items || []);
     };
+    // A saved draft changes its conversation: the copies kept on this device are dropped, the page is not redrawn.
+    const drafted = (e: Event) => {
+      const id = (((e as CustomEvent).detail || {}) as { threadId?: string }).threadId;
+      if (id) {
+        delete PRE[id];
+        void device.drop(id);
+      }
+    };
+    window.addEventListener('favor-compose:draft', drafted);
     window.addEventListener('favor-compose:sent', sent);
     window.addEventListener('favor-compose:discarded', sent);
     window.addEventListener('favor-mail:reply', reply);
     return () => {
       window.removeEventListener('favor-compose:sent', sent);
       window.removeEventListener('favor-compose:discarded', sent);
+      window.removeEventListener('favor-compose:draft', drafted);
       window.removeEventListener('favor-mail:reply', reply);
     };
   });

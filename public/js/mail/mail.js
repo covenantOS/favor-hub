@@ -1548,20 +1548,24 @@
     root.style.setProperty('--ml-bot', Math.max(0, b) + 'px');
   }
   addEventListener('resize', function () { requestAnimationFrame(measure); });
+  // A conversation that changed (a draft saved, discarded or sent) is read again from Gmail, never from the copies kept here.
+  function forgetThread(id) { if (!id) return; delete PRE[id]; DEV.drop(id); }
   // The shared composer sent or scheduled something: the conversation or the Sent list shows it.
   addEventListener('favor-compose:sent', function (e) {
     if (!root.isConnected) return;
     var d = e.detail || {};
+    forgetThread(d.threadId);
     setTimeout(function () {
       if (S.open && d.threadId === S.open) openThread(S.open);
       else if (S.label === 'SENT' || S.label === 'DRAFT') loadList({ quiet: true });
     }, 600);
   });
-  addEventListener('favor-compose:draft', function () { if (root.isConnected && S.label === 'DRAFT' && !S.open) loadList({ quiet: true }); });
+  addEventListener('favor-compose:draft', function (e) { forgetThread((e.detail || {}).threadId); if (root.isConnected && S.label === 'DRAFT' && !S.open) loadList({ quiet: true }); });
   // A discarded draft leaves the conversation and the Drafts list at once.
   addEventListener('favor-compose:discarded', function (e) {
     if (!root.isConnected) return;
     var d = e.detail || {};
+    forgetThread(d.threadId);
     if (S.open && d.threadId === S.open) openThread(S.open);
     else if (S.label === 'DRAFT') loadList({ quiet: true });
   });
@@ -2468,7 +2472,7 @@
     else if (k === 'show-long') { var lb = a.closest('.ml-frame'); if (lb) { lb._full = 1; lb.classList.remove('is-long'); a.remove(); if (lb._fit) lb._fit(); } }
     else if (k === 'view-file') viewFile(a.closest('.ml-msg').dataset.mid, +a.dataset.k);
     else if (k === 'edit-draft') editDraft(a.closest('.ml-msg').dataset.mid);
-    else if (k === 'drop-draft') { var dmid = a.closest('.ml-msg').dataset.mid; var did = S.drafts[dmid]; if (!did) return; if (!S.level.write || !canWrite()) return askWrite('draft'); api.dropDraft(did, S.threadBox).then(function () { toast('Draft discarded'); openThread(S.open); }).catch(failed); }
+    else if (k === 'drop-draft') { var dmid = a.closest('.ml-msg').dataset.mid; var did = S.drafts[dmid]; if (!did) { toast('FavorOS could not find this draft in Gmail. Open it in Gmail to delete it.'); return; } if (!S.level.write || !canWrite()) return askWrite('draft'); api.dropDraft(did, S.threadBox).then(function () { toast('Draft discarded'); forgetThread(S.open); openThread(S.open); }).catch(failed); }
     else if (k === 'prev' || k === 'next') stepThread(k === 'next' ? 1 : -1);
   });
   function msgById(id) { return S.thread && S.thread.messages.filter(function (m) { return m.id === id; })[0]; }

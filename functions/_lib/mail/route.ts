@@ -1088,8 +1088,21 @@ async function buildThread(ctx: MailCtx, gm: Gmail, me: string, id: string, t: a
   });
   let drafts: Record<string, string> = {};
   if (msgs.some((m: any) => m.draft)) {
-    const dl = await gm.get('/drafts', { maxResults: '100' }).catch(() => ({ drafts: [] }));
-    drafts = Object.fromEntries((dl.drafts || []).filter((x: any) => x.message?.threadId === id).map((x: any) => [x.message.id, x.id]));
+    // Every draft in this conversation needs its draft id, or Edit and Discard cannot reach it. Gmail lists drafts 100 at a
+    // time, newest first; a person with many drafts had older ones missing from the first page (Discard did nothing).
+    const want = new Set(msgs.filter((m: any) => m.draft).map((m: any) => m.id));
+    let pageToken = '';
+    for (let page = 0; page < 10 && want.size; page++) {
+      const dl: any = await gm.get('/drafts', pageToken ? { maxResults: '500', pageToken } : { maxResults: '500' }).catch(() => ({ drafts: [] }));
+      for (const x of dl.drafts || []) {
+        if (x.message?.threadId === id) {
+          drafts[x.message.id] = x.id;
+          want.delete(x.message.id);
+        }
+      }
+      pageToken = dl.nextPageToken || '';
+      if (!pageToken) break;
+    }
   }
   const sz = await ctx.env.DB.prepare('SELECT until FROM hub_mail_snooze WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(me, id).first<{ until: string }>().catch(() => null);
   const tc = ctx.user
