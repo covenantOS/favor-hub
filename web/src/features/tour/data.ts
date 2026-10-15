@@ -109,15 +109,16 @@ export const TOUR_LABEL: Record<TourId, string> = {
   staff: 'every staff member',
 };
 
-/** Which tour a person gets. An admin or a leader gets theirs first; a job comes before a dashboard team. */
+/** Which tour a person gets. An admin first, then a job, then the leaders (all five dashboard teams, no job of their own), then Marketing, then the fallback. */
 export function pickTour(w: Who): TourId {
   if (w.can.admin) return 'admin';
-  if (w.jobs.includes('exec') || w.teams.length >= 5) return 'exec';
+  if (w.jobs.includes('exec')) return 'exec';
   if (w.jobs.includes('rdd')) return 'rdd';
   if (w.jobs.includes('partner_care')) return 'partner_care';
   if (w.jobs.includes('church')) return 'church';
   if (w.jobs.includes('grants')) return 'grants';
   if (w.jobs.includes('support') || w.jobs.includes('giftdesk')) return 'support';
+  if (w.teams.length >= 5) return 'exec';
   if (w.teams.includes('marketing')) return 'marketing';
   return 'staff';
 }

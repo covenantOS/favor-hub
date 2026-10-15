@@ -35,6 +35,9 @@ test('each person gets the tour for their job: admins and leaders first, then a 
   assert.equal(D.pickTour(person({ jobs: ['grants'], teams: ['marketing'] })), 'grants');
   assert.equal(D.pickTour(person({ role: 'admin', jobs: ['admin'] }, { admin: true })), 'admin');
   assert.equal(D.pickTour(person({ jobs: ['giftdesk'] })), 'support');
+  // A job beats the five dashboard teams a test user or a leader holds; the five teams with no job are leadership.
+  assert.equal(D.pickTour(person({ jobs: ['rdd'], teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'] })), 'rdd');
+  assert.equal(D.pickTour(person({ teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'] })), 'exec');
   assert.equal(D.pickTour(person()), 'staff');
   // An admin can preview another job's tour; the old preset names still work.
   assert.equal(D.tourFromAs('pc'), 'partner_care');
