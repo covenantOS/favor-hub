@@ -123,6 +123,18 @@ export function pressEl(el: HTMLElement) {
   el.click();
 }
 
+const key = (path: string, search: string) => (path.replace(/\/+$/, '') + search).replace(/\/\?/, '?');
+
+/** True when pressing this link opens the page: an area link opens the area's first page, which may not be the step's page. */
+export function leadsTo(el: Element, page: string | undefined): boolean {
+  if (!page) return true;
+  const a = el.closest('a[href]') as HTMLAnchorElement | null;
+  if (!a) return true;
+  const u = new URL(a.getAttribute('href') || '', location.origin);
+  const w = new URL(page, location.origin);
+  return key(u.pathname, '') === key(w.pathname, '');
+}
+
 /** A link on the screen that goes to this page, once the menu has drawn the page's area. */
 export function linkTo(page: string): HTMLAnchorElement | null {
   const want = page.replace(/\/+$/, '').replace(/\/\?/, '?');

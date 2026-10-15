@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { RETURNS, comesBack, dayWord, etStamp, etToday, finish as markDone, isDone, mayOpen, place, skip as markSkipped, type Progress } from '@hub/scripts/tour-state';
 import { TOUR_IDS, TOUR_LABEL, pickTour, say, tourFor, tourFromAs, whoFromNav, type NavAnswer, type Step, type TourId, type Who } from './data';
 import { loadNews, newsCount, newsSteps, type News } from './news';
-import { busy, clearSpacer, clearTyping, deviceNow, findFirst, stable, holeRect, isPhone, isTouch, linkTo, navLink, openMenuFor, placeAlone, pressEl, reduced, samePage, settle, sleep, visible, watchTyping, type Placement } from './engine';
+import { busy, clearSpacer, clearTyping, deviceNow, findFirst, stable, holeRect, isPhone, isTouch, leadsTo, linkTo, navLink, openMenuFor, placeAlone, pressEl, reduced, samePage, settle, sleep, visible, watchTyping, type Placement } from './engine';
 import { openStore, type ProgressStore } from './store';
 import './tour.css';
 
@@ -411,7 +411,12 @@ export function TourRoot(): ReactElement | null {
         await sleep(isTouch() ? 520 : 650);
         if (stale()) return;
         saveSession({ ...runRef.current!, i });
-        pressEl(link as HTMLElement);
+        // A link that opens some other page (an area's first page) is not pressed: the tour goes straight to its own page.
+        if (leadsTo(link, step.page)) pressEl(link as HTMLElement);
+        else {
+          location.assign(step.page || '/');
+          return;
+        }
       }
       // The page may change in place (the menu swaps it) or load whole. Give a swap a moment, then go straight there.
       for (let k = 0; k < 14 && !samePage(step.page); k++) {
