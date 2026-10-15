@@ -33,11 +33,11 @@ export const BRAIN_PAID_NEURONS = Math.floor((BRAIN_PAID_CEILING_USD / NEURON_US
 export const BRAIN_CEILING = Math.floor((FREE_UNITS + BRAIN_PAID_NEURONS) / 1_000) * 1_000;
 
 // Test traffic (the Brain exam, the bake-off and the grader, run through wrangler dev against the real AI binding) books under
-// brain-test with a ceiling of its own: 1,500,000 neurons a day, about $16 (Will, 2026-10-14: spending on testing is fine, spend
-// carefully). It never enters the day's running estimate, and the reconciler takes it out of Cloudflare's total before it decides
-// on the kill flag, so testing cannot switch off a staff feature.
+// brain-test with a ceiling of its own: 450,000 neurons a day, about $5 (Will, 2026-10-15: $27 in a day was too much; it was
+// 1,500,000, about $16, from 2026-10-14). It never enters the day's running estimate, and the reconciler counts it as testing,
+// never staff, so testing cannot switch off a staff feature.
 export const TEST_FEATURE = 'brain-test';
-export const TEST_CEILING = 1_500_000;
+export const TEST_CEILING = 450_000;
 // The Drive indexer has its own $0.50 a day (50,000 neurons), counted from its own bookings. It runs past the day's kill flag.
 export const DRIVE_INDEX_CEILING = 50_000;
 const NO_DAY_CAP = 1_000_000_000;
