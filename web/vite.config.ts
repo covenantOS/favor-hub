@@ -59,7 +59,19 @@ export default defineConfig({
       },
     },
   },
-  plugins: [contentPlugin(), cloudflare({ viteEnvironment: { name: 'ssr' } }), tanstackStart({
+  plugins: [
+    // expenses.css opens with an @import of a Google Fonts stylesheet (the signature box's Caveat). Left in, every page that imports the file
+    // waits for a second origin before it can paint. The web build drops it; features/expenses/Signature.tsx asks for the font when the box opens.
+    {
+      name: 'drop-google-font-import',
+      enforce: 'pre',
+      transform(code: string, id: string) {
+        if (!id.includes('/src/styles/expenses.css')) return null;
+        const out = code.replace(/@import url\(['"]https:\/\/fonts\.googleapis\.com[^)]*\);?\s*/, '');
+        return out === code ? null : { code: out, map: null };
+      },
+    },
+    contentPlugin(), cloudflare({ viteEnvironment: { name: 'ssr' } }), tanstackStart({
       srcDirectory: 'src',
       // Each route's loader goes in its own chunk too, with the component: a loader that imports from its page's module (prefetchWork
       // from WorkPage) would otherwise pull the whole page into the first-screen chunk every page downloads.

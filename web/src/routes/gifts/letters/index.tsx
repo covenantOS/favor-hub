@@ -3,7 +3,7 @@
 // server and in the browser. The Astro page stays at ?classic=1.
 import { createFileRoute } from '@tanstack/react-router';
 import { LettersPage } from '../../../features/gifts/desk/LettersPage';
-import { deskSearch } from '../../../features/gifts/desk/kit';
+import { deskSearch } from '../../../lib/route-search';
 import { hqtyQuery } from '../../../features/gifts/desk/hqty';
 
 export const Route = createFileRoute('/gifts/letters/')({
