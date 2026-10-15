@@ -150,8 +150,7 @@ export const AREAS: NavArea[] = [
     key: 'j',
     barRank: 4,
     pages: [
-      { id: 'projects', label: 'Projects', href: '/projects/', desc: 'My tasks, projects, task lists, boards, calendar and timeline', keywords: 'projects project tasks task my tasks list board calendar timeline gantt assign due asana todo', need: 'projects', count: 'projectsMine', also: ['project'], learn: 'projects', note: 'Synced with Asana', was: 'Work > Projects', swap: true },
-      { id: 'board', label: 'Requests', href: '/requests/', desc: 'Request board: inbox, approved, in motion, done', keywords: 'request requests board kanban review approve website portal app marketing', count: 'board', also: ['new'], learn: 'request-board', swap: true, was: 'Work > Requests' },
+      { id: 'projects', label: 'Projects', href: '/projects/', desc: 'My tasks, projects, requests, task lists, boards, calendar and timeline', keywords: 'projects project tasks task my tasks list board calendar timeline gantt assign due asana todo request requests intake triage ask need', need: 'projects', count: 'projectsMine', also: ['project', 'board', 'new'], learn: 'projects', note: 'Synced with Asana', was: 'Work > Projects', swap: true },
     ],
   },
   {
@@ -341,7 +340,11 @@ export const REDIRECTS: Array<[string, string]> = [
   ['/dashboards', '/dashboard/'],
   ['/ask', '/brain/'],
   ['/meetings', '/meet/'],
-  ['/requests/board', '/requests/'],
+  // Requests moved into Projects (2026-10-14): the composer, My requests and the Intake column are views of Projects. The middleware
+  // keeps ?r=<request id> when it redirects, so every old link in an email, a Chat card or a bell notice still opens its request.
+  ['/requests', '/projects/?tab=intake'],
+  ['/requests/new', '/projects/?compose=1'],
+  ['/requests/board', '/projects/?tab=intake'],
   ['/expenses/request', '/expenses/new/'],
   ['/receipts/thank-yous', '/receipts/'],
   ['/thank-yous', '/receipts/'],

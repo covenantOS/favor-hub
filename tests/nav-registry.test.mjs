@@ -95,7 +95,7 @@ test('old URLs redirect to a page that exists in the registry', () => {
   hrefs.add('');
   for (const [from, to] of REDIRECTS) {
     assert.ok(from.startsWith('/') && to.startsWith('/'));
-    assert.ok(hrefs.has(to.replace(/\/$/, '')), `${from} goes to ${to}, which is not a registry page`);
+    assert.ok(hrefs.has(to.split('?')[0].replace(/\/$/, '')), `${from} goes to ${to}, which is not a registry page`);
     assert.ok(!pages.some((x) => x.p.href.replace(/\/$/, '') === from.replace(/\/$/, '')), `${from} is a live page and cannot redirect`);
   }
 });

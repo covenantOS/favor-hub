@@ -6,3 +6,4 @@ import '@hub/styles/projects-plan.css';
 import '@hub/styles/projects-views.css';
 import '@hub/styles/projects.css';
 import './overrides.css';
+import './intake/intake.css';

@@ -15,7 +15,19 @@ npm run dev
 
 Functions and D1 do not run in `astro dev`. Use `npx wrangler pages dev dist` after a build, or hit the deployed site.
 
-## Request board
+## Requests inside Projects (2026-10-14)
+
+Requests moved into Projects. /requests/ and /requests/new/ redirect to /projects/?tab=intake and /projects/?compose=1, and an old /requests/?r=<id> link opens that request at /projects/?r=<id>. The old Astro pages and scripts stay in the repository because other pages still load request-drawer.js.
+
+- A request is still a row in `requests` (words, files, conversation, history, status). Its card is a hub_tasks row with request_id set, in the Intake section of its team's pipeline project (Tech requests, Marketing requests). Sections: Intake, Triage, In progress, Review, Done. Schema: `db/projects-intake.sql`. Code: `functions/_lib/intake/`, shared parsing in `shared/request-parse.ts`, shared constants in `shared/intake-model.ts`. The full design is in `web/src/features/projects/intake/README-model.ts`.
+- Routes: `/api/tasks/intake/*` (list at the top of `functions/_lib/intake/route.ts`). Anyone with a Favor account sends a request and reads their own. The owners of a team's pipeline and FavorOS admins read that team's Intake and triage it: accept into a project and stage, ask a question, or decline with a reason.
+- Status words: Intake is Sent, Triage is Approved, In progress and Review are In progress, Done is Done. A card dragged between stages, or ticked, keeps requests.status in step. Landing in Done sends the done email exactly as before.
+- Asana: a pipeline project is never synced. Accepting into a synced project sends the card to Asana through the existing sync, in a stage that project already has.
+- A request about money goes to /expenses/new/ and makes no card.
+- Bring the old board over with `node scripts/migrate-requests-to-projects.mjs` (dry run) and `--apply`. It is keyed on the request id, so running it twice changes nothing.
+- Privacy: tests/privacy-matrix.test.mjs and the 30-minute smoke check read the new routes (cells in `functions/_lib/privacy/probe.ts`).
+
+## Request board (retired screen, kept for reference)
 
 `/requests/new` is Make a request. `/requests` is the board. Submit is open. A one-line summary is enough (one word counts). Review (sign in, drag cards, approve) uses the hub admin password. New cards email will@favorintl.org. Marking a card done emails the requester and Will, with a check and the live page URL when one is on the card.
 

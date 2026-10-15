@@ -19,7 +19,7 @@ const WHERE: Record<string, Where> = {
   today: { page: '/', via: 'home', at: ['#td-needs', ...TITLE] },
   partners: { page: '/work/', via: 'work', at: ['#wc-board', ...TITLE], need: 'work' },
   'work-center': { page: '/work/', via: 'work', at: ['#wc-board', ...TITLE], need: 'work' },
-  requests: { page: '/requests/', via: 'board', at: ['#req-board', ...TITLE] },
+  requests: { page: '/projects/', via: 'projects', at: ['.pj-seg', ...TITLE] },
   projects: { page: '/projects/', via: 'projects', at: ['#pj-root', ...TITLE], need: 'projects' },
   expenses: { page: '/expenses/', via: 'expenses', at: TITLE },
   receipts: { page: '/receipts/', via: 'receipts', at: TITLE, need: 'gifts' },

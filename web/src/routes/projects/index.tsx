@@ -4,6 +4,7 @@ import '../../features/projects/css';
 import { HomeError, HomePage } from '../../features/projects/home/HomePage';
 import { asanaMeQuery, mineTasksQuery, projectsQuery } from '../../features/projects/lib/queries';
 import { staffQuery } from '../../features/projects/lib/staff';
+import { prefetchIntake } from '../../features/projects/intake/queries';
 
 export const Route = createFileRoute('/projects/')({
   staticData: { nav: 'projects', title: 'Projects', layout: 'full' },
@@ -16,6 +17,7 @@ export const Route = createFileRoute('/projects/')({
     void qc.prefetchQuery(asanaMeQuery);
     void qc.prefetchQuery(projectsQuery);
     void qc.prefetchQuery(mineTasksQuery(false));
+    prefetchIntake(qc);
   },
   component: HomePage,
   errorComponent: ({ error }) => <HomeError message={(error as Error).message || 'Something went wrong. Try again.'} />,

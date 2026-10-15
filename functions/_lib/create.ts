@@ -20,7 +20,7 @@ function titleFrom(title: string, body: string): string {
   return line.length > TITLE_FROM_BODY ? `${line.slice(0, TITLE_FROM_BODY - 1)}...` : line;
 }
 
-function typeFrom(file: { filename: string; contentType: string }): string {
+export function typeFrom(file: { filename: string; contentType: string }): string {
   if (ALLOWED_TYPES.includes(file.contentType)) return file.contentType;
   const n = file.filename.toLowerCase();
   if (n.endsWith('.pdf')) return 'application/pdf';

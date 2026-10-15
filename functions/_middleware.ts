@@ -93,7 +93,11 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
 
   if (RETIRED[path]) return Response.redirect(new URL(RETIRED[path], url).toString(), 301);
   // Short and older addresses from the navigation registry (src/data/areas.ts) land on the page they became.
-  const moved = NAV_MOVED.get(path.length > 1 ? path.replace(/\/$/, '') : path);
+  const bare = path.length > 1 ? path.replace(/\/$/, '') : path;
+  // An old request link (/requests/?r=<id>, in emails, Chat cards and notices) opens that request in Projects.
+  const asked = bare === '/requests' ? url.searchParams.get('r') : null;
+  if (asked && /^[A-Za-z0-9_-]{4,80}$/.test(asked)) return Response.redirect(new URL(`/projects/?r=${asked}`, url).toString(), 301);
+  const moved = NAV_MOVED.get(bare);
   if (moved) return Response.redirect(new URL(moved + (moved.includes('?') ? '' : url.search), url).toString(), 301);
 
   // The web app's built files (hashed, nothing private) come from its Worker.

@@ -60,7 +60,7 @@ async function sendResend(env: Env, payload: { to: string[]; subject: string; ht
 }
 
 export async function notifyNewRequest(env: Env, row: RequestRow): Promise<void> {
-  const url = `https://dash.favorintl.org/requests/`;
+  const url = `https://dash.favorintl.org/projects/?r=${encodeURIComponent(row.id)}`;
   const bodyPreview = row.body.length > 800 ? `${row.body.slice(0, 800)}...` : row.body;
   const html = `<!DOCTYPE html><html><body style="margin:0;background:#faf8f4;font-family:-apple-system,'Segoe UI',sans-serif;padding:24px">
     <div style="max-width:560px;margin:0 auto;background:#fffdf9;border-radius:12px;border-top:4px solid #5a7250;padding:24px">
@@ -68,7 +68,7 @@ export async function notifyNewRequest(env: Env, row: RequestRow): Promise<void>
       <h1 style="font-size:20px;color:#2a2722;margin:8px 0 12px">${esc(row.title)}</h1>
       <p style="font-size:14px;color:#5a5648;margin:0 0 16px">${esc(row.submitter_name)}${row.submitter_email ? ` · ${esc(row.submitter_email)}` : ''} · ${esc(row.surface)}${row.page_url ? ` · ${esc(row.page_url)}` : ''}</p>
       <pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;color:#2a2722;background:#f4efe4;padding:14px;border-radius:8px;margin:0 0 18px">${esc(bodyPreview)}</pre>
-      <p style="margin:0"><a href="${url}" style="color:#5a7250;font-weight:600">Open the board</a></p>
+      <p style="margin:0"><a href="${url}" style="color:#5a7250;font-weight:600">Open the request</a></p>
     </div>
   </body></html>`;
   await sendResend(env, {
@@ -84,7 +84,7 @@ export async function notifyRequestDone(
   extra: { pageUrl?: string | null; note?: string } = {}
 ): Promise<void> {
   const pageUrl = extra.pageUrl || row.page_url || firstHttpUrl(extra.note || '') || '';
-  const board = 'https://dash.favorintl.org/requests/';
+  const board = 'https://dash.favorintl.org/projects/?tab=requests';
   const pageBlock = pageUrl
     ? `<p style="margin:0 0 18px"><a href="${esc(pageUrl)}" style="display:inline-block;background:#5a7250;color:#fffdf9;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px">Open the page</a></p>
        <p style="font-size:13px;color:#5a5648;margin:0 0 18px;word-break:break-all">${esc(pageUrl)}</p>`
@@ -96,7 +96,7 @@ export async function notifyRequestDone(
       <h1 style="font-size:20px;color:#2a2722;margin:8px 0 12px">${esc(row.title)}</h1>
       <p style="font-size:14px;color:#5a5648;margin:0 0 16px">This request is done.${row.submitter_name ? ` ${esc(row.submitter_name)} asked for it.` : ''}</p>
       ${pageBlock}
-      <p style="margin:0"><a href="${board}" style="color:#5a7250;font-weight:600">Open the board</a></p>
+      <p style="margin:0"><a href="${board}" style="color:#5a7250;font-weight:600">Open your requests</a></p>
     </div>
   </body></html>`;
   await sendResend(env, {

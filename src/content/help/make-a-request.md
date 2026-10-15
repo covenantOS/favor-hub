@@ -1,36 +1,44 @@
 ---
 title: Make a request
-summary: Ask for anything you need from someone else, in your own words. FavorOS suggests where it goes.
+summary: Ask for anything you need from someone else, in your own words. Your words sort themselves into answers you can change.
 topic: work
 order: 1
-related: [request-board, expense-request]
-tool: /requests/new
+related: [request-board, expense-request, projects]
+tool: /projects/?compose=1
 toolLabel: Open Make a request
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
-Use Make a request for anything you need from someone else: a change to the website, a list from Blackbaud, a flyer, a social post, a fix in FavorOS, or a purchase.
+Use Make a request for anything you need from someone else: a change to the website, a list from Blackbaud, a flyer, a social post, a fix in FavorOS, or a purchase. Everyone with a FavorOS login can send one.
 
 ## Steps
 
-1. Press **Make a request** at the top right of any page.
-2. In **What do you need?**, type it the way you'd say it to a coworker. One or two sentences is enough. The example buttons under the box fill in common requests.
-3. Press **Continue**. FavorOS reads it and suggests where it goes.
-4. If the suggestion is wrong, press one of the other choices under it.
+1. Press **Make a request** at the top of Projects, or the Make a request button in the top bar of any page.
+2. In **What do you need?**, type it the way you would say it to a coworker. One or two sentences is enough. The example buttons under the empty box fill in common requests.
+3. Read the answers that appear under the box and change any that are wrong.
+4. Press **Send request**. Ctrl and Enter (Command and Enter on a Mac) sends it too.
 
-## The form fills itself out
+## The answers fill themselves in
 
-When a request goes to the board, the four steps already have answers. FavorOS reads your words and sets the kind (change or new), where it lives (Website, Portal, FavorOS or App), a one-line summary, who sees it, and when it is needed. A date in your words, such as "by Friday" or "October 30", becomes the date. Words such as "ASAP" set As soon as possible, and "no rush" sets Whenever we get to it. The card beside the form says why each answer was picked. Change anything that is wrong.
+As you type, six answers appear under the box: **Goes to**, **Kind**, **Where**, **Who sees it**, **Needed by** and **Asked for**. Each one comes from your words, and hovering over it shows the reason. On a phone, tap an answer to read why and to change it. An answer with a dashed outline is a default, because your words did not say.
 
-## Where a request can go
+A date in your words, such as "by Friday" or "October 30", becomes Needed by. A name, such as "ask Dan", becomes Asked for. Words such as "ASAP" and "no rush" set the date too. Press any answer to pick another one, and its outline turns green to show you changed it.
 
-- **Request board**: website, portal, dashboard, app and Blackbaud work. Answer a few short questions in four steps (you and where, what you need, who and when, files and send), add up to six files, and press **Send to the board**. You get an email when the work is done.
-- **Marketing team**: design, print, social and video work. The Marketing request form opens in a new tab with your words already copied. Paste them in and finish the form there. When an admin has pointed Marketing requests at a hub project, **Send to Marketing** makes a task in that project instead, and the page shows its code.
-- **Expense request**: a purchase or a trip. The expense form opens with your words in the reason box.
+## Where a request goes
 
-## Where your request is
+- **Tech**: the website, the partner portal, FavorOS, Blackbaud lists and other tools.
+- **Marketing**: design, print, social, video and photos, email and events.
+- **Expense request**: a purchase or a trip. Send request is replaced by **Open the expense form**, with your words in the reason box.
 
-After you send a request, the screen shows four stops: Sent, Approved, In progress and Done, with who has it, its due date and what moved last. **Your recent requests** on the first screen shows the same for your latest requests and updates while the page is open. A FavorOS admin opening the request on the board sees a suggested owner and due date with **Use this**, which sends it to that person and sets the date.
+The line at the bottom of the box says where your request lands and who reads it first. It lands in **Intake**, the first column of that team's board, which runs Intake, Triage, In progress, Review and Done.
+
+## Pictures and files
+
+**Add pictures or files** attaches up to six pictures, PDF, Word or text files, 4 MB each. A screenshot pasted into the box is added too.
+
+## After you send it
+
+The box shows **Sent** with four stops: Sent, Approved, In progress and Done. **See it on My requests** opens your list. You get an email when the work is done. See [Intake and My requests](/help/request-board/) for what happens next.
 
 ## Good requests
 

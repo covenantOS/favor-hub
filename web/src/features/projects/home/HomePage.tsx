@@ -24,6 +24,7 @@ import { openProjectForm } from '../sheets/ProjectForm';
 import { openQuickAdd } from '../sheets/QuickAdd';
 import type { Project } from '../types';
 import { HomeIntake, homeTabsExtra, type ExtraTab } from './intakeTabs';
+import { useIntakeParams } from '../intake/hooks';
 
 const TeamLoad = lazy(() => import('../views/TeamLoad').then((m) => ({ default: m.TeamLoad })));
 
@@ -137,6 +138,7 @@ function HomeBody() {
   }, []);
   const page: PageApi = useMemo(() => ({ ctx, openTask, quickAdd }), [ctx, openTask, quickAdd]);
   useTaskLinks(openTask);
+  useIntakeParams(openTask);
   useProjectsKeys({ projectKey: '', openTask, quickAdd });
   useBfcacheReload();
   useEffect(() => {

@@ -136,6 +136,47 @@ function acceptedEmail(row: RequestRow, owner: { name: string; email: string }, 
 }
 
 /**
+ * Tells the person who asked that their request was accepted, once: a card in Chat from the owner when they are in the Chat group,
+ * otherwise one email. The 'accepted' history row marks it, so pressing Accept twice or dragging the card never tells twice. Shared by
+ * Accept on the old board and by Accept in Projects (functions/_lib/intake/triage.ts).
+ */
+export async function tellAccepted(
+  env: TaskEnv,
+  row: RequestRow,
+  actor: Actor,
+  ownerEmail: string,
+  task: Pick<HubTask, 'id' | 'code'>,
+  noteRaw: string,
+  dir?: Map<string, { name: string; email: string }>
+): Promise<AcceptResult['told']> {
+  const people = dir || new Map((await staffDirectory(env).catch(() => [])).map((p) => [lower(p.email), p]));
+  const submitter = lower(row.submitter_email);
+  let told: AcceptResult['told'] = { via: 'none', email: submitter, why: '' };
+  const already = await env.DB.prepare(`SELECT 1 AS ok FROM events WHERE request_id = ? AND kind = 'accepted' LIMIT 1`).bind(row.id).first().catch(() => null);
+  if (!submitter) told.why = 'Nobody to tell: the request has no email.';
+  else if (submitter === ownerEmail) told.why = 'The person who asked is the owner.';
+  else if (already) told.why = 'Already told when it was first accepted.';
+  else if (isTester(actor.email) || isTester(submitter)) told.why = 'Test accounts tell nobody.';
+  else if (await isBlocked(env, submitter).catch(() => true)) told.why = 'That person no longer has FavorOS.';
+  else if (!(await noticeGate(env))(submitter)) told.why = 'Request notices are off, so nobody was told.';
+  else if (await chatReach(env, submitter)) {
+    await postCard(env, { from: ownerEmail, to: submitter, requestId: row.id, kind: 'accepted', note: noteRaw.slice(0, 600) });
+    told = { via: 'chat', email: submitter, why: '' };
+  } else if (await emailOn(env)) {
+    const owner = { email: ownerEmail, name: people.get(ownerEmail)?.name || ownerEmail };
+    const ok = await send(env, { to: submitter, ...acceptedEmail(row, owner, task, { name: people.get(submitter)?.name || row.submitter_name || '' }) }).catch(() => false);
+    told = ok ? { via: 'email', email: submitter, why: '' } : { via: 'none', email: submitter, why: 'The email did not go out.' };
+  } else told.why = 'Request email is switched off.';
+  if (told.via !== 'none' || !already) {
+    await env.DB.prepare(`INSERT INTO events (id, request_id, kind, actor, payload, created_at) VALUES (?, ?, 'accepted', ?, ?, ?)`)
+      .bind(newId('evt'), row.id, actor.name, JSON.stringify({ owner: ownerEmail, task: task.id, code: task.code, told: told.via }), nowIso())
+      .run()
+      .catch(() => undefined);
+  }
+  return told;
+}
+
+/**
  * Accept. Admins only (triage stays with hub admins). Safe to press twice: the task is found again by its request id and the
  * person who asked is told once (the history row 'accepted' marks it).
  */
@@ -184,29 +225,7 @@ export async function acceptRequest(env: TaskEnv, row: RequestRow, actor: Actor,
   }
 
   // 3. Tell the person who asked, once.
-  const submitter = lower(row.submitter_email);
-  let told: AcceptResult['told'] = { via: 'none', email: submitter, why: '' };
-  const already = await env.DB.prepare(`SELECT 1 AS ok FROM events WHERE request_id = ? AND kind = 'accepted' LIMIT 1`).bind(row.id).first().catch(() => null);
-  if (!submitter) told.why = 'Nobody to tell: the request has no email.';
-  else if (submitter === ownerEmail) told.why = 'The person who asked is the owner.';
-  else if (already) told.why = 'Already told when it was first accepted.';
-  else if (isTester(actor.email) || isTester(submitter)) told.why = 'Test accounts tell nobody.';
-  else if (await isBlocked(env, submitter).catch(() => true)) told.why = 'That person no longer has FavorOS.';
-  else if (!(await noticeGate(env))(submitter)) told.why = 'Request notices are off, so nobody was told.';
-  else if (await chatReach(env, submitter)) {
-    await postCard(env, { from: ownerEmail, to: submitter, requestId: row.id, kind: 'accepted', note: typeof b.note === 'string' ? b.note.slice(0, 600) : '' });
-    told = { via: 'chat', email: submitter, why: '' };
-  } else if (await emailOn(env)) {
-    const owner = { email: ownerEmail, name: dir.get(ownerEmail)?.name || ownerEmail };
-    const ok = await send(env, { to: submitter, ...acceptedEmail(fresh, owner, made.task, { name: dir.get(submitter)?.name || row.submitter_name || '' }) }).catch(() => false);
-    told = ok ? { via: 'email', email: submitter, why: '' } : { via: 'none', email: submitter, why: 'The email did not go out.' };
-  } else told.why = 'Request email is switched off.';
-  if (told.via !== 'none' || !already) {
-    await env.DB.prepare(`INSERT INTO events (id, request_id, kind, actor, payload, created_at) VALUES (?, ?, 'accepted', ?, ?, ?)`)
-      .bind(newId('evt'), row.id, actor.name, JSON.stringify({ owner: ownerEmail, task: made.task.id, code: made.task.code, told: told.via }), nowIso())
-      .run()
-      .catch(() => undefined);
-  }
+  const told = await tellAccepted(env, fresh, actor, ownerEmail, made.task, typeof b.note === 'string' ? b.note : '', dir);
 
   const mine = ownerEmail === lower(actor.email);
   return {

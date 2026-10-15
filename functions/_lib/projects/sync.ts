@@ -13,6 +13,7 @@
 //
 // Notices: a change read in from Asana is written straight to the tables. It calls no tell(), so FavorOS sends no notice, email or nudge
 // for it: Asana already told the person. A change made in FavorOS is told by FavorOS as always and also lands in Asana.
+import { isPipelineProject } from '../intake/pipeline';
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { hubGet, hubPut, audit } from '../admin/settings';
 import { open, seal } from '../hub/google';
@@ -995,6 +996,8 @@ export async function setProjectSync(env: Env, actor: string, gid: string, on: b
     const p = await c.req('GET', `/projects/${gid}?opt_fields=name,members.email,members.name`);
     let hubId = row?.hub_project_id || (await mapHub(env, 'project', gid))?.hub_id || '';
     if (hubId && !(await env.DB.prepare('SELECT 1 FROM hub_projects WHERE id = ?').bind(hubId).first())) hubId = '';
+    // A team's request pipeline is never synced: requests would make Asana sections and tasks nobody asked for.
+    if (hubId && (await isPipelineProject(env, hubId))) throw new HttpError(409, 'pipeline', 'That FavorOS project is a team request pipeline, which is not synced with Asana.');
     if (!hubId) {
       hubId = newId('prj');
       let key = '';

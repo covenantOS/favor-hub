@@ -8,7 +8,7 @@ import { hitRateLimit } from '../../_lib/auth';
 import { aiFor } from '../../_lib/ai/guard';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, newId, nowIso, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
-import { easternDay, suggestFill, suggestOwner, type Fill, type OwnerGuess } from '../../_lib/requests/suggest';
+import { easternDay, routeByWords, suggestFill, suggestOwner, type Fill, type OwnerGuess } from '../../_lib/requests/suggest';
 
 type Route = 'board' | 'marketing' | 'expense';
 const ROUTES: Route[] = ['board', 'marketing', 'expense'];
@@ -23,31 +23,8 @@ expense: buying something or spending money: purchases, travel costs, hotels, fl
 
 Putting finished marketing content onto the website (for example adding a new video to a web page) is board. When unsure, answer board.`;
 
-const WORDS: Record<Route, RegExp[]> = {
-  board: [
-    /\bweb ?site\b/i, /\bweb ?page\b/i, /favorintl\.org/i, /\bportal\b/i, /\bhub\b/i, /\bdashboard\b/i, /\bkpi\b/i,
-    /\bblackbaud\b/i, /raiser'?s edge/i, /\bquer(y|ies)\b/i, /\blist of (partners|donors|churches|people)\b/i, /\bpull (a|the) (list|report)\b/i,
-    /\blog ?in\b/i, /\bpassword\b/i, /\bbug\b/i, /\bbroken\b/i, /\berror\b/i, /\blink\b/i, /\bform\b/i, /\bgiving page\b/i, /\bdonat(e|ion) page\b/i,
-    /\bjob post/i, /\bcareers?\b/i, /\bintegrat/i, /\bgohighlevel\b|\bghl\b/i, /\bautomation\b/i, /\bduplicate record/i, /\bmerge\b/i, /\bapp\b/i,
-  ],
-  marketing: [
-    /\bflyers?\b/i, /\bbrochures?\b/i, /\bdesign\b/i, /\bgraphic/i, /\blogo\b/i, /\bbanners?\b/i, /\bposters?\b/i, /\bprint(ed|ing)?\b/i,
-    /\bmailers?\b/i, /\bpostcards?\b/i, /\bnewsletter\b/i, /\bsocial\b/i, /\binstagram\b/i, /\bfacebook\b/i, /\bvideos?\b/i, /\bphotos?\b/i,
-    /\bslides?\b|\bdeck\b|\bpowerpoint\b/i, /\bcanva\b/i, /\bmerch/i, /\bt-?shirts?\b/i, /\bbooth\b/i, /\bcampaign\b/i, /\bappeal letter/i,
-    /\bthank-?you packets?\b/i, /\breels?\b/i, /\bemail blast\b|\be-?blast\b/i, /\binvitations?\b/i,
-  ],
-  expense: [
-    /\breimburs/i, /\bexpense\b/i, /\bpurchase\b/i, /\bbuy\b|\bbought\b/i, /\bplane tickets?\b|\bflights?\b/i, /\bhotel\b/i, /\bmileage\b/i,
-    /\bper diem\b/i, /\binvoice\b/i, /\bpay for\b/i, /\bcredit card\b/i, /\btravel (cost|expense)/i,
-  ],
-};
-
 function byWords(text: string): Route | null {
-  const score = (r: Route) => WORDS[r].filter((re) => re.test(text)).length;
-  const scores = ROUTES.map((r) => [r, score(r)] as const).sort((a, b) => b[1] - a[1]);
-  if (!scores[0][1]) return null;
-  if (scores[1][1] === scores[0][1]) return scores.some(([r, s]) => r === 'board' && s === scores[0][1]) ? 'board' : scores[0][0];
-  return scores[0][0];
+  return routeByWords(text);
 }
 
 async function byAi(env: Env, text: string): Promise<Route | null> {

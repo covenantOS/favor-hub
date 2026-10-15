@@ -41,6 +41,9 @@ export const IDS = {
   clipPublic: 'c0ffee00c0ffee00c0ffee00c0ffee03', // level Public: everybody reads it, signed in or not (PRVOPEN)
   brainThread: 'bt_prvcnry_1',
   handoff: 'ho_prvcnry01', // a hand-off between the two testers
+  request: 'req_prvcnry_1', // a request the tester sent, with its card in the members-only project (requests in Projects, 2026-10-14)
+  requestCard: 'tsk_prvcnry_3',
+  requestOpen: 'req_prvopen_1', // a request the probe itself sent: My requests must show it (PRVOPEN)
 } as const;
 
 /** Message ids are numbers the table hands out; the check finds them by body. */
@@ -113,6 +116,16 @@ export function canaryStatements(now = Date.now()): Stmt[] {
       [IDS.task, IDS.project, `${IDS.projectKey}-1`, `${CANARY} task`, `${CANARY} task description`, TESTER_EMAIL, IDS.meetEnded, TESTER_EMAIL, at, at]],
     [`INSERT OR IGNORE INTO hub_tasks (id, project_id, title, description, status, priority, owner_email, sort, created_by, created_at, updated_at) VALUES (?, NULL, ?, ?, 'open', 'normal', ?, 0, ?, ?, ?)`,
       [IDS.taskLoose, `${CANARY} personal task`, `${CANARY} personal task description`, TESTER_EMAIL, TESTER_EMAIL, at, at]],
+    // A request the tester sent and its card, and one the staff probe sent (a control: My requests must find it).
+    [`INSERT OR IGNORE INTO requests (id, title, body, surface, status, submitter_name, submitter_email, source, created_at, updated_at) VALUES (?, ?, ?, 'website', 'inbox', ?, ?, 'projects', ?, ?)`,
+      [IDS.request, `${CANARY} request`, `${CANARY} request words`, TESTER_NAME, TESTER_EMAIL, at, at]],
+    [`INSERT OR IGNORE INTO hub_intake (request_id, task_id, team, kind, place, audience, needed, chips, created_at) VALUES (?, ?, 'tech', 'change', 'website', ?, '', ?, ?)`,
+      [IDS.request, IDS.requestCard, `${CANARY} audience`, JSON.stringify({ place: { value: 'website', why: `${CANARY} reason` } }), at]],
+    [`INSERT OR IGNORE INTO hub_tasks (id, project_id, code, title, description, status, priority, owner_email, sort, request_id, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'open', 'normal', ?, 0, ?, ?, ?, ?)`,
+      [IDS.requestCard, IDS.project, `${IDS.projectKey}-3`, `${CANARY} request card`, `${CANARY} request card description`, TESTER_EMAIL, IDS.request, TESTER_EMAIL, at, at]],
+    [`INSERT OR IGNORE INTO requests (id, title, body, surface, status, submitter_name, submitter_email, source, created_at, updated_at) VALUES (?, ?, ?, 'website', 'inbox', 'Privacy Probe', ?, 'projects', ?, ?)`,
+      [IDS.requestOpen, `${OPEN_MARK} my request`, `${OPEN_MARK} my request words`, PROBE_STAFF, at, at]],
+    [`INSERT OR IGNORE INTO hub_intake (request_id, task_id, team, kind, place, audience, needed, created_at) VALUES (?, NULL, 'tech', 'change', 'website', '', '', ?)`, [IDS.requestOpen, at]],
     // A clip the tester has not shared.
     [`INSERT OR IGNORE INTO hub_clips (id, owner_email, owner_name, title, status, share, mime, size_bytes, duration_ms, created_at, updated_at, summary) VALUES (?, ?, ?, ?, 'ready', 0, 'video/webm', 0, 1000, ?, ?, ?)`,
       [IDS.clip, TESTER_EMAIL, TESTER_NAME, `${CANARY} clip`, at, at, `${CANARY} clip summary`]],

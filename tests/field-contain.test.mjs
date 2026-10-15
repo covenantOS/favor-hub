@@ -20,7 +20,7 @@ const BLOCKED_API = [
   '/api/gift-entry/deposits', '/api/expenses/log', '/api/learn/courses', '/api/onboarding/runs', '/api/evaluations/mine', '/api/sheets/recent', '/api/google/status',
   '/api/mobile/today', '/api/uploads/x', '/api/drill', '/api/tasks', '/api/feedback', '/api/videos/list', '/api/agent/queue-not-field',
 ];
-const BLOCKED_PAGES = ['/work/', '/gifts/', '/gifts/letters/', '/gift-entry/', '/dashboard/', '/reports/', '/requests/', '/mail/', '/projects/', '/learn/', '/admin/', '/admin/people/', '/foundations/', '/receipts/', '/statements/', '/clips/', '/evaluations/', '/expenses/', '/onboarding/', '/brain/admin/', '/feedback/', '/'];
+const BLOCKED_PAGES = ['/work/', '/gifts/', '/gifts/letters/', '/gift-entry/', '/dashboard/', '/reports/', '/mail/', '/projects/', '/learn/', '/admin/', '/admin/people/', '/foundations/', '/receipts/', '/statements/', '/clips/', '/evaluations/', '/expenses/', '/onboarding/', '/brain/admin/', '/feedback/', '/'];
 const OPEN_API = ['/api/chat/boot', '/api/meet/meetings', '/api/hub/nav', '/api/auth/me', '/api/push/key', '/api/work/gate'];
 const OPEN_PAGES = ['/m/', '/chat/', '/meet/', '/meet/room/', '/meet/book/', '/brain/', '/help/', '/help/chat/', '/login/'];
 

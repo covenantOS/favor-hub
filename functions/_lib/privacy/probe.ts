@@ -87,6 +87,15 @@ export function probes(): Probe[] {
     { name: 'Task entity card', path: `/api/hub/entity?kind=task&id=${M.taskLoose}`, who: ['staff'] },
     { name: 'Project entity card', path: `/api/hub/entity?kind=project&id=${M.project}`, who: ['staff'] },
     { name: 'Search box', path: '/api/hub/find?q=prvcnry', who: ['staff'] },
+    // Requests inside Projects (2026-10-14): a person reads their own and, for a team they own, its queue. The tester's request is for the testers alone.
+    { name: 'My requests (control: the probe\'s own request)', path: '/api/tasks/intake/mine', who: ['staff'], must: OPEN_MARK },
+    { name: 'My requests (all)', path: '/api/tasks/intake/mine?all=1', who: ['staff'] },
+    { name: 'Request queue', path: '/api/tasks/intake/queue?scope=all', who: ['staff'] },
+    { name: 'Teams I triage', path: '/api/tasks/intake/teams', who: ['staff'] },
+    { name: "Another person's request by id", path: `/api/tasks/intake/r/${M.request}`, who: ['staff'] },
+    { name: "Another person's request: accept options", path: `/api/tasks/intake/r/${M.request}/options`, who: ['staff'] },
+    { name: 'Request card by id', path: `/api/tasks/${M.requestCard}`, who: ['staff'] },
+    { name: 'Request card entity card', path: `/api/hub/entity?kind=task&id=${M.requestCard}`, who: ['staff'] },
     // Clips: the library is your own; an unshared clip opens for nobody but its owner and admins (2026-10-14).
     { name: 'Clips library', path: '/api/clips', who: ['staff'] },
     { name: 'Unshared clip', path: `/api/clips/${M.clip}/info`, who: ['staff', 'field', 'out'] },
@@ -115,7 +124,7 @@ export function probes(): Probe[] {
     { name: 'Hand-offs given', path: '/api/today/handoffs', who: ['staff'] },
     { name: 'Partner mail on the partner page (no Work Center)', path: '/api/today/partner-mail?cid=27202', who: both },
     // Signed out: nothing at all.
-    ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry'].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
+    ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry', '/api/tasks/intake/mine', `/api/tasks/intake/r/${M.request}`].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
   ];
   return list;
 }

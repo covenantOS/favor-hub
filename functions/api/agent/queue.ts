@@ -57,7 +57,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const denied = requireAgent(env, request);
     if (denied) return denied;
     const rows = await listRequests(env, false);
-    const queue = rows.filter((r) => r.status === 'approved' || r.status === 'in_progress');
+    const queue = rows.filter((r) => (r.status === 'approved' || r.status === 'in_progress') && r.surface !== 'marketing');
     const atts = await attachmentsFor(env, queue.map((r) => r.id));
     const items = [];
     for (const r of queue) {

@@ -75,4 +75,9 @@ onProjectEvent((env, ev) => requestFromTask(env, ev));
 // A comment on a task a clip was sent to lands on the clip (functions/_lib/integrations/cliplinks.ts).
 import { fromTaskComment as clipFromTask } from '../integrations/cliplinks';
 onProjectEvent((env, ev) => clipFromTask(env, ev));
+// Requests in Projects: /api/tasks/intake/*, and a card that moves between stages keeps its request in step (functions/_lib/intake).
+import { handle as intakeRoute } from '../intake/route';
+import { onTaskEvent as intakeFromTask } from '../intake/stage';
+registerTaskRoute('intake', intakeRoute);
+onProjectEvent((env, ev) => intakeFromTask(env, ev));
 // --- links end
