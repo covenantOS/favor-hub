@@ -173,7 +173,7 @@ const today = (body: string): StepDef => ({
 
 const actions = (extra = ''): StepDef => ({
   id: 'actions',
-  page: '/work/',
+  page: '/work/?view=open',
   via: 'work',
   at: ['#wc-board', '#view'],
   title: 'Your actions',

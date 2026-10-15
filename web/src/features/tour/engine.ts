@@ -221,7 +221,7 @@ export function placeAlone(s: Size): Placement {
 /** Scroll the thing into the free part of the screen, then put the card beside it. `stale` says a newer stop has begun. */
 export async function settle(el: Element, side: string | undefined, s: Size, stale: () => boolean): Promise<Placement | null> {
   const { w: pw, h: ph } = s;
-  const m = 14;
+  const m = 20;
   const fixed = pinned(el);
   const head = fixed ? 0 : headerBottom();
   const smooth: ScrollBehavior = reduced() ? 'auto' : 'smooth';
