@@ -1,7 +1,7 @@
 // Partners > /work/?view=open (and ty, opps, stale, recent, giftimages): the Work Center's Actions page. The header (pills and view chips)
 // comes from WorkHeader; the view chosen by ?view= draws below it. Reads are started on the server by prefetchActions and every write goes
 // through the engine in ./actions/engine (the same /api/work routes the classic page uses).
-import { Component, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
@@ -17,11 +17,14 @@ import { clearSel, setFilters, setSel, wcGet, wcSet } from './actions/store';
 import { hasTab, isActionView, lastTab, rememberTab } from './actions/tabs';
 import { ActionBar, Ic, Skel } from './actions/ui';
 import { OpenView } from './actions/OpenView';
-import { ThankYous } from './actions/ThankYous';
-import { Stale } from './actions/Stale';
-import { Recent } from './actions/Recent';
-import { Opportunities } from './actions/Opportunities';
-import { GiftImages } from './actions/GiftImages';
+// The views behind the header's chips load as their own files when chosen; their stylesheets stay here so the server links them.
+import './actions/opportunities.css';
+import './actions/gift-images.css';
+const ThankYous = lazy(() => import('./actions/ThankYous').then((m) => ({ default: m.ThankYous })));
+const Stale = lazy(() => import('./actions/Stale').then((m) => ({ default: m.Stale })));
+const Recent = lazy(() => import('./actions/Recent').then((m) => ({ default: m.Recent })));
+const Opportunities = lazy(() => import('./actions/Opportunities').then((m) => ({ default: m.Opportunities })));
+const GiftImages = lazy(() => import('./actions/GiftImages').then((m) => ({ default: m.GiftImages })));
 import { openEditPanel } from './actions/EditPanel';
 import { useWorkKeys } from './actions/useWorkKeys';
 
@@ -173,20 +176,39 @@ function Body({ search, as }: { search: WorkSearch; as?: string }) {
     else clearSel();
   }, [view]);
 
-  if (view === 'ty') return <ThankYous w={w} />;
-  if (view === 'stale') return <Stale w={w} board={board} />;
-  if (view === 'recent') return <Recent as={as} today={board.today} />;
+  if (view === 'ty')
+    return (
+      <Suspense fallback={null}>
+        <ThankYous w={w} />
+      </Suspense>
+    );
+  if (view === 'stale')
+    return (
+      <Suspense fallback={null}>
+        <Stale w={w} board={board} />
+      </Suspense>
+    );
+  if (view === 'recent')
+    return (
+      <Suspense fallback={null}>
+        <Recent as={as} today={board.today} />
+      </Suspense>
+    );
   if (view === 'opps')
     return (
       <>
-        <Opportunities as={as} />
+        <Suspense fallback={null}>
+          <Opportunities as={as} />
+        </Suspense>
         <ActionBar>{null}</ActionBar>
       </>
     );
   if (view === 'giftimages')
     return (
       <>
-        <GiftImages as={as} />
+        <Suspense fallback={null}>
+          <GiftImages as={as} />
+        </Suspense>
         <ActionBar>{null}</ActionBar>
       </>
     );
