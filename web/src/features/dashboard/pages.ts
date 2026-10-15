@@ -39,3 +39,6 @@ export function freshText(lastUpdated: unknown, stale: boolean): string {
   const at = d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   return (stale ? 'Not updated since ' : 'Updated ') + at;
 }
+
+// Messages the dashboard sends before the page has hydrated are kept here by this script, which runs as the HTML is read.
+export const EARLY = `(function(w){if(w.__kpiHook)return;w.__kpiHook=1;var q=w.__kpiq=[];addEventListener('message',function(e){if(e.origin==='${KPI_ORIGIN}'&&e.data&&e.data.source==='kpi-dashboard'&&!w.__kpiLive)q.push(e.data);});})(window);`;

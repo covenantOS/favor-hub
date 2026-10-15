@@ -100,3 +100,32 @@ describe('the hand-off', () => {
     assert.equal((await go(world('/highlights/@testers'), '/dashboard/')).kind, 'pass');
   });
 });
+
+describe('the early message queue', () => {
+  const run = (w, listeners) => {
+    const fn = new Function('window', 'addEventListener', P.EARLY);
+    fn(w, (t, f) => listeners.push(f));
+  };
+  it('keeps the dashboard messages sent before the page listens, and nothing else', () => {
+    const w = {};
+    const ls = [];
+    run(w, ls);
+    assert.equal(ls.length, 1);
+    const ok = { source: 'kpi-dashboard', type: 'page', path: '/rdds' };
+    ls[0]({ origin: P.KPI_ORIGIN, data: ok });
+    ls[0]({ origin: 'https://evil.example', data: ok });
+    ls[0]({ origin: P.KPI_ORIGIN, data: { source: 'other' } });
+    ls[0]({ origin: P.KPI_ORIGIN, data: null });
+    assert.deepEqual(w.__kpiq, [ok]);
+  });
+  it('stops keeping messages once the page is live, and a second run adds no second listener', () => {
+    const w = {};
+    const ls = [];
+    run(w, ls);
+    run(w, ls);
+    assert.equal(ls.length, 1);
+    w.__kpiLive = true;
+    ls[0]({ origin: P.KPI_ORIGIN, data: { source: 'kpi-dashboard', type: 'freshness' } });
+    assert.equal(w.__kpiq.length, 0);
+  });
+});

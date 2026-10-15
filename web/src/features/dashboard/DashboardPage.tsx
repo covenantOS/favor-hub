@@ -12,8 +12,6 @@ import { KPI_ORIGIN, freshText, pageOf, withEmbed } from './pages';
 
 const enterSrc = (page: string) => '/api/kpi/enter?next=' + encodeURIComponent(withEmbed(page));
 
-// Messages the dashboard sends before the page has hydrated are kept here by this script, which runs as the HTML is read.
-const EARLY = `(function(){var q=window.__kpiq=[];addEventListener('message',function(e){if(e.origin==='${KPI_ORIGIN}'&&e.data&&e.data.source==='kpi-dashboard'&&!window.__kpiLive)q.push(e.data);});})();`;
 
 interface KpiMessage {
   source?: string;
@@ -122,7 +120,6 @@ export function DashboardPage({ page }: { page: string }) {
 
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: EARLY }} />
       <Fresh text={fresh.text} stale={fresh.stale} />
       <div className="h-frame-wrap">
         <div className={'h-frame-wait' + (cover === 'done' ? ' is-done' : '')} id="kpi-wait" role="status" hidden={cover === 'gone'}>
