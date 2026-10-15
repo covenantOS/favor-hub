@@ -98,14 +98,3 @@ export async function serveWeb(env: Env, forwarded: Request): Promise<Response> 
   return out;
 }
 
-/**
- * The web app's server reads: an /api GET on the Pages address carrying the shared key. A Worker's fetch to dash.favorintl.org
- * (its own zone) times out (522), so the Worker reads favor-hub-d4n.pages.dev instead, with the visitor's own cookie. Only GETs
- * to /api pass, and only with the key, so people still land on the one address Google sign-in accepts.
- */
-export function webServerRead(env: Env, request: Request, url: URL): boolean {
-  const key = env.WEB_KEY;
-  if (!key || key.length < 24) return false;
-  if (request.method !== 'GET' || !url.pathname.startsWith('/api/')) return false;
-  return request.headers.get('X-Web-Key') === key;
-}

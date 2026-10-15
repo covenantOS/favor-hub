@@ -9,7 +9,8 @@ const s = await fetch(BASE + '/api/admin/test-session', { method: 'POST', header
 const cookie = (s.headers.get('set-cookie') || '').match(/favor_hub_session=[^;]+/)?.[0];
 if (!cookie) throw new Error('no tester session: ' + s.status);
 let bad = 0;
-for (const arg of process.argv.slice(2)) {
+const list = process.argv.slice(2).length ? process.argv.slice(2) : (process.env.LIVE_CHECKS || '').split(' ').filter(Boolean);
+for (const arg of list) {
   const [path, want = 'web'] = arg.split('=');
   const res = await fetch(BASE + path, {
     redirect: 'manual',

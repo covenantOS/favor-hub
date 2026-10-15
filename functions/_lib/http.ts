@@ -49,8 +49,6 @@ export interface Env {
   KPI?: AssetsFetcher;
   /** The FavorOS web app Worker (favoros-web, web/): the middleware hands it the routes in the hub setting web.routes (functions/_lib/web.ts). */
   WEB?: AssetsFetcher;
-  /** Shared with the favoros-web Worker: its server reads of /api on the Pages address carry it (functions/_lib/web.ts webServerRead). */
-  WEB_KEY?: string;
   /** The KPI dashboard's session key, so the hub can sign a KPI session for someone allowed to see it. */
   KPI_JWT_SECRET?: string;
   /** Where the KPI dashboard lives (https://kpi.favorintl.org when unset). */

@@ -1,0 +1,10 @@
+{
+  // Server reads for the FavorOS web app (see index.ts). Key-guarded, GET /api only.
+  "name": "favoros-relay",
+  "account_id": "6e975b8c8e7bea3f644c0eb722af991f",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-14",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true }
+}

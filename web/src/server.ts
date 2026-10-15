@@ -13,7 +13,8 @@ export default {
       let nav = 0;
       let err = '';
       try {
-        const r = await fetch(HUB_ORIGIN + '/api/hub/nav', { headers: { 'X-Hub-Request': '1', 'X-Web-Key': (env as unknown as { WEB_KEY?: string }).WEB_KEY || '', cookie: request.headers.get('cookie') || '' } });
+        const r = await fetch(HUB_ORIGIN + '/api/hub/nav', {
+          headers: { 'X-Hub-Request': '1', 'X-Web-Key': (env as unknown as { WEB_KEY?: string }).WEB_KEY || '', cookie: request.headers.get('cookie') || '' } });
         nav = r.status;
       } catch (e) {
         err = String((e as Error).message || e).slice(0, 200);
