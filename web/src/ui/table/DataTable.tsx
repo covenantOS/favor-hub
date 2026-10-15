@@ -64,6 +64,8 @@ export interface DataTableProps<T> {
   noFit?: boolean;
   /** Extra class on the <table>. */
   className?: string;
+  /** Extra class on the wrapper around the table (the Foundations panels use ptl-wrap). */
+  wrapClassName?: string;
   /** Aria label for the table. */
   label: string;
   /** Hidden columns, when the caller keeps them (from useListControls). Otherwise the table keeps its own. */
@@ -120,7 +122,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const span = cols.length + (p.select ? 1 : 0);
 
   return (
-    <div className={'pt-wrap' + (p.noFit ? '' : ' pt-wrap--fit')} style={style} data-density={density}>
+    <div className={'pt-wrap' + (p.noFit ? '' : ' pt-wrap--fit') + (p.wrapClassName ? ' ' + p.wrapClassName : '')} style={style} data-density={density}>
       <table className={'pt-table' + (p.className ? ' ' + p.className : '') + (p.busy ? ' is-busy' : '')} aria-label={p.label}>
         <thead>
           <tr>
