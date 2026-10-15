@@ -1,7 +1,7 @@
 // Admin > Fundraiser goals. Every fundraiser's annual and quarterly goals for a year, edited in place, with the check against the
 // KPI dashboard that has to pass before the hub reads goals from FavorOS.
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Suspense, useMemo, useState } from 'react';
+import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { goalSaved, goalSeeded, goalSource, goalsResponse, type GoalRowData, type GoalValues, type GoalsResponse } from '@shared/schemas';
 import { hubGet } from '../../lib/hub';
 import { hubSend } from '../../lib/write';
@@ -31,16 +31,31 @@ export function goalsQuery(year?: number) {
   };
 }
 
+const Loading = () => (
+  <section className="h-card" style={{ padding: 24, minHeight: 320 }} aria-busy="true">
+    <div className="r2t-skel" style={{ height: 28, width: 260 }} />
+  </section>
+);
+
+/** The year picked is page state only; nothing is read from the browser during the first render. */
 export function GoalsPage() {
   const [year, setYear] = useState<number | undefined>(undefined);
-  const q = useQuery(goalsQuery(year));
+  return (
+    <Suspense fallback={<Loading />}>
+      <GoalsBody year={year} setYear={setYear} />
+    </Suspense>
+  );
+}
+
+function GoalsBody({ year, setYear }: { year: number | undefined; setYear: (y: number) => void }) {
+  const { data: d } = useSuspenseQuery(goalsQuery(year));
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'goals'] });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const seed = useMutation({
-    mutationFn: () => hubSend('/api/admin/goals', 'POST', { action: 'seed', year: q.data!.year }, (d) => goalSeeded.parse(d)),
+    mutationFn: () => hubSend('/api/admin/goals', 'POST', { action: 'seed', year: d.year }, (d) => goalSeeded.parse(d)),
     onSuccess: (r) => {
       setMsg({ ok: true, text: `Copied goals for ${r.added} fundraisers from Blackbaud. ${r.kept} already had goals saved.` });
       void refresh();
@@ -57,25 +72,10 @@ export function GoalsPage() {
   });
 
   const rows = useMemo(() => {
-    const all = q.data?.rows ?? [];
+    const all = d.rows;
     return showAll ? all : all.filter((r) => r.active || r.saved);
-  }, [q.data, showAll]);
+  }, [d.rows, showAll]);
 
-  if (q.isLoading) {
-    return (
-      <section className="h-card" style={{ padding: 24, minHeight: 320 }} aria-busy="true">
-        <div className="r2t-skel" style={{ height: 28, width: 260 }} />
-      </section>
-    );
-  }
-  if (q.error || !q.data) {
-    return (
-      <section className="h-card" style={{ padding: 24 }}>
-        <p>{(q.error as Error | null)?.message || 'Goals did not load. Try again.'}</p>
-      </section>
-    );
-  }
-  const d = q.data;
   const editable = d.year === d.currentYear;
 
   return (
