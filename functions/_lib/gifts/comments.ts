@@ -37,13 +37,13 @@ export function checkComment(input: { kind?: unknown; body?: unknown }): { kind:
 }
 
 export async function commentsOf(env: Env, giftId: string): Promise<CommentRow[]> {
-  const r = await env.DB.prepare('SELECT * FROM ge_comment WHERE gift_id = ? ORDER BY created_at, id').bind(giftId).all<CommentRow>();
+  const r = await env.DB.prepare('SELECT * FROM ge_comment WHERE gift_id = ? ORDER BY created_at, rowid').bind(giftId).all<CommentRow>();
   return r.results;
 }
 
 /** Every thread in one deposit, keyed by gift id. One query per deposit view. */
 export async function commentsForDeposit(env: Env, depositId: string): Promise<Map<string, CommentRow[]>> {
-  const r = await env.DB.prepare('SELECT * FROM ge_comment WHERE deposit_id = ? ORDER BY created_at, id').bind(depositId).all<CommentRow>();
+  const r = await env.DB.prepare('SELECT * FROM ge_comment WHERE deposit_id = ? ORDER BY created_at, rowid').bind(depositId).all<CommentRow>();
   const out = new Map<string, CommentRow[]>();
   for (const c of r.results) out.set(c.gift_id, [...(out.get(c.gift_id) || []), c]);
   return out;
@@ -58,7 +58,7 @@ export function reviewState(thread: Pick<CommentRow, 'kind'>[]): ReviewState {
 
 /** Deposit id to the number of its rows that currently need a fix. Feeds the deposit list. */
 export async function needsFixByDeposit(env: Env): Promise<Record<string, number>> {
-  const r = await env.DB.prepare("SELECT deposit_id, gift_id, kind FROM ge_comment WHERE kind IN ('needs_fix', 'resolved') ORDER BY created_at, id").all<{ deposit_id: string; gift_id: string; kind: CommentKind }>();
+  const r = await env.DB.prepare("SELECT deposit_id, gift_id, kind FROM ge_comment WHERE kind IN ('needs_fix', 'resolved') ORDER BY created_at, rowid").all<{ deposit_id: string; gift_id: string; kind: CommentKind }>();
   const last = new Map<string, { deposit: string; kind: CommentKind }>();
   for (const c of r.results) last.set(c.gift_id, { deposit: c.deposit_id, kind: c.kind });
   const out: Record<string, number> = {};

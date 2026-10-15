@@ -1,7 +1,7 @@
 // The FavorOS frame for pages served by the web app: the app2 rail, top bar, phone bar, Ctrl K, entity cards and dock, drawn on the
 // server. The frame streams first; the rail and top bar stream in as their own HTML the moment /api/hub/nav answers, so the browser
 // fetches styles and scripts while the server is still reading. The page body is a sibling and never waits on the menu.
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMatches, useRouterState } from '@tanstack/react-router';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import type { HubUser } from '@shared/schemas';
@@ -9,12 +9,9 @@ import { buildNav } from '@/shell/model';
 import { Rail } from '@/shell/Rail';
 import { TopBar } from '@/shell/TopBar';
 import { PhoneBar } from '@/shell/PhoneBar';
-import { Palette } from '@/shell/Palette';
-import { Dock } from '@/shell/Dock';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { ServedRoutes } from '@/shell/NavLink';
 import { useRail } from '@/shell/useRail';
-import { EntityHost } from '@/features/entity/EntityHost';
 import { useNav } from '@/data/hooks';
 import { useIdleReady } from '@/lib/idle';
 import { installHubOv } from '@/lib/hubOv';
@@ -24,6 +21,12 @@ import { KEYS, writeString } from '@/lib/storage';
 import { WEB_ROUTES } from '@shared/web';
 import { navQuery } from '../lib/queries';
 import { mountClassicHelpers } from './helpers';
+
+// Overlays nobody sees until they open them (Ctrl K, hover cards, the dock) load after the page is idle, in their own files, so the
+// first screen downloads and runs less on a slow phone.
+const Palette = lazy(() => import('@/shell/Palette').then((m) => ({ default: m.Palette })));
+const EntityHost = lazy(() => import('@/features/entity/EntityHost').then((m) => ({ default: m.EntityHost })));
+const Dock = lazy(() => import('@/shell/Dock').then((m) => ({ default: m.Dock })));
 
 const EMPTY_USER: HubUser = { email: '', name: '', picture: '', role: 'staff', via: 'password', kpi: false };
 type RailState = ReturnType<typeof useRail>;
@@ -60,7 +63,17 @@ function BarPart({ rail }: { rail: RailState }) {
 
 function PalettePart() {
   const { access, kpiTeams } = useView();
-  return <Palette access={access} kpiTeams={kpiTeams} />;
+  const idle = useIdleReady();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted && idle ? <Palette access={access} kpiTeams={kpiTeams} /> : null;
+}
+
+function EntityPart() {
+  const idle = useIdleReady();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted && idle ? <EntityHost /> : null;
 }
 
 /** Work the browser does once: the back-gesture stack, the menu's side effects (window.FAVOR_HUB, the saved copy), helper scripts. */
@@ -194,7 +207,9 @@ export function WebShell({ children }: { children: ReactNode }) {
         </Suspense>
       </ErrorBoundary>
       <ErrorBoundary label="" className="h-card">
-        <EntityHost />
+        <Suspense fallback={null}>
+          <EntityPart />
+        </Suspense>
       </ErrorBoundary>
       <Suspense fallback={null}>
         <DockPart />

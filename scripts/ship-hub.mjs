@@ -6,7 +6,7 @@
 // In Git Bash set MSYS_NO_PATHCONV=1 first, or a /path argument turns into C:/Program Files/Git/path.
 // Needs the Marketing account environment (source Q:/work/favor-hub/cfenv.sh) and the agent key for --check.
 import { execFileSync, execSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 const args = process.argv.slice(2);
@@ -28,6 +28,36 @@ const step = (name, fn) => {
   }
 };
 
+// --train: queue this branch for the merge train (scripts/ship-train.mjs) instead of shipping it alone. The runner merges every
+// queued branch onto main, runs the gates once, deploys once, and finds and rejects a branch that breaks the batch. This waits for
+// the result and exits 0 when the branch shipped, 1 when it was rejected (the reason is printed). --priority N puts it earlier
+// (default 50; production fixes use 0 to 10).
+if (has('--train')) {
+  const QDIR = 'Q:/work/favor-hub/train-queue';
+  const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+  if (!branch || branch === 'HEAD' || branch === 'main') { console.error('FAIL train: work on a named branch (not main, not detached)'); process.exit(1); }
+  const dirty = execSync('git status --porcelain --untracked-files=no', { encoding: 'utf8' }).split('\n').filter((l) => l && !/routeTree\.gen\.ts$/.test(l));
+  if (dirty.length) { console.error('FAIL train: commit first:\n' + dirty.join('\n')); process.exit(1); }
+  try { execSync('git checkout -- app/src/routeTree.gen.ts web/src/routeTree.gen.ts', { stdio: 'ignore' }); } catch { /* clean */ }
+  try { execSync('git fetch -q origin && git rebase -q origin/main', { stdio: 'inherit' }); } catch { console.error('FAIL train: the branch does not rebase onto origin/main; resolve and try again'); process.exit(1); }
+  const pi = args.indexOf('--priority');
+  const id = `${new Date().toISOString().replace(/[:.]/g, '-')}-${branch.replace(/[^\w.-]/g, '_')}`;
+  // The checks come back to their plain /path even when Git Bash rewrote them.
+  const fix = (c) => c.replace(/^[A-Za-z]:[\\/].*?[\\/]Git(?=[\\/])/, '').replace(/\\/g, '/');
+  mkdirSync(QDIR + '/done', { recursive: true });
+  writeFileSync(`${QDIR}/${id}.json`, JSON.stringify({ id, branch, checks: checks.map(fix), priority: pi >= 0 ? Number(args[pi + 1]) : 50, by: process.cwd(), at: new Date().toISOString() }, null, 1));
+  console.log(`queued ${branch} as ${id}; waiting for the merge train`);
+  for (;;) {
+    const f = `${QDIR}/done/${id}.json`;
+    if (existsSync(f)) {
+      const r = JSON.parse(readFileSync(f, 'utf8'));
+      console.log(r.state === 'shipped' ? `shipped ${r.commit}\n${r.live || ''}` : `REJECTED: ${r.reason}`);
+      process.exit(r.state === 'shipped' ? 0 : 1);
+    }
+    execSync('node -e "setTimeout(()=>{},15000)"');
+  }
+}
+
 // One ship at a time on this machine: agents share Q:/work/favor-hub/ship.lock (pid, worktree, start time). A lock older than 40
 // minutes is stale (a ship takes about 10). The lock is released on exit, success or failure.
 const LOCK = 'Q:/work/favor-hub/ship.lock';
@@ -46,7 +76,7 @@ writeFileSync(LOCK, `${process.pid} ${process.cwd()} ${new Date().toISOString()}
 process.on('exit', () => { try { if (readFileSync(LOCK, 'utf8').startsWith(String(process.pid) + ' ')) unlinkSync(LOCK); } catch { /* gone */ } });
 
 // Tests that fail on main for reasons outside a ship (named in the work log); listed so a ship is not blocked by them.
-const KNOWN = ['/changelog builds with every entry', 'the dock scripts hide on Chat', 'entries are written for staff', 'Huddle on a person rings them', 'Decline with a message posts it', 'the test accounts ring only each other'];
+const KNOWN = ['Huddle on a person rings them', 'Decline with a message posts it', 'the test accounts ring only each other'];
 
 step('clean tree', () => {
   const dirty = sh('git status --porcelain --untracked-files=no', { capture: true }).split('\n').filter((l) => l && !/routeTree\.gen\.ts$/.test(l));

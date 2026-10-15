@@ -5,7 +5,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { navQuery } from '../../lib/queries';
 
 export const Route = createFileRoute('/web-check/')({
-  staticData: { nav: 'help', title: 'Web app check', layout: 'page' },
+  staticData: { nav: 'docs', title: 'Web app check', layout: 'page' },
   component: WebCheck,
 });
 

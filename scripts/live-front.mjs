@@ -11,7 +11,10 @@ if (!cookie) throw new Error('no tester session: ' + s.status);
 let bad = 0;
 const list = process.argv.slice(2).length ? process.argv.slice(2) : (process.env.LIVE_CHECKS || '').split(' ').filter(Boolean);
 for (const arg of list) {
-  const [path, want = 'web'] = arg.split('=');
+  // Git Bash rewrites an argument that starts with / into a Windows path (C:/Program Files/Git/gifts/) unless MSYS_NO_PATHCONV=1 is set;
+  // take the part after Git back, so the check reads https://dash.favorintl.org/gifts/ either way.
+  const [raw, want = 'web'] = arg.split('=');
+  const path = raw.replace(/^[A-Za-z]:[\\/].*?[\\/]Git(?=[\\/])/, '').replace(/\\/g, '/');
   const res = await fetch(BASE + path, {
     redirect: 'manual',
     headers: { cookie: cookie + '; hub_gc=1', 'Sec-Fetch-Dest': 'document', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' },
