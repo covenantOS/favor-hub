@@ -500,6 +500,11 @@ export function Composer({ e, scope, placeholder, slim, latest, alsoLabel }: Pro
               }
             }
             if (ev.key === 'Escape') {
+              // A menu or picker that is open closes first (the classic page does the same from the message box).
+              if (e.ui.pop) {
+                e.setPop(null);
+                return;
+              }
               if (scope === 'thread' && !e.dock) {
                 ev.preventDefault();
                 e.closeRight();
