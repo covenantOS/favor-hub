@@ -75,7 +75,7 @@ let ACTS = [];
 let BYID = {};
 const S = {
   view: 'open', sel: new Set(), anchor: null, list: [],
-  f: { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sort: 'due', dir: -1, shown: 60,
+  f: { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sort: 'due', dir: -1, page: 1, sig: '',
   gone: {}, ov: {}, saving: {}, queued: {}, back: {},
   batches: [], gate: null, loaded: false, error: '', running: null,
   in: { rdd: '', lane: 'wait', paste: false, data: null, loading: false, ta: {} },
@@ -186,6 +186,7 @@ function page() {
   const g = S.gate || {};
   const main = root;
   hideBar();
+  main.dataset.wcview = S.view;
   main.innerHTML = `
     <div class="wc-intro">
       <div class="wc-chips">
@@ -266,36 +267,65 @@ function rowHTML(a) {
     <button type="button" class="wc-more" data-open="${a.id}" aria-label="Date, owner and more for ${esc(a.p)}"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
   </div>`;
 }
-// Rows come 60 at a time, with what is left: "Show 60 more  1,224 left of 1,284".
-const PAGE = 60;
-function moreBtn(n) { return n > S.shown ? `<div class="wc-more"><button type="button" class="h-more" data-more>Show ${Math.min(PAGE, n - S.shown)} more <span>${(n - S.shown).toLocaleString('en-US')} left of ${n.toLocaleString('en-US')}</span></button></div>` : ''; }
+// Every list pages with the shared pager (public/js/ptable.js): 25, 50 or 100 rows a page, remembered per list.
+// S.page is the page showing. It goes back to 1 whenever the list's own signature changes (view, filters, sort, lane, person).
+const ptKey = () => 'wc-' + S.view;
+const psize = () => PT.size(ptKey(), 50);
+function pageFor(sig, total) { if (S.sig !== sig) { S.sig = sig; S.page = 1; } S.page = PT.clampPage(S.page, total, psize()); return S.page; }
+function pageOf(list) { return PT.slice(list, S.page, psize()); }
+const pageIds = () => pageOf(S.list);
+function pagerHTML(total, label) { return PT.pager(ptKey(), { total, page: S.page, size: psize(), label }); }
+const openSig = () => 'open|' + JSON.stringify(S.f) + '|' + S.sort + '|' + S.dir;
+function remount() {
+  (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount();
+  const sc = $('#view .wc-scroll'); if (sc) sc.scrollTop = 0;
+  fitBox();
+}
+['wc-open', 'wc-stale', 'wc-ty', 'wc-intake'].forEach((k) => PT.on(k, { page(p) { S.page = p; remount(); } }));
+// The list's box runs from where it starts to the foot of the window, so the header row and the pager stay in view and the rows scroll inside it.
+function fitBox() {
+  const box = $('#view .wc-scroll, #view .wg-scroll');
+  if (!box) return;
+  if (innerWidth <= 860) { box.style.removeProperty('max-height'); return; }
+  let below = 0;
+  for (let n = box.nextElementSibling; n; n = n.nextElementSibling) below += n.getBoundingClientRect().height;
+  const top = box.getBoundingClientRect().top + window.scrollY;
+  // What the page keeps under the sheet (its bottom padding) is measured, so the list ends at the window's foot and the page does not scroll.
+  const sheet = box.closest('section, .h-card') || box;
+  const tail = Math.max(0, document.documentElement.scrollHeight - (sheet.getBoundingClientRect().bottom + window.scrollY));
+  const h = Math.max(280, Math.floor(innerHeight - top - below - Math.min(tail, 120) - 6));
+  if (box.dataset.fit !== String(h)) { box.dataset.fit = String(h); box.style.maxHeight = h + 'px'; }
+}
+let fitT; const fitSoon = () => { cancelAnimationFrame(fitT); fitT = requestAnimationFrame(fitBox); };
+addEventListener('resize', fitSoon);
+document.addEventListener('pt:density', () => { fitSoon(); setTimeout(fitBox, 250); });
 function tableHTML(list, total, idp) {
-  const shown = list.slice(0, S.shown);
+  pageFor(idp === 'o' ? openSig() : 'stale|' + S.st.lane + '|' + S.sort + '|' + S.dir, list.length);
+  const shown = pageOf(list);
   const allOn = shown.length && shown.every((a) => S.sel.has(a.id));
   const sb = (k, l) => `<button type="button" class="sort${S.sort === k ? ' is-on' : ''}" data-sort="${k}">${l}${S.sort === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</button>`;
   return `<div class="wc-selbanner" id="${idp}-banner"></div>
   <div class="wc-scroll" id="${idp}-scroll" data-grid>
     <div class="wc-head wc-grid"><div class="wc-cb" data-cball><input type="checkbox" ${allOn ? 'checked' : ''} aria-label="Select every action shown" /></div>${sb('due', 'Due')}${sb('partner', 'Partner')}<span>Type</span><span>Summary</span>${sb('fr', 'Fundraiser')}${sb('added', 'Added')}</div>
     <div class="wc-grid" id="${idp}-rows">${shown.length ? shown.map((a) => rowHTML(a)).join('') : `<div class="wc-empty"><b>Nothing matches</b>Change a filter or clear them all.</div>`}</div>
-    ${moreBtn(list.length)}
   </div>
-  <div class="wc-foot"><span>${list.length === total ? plural(total, 'open action') : `${list.length.toLocaleString()} of ${plural(total, 'open action')} match`}${DATA.total > ACTS.length ? ` · the newest ${ACTS.length.toLocaleString('en-US')} of ${DATA.total.toLocaleString('en-US')} in Blackbaud` : ''}</span>
+  <div class="wc-foot">${pagerHTML(list.length, (list.length === total ? (total === 1 ? 'open action' : 'open actions') : `matching of ${total.toLocaleString('en-US')} open`) + (DATA.total > ACTS.length ? ` · the newest ${ACTS.length.toLocaleString('en-US')} of ${DATA.total.toLocaleString('en-US')} in Blackbaud` : ''))}
     <span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Space</kbd>select</span><span><kbd>Ctrl</kbd><kbd>A</kbd>all that match</span><span><kbd>Esc</kbd>clear</span></span></div>`;
 }
 function afterTable(idp, list) {
   const all = $(`#${idp}-scroll [data-cball] input`);
-  if (all) { const shown = list.slice(0, S.shown); const n = shown.filter((a) => S.sel.has(a.id)).length; all.indeterminate = n > 0 && n < shown.length; }
+  if (all) { const shown = pageOf(list); const n = shown.filter((a) => S.sel.has(a.id)).length; all.indeterminate = n > 0 && n < shown.length; }
   banner(idp, list);
 }
 function banner(idp, list) {
   const b = $(`#${idp}-banner`); if (!b) return;
-  const shown = list.slice(0, S.shown);
+  const shown = pageOf(list);
   const allShown = shown.length && shown.every((a) => S.sel.has(a.id));
   const allList = list.length && list.every((a) => S.sel.has(a.id));
   if (allShown && list.length > shown.length && !allList) {
-    b.innerHTML = `All ${shown.length} shown are selected. <button type="button" data-allmatch>Select all ${list.length} that match</button>`; b.classList.add('is-on');
+    b.innerHTML = `All ${shown.length} on this page are selected. <button type="button" data-allmatch>Select all ${list.length} that match</button>`; b.classList.add('is-on');
   } else if (allList && list.length > 1 && S.sel.size >= list.length && list.length > shown.length) {
-    b.innerHTML = `All ${list.length} that match are selected, including ${list.length - shown.length} below. <button type="button" data-clearsel>Clear</button>`; b.classList.add('is-on');
+    b.innerHTML = `All ${list.length} that match are selected, including ${list.length - shown.length} on other pages. <button type="button" data-clearsel>Clear</button>`; b.classList.add('is-on');
   } else { b.classList.remove('is-on'); b.innerHTML = ''; }
 }
 
@@ -374,6 +404,7 @@ function viewOpen() {
   countUp();
   bar();
   if (window.WCEdit) window.WCEdit.afterOpen('o');
+  fitBox();
 }
 
 // ------------------------------------------------------------ selection (shared by every list)
@@ -391,10 +422,10 @@ function refreshSel() {
     const on = S.sel.has(r.dataset.id); r.classList.toggle('is-picked', on); 
     const cb = $('input', r); if (cb) cb.checked = on;
   });
-  if (S.view === 'open' || S.view === 'stale') { const list = S.list.map((id) => BYID[id]); afterTable(S.view === 'open' ? 'o' : 's', list); const all = $('#view [data-cball] input'); if (all) { const shown = list.slice(0, S.shown); all.checked = shown.length > 0 && shown.every((a) => S.sel.has(a.id)); all.indeterminate = !all.checked && shown.some((a) => S.sel.has(a.id)); } }
+  if (S.view === 'open' || S.view === 'stale') { const list = S.list.map((id) => BYID[id]); afterTable(S.view === 'open' ? 'o' : 's', list); const all = $('#view [data-cball] input'); if (all) { const shown = pageOf(list); all.checked = shown.length > 0 && shown.every((a) => S.sel.has(a.id)); all.indeterminate = !all.checked && shown.some((a) => S.sel.has(a.id)); } }
   if (S.view === 'ty' || S.view === 'intake') {
     const all = $('#view .wc-head [data-cball] input');
-    if (all) { const ids = S.list.filter(selectable); const n = ids.filter((i) => S.sel.has(i)).length; all.checked = ids.length > 0 && n === ids.length; all.indeterminate = n > 0 && n < ids.length; }
+    if (all) { const ids = pageIds().filter(selectable); const n = ids.filter((i) => S.sel.has(i)).length; all.checked = ids.length > 0 && n === ids.length; all.indeterminate = n > 0 && n < ids.length; }
   }
   bar();
 }
@@ -443,7 +474,7 @@ document.addEventListener('click', (e) => {
     refreshSel(); row.focus({ preventScroll: true }); return;
   }
   const all = t.closest('[data-cball]');
-  if (all) { e.preventDefault(); const list = S.list.slice(0, S.shown).filter(bulkable).filter(isVisible); const on = !list.every((id) => S.sel.has(id)); list.forEach((id) => setSel(id, on)); refreshSel(); return; }
+  if (all) { e.preventDefault(); const list = pageIds().filter(bulkable).filter(isVisible); const on = !list.every((id) => S.sel.has(id)); list.forEach((id) => setSel(id, on)); refreshSel(); return; }
   if (t.closest('[data-allmatch]')) { S.list.filter(bulkable).forEach((id) => S.sel.add(id)); refreshSel(); return; }
   if (t.closest('[data-clearsel]')) { clearSel(); return; }
 });
@@ -451,6 +482,12 @@ document.addEventListener('mousedown', (e) => { if (e.shiftKey && e.target.close
 document.addEventListener('keydown', (e) => {
   if (!document.body.contains(root)) return;
   if (e.key === 'Escape') { if (closeLayer()) return; if ($('#filters.is-sheet')) { $('#filters').classList.remove('is-sheet'); return; } if (S.sel.size) { clearSel(); return; } }
+  if ((e.key === '[' || e.key === ']') && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.altKey && !/input|textarea|select/i.test(e.target.tagName) && !$('#layer .wc-dlg, #layer .wc-drawer')) {
+    const nav = $(`[data-pt-pager="${ptKey()}"]`);
+    const nb = nav ? $$('.pt-nums > button', nav) : [];
+    const go = e.key === '[' ? nb[0] : nb[nb.length - 1];
+    if (go && !go.disabled) { e.preventDefault(); go.click(); return; }
+  }
   const row = e.target.closest && e.target.closest('#view .wc-row[data-id]');
   const inGrid = e.target.closest && e.target.closest('#view [data-grid], #view .wc-grid, #view .wc-tg');
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && inGrid && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); S.list.filter(bulkable).forEach((id) => S.sel.add(id)); refreshSel(); return; }
@@ -885,8 +922,8 @@ function intakeRowHTML(r) {
     <div class="wc-pc">${partner}</div>
     <div class="wc-dc"><input class="cell" type="date" value="${r.date}" ${locked ? 'disabled' : ''} data-rdate="${r.id}" aria-label="Date of the contact" /><span class="wc-sub">${srcLabel}</span></div>
     <div class="wc-hc"><div class="wc-hows" role="group" aria-label="How">${HOWS.map(([k, l]) => `<button type="button" class="wc-how${r.ch === k ? ' is-on' : ''}" data-rch="${r.id}" data-v="${k}" ${locked ? 'disabled' : ''}>${l}</button>`).join('')}</div>${r.act && !r.ch ? `<span class="wc-sub">The sheet says “${esc(r.act.slice(0, 40))}”</span>` : ''}</div>
-    <div class="wc-statewrap"><span class="wc-state wc-state--${st.k === 'saving' ? 'dup' : st.k}">${st.k === 'saving' ? '<span class="wc-spin"></span>' : ''}${st.l}</span>${st.note ? `<small>${esc(st.note)}</small>` : ''}</div>
-    <div class="wc-sc"><input class="cell" type="text" maxlength="255" value="${esc(r.sum)}" data-rsum="${r.id}" ${locked ? 'disabled' : ''} aria-label="Summary" placeholder="Summary" /><div class="notes" title="${esc(r.notes)}">${esc(r.notes || 'No notes on the sheet')}</div></div>
+    <div class="wc-statewrap"><span class="wc-state wc-state--${st.k === 'saving' ? 'dup' : st.k}" title="${esc(st.note || '')}">${st.k === 'saving' ? '<span class="wc-spin"></span>' : ''}${st.l}</span>${st.note ? `<small>${esc(st.note)}</small>` : ''}</div>
+    <div class="wc-sc"><input class="cell" type="text" maxlength="255" value="${esc(r.sum)}" title="${esc(r.notes)}" data-rsum="${r.id}" ${locked ? 'disabled' : ''} aria-label="Summary" placeholder="Summary" /><div class="notes" title="${esc(r.notes)}">${esc(r.notes || 'No notes on the sheet')}</div></div>
     <div class="wc-tagcell"><div class="wc-ttog">${TAGS.map(([k, l]) => `<button type="button" class="wc-tt${r.tags.includes(k) ? ' is-on' : ''}" data-rtag="${r.id}" data-v="${k}" ${locked ? 'disabled' : ''}>${l}</button>`).join('')}
       <label class="wc-ask">Ask $<input type="text" inputmode="decimal" value="${esc(r.ask)}" data-rask="${r.id}" ${locked ? 'disabled' : ''} aria-label="Amount of ask" /></label></div></div>
   </div>`;
@@ -925,6 +962,7 @@ function viewIntake() {
   const w = weekCounts(me.fid);
   const bb = d.bb || { this: 0, last: 0, lastByMon3: 0 };
   const list = visibleIntake(); S.list = list.map((r) => r.id);
+  pageFor('intake|' + S.in.rdd + '|' + S.in.lane, list.length);
   const dl = Date.parse(d.deadline.iso) - Date.now();
   const clk = (ms) => { const m = Math.max(0, ms); return `${Math.floor(m / 86400000)}<small>d</small> ${Math.floor(m % 86400000 / 3600000)}<small>h</small> ${Math.floor(m % 3600000 / 60000)}<small>m</small>`; };
   const lanes = [['wait', 'This week', w.wait], ['late', 'Late', w.late], ['in', 'In Blackbaud', w.in], ['all', 'All rows', w.all]];
@@ -942,22 +980,22 @@ function viewIntake() {
     </section>
     <section class="h-card wc-sheet" id="wc-intake" aria-label="Contacts to enter">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${Number(n).toLocaleString('en-US')}</span></button>`).join('')}</div>
-        <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${me.tab ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-readsheet>${ic('paste')}Read the sheet</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
+        <div class="wc-tools">${PT.densityHTML()}<button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${me.tab ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-readsheet>${ic('paste')}Read the sheet</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
       <div class="wc-paste${S.in.paste ? ' is-on' : ''}" id="paste">
         <label for="pastebox" class="wc-pastelab">Paste rows from ${esc(me.name)}'s tracking sheet: Name, New?, Date, Phone, Email, Address, Ask, Action, Notes</label>
         <textarea id="pastebox" placeholder="Copy the rows in the sheet (Ctrl C) and paste them here (Ctrl V)."></textarea>
         <div class="wc-paste__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-readpaste>Read the rows</button><button type="button" class="wc-clear" data-paste>Close</button><small>Each row is matched to a partner by email, then phone, then name. Rows already here or in Blackbaud are skipped.</small></div>
       </div>
       <div class="wc-scroll wc-scroll--in" data-grid>
-        ${list.length ? `<div class="wc-head wc-ig"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row shown" /></div><span>Partner</span><span>Date</span><span>How</span><span>State</span></div>
-        <div class="wc-ig">${list.slice(0, S.shown).map(intakeRowHTML).join('')}</div>${moreBtn(list.length)}` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
+        ${list.length ? `<div class="wc-head wc-ig"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row shown" /></div><span>Partner</span><span>Date</span><span>How</span><span>State</span><span class="wc-hx">Summary</span><span class="wc-hx">Tags and ask</span></div>
+        <div class="wc-ig">${pageOf(list).map(intakeRowHTML).join('')}</div>` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
       </div>
-      <div class="wc-foot"><span>${readyAll.length} of ${list.length} rows ready</span>
+      <div class="wc-foot">${pagerHTML(list.length, `rows, ${readyAll.length} ready`)}
         ${readyAll.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-postall>${ic('check')}Enter ${readyAll.length} ready rows</button>` : '<span></span>'}</div>
     </section>`;
   const all = $('#view .wc-head [data-cball] input');
-  if (all) { const sel = list.filter((r) => selectable(r.id)); all.checked = sel.length > 0 && sel.every((r) => S.sel.has(r.id)); }
-  bar();
+  if (all) { const sel = pageOf(list).filter((r) => selectable(r.id)); all.checked = sel.length > 0 && sel.every((r) => S.sel.has(r.id)); }
+  bar(); fitBox();
 }
 function postRows(rows) {
   rows = rows.filter((r) => rowState(r).k === 'ready'); if (!rows.length) return;
@@ -1115,6 +1153,7 @@ function viewTy() {
   if (!S.ty.lane || (!sec[S.ty.lane].length && gs.length)) S.ty.lane = sec.s.length ? 's' : sec.l.length ? 'l' : 'o';
   const L = sec[S.ty.lane];
   S.list = L.map((g) => g.key);
+  pageFor('ty|' + S.ty.owner + '|' + S.ty.lane, L.length);
   S.tyMap = Object.fromEntries(gs.map((g) => [g.key, g]));
   const LANE = {
     s: ['Thanked already', 'Thank-you logged after the task'],
@@ -1140,14 +1179,14 @@ function viewTy() {
     </div>
     <section class="h-card wc-sheet" id="wc-ty" aria-label="Thank-yous">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${['s', 'l', 'o'].map((k) => `<button type="button" class="wc-lane${S.ty.lane === k ? ' is-on' : ''}" data-tylane="${k}">${LANE[k][0]}<span>${sec[k].length}</span></button>`).join('')}</div>
-        <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${S.ty.lane === 's' && L.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-tycloseall="s">${ic('check')}Close all ${L.length}</button>` : ''}</div></div>
+        <div class="wc-tools">${PT.densityHTML()}<button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${S.ty.lane === 's' && L.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-tycloseall="s">${ic('check')}Close all ${L.length}</button>` : ''}</div></div>
       <div class="wc-scroll" data-grid>
         ${L.length ? `<div class="wc-head wc-tg"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
-        <div class="wc-tg">${L.slice(0, S.shown).map(rowT).join('')}</div>${moreBtn(L.length)}` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
+        <div class="wc-tg">${pageOf(L).map(rowT).join('')}</div>` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
       </div>
-      <div class="wc-foot"><span>${plural(L.length, 'row')} · ${plural(L.reduce((n, g) => n + g.ids.length, 0), 'open task')} in Blackbaud</span><span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Esc</kbd>clear</span></span></div>
+      <div class="wc-foot">${pagerHTML(L.length, `rows, ${plural(L.reduce((n, g) => n + g.ids.length, 0), 'open task')} in Blackbaud`)}<span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Esc</kbd>clear</span></span></div>
     </section>`;
-  refreshSel();
+  refreshSel(); fitBox();
 }
 function tyIds(keys) { return [].concat(...keys.map((k) => (S.tyMap[k] ? S.tyMap[k].ids : [k]))).filter((id) => BYID[id] && isOpenNow(BYID[id])); }
 
@@ -1161,10 +1200,10 @@ function viewStale() {
   $('#view').innerHTML = `
     <div class="wc-lanecards">${LANES.map((l) => `<button type="button" class="wc-lc${l.k === S.st.lane ? ' is-on' : ''}" data-stl="${l.k}"><b>${base.filter(l.test).length}</b><span>${l.n}</span><small>${l.hint}</small></button>`).join('')}</div>
     <section class="h-card wc-sheet" id="wc-stale"><div class="wc-lanehead"><p><b>${esc(lane.n)}.</b> ${esc(lane.hint)}${big.length ? ` ${plural(big.length, 'task')} here ${big.length === 1 ? 'is' : 'are'} about a gift of $1,000 or more and ${big.length === 1 ? 'is' : 'are'} left out of Select all; pick ${big.length === 1 ? 'it' : 'them'} by hand.` : ''}</p>
-      ${S.st.lane === 'left' ? `<button class="h-btn h-btn--primary h-btn--sm" data-stbulk="holder">${ic('user')}Give all to current holders</button>` : ['year', '90', 'none'].includes(S.st.lane) ? `<button class="h-btn h-btn--ghost h-btn--sm" data-stbulk="close">${ic('check')}Close all as no longer needed</button>` : ''}</div>
+      <span class="wc-lanehead__acts">${PT.densityHTML()}${S.st.lane === 'left' ? `<button class="h-btn h-btn--primary h-btn--sm" data-stbulk="holder">${ic('user')}Give all to current holders</button>` : ['year', '90', 'none'].includes(S.st.lane) ? `<button class="h-btn h-btn--ghost h-btn--sm" data-stbulk="close">${ic('check')}Close all as no longer needed</button>` : ''}</span></div>
       ${tableHTML(list, base.length, 's')}</section>`;
   afterTable('s', list);
-  bar();
+  bar(); fitBox();
 }
 
 // ------------------------------------------------------------ Recent
@@ -1255,12 +1294,13 @@ function patchTabs() {
 // Switching tabs redraws the tab rows and the view only. The intro chips and the week strip stay where they are.
 function drawBody(from) {
   if (from === 'week' || S.view === 'week' || !$('#wc-nav')) { render(); return; }
+  root.dataset.wcview = S.view;
   const y = window.scrollY; hideBar(); patchTabs(); if (window.WCGifts) window.WCGifts.hideBulk();
   (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount(); window.scrollTo(0, y);
 }
 async function goTab(k) {
   const from = S.view;
-  S.view = k; S.sel.clear(); S.anchor = null; S.shown = PAGE; window.WCTabs.remember(k);
+  S.view = k; S.sel.clear(); S.anchor = null; S.page = 1; window.WCTabs.remember(k);
   if (k === 'intake' && !S.in.data) { S.in.loading = true; drawBody(from); await loadEntry(); }
   if (k === 'intake') readSheet(S.in.rdd);
   if (k === 'recent') await loadRecent();
@@ -1304,12 +1344,11 @@ document.addEventListener('click', async (e) => {
   if (d.view) { await goTab(d.view); return; }
   if (d.wcgroup) { const k = window.WCTabs.entry(d.wcgroup, DATA.me); if (k && k !== S.view) await goTab(k); return; }
   if (t.closest('[data-chipsmore]')) { const c = t.closest('.wc-chips'); const on = c.classList.toggle('is-open'); t.closest('[data-chipsmore]').setAttribute('aria-expanded', on ? 'true' : 'false'); return; }
-  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = PAGE; render(); return; }
+  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); render(); return; }
   if (t.hasAttribute('data-tile')) { openTile(d.tile, Number(d.tileN)); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
   if (d.unf) { if (d.unf === 'all') S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' }; else { S.f[d.unf] = d.unf === 'theirs' ? false : ''; if (d.unf === 'fr') S.f.theirs = false; } render(); return; }
   if (d.sort) { if (S.sort === d.sort) S.dir = -S.dir; else { S.sort = d.sort; S.dir = d.sort === 'partner' || d.sort === 'fr' ? 1 : -1; } render(); return; }
-  if (t.closest('[data-more]')) { S.shown += PAGE; render(); return; }
   if (d.open) { drawer(d.open); return; }
   if (d.onlypartner) { S.f.cid = d.onlypartner; S.view = 'open'; closeLayer(); render(); return; }
   if (d.one) { const id = d.id; closeLayer(); setTimeout(() => ({ complete: dlgComplete, reassign: dlgReassign, reschedule: dlgReschedule })[d.one]([id]), 240); return; }
@@ -1332,8 +1371,8 @@ document.addEventListener('click', async (e) => {
   if (d.retry) { retryBatch(d.retry); return; }
   // Entry
   if (t.hasAttribute('data-reentry')) { S.in.loading = true; render(); await loadEntry(); render(); return; }
-  if (d.rdd) { S.sel.clear(); S.shown = PAGE; S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
-  if (d.lane) { S.in.lane = d.lane; S.sel.clear(); S.shown = PAGE; render(); return; }
+  if (d.rdd) { S.sel.clear(); S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
+  if (d.lane) { S.in.lane = d.lane; S.sel.clear(); render(); return; }
   if (t.hasAttribute('data-readsheet')) { t.disabled = true; await readSheet(S.in.rdd, true, true); t.disabled = false; return; }
   if (t.hasAttribute('data-paste')) { S.in.paste = !S.in.paste; render(); if (S.in.paste) $('#pastebox').focus(); return; }
   if (t.hasAttribute('data-readpaste')) {
@@ -1356,13 +1395,13 @@ document.addEventListener('click', async (e) => {
   if (d.rtag) { const r = inRow(d.rtag); const tags = r.tags.includes(d.v) ? r.tags.filter((x) => x !== d.v) : r.tags.concat([d.v]); editRow(d.rtag, { local: { tags }, server: { tags } }); t.classList.toggle('is-on'); return; }
   if (d.tapick) { closePop(); editRow(d.tapick, { local: { cid: d.cid, how: 'picked', cands: [] }, server: { constituent_id: d.cid } }); render(); return; }
   // Thank-yous
-  if (d.tylane) { S.ty.lane = d.tylane; S.sel.clear(); S.shown = PAGE; render(); return; }
-  if (d.owner !== undefined && t.hasAttribute('data-owner')) { S.ty.owner = d.owner; S.ty.lane = ''; S.sel.clear(); S.shown = PAGE; render(); return; }
+  if (d.tylane) { S.ty.lane = d.tylane; S.sel.clear(); render(); return; }
+  if (d.owner !== undefined && t.hasAttribute('data-owner')) { S.ty.owner = d.owner; S.ty.lane = ''; S.sel.clear(); render(); return; }
   if (d.tycloseall) { const keys = S.list.filter((k) => S.tyMap[k] && S.tyMap[k].later && S.tyMap[k].later.k === 's'); dlgComplete(tyIds(keys), 'close'); return; }
   if (d.tyclose) { dlgComplete(tyIds([d.tyclose]), S.ty.lane === 's' ? 'close' : undefined); return; }
   if (d.tydone) { dlgComplete(tyIds([d.tydone])); return; }
   // Stale
-  if (d.stl) { S.st.lane = d.stl; S.sel.clear(); S.shown = PAGE; render(); return; }
+  if (d.stl) { S.st.lane = d.stl; S.sel.clear(); render(); return; }
   if (d.stbulk) { const pick = S.list.filter((id) => !(BYID[id].gift && BYID[id].gift.a >= 1000)).filter(selectable); if (d.stbulk === 'holder') dlgReassign(pick); else { dlgComplete(pick); setTimeout(() => { const l = $('#line'); if (l) { l.value = 'Closed as no longer needed'; l.dispatchEvent(new Event('input', { bubbles: true })); } }, 60); } return; }
   // filters sheet (phone)
   if (t.hasAttribute('data-openfilters')) { $('#filters').classList.add('is-sheet'); return; }
@@ -1371,7 +1410,7 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (!t.closest || !t.closest('#wc-root')) return;
-  if (t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === 'fr' && !t.value) S.f.theirs = false; S.sel.clear(); S.shown = PAGE; const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
+  if (t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === 'fr' && !t.value) S.f.theirs = false; S.sel.clear(); const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
   if (t.hasAttribute('data-theirs')) { S.f.theirs = t.checked; S.sel.clear(); const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
   if (t.dataset.rdate) { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) editRow(t.dataset.rdate, { local: { date: t.value }, server: { contact_date: t.value } }); return; }
 });
@@ -1400,6 +1439,7 @@ setInterval(() => { const c = $('#clock'); if (!c || !S.in.data) return; const d
 
 // ------------------------------------------------------------ shared with the edit panel (work-edit.js)
 window.WC = {
+  fit: fitBox, pageOf, pageFor, psize, pagerHTML, ptKey, remount,
   api, post, S, esc, ic, I, fd, plural, money, addDays, dayn, lateClass, P, live, gone, cur, render, runJob, driveBatch, toast, refreshBoard, loadRecent,
   closeLayer, dialog, reqId, refresh, goTab, selectAction: (id) => { if (pointAt(id)) { render(); showAction(id); } }, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
   entryReload: async () => { await loadEntry(); render(); },
@@ -1505,7 +1545,7 @@ function pointAt(id, quiet) {
   if (!a || !isOpenNow(a)) { if (!quiet) toast('That action is not open any more.'); else S.actMiss = true; return false; }
   S.view = 'open'; S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' };
   const at = sorted(ACTS.filter(isOpenNow)).findIndex((x) => x.id === id);
-  S.shown = Math.max(PAGE, at + 30); S.sel.clear(); S.sel.add(id); S.actMiss = false;
+  S.sig = openSig(); S.page = Math.floor(Math.max(0, at) / psize()) + 1; S.sel.clear(); S.sel.add(id); S.actMiss = false;
   return true;
 }
 function showAction(id) {
@@ -1514,6 +1554,9 @@ function showAction(id) {
   r.scrollIntoView({ block: 'center' }); r.classList.add('is-flash'); setTimeout(() => r.classList.remove('is-flash'), 2400);
   bar();
 }
+// Tabs that other scripts add through the older window.WCX list register when the page has finished parsing. A ?view= address is read
+// only after that, so a link to one of those tabs (Gifts to thank) opens it every time instead of falling back to Actions.
+const parsed = new Promise((res) => { if (document.readyState === 'complete') res(); else document.addEventListener('DOMContentLoaded', () => res(), { once: true }); });
 async function init() {
   document.documentElement.classList.add('wc-page');
   // The bar, the toast and the dialogs are fixed on screen, so they live on the body, outside the frame's blurred sheet.
@@ -1526,6 +1569,7 @@ async function init() {
   boardP.catch(() => undefined); recentP.catch(() => undefined);
   try { S.gate = window.hubGate && !AS ? await window.hubGate().catch(() => api('/api/work/gate')) : await api('/api/work/gate'); } catch (e) { errorScreen(e.message); return; }
   if (!S.gate.open) { gateScreen(S.gate); return; }
+  await parsed;
   try {
     // The last board this person saw draws first, without the actions they finished since. The fresh board replaces it a moment later.
     const copy = window.WCSnap && !AS && !QS.get('action') ? window.WCSnap.load('board', S.gate.name) : null;
