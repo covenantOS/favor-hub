@@ -1,21 +1,26 @@
-/* Asks (Work Center tab): every action tagged Amount of Ask in the last year, in four columns: Asked with no close date, Closing, Past the
-   close date and Gave. A close-date chip on each card opens a small panel and saves at once with Undo. Reads GET /api/work/asks one page
-   of 50 at a time (the D1 copy of Blackbaud, no Blackbaud calls). Every filter (status, search, director, tagged range) runs on the server
-   over all asks. A column loads its next page when the sentinel at its end scrolls into view. The close date is saved with
-   PUT /api/work/asks/:id/close in FavorOS database.
+/* Asks (Work Center tab): every action tagged Amount of Ask in the last year, one row per ask in a table. Amount, partner, what the ask was
+   about, when it was asked, the expected close, the director and the stage (No close date, Closing, Past the close date or Gave). Reads
+   GET /api/work/asks one page at a time (the D1 copy of Blackbaud, no Blackbaud calls). The status, stage, search, director and tagged range
+   filters and the sort all run on the server over every ask, and the shared PT pager (public/js/ptable.js) turns the pages. A row opens a side
+   panel with the whole ask and the close date; the close-date chip on the row still opens the small dialog. The close date is saved with
+   PUT /api/work/asks/:id/close in FavorOS database, with Undo.
    Registers through window.WCTabs. Directors see their own asks; the Support Team and admins pick a director or see everyone. */
 (() => {
 'use strict';
 const W = () => window.WC;
 const F = () => window.FavorWG;
+const PT = window.PT;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-const PAGE = 50;
-// meta: the figures that do not change with the page (tiles, owners, badges, counts for the filter). cols: loaded pages, by column key.
-const A = { meta: null, error: '', started: false, epoch: 0, cols: {}, owner: '', mode: 'board', q: '', status: 'open', range: '12m', sheetOn: false, undo: null, io: null, tt: null, panelId: null, fopen: false };
+const KEY = 'asks';
+// meta: the figures that do not change with the page (tiles, owners, badges, counts for the filters). rows: the page on screen.
+const A = { meta: null, error: '', started: false, epoch: 0, rows: [], matched: 0, busy: false, owner: '', q: '', status: 'open', state: '', range: '12m', sort: 'asked', dir: 'desc', page: 1, sheetOn: false, undo: null, tt: null, panelId: null, fopen: false, sideId: null, sideRow: null };
 const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Check amount'], ['former', 'From former staff'], ['all', 'All']];
-const COLS_FOR = { open: ['open', 'closing', 'past'], gave: ['gave'], review: ['open', 'closing', 'past', 'gave'], former: ['open', 'closing', 'past', 'gave'], all: ['open', 'closing', 'past', 'gave'] };
-const COLS = [['open', 'Asked, no close date'], ['closing', 'Closing'], ['past', 'Past the close date'], ['gave', 'Gave']];
+const STAGES = [['', 'All stages'], ['open', 'No close date'], ['closing', 'Closing'], ['past', 'Past the close date'], ['gave', 'Gave']];
+const STAGE_NAME = { open: 'No close date', closing: 'Closing', past: 'Past the close date', gave: 'Gave' };
+// The order each column opens in, the first time its header is pressed.
+const SORT_DIR = { amount: 'desc', asked: 'desc', partner: 'asc', close: 'asc', director: 'asc', stage: 'asc' };
+const SORT_CHOICES = [['asked:desc', 'Newest asks first'], ['asked:asc', 'Oldest asks first'], ['amount:desc', 'Largest amount first'], ['amount:asc', 'Smallest amount first'], ['partner:asc', 'Partner A to Z'], ['close:asc', 'Close date, soonest'], ['stage:asc', 'Stage'], ['director:asc', 'Director']];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,9 +30,11 @@ const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10
 const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
 const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const ic = (n, cls) => (F() ? F().ic(n, cls) : W().ic(n, cls));
-const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : many || one + 's');
 const daysFrom = (iso) => Math.max(0, Math.round((Date.parse(today() + 'T12:00:00Z') - Date.parse(iso + 'T12:00:00Z')) / 86400000));
-const skel = (h) => `<div class="h-skel" style="height:${h}px;border-radius:14px"></div>`;
+const ago = (iso) => { const n = daysFrom(iso); return n === 0 ? 'today' : n === 1 ? '1 day ago' : n.toLocaleString('en-US') + ' days ago'; };
+const askedOn = (r) => r.first || r.date;
+const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+const pageSize = () => PT.size(KEY, 50);
 
 // Easter Sunday for a year (the anonymous Gregorian algorithm).
 function easter(y) {
@@ -46,134 +53,112 @@ function quick(t) {
 }
 
 /* ------------------------------------------------------------------ loading */
-// The columns on screen: the board's columns for the status, or the one list.
-const keys = () => (A.mode === 'list' ? ['list'] : COLS_FOR[A.status].slice());
-const stateOf = (k) => (k === 'list' ? '' : k);
-const rowsIn = (k) => (A.cols[k] ? A.cols[k].rows : []);
-
-function query(k, offset, limit) {
+function params() {
   const p = new URLSearchParams();
   if (A.owner) p.set('owner', A.owner);
   if (A.range === 'all') p.set('range', 'all');
   p.set('status', A.status);
   if (A.q.trim()) p.set('q', A.q.trim());
-  if (stateOf(k)) p.set('state', stateOf(k));
-  p.set('offset', String(offset));
-  p.set('limit', String(limit));
-  return '/api/work/asks?' + p.toString();
+  if (A.state) p.set('state', A.state);
+  p.set('sort', A.sort);
+  p.set('dir', A.dir);
+  return p;
 }
-// The figures that come with every page. The director picker and the tiles read these.
+// The figures that come with every page. The director picker, the stage counts and the strip read these.
 function meta(d) {
   A.owner = d.owner || '';
   A.meta = { today: d.today, synced: d.synced, days: d.days, range: d.range, owner: d.owner, owners: d.owners, everyone: d.everyone, stats: d.stats, former: d.former, review: d.review, total: d.total, counts: d.counts, shown: d.shown };
 }
-// Load one page of one column (offset 0 replaces what is loaded). A response from an earlier filter is dropped.
-async function pull(k, offset, limit) {
-  const ep = A.epoch;
-  const c = (A.cols[k] = A.cols[k] || { rows: [], matched: null, busy: false });
-  if (c.busy) return;
-  c.busy = true;
+// Load the page on screen. The rows already drawn stay (dimmed) until the new page arrives. A response from an earlier filter is dropped.
+// tab: also redraw the tab strip, whose count follows the director and the tagged range. quiet: no dimming (a refresh after a save).
+async function load(tab, quiet) {
+  const ep = ++A.epoch;
+  A.error = '';
+  if (!quiet) { A.busy = true; if (A.meta) view(); }
   try {
-    const d = await W().api(query(k, offset, limit));
-    if (ep !== A.epoch) return;
-    c.rows = offset ? c.rows.concat(d.rows) : d.rows;
-    c.matched = d.rows.length ? d.matched : c.rows.length;
-    meta(d);
+    for (;;) {
+      const size = pageSize();
+      const p = params();
+      p.set('offset', String((A.page - 1) * size));
+      p.set('limit', String(size));
+      const d = await W().api('/api/work/asks?' + p.toString());
+      if (ep !== A.epoch) return;
+      // The filter now matches fewer asks than the page number reaches (an ask moved out): go to the last page.
+      if (d.matched && A.page > PT.pages(d.matched, size)) { A.page = PT.pages(d.matched, size); continue; }
+      A.rows = d.rows;
+      A.matched = d.matched;
+      meta(d);
+      if (A.sideRow) { const fresh = A.rows.find((x) => x.id === A.sideRow.id); if (fresh) A.sideRow = fresh; }
+      break;
+    }
   } catch (e) {
     if (ep === A.epoch) { if (A.meta) W().toast(e.message); else A.error = e.message; }
-  } finally {
-    c.busy = false;
   }
+  if (ep !== A.epoch) return;
+  A.busy = false;
+  if (tab && A.meta) W().render(); else view();
+  paintSide();
 }
-const fetchAll = () => Promise.all(keys().map((k) => pull(k, 0, PAGE)));
-// The filter changed: drop the loaded pages and fetch the first page of each column again.
-function changed(tab) {
-  A.epoch++; A.cols = {}; A.error = '';
-  view();
-  fetchAll().then(() => (tab ? W().render() : view()));
-}
+// The filter changed: back to page 1 and fetch it.
+function changed(tab) { A.page = 1; load(tab); }
 function start() {
   A.started = true;
-  return fetchAll().then(() => W().refresh('asks'));
-}
-// After a close date is saved or undone: refetch what is loaded, so each card sits in its new column with the same page depth.
-async function refreshLoaded() {
-  await Promise.all(Object.keys(A.cols).map((k) => pull(k, 0, Math.max(PAGE, A.cols[k].rows.length))));
-  W().render();
-}
-// The next page of one column, from the sentinel at its end.
-function more(k) {
-  const c = A.cols[k];
-  if (!c || c.busy || c.matched == null || c.rows.length >= c.matched) return;
-  pull(k, c.rows.length, PAGE).then(() => view());
-}
-function watch() {
-  if (A.io) { A.io.disconnect(); A.io = null; }
-  const els = $$('#view [data-wa-sentinel]');
-  if (!els.length || !('IntersectionObserver' in window)) return;
-  A.io = new IntersectionObserver((list) => list.forEach((en) => { if (en.isIntersecting) more(en.target.dataset.waSentinel); }), { rootMargin: '480px 0px' });
-  els.forEach((el) => A.io.observe(el));
+  return load(false).then(() => W().refresh('asks'));
 }
 
-/* ------------------------------------------------------------------ cards and rows */
+/* ------------------------------------------------------------------ rows */
 function chip(r) {
-  const label = r.state === 'gave' ? '' : !r.close ? 'No close date' : r.state === 'past' ? 'Past ' + fd(r.close.date) : 'Close by ' + fd(r.close.date);
-  if (r.state === 'gave') return `<span class="wa-gave">Gave ${money(r.gave.amount)} on ${esc(fd(r.gave.date, true))}</span>`;
+  if (r.state === 'gave') return '<span class="pt-mute">-</span>';
+  const label = !r.close ? 'No close date' : r.state === 'past' ? 'Past ' + fd(r.close.date) : 'Close by ' + fd(r.close.date);
   return `<button type="button" class="wa-chip${r.state === 'past' ? ' is-past' : !r.close ? ' is-none' : ''}" data-wa-close="${esc(r.id)}" aria-haspopup="dialog" aria-label="Expected close for ${esc(r.name)}: ${esc(label)}">${W().ic('clock')}${esc(label)}</button>`;
 }
-const asked = (r) => { const n = daysFrom(r.first || r.date); return `Asked ${fd(r.first || r.date, true)}${n > 0 ? ' · ' + (n === 1 ? '1 day ago' : n.toLocaleString('en-US') + ' days ago') : ' · today'}`; };
-const prepBtn = (r) => `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wa-prep="${esc(r.cid)}">${ic('brief')}Prep</button>`;
-const who = (r) => (A.meta.owners.length > 1 && !A.owner ? `<span class="wa-who">${esc(r.ownerNames.join(', '))}</span>` : '');
+function stage(r, long) {
+  if (r.state === 'gave') return `<span class="pt-badge pt-badge--good">Gave ${esc(money(r.gave.amount))} on ${esc(fd(r.gave.date, !!long))}</span>`;
+  if (r.state === 'past') return '<span class="pt-badge pt-badge--warn">Past the close date</span>';
+  if (r.state === 'closing') return '<span class="pt-badge pt-badge--gold">Closing</span>';
+  return '<span class="pt-badge">No close date</span>';
+}
+const directors = (r) => (r.ownerNames && r.ownerNames.length ? r.ownerNames.join(', ') : 'No current director');
+const prepBtn = (r) => `<button type="button" class="pt-icon pa-prep" data-wa-prep="${esc(r.cid)}" title="Call prep" aria-label="Prep for ${esc(r.name)}">${ic('brief')}</button>`;
 
-function card(r) {
-  return `<article class="wa-card${r.state === 'past' ? ' is-past' : ''}" data-id="${esc(r.id)}">
-    <b class="wa-amt">${money(r.amount)}</b>
-    <a class="wa-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a>
-    ${r.place ? `<span class="wa-sub">${esc(r.place)}</span>` : ''}
-    ${r.line ? `<p>${esc(r.line)}</p>` : ''}
-    <span class="wa-sub">${esc(asked(r))}</span>${who(r)}
-    <div class="wa-acts">${chip(r)}${prepBtn(r)}</div></article>`;
-}
-// The row for the list view. Its sentinel loads the next page.
-function row(r) {
-  return `<div class="wa-row${r.state === 'past' ? ' is-past' : ''}" data-id="${esc(r.id)}">
-      <div class="wa-amt wa-c-amt">${money(r.amount)}<small>${esc('Asked ' + fd(r.date, true))}</small></div>
-      <div class="wa-c-who"><a class="wa-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wa-sub">${esc(r.place)}</span>${who(r)}</div>
-      <div class="wa-said wa-c-said">${esc(r.line)}</div>
-      <div class="wa-c-close">${chip(r)}</div>
-      <div class="wa-c-prep">${prepBtn(r)}</div></div>`;
-}
-// The sentinel at the end of a column or the list. It is empty when every ask of the column is loaded.
-const sentinel = (k, more) => (more ? `<div class="wa-sentinel" data-wa-sentinel="${k}">${A.cols[k] && A.cols[k].busy ? '<span>Loading more asks</span>' : ''}</div>` : '');
+// The columns, in order. fixed: always on. The Columns menu hides the others.
+const COLS = [
+  { k: 'amount', l: 'Amount', fixed: true, num: true, td: (r) => `<button type="button" class="pt-name pa-amt" data-pt-open data-pa-open="${esc(r.id)}" aria-label="Open the ${esc(money(r.amount))} ask for ${esc(r.name)}">${esc(money(r.amount))}</button>` },
+  { k: 'partner', l: 'Partner', fixed: true, td: (r) => `<a class="pt-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a>${r.place ? ` <span class="pt-sub">${esc(r.place)}</span>` : ''}` },
+  { k: 'about', l: 'About', plain: true, td: (r) => (r.line ? esc(r.line) : '<span class="pt-mute">No note</span>'), title: (r) => r.line },
+  { k: 'asked', l: 'Asked', td: (r) => `${esc(fd(askedOn(r)))} <span class="pt-sub">${esc(ago(askedOn(r)))}</span>` },
+  { k: 'close', l: 'Expected close', td: chip },
+  { k: 'director', l: 'Director', td: (r) => esc(directors(r)), title: (r) => directors(r) },
+  { k: 'stage', l: 'Stage', td: (r) => stage(r) },
+];
+const shownCols = () => {
+  const hid = PT.hidden(KEY, []);
+  const one = !A.meta || A.meta.owners.length <= 1;
+  return COLS.filter((c) => c.fixed || (!hid.has(c.k) && !(c.k === 'director' && one)));
+};
 
-function colHTML(k, label) {
-  const c = A.cols[k];
-  const cnt = (A.meta.counts || {})[k] || { n: 0, total: 0 };
-  const rows = c ? c.rows : [];
-  const body = !c ? skel(120) : rows.map(card).join('') || (cnt.n ? '' : '<div class="wa-col__empty">Nothing here</div>');
-  return `<section class="wa-col" aria-label="${esc(label)}"><h4>${esc(label)} <b>${cnt.n.toLocaleString('en-US')}</b><em>${short(cnt.total)}</em></h4>
-      ${body}${sentinel(k, !!c && rows.length < cnt.n)}</section>`;
+function rowHTML(r, cols) {
+  return `<tr class="pa-row${r.state === 'past' ? ' is-past' : ''}${A.sideId === r.id ? ' is-open' : ''}" data-pt-row tabindex="-1" data-id="${esc(r.id)}">${cols.map((c) =>
+    `<td class="pa-c-${c.k}${c.num ? ' is-num' : ''}${c.k === 'about' ? ' pa-about' : ''}"${c.title && c.title(r) ? ` title="${esc(c.title(r))}"` : ''}>${c.td(r)}</td>`).join('')}<td class="pa-c-act">${prepBtn(r)}</td></tr>`;
 }
-function boardHTML() {
-  const use = COLS.filter(([k]) => COLS_FOR[A.status].includes(k));
-  return `<div class="wa-board" style="--wa-cols:${use.length}">${use.map(([k, label]) => colHTML(k, label)).join('')}</div>`;
-}
-function listHTML() {
-  const c = A.cols.list;
-  const rows = c ? c.rows : [];
-  const body = !c ? skel(320) : rows.map(row).join('') || '<div class="wa-empty"><b>Nothing matches</b></div>';
-  return `<div class="wa-list">${body}${c ? sentinel('list', rows.length < c.matched) : ''}</div>`;
+function tableHTML() {
+  const cols = shownCols();
+  const sort = { col: A.sort, dir: A.dir };
+  const head = cols.map((c) => `<th class="pa-c-${c.k}${c.num ? ' is-num' : ''}" scope="col">${c.plain ? esc(c.l) : PT.th(KEY, c.k, c.l, sort, c.num ? 'is-num' : '')}</th>`).join('') + '<th class="pa-c-act" scope="col"><span class="pa-vh">Prep</span></th>';
+  return `<div class="pt-wrap"><table class="pt-table pa-table${A.busy ? ' is-busy' : ''}" data-pt-list="${KEY}" aria-label="Asks" aria-busy="${A.busy}"><thead><tr>${head}</tr></thead><tbody>${A.rows.map((r) => rowHTML(r, cols)).join('')}</tbody></table></div>`;
 }
 
 function view() {
   const el = $('#view');
   if (!el || !W().S || W().S.view !== 'asks') return;
   if (!A.meta) {
-    if (A.error) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wa-empty"><b>The asks did not load</b>${esc(A.error)}<p><button type="button" class="h-btn h-btn--primary" data-wa-reload>Try again</button></p></div></section>`; return; }
+    if (A.error) { el.innerHTML = `<section class="h-card wc-sheet"><div class="pt-empty"><b>The asks did not load</b>${esc(A.error)}<p><button type="button" class="h-btn h-btn--primary" data-wa-reload>Try again</button></p></div></section>`; return; }
     el.innerHTML = window.WCSkel(5);
     if (!A.started) start();
     return;
   }
+  // A panel left open on a page the hub swapped out has no element any more.
+  if (A.sideId && !$('#pa-side-host')) { A.sideId = null; A.sideRow = null; }
   const m = A.meta; const s = m.stats;
   // Keep the search box's live text and its place when the page is redrawn while someone is typing in it.
   const typing = document.activeElement && document.activeElement.id === 'wa-q';
@@ -181,57 +166,153 @@ function view() {
   const caret = live ? live.selectionStart : 0;
   const text = live ? live.value : A.q;
   const tiles = [['Open asks', s.open], ['Closing in 90 days', s.soon], ['Past the close date', s.past, 1], ['Gifts since the ask', s.gave]];
-  const picker = m.owners.length > 1 ? `<select class="wc-sel${A.owner ? ' is-set' : ''}" data-wa-owner aria-label="Director"><option value="">Every director (${Number(m.everyone).toLocaleString('en-US')})</option>${m.owners.map((o) => `<option value="${esc(o.id)}"${A.owner === o.id ? ' selected' : ''}>${esc(o.name)} (${o.n})</option>`).join('')}</select>` : '';
-  // On a phone the filters sit behind one button; whatever is set shows as chips that clear it.
+  const picker = m.owners.length > 1 ? `<select class="pt-sel pa-f${A.owner ? ' is-set' : ''}" data-wa-owner aria-label="Director"><option value="">Every director (${Number(m.everyone).toLocaleString('en-US')})</option>${m.owners.map((o) => `<option value="${esc(o.id)}"${A.owner === o.id ? ' selected' : ''}>${esc(o.name)} (${o.n})</option>`).join('')}</select>` : '';
+  const count = (k) => ((m.counts || {})[k] || { n: 0 }).n.toLocaleString('en-US');
+  const stageSel = `<select class="pt-sel pa-f${A.state ? ' is-set' : ''}" data-wa-state aria-label="Stage">${STAGES.map(([k, l]) => `<option value="${k}"${A.state === k ? ' selected' : ''}>${esc(l)}${k ? ' (' + count(k) + ')' : ' (' + m.shown.toLocaleString('en-US') + ')'}</option>`).join('')}</select>`;
+  const sortNow = A.sort + ':' + A.dir;
+  const sortSel = `<select class="pt-sel pa-f pa-sortsel" data-wa-sortsel aria-label="Sort">${(SORT_CHOICES.some(([v]) => v === sortNow) ? SORT_CHOICES : SORT_CHOICES.concat([[sortNow, 'Sorted by ' + A.sort]])).map(([v, l]) => `<option value="${v}"${v === sortNow ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   const ownerName = A.owner ? ((m.owners.find((o) => o.id === A.owner) || {}).name || 'Director') : '';
-  const active = [A.status !== 'open' ? ['status', (STATUS.find((x) => x[0] === A.status) || [0, A.status])[1]] : null, A.range !== '12m' ? ['range', 'All time'] : null, A.owner ? ['owner', ownerName] : null].filter(Boolean);
-  const activeHTML = active.length ? `<div class="wa-active">${active.map(([k, l]) => `<button type="button" class="wa-achip" data-wa-unf="${k}" aria-label="Clear filter: ${esc(l)}">${esc(l)}<span aria-hidden="true">×</span></button>`).join('')}</div>` : '';
-  const shownN = keys().reduce((n, k) => n + rowsIn(k).length, 0);
-  const M = m.shown;
-  const body = M === 0 && !text.trim() && A.status === 'all' ? '<div class="wa-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>'
-    : M === 0 ? '<div class="wa-empty"><b>Nothing matches</b></div>'
-      : A.mode === 'board' ? boardHTML() : listHTML();
+  const active = [
+    A.status !== 'open' ? ['status', (STATUS.find((x) => x[0] === A.status) || [0, A.status])[1]] : null,
+    A.state ? ['state', STAGE_NAME[A.state]] : null,
+    A.q.trim() ? ['q', 'Search: ' + A.q.trim()] : null,
+    A.owner ? ['owner', ownerName] : null,
+    A.range !== '12m' ? ['range', 'All time'] : null,
+  ].filter(Boolean);
+  const chips = active.map(([k, l]) => `<button type="button" class="pt-chip" data-wa-unf="${k}" aria-label="Clear filter: ${esc(l)}">${esc(l)}<i aria-hidden="true">×</i></button>`).join('');
+  const size = pageSize();
+  const nothing = A.matched === 0;
+  const body = nothing
+    ? (m.shown === 0 && !A.q.trim() && A.status === 'all' && !A.state ? '<div class="pt-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>' : '<div class="pt-empty"><b>Nothing matches</b>Clear a filter above to see more asks.</div>')
+      : tableHTML();
   el.innerHTML = `
-    <div class="h-card wc-band wa-band" style="--n:4">${tiles.map(([l, t, warn]) => `<div class="wc-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><span class="wa-tot">${short(t.total)}</span></div>`).join('')}</div>
-    <section class="h-card wc-sheet${A.fopen ? ' is-fopen' : ''}" id="wa-sheet" aria-label="Asks">
-      <div class="wa-filters" role="group" aria-label="Filter">${STATUS.map(([k, l]) => `<button type="button" class="wa-fchip${A.status === k ? ' is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + m.review.n + '</span>' : k === 'former' ? ' <span>' + m.former.n + '</span>' : ''}</button>`).join('')}
-        <select class="wc-sel wa-range${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select></div>
-      <div class="wa-tools"><div class="wa-seg" role="group" aria-label="View"><button type="button" class="${A.mode === 'board' ? 'is-on' : ''}" data-wa-mode="board" aria-pressed="${A.mode === 'board'}">Board</button><button type="button" class="${A.mode === 'list' ? 'is-on' : ''}" data-wa-mode="list" aria-pressed="${A.mode === 'list'}">List</button></div>
-        <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(text)}" autocomplete="off" /></label><button type="button" class="h-btn h-btn--ghost h-btn--sm wa-fbtn" data-wa-ftoggle aria-expanded="${A.fopen}">Filters${active.length ? ' ' + active.length : ''}</button>${picker}<span class="wa-spacer"></span>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Open in Google Sheets</button></div>
-      ${activeHTML}
-      <div class="wa-count" aria-live="polite">Showing ${shownN.toLocaleString('en-US')} of ${M.toLocaleString('en-US')} ${M === 1 ? 'ask' : 'asks'}</div>
+    <div class="h-card pa-strip" role="group" aria-label="Totals">${tiles.map(([l, t, warn]) => `<div class="pa-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><em>${short(t.total)}</em></div>`).join('')}</div>
+    <section class="h-card wc-sheet pa-sheet${A.fopen ? ' is-fopen' : ''}" id="wa-sheet" aria-label="Asks">
+      <div class="pt-bar pa-bar" role="group" aria-label="Filter">
+        <div class="pt-seg pa-f" role="group" aria-label="Status">${STATUS.map(([k, l]) => `<button type="button" class="${A.status === k ? 'is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + m.review.n + '</span>' : k === 'former' ? ' <span>' + m.former.n + '</span>' : ''}</button>`).join('')}</div>
+        ${stageSel}
+        <label class="pt-search">${W().ic('search')}<input type="search" id="wa-q" data-pt-search placeholder="Find a partner" value="${esc(text)}" autocomplete="off" aria-label="Find a partner" /></label>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm wa-fbtn" data-wa-ftoggle aria-expanded="${A.fopen}">Filters${active.length ? ' ' + active.length : ''}</button>
+        ${picker}
+        <select class="pt-sel pa-f${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>Tagged at any time</option></select>
+        ${sortSel}
+        <span class="pt-spacer"></span>
+        <span class="pa-f pa-dens">${PT.densityHTML()}</span>
+        <span class="pa-f pa-colsbox">${PT.colsHTML(KEY, COLS.map((c) => ({ k: c.k, l: c.l, fixed: c.fixed })), [])}</span>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm pa-f" data-sheets="asks">${ic('sheet')}Open in Google Sheets</button>
+      </div>
+      <div class="pt-chips" aria-label="Filters set">${chips}</div>
       ${body}
-      <div class="wa-foot">${plural(M, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks are listed under the partner's current director. Asks on partners no current director holds sit under From former staff, and asks that look far above what the partner has given sit under Check amount. Neither is in the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
+      ${PT.pager(KEY, { total: A.matched, page: A.page, size, noun: 'asks' })}
+      <div class="pa-foot">${m.shown.toLocaleString('en-US')} ${m.shown === 1 ? 'ask' : 'asks'} in this view, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks are listed under the partner's current director. Asks on partners no current director holds sit under From former staff, and asks that look far above what the partner has given sit under Check amount. Neither is in the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
     </section>`;
   if (live) { const i = $('#wa-q'); if (i) { i.focus(); i.setSelectionRange(caret, caret); } }
   registerSheet();
-  watch();
 }
 
 function registerSheet() {
   if (!window.FavorSheets || A.sheetOn) return;
   A.sheetOn = true;
-  // The export asks the server for every ask the filter matches, not just the loaded pages.
+  // The export asks the server for every ask the filters match, not just the page on screen, in the order on screen.
   window.FavorSheets.register('asks', async () => {
-    const lab = { open: 'No close date', closing: 'Closing', past: 'Past the close date', gave: 'Gave' };
     const cols = [{ key: 'status', label: 'Status', type: 'text' }, { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'amount', label: 'Amount asked', type: 'money' },
       { key: 'asked', label: 'Asked on', type: 'date' }, { key: 'line', label: 'About', type: 'text' }, { key: 'close', label: 'Expected close', type: 'date' }, { key: 'gave', label: 'Gift amount', type: 'money' }, { key: 'gavedate', label: 'Gift date', type: 'date' }, { key: 'owner', label: 'Director', type: 'text' }];
-    const p = new URLSearchParams();
-    if (A.owner) p.set('owner', A.owner);
-    if (A.range === 'all') p.set('range', 'all');
-    p.set('status', A.status);
-    if (A.q.trim()) p.set('q', A.q.trim());
+    const p = params();
     p.set('limit', '5000');
     const d = await W().api('/api/work/asks?' + p.toString());
-    const data = d.rows.map((r) => ({ status: lab[r.state], partner: r.name, place: r.place, amount: r.amount, asked: r.date, line: r.line, close: r.close ? r.close.date : null, gave: r.gave ? r.gave.amount : null, gavedate: r.gave ? r.gave.date : null, owner: r.ownerNames.join(', ') }));
+    const data = d.rows.map((r) => ({ status: STAGE_NAME[r.state], partner: r.name, place: r.place, amount: r.amount, asked: r.date, line: r.line, close: r.close ? r.close.date : null, gave: r.gave ? r.gave.amount : null, gavedate: r.gave ? r.gave.date : null, owner: r.ownerNames.join(', ') }));
     return window.FavorSheets.screen('Asks', [{ name: 'Asks', columns: cols, rows: data }], { filters: A.q ? 'Search: ' + A.q : '', classes: ['partner'] });
   });
 }
 
+/* ------------------------------------------------------------------ the side panel */
+// One panel for the whole tab. It lives beside #view so a redraw of the table leaves it open, and it is cleared when the page is swapped.
+function sideHost() {
+  let h = $('#pa-side-host');
+  if (!h) {
+    h = document.createElement('div');
+    h.id = 'pa-side-host';
+    h.innerHTML = '<div class="pt-scrim" data-pa-close></div><aside class="pt-side pa-side" id="pa-side" tabindex="-1"></aside>';
+    ($('#wc-root') || document.body).appendChild(h);
+  }
+  return h;
+}
+const rowById = (id) => A.rows.find((x) => x.id === id) || (A.sideRow && A.sideRow.id === id ? A.sideRow : null);
+function sideHTML(r) {
+  const t = today(); const cur = r.close ? r.close.date : '';
+  const i = A.rows.findIndex((x) => x.id === r.id);
+  const text = r.text || r.line || '';
+  const closeBlock = r.state === 'gave'
+    ? `<div class="pa-block"><h3>Gift</h3><p>${esc(money(r.gave.amount))} on ${esc(fd(r.gave.date, true))}, ${esc(ago(r.gave.date))}.</p></div>`
+    : `<div class="pa-block"><h3>Expected close</h3>
+        <p class="pa-now">${cur ? esc(fd(cur, true)) + (r.state === 'past' ? ' (past)' : '') : 'No date yet'}</p>
+        <div class="wa-quick">${quick(t).map(([l, v]) => `<button type="button" class="wa-q${cur === v ? ' is-on' : ''}" data-pa-pick="${v}"><span>${esc(l)}</span><em>${esc(fd(v, true))}</em></button>`).join('')}</div>
+        <label class="wa-date"><span>Pick a date</span><input type="date" id="pa-date" min="${t}" value="${esc(cur)}" /></label>
+        <div class="wa-foot2">${cur ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pa-clear>Clear</button>' : ''}<button type="button" class="h-btn h-btn--primary" data-pa-save>Save</button></div></div>`;
+  return `<div class="pt-side__head"><div><span class="h-label">Ask</span><h2>${esc(money(r.amount))}</h2><span class="pt-sub">${esc(r.name)}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
+      <div class="pt-side__nav"><button type="button" class="pt-icon" data-pa-step="-1" aria-label="Previous ask"${i <= 0 ? ' disabled' : ''}>${svg('m6 15 6-6 6 6')}</button><button type="button" class="pt-icon" data-pa-step="1" aria-label="Next ask"${i < 0 || i >= A.rows.length - 1 ? ' disabled' : ''}>${svg('m6 9 6 6 6-6')}</button><button type="button" class="pt-icon" data-pa-close aria-label="Close">${svg('M6 6l12 12M18 6 6 18')}</button></div></div>
+    <div class="pt-side__body">
+      <dl>
+        <dt>Partner</dt><dd><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a></dd>
+        <dt>Place</dt><dd>${r.place ? esc(r.place) : '<span class="pt-mute">No city on file</span>'}</dd>
+        <dt>Asked on</dt><dd>${esc(fd(askedOn(r), true))}, ${esc(ago(askedOn(r)))}${r.tags > 1 ? ` · tagged ${r.tags} times` : ''}</dd>
+        <dt>Tagged by</dt><dd>${r.taggedNames && r.taggedNames.length ? esc(r.taggedNames.join(', ')) : '<span class="pt-mute">Not recorded</span>'}</dd>
+        <dt>Director</dt><dd>${esc(directors(r))}</dd>
+        <dt>Stage</dt><dd>${stage(r, true)}${r.review ? ' <span class="pt-badge pt-badge--gold">Check amount</span>' : ''}</dd>
+      </dl>
+      <div class="pa-block"><h3>The ask</h3><p class="pa-text">${text ? esc(text) : '<span class="pt-mute">No note on this ask</span>'}</p></div>
+      ${closeBlock}
+    </div>
+    <div class="pt-side__foot"><button type="button" class="h-btn h-btn--ghost" data-wa-prep="${esc(r.cid)}">${ic('brief')}Prep</button><a class="h-btn h-btn--primary" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">Open partner</a></div>`;
+}
+function paintSide() {
+  const h = $('#pa-side-host');
+  if (!A.sideId) { if (h) closeSideDom(h); return; }
+  const r = rowById(A.sideId); if (!r) return;
+  A.sideRow = r;
+  const host = sideHost(); const side = $('#pa-side', host);
+  const keep = document.activeElement && side.contains(document.activeElement) ? document.activeElement.getAttribute('data-pa-step') : null;
+  side.innerHTML = sideHTML(r);
+  side.setAttribute('role', 'dialog'); side.setAttribute('aria-modal', 'true'); side.setAttribute('aria-label', `Ask from ${r.name}`);
+  $('.pt-scrim', host).classList.add('is-on');
+  requestAnimationFrame(() => side.classList.add('is-on'));
+  if (keep) { const b = $(`[data-pa-step="${keep}"]:not([disabled])`, side); if (b) b.focus(); }
+  $$('#view tr.pa-row').forEach((tr) => tr.classList.toggle('is-open', tr.dataset.id === A.sideId));
+}
+// The dialog and modal attributes come off a closed panel, so the list's keys (j, k, Enter) work again.
+function closeSideDom(h) {
+  const side = $('#pa-side', h);
+  side.classList.remove('is-on'); side.removeAttribute('role'); side.removeAttribute('aria-modal');
+  $('.pt-scrim', h).classList.remove('is-on');
+}
+function openSide(id) {
+  const r = A.rows.find((x) => x.id === id); if (!r) return;
+  A.sideId = id; A.sideRow = r;
+  paintSide();
+  const side = $('#pa-side'); if (side) side.focus({ preventScroll: true });
+}
+function closeSide() {
+  if (!A.sideId) return false;
+  const id = A.sideId;
+  A.sideId = null;
+  const h = $('#pa-side-host'); if (h) closeSideDom(h);
+  $$('#view tr.pa-row.is-open').forEach((tr) => tr.classList.remove('is-open'));
+  const tr = $(`#view tr.pa-row[data-id="${CSS.escape(id)}"]`);
+  if (tr) PT.focusRow(tr);
+  return true;
+}
+function stepSide(n) {
+  const i = A.rows.findIndex((x) => x.id === A.sideId); if (i < 0) return;
+  const next = A.rows[i + n]; if (!next) return;
+  A.sideId = next.id; A.sideRow = next;
+  paintSide();
+  const tr = $(`#view tr.pa-row[data-id="${CSS.escape(next.id)}"]`);
+  if (tr) { const b = tr.getBoundingClientRect(); if (b.top < 90 || b.bottom > innerHeight - 20) tr.scrollIntoView({ block: 'nearest' }); }
+}
+
 /* ------------------------------------------------------------------ the close date */
 function panel(id) {
-  const r = Object.values(A.cols).flatMap((c) => c.rows).find((x) => x.id === id); if (!r) return;
+  const r = rowById(id); if (!r) return;
   const t = today(); const cur = r.close ? r.close.date : '';
   W().dialog(`<div class="wc-dlg__head"><div><span class="h-label">Asks</span><h2>Expected close</h2><p class="wa-dsub">${esc(r.name)} · ${money(r.amount)}</p></div><button class="wc-dlg__x" data-closelayer aria-label="Close">${W().ic('x')}</button></div>
     <div class="wc-dlg__body wa-panel">
@@ -241,13 +322,20 @@ function panel(id) {
     </div>`, () => { A.panelId = id; });
 }
 
+// Show a saved date at once, in the page and in the panel, before the refetch puts every row in its place.
+function patchClose(id, date) {
+  const apply = (r) => { if (!r || r.id !== id || r.state === 'gave') return; r.close = date ? { date, by: '' } : null; r.state = !date ? 'open' : date < today() ? 'past' : 'closing'; };
+  A.rows.forEach(apply); apply(A.sideRow);
+}
 async function saveClose(id, date) {
   let out;
   try { out = await W().api(`/api/work/asks/${encodeURIComponent(id)}/close`, { method: 'PUT', body: JSON.stringify({ date }) }); }
   catch (e) { W().toast(e.message); return; }
   W().closeLayer();
   toast(out.close ? `Expected close ${fd(out.close, true)}` : 'Close date cleared', id, out.previous);
-  refreshLoaded();
+  patchClose(id, out.close || null);
+  view(); paintSide();
+  load(true, true);
 }
 function toast(msg, id, previous) {
   const t = $('#toast'); if (!t) return;
@@ -258,16 +346,25 @@ function toast(msg, id, previous) {
 async function undo() {
   const u = A.undo; if (!u) return;
   A.undo = null; $('#toast').classList.remove('is-on');
-  // A previous date that has gone by cannot be set again; the card goes back to no date then.
+  // A previous date that has gone by cannot be set again; the ask goes back to no date then.
   const date = u.previous && u.previous >= today() ? u.previous : null;
   try {
     await W().api(`/api/work/asks/${encodeURIComponent(u.id)}/close`, { method: 'PUT', body: JSON.stringify({ date }) });
     W().toast('Undone.');
-    refreshLoaded();
+    patchClose(u.id, date);
+    view(); paintSide();
+    load(true, true);
   } catch (e) { W().toast(e.message); }
 }
 
 /* ------------------------------------------------------------------ events */
+// The shared parts: the pager turns pages, a header sorts, the Columns menu redraws.
+PT.on(KEY, {
+  page(p) { A.page = p; load(false); },
+  sort(col, dir) { A.dir = col === A.sort ? dir : SORT_DIR[col] || 'asc'; A.sort = col; A.page = 1; load(false); },
+  cols() { view(); paintSide(); },
+});
+
 document.addEventListener('click', (e) => {
   const t = e.target; if (!t.closest) return;
   const un = t.closest('[data-wa-undo]'); if (un) { undo(); return; }
@@ -278,21 +375,44 @@ document.addEventListener('click', (e) => {
     if (t.closest('[data-wa-save]') && A.panelId) { const v = ($('#wa-date', lay) || {}).value; if (v) saveClose(A.panelId, v); else W().toast('Pick a date or one of the dates above.'); return; }
     return;
   }
+  // The side panel and its scrim sit beside #view.
+  const host = t.closest('#pa-side-host');
+  if (host) {
+    if (t.closest('[data-pa-close]')) { closeSide(); return; }
+    const step = t.closest('[data-pa-step]'); if (step) { if (!step.disabled) stepSide(Number(step.dataset.paStep)); return; }
+    const pick = t.closest('[data-pa-pick]'); if (pick && A.sideId) { saveClose(A.sideId, pick.dataset.paPick); return; }
+    if (t.closest('[data-pa-clear]') && A.sideId) { saveClose(A.sideId, null); return; }
+    if (t.closest('[data-pa-save]') && A.sideId) { const v = ($('#pa-date', host) || {}).value; if (v) saveClose(A.sideId, v); else W().toast('Pick a date or one of the dates above.'); return; }
+    const prep = t.closest('[data-wa-prep]'); if (prep) { e.preventDefault(); if (window.FavorPrep) window.FavorPrep.open(prep.dataset.waPrep); }
+    return;
+  }
   if (!t.closest('#wc-root')) return;
-  const b = t.closest('button'); if (!b) return;
+  const open = t.closest('[data-pa-open]'); if (open) { openSide(open.dataset.paOpen); return; }
+  const b = t.closest('button');
+  // A click on the row itself, not on a link, button or field in it, opens the panel.
+  if (!b) {
+    const tr = t.closest('tr.pa-row');
+    if (tr && !t.closest('a, input, select, label, summary')) openSide(tr.dataset.id);
+    return;
+  }
   const d = b.dataset;
   if (d.waFtoggle !== undefined) { A.fopen = !A.fopen; view(); return; }
-  if (d.waUnf) { if (d.waUnf === 'status') A.status = 'open'; else if (d.waUnf === 'range') A.range = '12m'; else A.owner = ''; changed(true); return; }
-  if (d.waMode) { A.mode = d.waMode; changed(false); return; }
+  if (d.waUnf) {
+    if (d.waUnf === 'status') A.status = 'open'; else if (d.waUnf === 'range') A.range = '12m'; else if (d.waUnf === 'state') A.state = ''; else if (d.waUnf === 'q') A.q = ''; else A.owner = '';
+    changed(d.waUnf === 'range' || d.waUnf === 'owner'); return;
+  }
   if (d.waStatus) { A.status = d.waStatus; changed(false); return; }
   if (d.waClose) { panel(d.waClose); return; }
   if (d.waPrep) { e.preventDefault(); if (window.FavorPrep) window.FavorPrep.open(d.waPrep); return; }
-  if (b.hasAttribute('data-wa-reload')) { A.meta = null; A.error = ''; A.started = false; A.epoch++; A.cols = {}; view(); }
+  if (b.hasAttribute('data-wa-reload')) { A.meta = null; A.error = ''; A.started = false; A.epoch++; A.rows = []; view(); }
 }, false);
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.matches && t.matches('[data-wa-range]')) { A.range = t.value; changed(true); return; }
-  if (t.matches && t.matches('[data-wa-owner]')) { A.owner = t.value; changed(true); }
+  if (!t.matches) return;
+  if (t.matches('[data-wa-range]')) { A.range = t.value; changed(true); return; }
+  if (t.matches('[data-wa-owner]')) { A.owner = t.value; changed(true); return; }
+  if (t.matches('[data-wa-state]')) { A.state = t.value; changed(false); return; }
+  if (t.matches('[data-wa-sortsel]')) { const [c, dir] = t.value.split(':'); A.sort = c; A.dir = dir; changed(false); }
 });
 let qT;
 document.addEventListener('input', (e) => {
@@ -304,6 +424,14 @@ document.addEventListener('input', (e) => {
     changed(false);
   }, 280);
 });
+// Keys with the panel open: Escape closes it, the arrow keys and j and k step to the next ask. They stay out of a field being typed in.
+document.addEventListener('keydown', (e) => {
+  if (!A.sideId || e.ctrlKey || e.metaKey || e.altKey) return;
+  const typing = e.target && /^(input|textarea|select)$/i.test(e.target.tagName);
+  if (e.key === 'Escape') { if ($('#layer .wc-dlg')) return; e.preventDefault(); e.stopPropagation(); closeSide(); return; }
+  if (typing) return;
+  if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); stepSide(1); } else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); stepSide(-1); }
+}, true);
 
 window.WCAsks = { A, start, view, shapeQuick: quick, easter };
 window.WCTabs.registerTab({ id: 'asks', label: 'Asks', roles: ['director', 'support'], after: 'open', count: () => (A.meta ? A.meta.stats.open.n : ''), dot: () => !!A.meta && A.meta.stats.past.n > 0, mount: () => view(), warm: () => { if (!A.started) start(); } });
