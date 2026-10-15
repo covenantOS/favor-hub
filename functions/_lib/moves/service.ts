@@ -18,6 +18,11 @@ export const PER = 12;
 export const MAX_LIMIT = 100;
 
 const NAMES_SQL = readOnly('SELECT id AS id, fundraiser_first_name AS first, fundraiser_last_name AS last FROM fundraisers');
+/** Current holders from the Blackbaud copy, for partners the lists snapshot does not carry (they have not given). */
+const HOLDERS_SQL = readOnly(`SELECT a.constituent_record_id AS cid, a.assignment_fundraiser_id AS fid FROM assignments a JOIN fundraisers f ON f.id = a.assignment_fundraiser_id
+ WHERE a.constituent_record_id IN (SELECT value FROM json_each(?1)) AND (a.assignment_to_date IS NULL OR substr(a.assignment_to_date, 1, 10) >= ?2) AND COALESCE(f.fundraiser_active, 0) = 1`);
+const PERSON_SQL = readOnly(`SELECT id AS id, COALESCE(json_extract(raw_json, '$.name'), trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))) AS name,
+  json_extract(raw_json, '$.address.city') AS city, json_extract(raw_json, '$.address.state') AS st, COALESCE(deceased, 0) AS dec FROM constituents WHERE id IN (SELECT value FROM json_each(?1))`);
 const CONTACT_SQL = readOnly(`SELECT constituent_record_id AS cid, MAX(substr(COALESCE(action_completed_date, action_date_due), 1, 10)) AS d FROM actions
   WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND action_completed_date IS NOT NULL AND action_type IN ('Phone call', 'Email', 'Meeting', 'Mailing') GROUP BY 1`);
 
@@ -86,6 +91,16 @@ export async function loadRows(ctx: Ctx): Promise<Loaded> {
   for (const h of holderRows) (holders[String(h.k)] ||= []).push(String(h.f));
   const known = new Set(households.map((h) => h.key));
   const loose = keys.filter((k) => !known.has(k));
+  // A partner staged by hand who has not given: holders, name and place from the Blackbaud copy.
+  const cardOnly = cards.map((c) => c.key).filter((k) => !known.has(k) && !keyed.some((a) => a.key === k));
+  if (cardOnly.length) {
+    const [hs, ps] = await Promise.all([
+      q<{ cid: string; fid: string }>(HOLDERS_SQL, [JSON.stringify(cardOnly), today]).catch(() => []),
+      q<{ id: string; name: string; city: string; st: string; dec: number }>(PERSON_SQL, [JSON.stringify(cardOnly)]).catch(() => []),
+    ]);
+    for (const h of hs) if (!(holders[String(h.cid)] || []).includes(String(h.fid))) (holders[String(h.cid)] ||= []).push(String(h.fid));
+    for (const p of ps) households.push({ key: String(p.id), record: String(p.id), spouse: null, name: String(p.name || `Record ${p.id}`), city: String(p.city || ''), state: String(p.st || ''), largest: 0, lifetime: 0, lastGift: null, lastContact: null, major: false });
+  }
   const contacts: Record<string, string> = {};
   if (loose.length) for (const c of await q<{ cid: string; d: string }>(CONTACT_SQL, [JSON.stringify(loose)]).catch(() => [])) if (c.d) contacts[String(c.cid)] = c.d;
   const names: Record<string, string> = {};
@@ -228,12 +243,31 @@ export async function saveCard(ctx: Ctx, b: MoveIn) {
   if (ctx.testCid && cid !== ctx.testCid) throw new HttpError(403, 'test_only', 'A role test may change only the test record.');
   guardTester(ctx, cid);
   const env = ctx.env;
-  const hit = await rowFor(ctx, cid);
-  if (!hit) throw new HttpError(403, 'not_yours', 'That partner is not on your board.');
+  let hit = await rowFor(ctx, cid);
+  if (!hit) {
+    // Not on the board yet: a prospect or a partner who has not given $1,000. Anyone who holds the partner (or an admin or Support) may stage them.
+    if (b.stage === undefined) throw new HttpError(400, 'bad_stage', 'Pick a stage first.');
+    const today0 = todayEt();
+    const q = listMirrorQ(env);
+    const [p] = await q<{ id: string; name: string; dec: number }>(PERSON_SQL, [JSON.stringify([cid])]);
+    if (!p) throw new HttpError(404, 'no_partner', 'No partner has that number.');
+    if (Number(p.dec) === 1) throw new HttpError(400, 'passed', 'This partner has passed away.');
+    const sc = ctx.scope;
+    if (sc && !sc.all && sc.role !== 'support') {
+      const hs = await q<{ cid: string; fid: string }>(HOLDERS_SQL, [JSON.stringify([cid]), today0]);
+      if (!hs.some((h) => sc.fids.has(String(h.fid)))) throw new HttpError(403, 'not_yours', 'That partner is not in your portfolio.');
+    }
+    const key = await keyOf(env, cid);
+    await env.DB.prepare('INSERT OR IGNORE INTO mv_card (key, cid, stage_id, entered_at, updated_at, updated_by) VALUES (?,?,?,?,?,?)').bind(key, cid, POOL, nowIso(), nowIso(), ctx.actor).run();
+    hit = await rowFor(ctx, cid);
+    if (!hit) throw new HttpError(403, 'not_yours', 'That partner is not on your board.');
+  }
   const { row, l } = hit;
   const today = l.today;
   const now = nowIso();
-  const old = await env.DB.prepare('SELECT key, cid, stage_id, next_step, next_due, reminder_id, entered_at FROM mv_card WHERE key = ?').bind(row.key).first<CardRow & { reminder_id: string | null }>();
+  const old0 = await env.DB.prepare('SELECT key, cid, stage_id, next_step, next_due, reminder_id, entered_at FROM mv_card WHERE key = ?').bind(row.key).first<CardRow & { reminder_id: string | null }>();
+  // A placeholder row (stage pool) made a moment ago to put a new partner on the board counts as no row.
+  const old = old0 && old0.stage_id !== POOL ? old0 : null;
   let stage = old ? old.stage_id : row.stage === POOL ? '' : row.stage;
   if (b.stage !== undefined) {
     const s = String(b.stage);

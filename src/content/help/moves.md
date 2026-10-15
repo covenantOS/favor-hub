@@ -17,6 +17,10 @@ The first column, **Not staged**, holds major partners nobody has placed yet. Dr
 
 The numbers across the top add up to the Asks board. Open asks here is the same total as Open there, because the board reads the same asks for the same portfolio.
 
+## Adding a partner who is not on the board
+
+A prospect, or a partner who has not given $1,000 yet, is not on the board until someone adds them. Press **Add a partner**, find the partner by name, email or phone, pick the stage and press **Add to the board**. You can add a partner you hold; Support and admins can add anyone.
+
 ## Moving a partner and setting the next step
 
 Drag a card to another column, or open the card and press a stage. The next step is a sentence and a date. Saving it puts a reminder on the owner's list in Actions, so it shows up on the day it is due. Changing the step replaces the old reminder.
