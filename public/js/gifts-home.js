@@ -37,11 +37,11 @@
     var mail = ov && ov.mail, on = ov && ov.online, rv = ov && ov.review, bb = (ov && ov.blackbaud) || (m && { deposits: m.totals.deposits, cents: m.totals.totalCents }), rc = ov && ov.receipts, lt = ov && ov.letters;
     var pick = ov && ov.pickupDay ? 'started on a pickup day' : 'started today';
     return t(1, 'Mail', '', mail ? String(mail.startedToday) : '0', 'deposits ' + pick, '/gift-entry/?start=1', 'Start a deposit') +
-      t(2, 'Online', '', on ? String(on.toApprove) : '0', on ? 'to approve, ' + money(on.cents) : 'to approve', '/online-gifts/', 'Online gifts') +
+      t(2, 'Online', '', on ? String(on.toApprove) : '0', on ? 'to approve, ' + money(on.cents, true) : 'to approve', '/online-gifts/', 'Online gifts') +
       t(3, 'Review', '', rv ? String(rv.waiting) : '0', 'gifts waiting for a second look', '/gift-entry/', 'Gift entry') +
       t(4, 'In Blackbaud', '', bb ? String(bb.deposits) : '0', bb ? 'deposits this month, ' + money(bb.cents, true) : 'deposits this month', '/gift-entry/', 'Deposits') +
       t(5, 'Receipts', '', rc ? String(rc.lastFile ? rc.lastFile.marked : rc.left) : '0', rc && rc.lastFile ? 'marked thanked ' + when(rc.lastFile.at) : 'receipts waiting to print', '/receipts/', 'Receipts') +
-      t(6, 'Letters', '', lt ? String(lt.month) : '0', 'gifts of $5,000 and up in ' + MON[new Date().getMonth()], '/gifts/letters/', 'Thank-you letters');
+      t(6, 'Letters', '', lt ? String(lt.month) : '0', 'gifts of $5,000 and up in ' + MON[Number(new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).slice(5, 7)) - 1], '/gifts/letters/', 'Thank-you letters');
   }
 
   function chart(c) {
@@ -55,7 +55,7 @@
       var tip = dow(d.date) + ' ' + short(d.date) + ': checks and cash ' + money(d.checksCents, true) + ', card and online ' + money(d.cardCents, true) + ', other ' + money(d.otherCents, true);
       return '<div class="gh-bar" title="' + esc(tip) + '"><div class="gh-bar__stack"><i class="o" style="height:' + h(d.otherCents) + '"></i><i class="c" style="height:' + h(d.cardCents) + '"></i><i class="k" style="height:' + h(d.checksCents) + '"></i></div><span>' + dow(d.date) + ' ' + short(d.date).split(' ')[1] + '</span></div>';
     }).join('');
-    return '<div class="gh-chart" role="img" aria-label="Gifts added to Blackbaud by day">' + bars + '</div><div class="gh-legend"><span><i class="k"></i>Checks and cash</span><span><i class="c"></i>Card and online</span><span><i class="o"></i>Other</span>' + (capped ? '<span class="gh-cap">Stock and DAF gifts capped at ' + money(cap, true) + ' on the chart</span>' : '') + '</div>';
+    return '<div class="gh-chart" role="img" aria-label="Gifts added to Blackbaud by day">' + bars + '</div><div class="gh-legend"><span><i class="k"></i>Checks and cash</span><span><i class="c"></i>Card and online</span><span><i class="o"></i>Other</span>' + (capped ? '<span class="gh-cap">Each part of a day (checks and cash, card and online, other) is drawn at no more than ' + money(cap, true) + '. Hover a bar for the full amounts. Other includes ' + (window.FavorUI && FavorUI.term ? FavorUI.term('daf', 'DAF') : 'DAF') + ' grants and stock.</span>' : '') + '</div>';
   }
 
   function deposits(m) {
@@ -70,7 +70,7 @@
 
   function online(on) {
     if (!on) return '<p class="gh-fail">Online gifts did not load.</p>';
-    if (!on.rows || !on.rows.length) return '<p class="gh-empty">Nothing waiting. Every online gift is approved.</p>';
+    if (!on.rows || !on.rows.length) return '<p class="gh-empty">No giving form gifts in the last 14 days are waiting for approval. Fundraise Up gifts are not counted here.</p>';
     return on.rows.map(function (r) { return '<a class="gh-li" href="/online-gifts/"><b>' + esc(r.name) + '</b><span>' + money(r.cents) + ' · ' + esc(short(r.date)) + (r.kind ? ' · ' + esc(r.kind) : '') + '</span></a>'; }).join('');
   }
   function letters(lt) {
@@ -88,7 +88,7 @@
     $('#gh-chart').innerHTML = ov ? chart(ov.chart) : '<p class="gh-fail">The chart did not load.</p>';
     if (ov && ov.chart && ov.chart.days && ov.chart.days.length) $('#gh-chart-sub').textContent = short(ov.chart.days[0].date) + ' to ' + short(ov.chart.days[ov.chart.days.length - 1].date) + ', by day';
     $('#gh-deps').innerHTML = deposits(m);
-    if (m) $('#gh-deps-sub').textContent = m.totals.deposits + ' this month · ' + m.totals.items + ' gifts · ' + money(m.totals.totalCents);
+    if (m) $('#gh-deps-sub').textContent = m.totals.deposits + ' this month · ' + m.totals.items + ' gifts · ' + money(m.totals.totalCents, true);
     $('#gh-online').innerHTML = online(ov && ov.online);
     if (ov && ov.online) $('#gh-online-n').textContent = ov.online.toApprove || '';
     $('#gh-letters').innerHTML = letters(ov && ov.letters);

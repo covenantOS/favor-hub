@@ -127,19 +127,24 @@ describe('the partner view', () => {
   it('totals giving by year, finds the largest and last gift, and counts the year to date', async () => {
     const p = await loadPartner(q, '9001', TODAY);
     const g = p.giving;
-    assert.equal(g.total, 100 + 50 + 5000 + 200 + 75 + 75 + 30);
-    assert.equal(g.count, 7);
-    assert.deepEqual(g.years.map((y) => [y.year, y.total, y.count, y.soft]), [['2026', 350, 3, 400], ['2025', 5030, 2, 0], ['2024', 150, 2, 0]]);
+    // The KPI dashboard's rule: the $400 soft credit from the foundation's $1,000 gift counts for Ada, once, inside every figure.
+    assert.equal(g.total, 100 + 50 + 5000 + 200 + 75 + 75 + 30 + 400);
+    assert.equal(g.count, 8);
+    assert.deepEqual(g.years.map((y) => [y.year, y.total, y.count, y.soft]), [['2026', 750, 4, 400], ['2025', 5030, 2, 0], ['2024', 150, 2, 0]]);
     assert.equal(g.largest.amount, 5000);
     assert.equal(g.last.date, '2026-09-01');
-    assert.equal(g.ytd, 350);
-    assert.equal(g.last12, 350);
+    assert.equal(g.ytd, 750);
+    assert.equal(g.last12, 750);
+    assert.equal(g.source, '$5,530 given directly, $400 through Example Foundation');
+    assert.equal(g.line, '$5,930 in 8 gifts');
     assert.equal(g.firstDate, '2024-03-01');
     assert.equal(g.recent[0].fund, 'General Fund');
     assert.equal(g.recent.find((x) => x.id === 'g2').fund, 'Project Alpha');
     assert.equal(g.soft.total, 400);
-    assert.equal(g.soft.recent[0].amount, 400);
+    assert.equal(g.soft.recent[0].amount, 400, 'the amount credited to this partner');
+    assert.equal(g.soft.recent[0].gift, 1000, 'the whole gift');
     assert.equal(g.soft.recent[0].soft, true);
+    assert.equal(g.soft.recent[0].through, 'Example Foundation');
   });
 
   it('does not count the recurring pledge row as money received', async () => {
@@ -177,7 +182,7 @@ describe('the partner view', () => {
     const p = await loadPartner(q, '9001', TODAY);
     assert.deepEqual(p.card, {
       id: '9001', name: 'Ada Example', place: 'Holland, MI', phone: '(555) 010-1234', email: 'ada@example.org',
-      last_gift_cents: 7500, last_gift_date: '2026-09-01', year_to_date_cents: 35000, last_contact_date: '2026-10-01', last_contact_kind: 'call',
+      last_gift_cents: 7500, last_gift_date: '2026-09-01', year_to_date_cents: 75000, last_contact_date: '2026-10-01', last_contact_kind: 'call',
     });
   });
 
@@ -194,11 +199,14 @@ describe('the partner view', () => {
     assert.equal(p.card.year_to_date_cents, 0);
   });
 
-  it('reads an organization by its organization name and shows soft credit totals as received', async () => {
+  it('reads an organization by its organization name; a gift it sent for a partner counts for the partner, and shows as passed on', async () => {
     const p = await loadPartner(q, '9003', TODAY);
     assert.equal(p.kind, 'Organization');
     assert.equal(p.name, 'Example Foundation');
-    assert.equal(p.giving.total, 1000);
+    assert.equal(p.giving.total, 0);
+    assert.equal(p.giving.line, 'None of its own (it passes gifts on for others)');
+    assert.equal(p.giving.passedOn.count, 1);
+    assert.equal(p.giving.passedOn.line, '$400 in 1 gift for 1 partner');
   });
 
   it('sends only read statements and binds the id as a parameter', async () => {

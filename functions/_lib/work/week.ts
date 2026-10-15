@@ -16,6 +16,7 @@
 import { openActionSql } from '../hub/actions';
 import { heldIds, type PortfolioRow } from './portfolio';
 import type { Q } from './partner';
+import { givingForMany, type MirrorQ, type PartnerGiving } from '../gifts/partner-giving';
 
 export const GOALS = { conn: 20, mtg: 3, ev: 1, oo: 3 } as const;
 /** Teams whose directors have weekly goals. */
@@ -25,7 +26,6 @@ export const WEEK_TEAMS = new Set(['rdd']);
 const CONNECT = new Set(['Phone call', 'Meeting']);
 const VOICEMAIL = /\bvm\b|voicemail|voice mail/i;
 const HOW: Record<string, string> = { 'Phone call': 'Call', Email: 'Email', Meeting: 'Visit', Mailing: 'Letter', 'Task/Other': 'Task' };
-const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 const num = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -235,27 +235,36 @@ export async function loadWeek(
   const f = fr[0] || {};
   const giving = givingOf(today, num(tot[0] && tot[0].amount), num(f.goal), f.fstart || null, f.fend || null);
 
-  const heldJ = JSON.stringify(held);
-  const gifts = held.length
-    ? await q<any>(
-        `SELECT COUNT(*) AS n, COALESCE(SUM(gift_amount), 0) AS total FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1))
-          AND substr(gift_date, 1, 10) BETWEEN ?2 AND ?3 AND gift_amount > 0 AND gift_type IN ${GIVEN}`,
-        [heldJ, week.start, week.end]
-      )
-    : [{ n: 0, total: 0 }];
+  // Gifts on my partners this week: the credited gifts (shared/giving.ts), so a gift sent through a DAF or foundation that names a held
+  // partner counts, a spouse pair counts once, and a RecurringGift schedule never does.
+  const credited = async (ids: string[]): Promise<Map<string, PartnerGiving>> => {
+    const out = new Map<string, PartnerGiving>();
+    for (let i = 0; i < ids.length; i += 400) for (const [k, v] of await givingForMany(q as unknown as MirrorQ, ids.slice(i, i + 400), today)) out.set(k, v);
+    return out;
+  };
+  const heldGiving = await credited(held);
+  const seenHouse = new Set<string>();
+  let giftN = 0;
+  let giftTotal = 0;
+  for (const g of heldGiving.values()) {
+    if (seenHouse.has(g.household)) continue;
+    seenHouse.add(g.household);
+    for (const x of g.gifts) if (x.date >= week.start && x.date <= week.end) { giftN += 1; giftTotal += x.amount; }
+  }
+  const gifts = [{ n: giftN, total: giftTotal }];
 
-  // Asks still open: an ask in the last 60 days with no later gift from that partner.
-  const asks = await q<any>(
+  // Asks still open: an ask in the last 60 days with no later credited gift (the partner's own, their spouse's or one sent through a DAF that names them).
+  const askRows = await q<any>(
     `SELECT a.constituent_record_id AS cid, t.action_ask_amount AS amt, substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) AS d,
             COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name
        FROM actions a JOIN action_tags t ON t.id = a.id JOIN constituents c ON c.id = a.constituent_record_id
       WHERE a.action_fundraiser_id LIKE ?1 AND t.action_ask_amount > 0 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) BETWEEN ?2 AND ?3
         AND COALESCE(json_extract(a.raw_json, '$.status'), '') <> 'Canceled'
-        AND NOT EXISTS (SELECT 1 FROM gifts g WHERE g.constituent_record_id = a.constituent_record_id AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN}
-                          AND substr(g.gift_date, 1, 10) >= substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10))
-      ORDER BY t.action_ask_amount DESC LIMIT 6`,
+      ORDER BY t.action_ask_amount DESC LIMIT 200`,
     [like, addDays(today, -60), today]
   );
+  const askGiving = await credited([...new Set(askRows.map((r: any) => String(r.cid)))]);
+  const asks = askRows.filter((r: any) => !(askGiving.get(String(r.cid))?.gifts || []).some((x) => x.date >= String(r.d))).slice(0, 6);
 
   let quiet: WeekData['quiet'] = [];
   if (opts.portfolio) {

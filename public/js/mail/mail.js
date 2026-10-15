@@ -1155,9 +1155,10 @@
     var holders = (c.holders || []).map(function (h) { return esc(h.name) + (h.type ? ' (' + esc(h.type) + ')' : ''); }).join(', ');
     var cell = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
     return '<div class="ml-pcard"><div class="ml-pcard__h"><span class="ml-pcard__ic">' + ic('person') + '</span><a href="/work/partner/' + encodeURIComponent(c.id) + '"><b>' + esc(c.name || p.name || 'Partner') + '</b></a>' +
-      (c.doNotEmail ? '<em class="ml-chip ml-chip--sun">Do not email</em>' : '') + (S.assist && S.assist.major ? '<em class="ml-chip ml-chip--leaf">Major partner</em>' : '') + '</div><dl class="ml-pcard__g">' +
-      cell('Lifetime giving', c.count ? money(c.total) + ' in ' + c.count + (c.count === 1 ? ' gift' : ' gifts') : 'No gifts yet') +
-      cell('Last gift', c.last ? money(c.last.amount) + ' on ' + esc(shortDay(c.last.date)) + (c.last.fund ? ', ' + esc(c.last.fund) : '') : '') +
+      (c.doNotEmail ? '<em class="ml-chip ml-chip--sun">Do not email</em>' : '') + (S.assist && S.assist.major ? '<em class="ml-chip ml-chip--leaf">' + (window.FavorUI && FavorUI.term ? FavorUI.term('major') : 'Major partner') + '</em>' : '') + '</div><dl class="ml-pcard__g">' +
+      cell('Lifetime giving', esc(c.line || (c.count ? money(c.total) + ' in ' + c.count + (c.count === 1 ? ' gift' : ' gifts') : 'No gifts yet'))) +
+      cell('Source', esc(c.source || '')) +
+      cell('Last gift', c.last ? ((window.FavorUI && FavorUI.money) ? FavorUI.money(c.last.amount) : money(c.last.amount)) + ' on ' + esc(shortDay(c.last.date)) + (c.last.through ? ' through ' + esc(c.last.through) : '') + (c.last.fund ? ', ' + esc(c.last.fund) : '') : '') +
       cell('This year', c.count ? money(c.ytd) : '') + cell('Held by', holders || 'No one assigned') +
       cell('Last contact', c.lastContact ? esc(shortDay(c.lastContact.date)) + (c.lastContact.category ? ', ' + esc(c.lastContact.category) : '') : 'None on record') +
       cell('Open actions', c.openActions ? String(c.openActions) : '') + '</dl>' +

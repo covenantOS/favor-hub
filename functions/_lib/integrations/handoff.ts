@@ -13,6 +13,7 @@ import { HttpError, newId, nowIso, type Env } from '../http';
 import type { HubUser } from '../session';
 import { isTester, TESTER_REFUSAL } from '../testuser';
 import { mayReach, peopleFor, ping } from './ping';
+import { lastGiftLine, lifetimeLine } from '../../../shared/giving';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const clean = (s: unknown, n: number) => String(s || '').replace(/\r\n/g, '\n').trim().slice(0, n);
@@ -133,9 +134,10 @@ async function movePartner(env: Env, request: Request, user: HubUser, id: string
     [id]
   ).catch(() => [])) as Array<{ name: unknown }>;
   const name = one(rows[0]?.name, 120) || `Partner ${id}`;
-  const gifts = (await q(`SELECT substr(gift_date, 1, 10) AS d, gift_amount AS a FROM gifts WHERE constituent_record_id = ?1 ORDER BY gift_date DESC LIMIT 1`, [id]).catch(() => [])) as Array<{ d: unknown; a: unknown }>;
-  const g = gifts[0];
-  const context = g ? `Last gift: $${Number(g.a || 0).toLocaleString('en-US')} on ${String(g.d)}` : 'No gifts on file';
+  // The household's credited giving under the shared rule: soft credits through a DAF count, a recurring schedule is not a gift.
+  const { partnerGiving } = await import('../gifts/partner-giving');
+  const pg = await partnerGiving(q as never, id).catch(() => null);
+  const context = pg && pg.last ? `Last gift: ${lastGiftLine(pg)}` : pg ? `Giving: ${lifetimeLine(pg)}` : 'Giving is not available right now';
   return { title: name, href: `/work/partner/${id}`, context, moved: 'follow-up' };
 }
 

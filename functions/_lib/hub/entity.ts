@@ -6,6 +6,10 @@ import type { Env } from '../http';
 import type { HubUser } from '../session';
 import { staffDirectory } from '../people';
 import { mirrorQ, SYSTEM_ID } from '../work/partner';
+import { partnerGiving } from '../gifts/partner-giving';
+import { lastGiftLine, lifetimeLine, passedOnLine, sourceLine, STATUS_WORD as GIVING_STATUS, TERMS } from '../../../shared/giving';
+
+const tip = (key: string) => TERMS[key]?.tip;
 import { FUNDRAISERS_SQL } from '../work/repo';
 import { actorOf, projectsFlag, visibleTask } from '../projects/access';
 import { dueLabel, STATUS_WORD, taskUrl } from '../projects/links/shared';
@@ -21,6 +25,8 @@ export type Kind = (typeof KINDS)[number];
 export interface Fact {
   k: string;
   v: string;
+  /** The plain meaning of the label (TERMS in shared/giving.ts), shown on hover and on tap. */
+  tip?: string;
 }
 
 export interface EntityOut {
@@ -39,7 +45,6 @@ export interface EntityOut {
 }
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
-const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
 const ymd = (s: unknown) => String(s || '').slice(0, 10);
 const day = (s: string) => (s ? new Date(s.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }) : '');
 const when = (iso: string) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
@@ -65,7 +70,8 @@ async function person(env: Env, access: Access, id: string): Promise<EntityOut |
   return { kind: 'person', id: p.email, title: p.name, sub: p.title || p.team, url: '', facts, acts: [...(access.chat ? ['message'] : []), 'task', 'brain', 'send'], pic: p.picture || undefined };
 }
 
-/** Name, lifetime giving, last gift and holder, from the same copy of Blackbaud as the Work Center. Only people who may open the Work Center see it. */
+/** Name, lifetime giving, last gift and holder, from the same copy of Blackbaud as the Work Center. Only people who may open the Work Center see it.
+ *  Giving follows shared/giving.ts (the KPI dashboard's rule): gifts sent through a DAF or foundation count for the partner they name. */
 async function partner(env: Env, access: Access, idIn: string): Promise<EntityOut | null> {
   let id = idIn;
   if (!access.workCenter) return restricted('partner', id);
@@ -74,10 +80,9 @@ async function partner(env: Env, access: Access, idIn: string): Promise<EntityOu
   const byLookup = /^L(\d{1,12})$/i.exec(id);
   if (byLookup) id = String((await q<any>('SELECT id FROM constituents WHERE constituent_lookup_id = ?1 LIMIT 1', [byLookup[1]]))[0]?.id || '');
   if (!SYSTEM_ID.test(id)) return null;
-  const [row, own, last, assigns, fr, addr] = await Promise.all([
+  const [row, giving, assigns, fr, addr] = await Promise.all([
     q<any>("SELECT constituent_lookup_id AS lookup, deceased, json_extract(raw_json, '$.name') AS name, organization_name AS org, first_name AS first, last_name AS last FROM constituents WHERE id = ?1", [id]),
-    q<any>("SELECT COUNT(*) AS n, COALESCE(SUM(gift_amount), 0) AS total FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')", [id]),
-    q<any>("SELECT gift_amount AS amount, substr(gift_date, 1, 10) AS gdate FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other') ORDER BY gift_date DESC LIMIT 1", [id]),
+    partnerGiving(q as any, id),
     q<any>('SELECT assignment_fundraiser_id AS fid, substr(assignment_to_date, 1, 10) AS tod FROM assignments WHERE constituent_record_id = ?1 ORDER BY (assignment_to_date IS NULL) DESC, assignment_to_date DESC LIMIT 10', [id]),
     q<any>(FUNDRAISERS_SQL),
     q<any>('SELECT address_city AS city, address_state AS state FROM addresses WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 1', [id]),
@@ -89,12 +94,18 @@ async function partner(env: Env, access: Access, idIn: string): Promise<EntityOu
   const names = new Map<string, string>(fr.map((f: any) => [String(f.id), `${f.first ?? ''} ${f.last ?? ''}`.trim()]));
   const holders = assigns.filter((a: any) => !a.tod || a.tod >= today).map((a: any) => names.get(String(a.fid)) || '').filter(Boolean);
   const place = [addr[0]?.city, addr[0]?.state].filter(Boolean).join(', ');
-  const total = Number(own[0]?.total) || 0;
-  const n = Number(own[0]?.n) || 0;
   const facts: Fact[] = [];
   if (k.lookup) facts.push({ k: 'Lookup ID', v: String(k.lookup) });
-  facts.push({ k: 'Lifetime giving', v: n ? `${money(total)} in ${n.toLocaleString('en-US')} ${n === 1 ? 'gift' : 'gifts'}` : 'No gifts on record' });
-  if (last[0]) facts.push({ k: 'Last gift', v: `${money(Number(last[0].amount) || 0)} on ${day(last[0].gdate)}` });
+  if (giving) {
+    const spouse = giving.members.find((m) => m.relation === 'spouse');
+    facts.push({ k: 'Lifetime giving', v: lifetimeLine(giving), tip: tip('lifetime') });
+    const src = sourceLine(giving);
+    if (src) facts.push({ k: 'Given', v: src, tip: tip(giving.through.some((t) => t.kind === 'daf') ? 'daf' : 'soft') });
+    if (spouse) facts.push({ k: 'Household', v: `Counts gifts from ${spouse.name} too`, tip: tip('household') });
+    if (giving.last) facts.push({ k: 'Last gift', v: lastGiftLine(giving) });
+    if (giving.count) facts.push({ k: 'Status', v: GIVING_STATUS[giving.status] + (giving.major ? ', major partner' : ''), tip: [tip(giving.status), giving.major ? tip('major') : ''].filter(Boolean).join(' ') });
+    if (giving.passedOn.count) facts.push({ k: 'Passed on', v: passedOnLine(giving), tip: tip('passedOn') });
+  }
   facts.push({ k: 'Held by', v: holders.length ? [...new Set(holders)].join(', ') : 'No one' });
   return { kind: 'partner', id, title: name, sub: [place, k.deceased ? 'deceased' : ''].filter(Boolean).join(' · '), url: `/work/partner/${id}`, facts, acts: ['open', 'task', 'brain', 'send'] };
 }

@@ -11,6 +11,8 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const today = () => WC().TODAY;
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(today().slice(0, 4)) ? ', ' + y : ''); };
 const money = (a) => { const n = Math.round(Number(a) || 0); return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
+const single = (a) => (window.FavorUI && FavorUI.money ? FavorUI.money(a) : money(a));
+const softTerm = () => (window.FavorUI && FavorUI.term ? FavorUI.term('soft', 'soft credit') : 'soft credit');
 const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const WDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const addDays = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -26,7 +28,7 @@ const ic = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${I[n
 const SHEET = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M6 2.5h8.5L19 7v13.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#0f9d58" stroke="none"/><path d="M14.5 2.5V7H19" fill="#87ceac" stroke="none"/><rect x="8" y="10.5" width="8" height="7" rx=".5" fill="#fff" stroke="none"/><path d="M8 13h8M8 15.3h8M11 10.5v7" stroke="#0f9d58" stroke-width=".9" fill="none"/></svg>';
 
 const M = { hmap: null, hcounts: {}, owner: '', directors: [], data: null, f: 'q90', sort: 'l12', dir: -1, sel: new Set(), q: '', page: 1, loading: false, error: '', at: 0 };
-const FILTERS = [['q90', '90 days'], ['q180', '180 days'], ['gave', 'Gave, not contacted'], ['lapsed', 'Lapsed'], ['nophone', 'No phone'], ['all', 'All']];
+const FILTERS = [['q90', '90 days'], ['q180', '180 days'], ['gave', 'Gave, not contacted'], ['lapsed', 'Gave last year, not this year'], ['nophone', 'No phone'], ['all', 'All']];
 
 /* ------------------------------------------------------------------ the rules (the server's, repeated so a filter needs no round trip) */
 const quietAt = (r, n) => r.quiet === null || r.quiet >= n;
@@ -77,7 +79,7 @@ function rowHTML(r) {
   const q = r.quiet;
   const cls = q === null || q >= 180 ? 'is-180' : q >= 90 ? 'is-90' : '';
   const g = r.gift;
-  const delta = r.p12 ? (r.l12 >= r.p12 ? 'Up from ' : 'Down from ') + short(r.p12) : r.l12 ? 'New this year' : 'No gifts';
+  const delta = r.p12 ? (r.l12 >= r.p12 ? 'Up from ' : 'Down from ') + money(r.p12) : r.l12 ? (r.life > r.l12 ? 'None the year before' : 'New this year') : r.life ? 'None in 12 months' : 'No gifts yet';
   const tel = r.phone ? 'tel:' + r.phone.replace(/[^\d+]/g, '') : '';
   const callOff = r.dnc ? 'Do not call' : 'No phone to call';
   const call = tel ? `<a class="pt-icon" href="${esc(tel)}" title="Call ${esc(r.phone)}" aria-label="Call ${esc(r.name)}">${ic('phone')}</a>` : `<span class="pt-icon is-off" title="${callOff}" aria-label="${callOff}">${ic('phone')}</span>`;
@@ -91,9 +93,9 @@ function rowHTML(r) {
     <td class="pt-cb"><input type="checkbox" data-wm-pick="${esc(r.cid)}" ${on ? 'checked' : ''} aria-label="Select ${esc(name)}" /></td>
     <td class="c-who"><div class="ptl-who"><a class="pt-name wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}" title="${esc(name)}">${esc(name)}</a>${hchip(r)}<span class="pt-sub ptl-place" title="${esc(place)}">${esc(place)}</span>${nbaLine(r)}</div></td>
     ${hide.has('quiet') ? '' : `<td class="c-quiet" title="${esc(lastTxt)}"><span class="ptl-quiet ${cls}"><b>${q === null ? 'Never' : plural(q, 'day')}</b> <span class="pt-sub">${esc(lastTxt)}</span></span></td>`}
-    ${hide.has('gift') ? '' : `<td class="c-gift" title="${g ? esc(money(g.amount) + ' on ' + fd(g.date, true) + (g.soft ? ', soft credit' : '')) : 'No gift'}">${g ? `<b>${money(g.amount)}</b> <span class="pt-sub">${fd(g.date, true)}${g.soft ? ' · soft' : ''}</span>` : '<span class="pt-mute">None</span>'}</td>`}
+    ${hide.has('gift') ? '' : `<td class="c-gift" title="${g ? esc(money(g.amount) + ' on ' + fd(g.date, true) + (g.soft ? ', soft credit' : '')) : 'No gift'}">${g ? `<b>${single(g.amount)}</b> <span class="pt-sub">${fd(g.date, true)}${g.soft ? ' · ' + softTerm() + (g.through ? ' through ' + esc(g.through) : '') : ''}</span>` : '<span class="pt-mute">None</span>'}</td>`}
     ${hide.has('l12') ? '' : `<td class="c-12 is-num" title="${esc(delta)}"><b>${money(r.l12)}</b> <span class="pt-sub">${esc(delta)}</span></td>`}
-    ${hide.has('life') ? '' : `<td class="c-life is-num" title="${esc(money(r.life) + ', ' + plural(r.gifts, 'gift'))}"><b>${short(r.life)}</b> <span class="pt-sub">${plural(r.gifts, 'gift')}</span></td>`}
+    ${hide.has('life') ? '' : `<td class="c-life is-num" title="${esc(money(r.life) + ', ' + plural(r.gifts, 'gift'))}"><b>${money(r.life)}</b> <span class="pt-sub">${plural(r.gifts, 'gift')}</span></td>`}
     ${hide.has('next') ? '' : `<td class="c-next">${next}</td>`}
     <td class="c-acts"><div class="pt-acts">${window.FavorCall && r.phone && !r.dnc ? `<button type="button" class="pt-icon" data-wm-callmode="${esc(r.cid)}" title="Call mode" aria-label="Call mode for ${esc(name)}">${ic('phone')}</button>` : call}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-prep="${esc(r.cid)}" data-pt-open>${ic('brief')}${prep ? 'Prep' : 'Open'}</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-log="${esc(r.cid)}">Log</button></div></td>
   </tr>`;
@@ -110,7 +112,7 @@ function paint() {
   if (PT) M.page = PT.clampPage(M.page, list.length, pageSize());
   const shown = pageRows(list);
   // The old stat tiles are now the counts on the filter buttons.
-  const filters = [['q90', '90 days', st.quiet90, 'Quiet 90 days or more'], ['q180', '180 days', null, 'Quiet 180 days or more'], ['gave', 'Gave, not contacted', st.gaveNoContact, 'Gave this year, no contact in 30 days'], ['lapsed', 'Lapsed', st.lapsed, 'Gave last year, not this year'], ['nophone', 'No phone', st.noPhone, 'No phone to call'], ['all', 'All', st.held, 'Partners held']];
+  const filters = [['q90', '90 days', st.quiet90, 'Quiet 90 days or more'], ['q180', '180 days', null, 'Quiet 180 days or more'], ['gave', 'Gave, not contacted', st.gaveNoContact, 'Gave this year, no contact in 30 days'], ['lapsed', 'Gave last year, not this year', st.lapsed, 'Gave in the calendar year before this one and has not given yet this year. The Lapsed status on the Lists page means no gift in over 24 months.'], ['nophone', 'No phone', st.noPhone, 'No phone to call'], ['all', 'All', st.held, 'Partners held']];
   const allOn = shown.length && shown.every((r) => M.sel.has(r.cid));
   const who = isMine() ? 'you' : nameOf(M.owner);
   const hide = PT ? PT.hidden('mine') : new Set();

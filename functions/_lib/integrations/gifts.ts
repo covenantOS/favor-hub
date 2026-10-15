@@ -8,6 +8,9 @@ import { requireWork } from '../work/gate';
 import { blackbaudRepo } from '../work/repo';
 import type { Ctx } from '../work/service';
 import { giftsResponse, mayGifts } from '../work/gifts-svc';
+import { givingForMany, todayEt } from '../gifts/partner-giving';
+import { mirrorQ } from '../work/partner';
+import { throughName } from '../../../shared/giving';
 
 export const NEW_HOURS = 72;
 export const HQTY_MIN = 5000;
@@ -26,7 +29,11 @@ export interface GiftCard {
   thank: { state: 'owed' | 'task' | 'left' | 'done'; due: string; late: boolean; by: string; on: string; how: string };
   /** The handwritten HQTY letter, for gifts of $5,000 or more: not started, printed, signed, mailed or cannot. */
   letter: { state: string; on: string } | null;
-  history: { lifetime: number; count: number; lastContact: string; since: string };
+  /** The household's credited giving (shared/giving.ts): soft credits count for the partner they name, spouses once. firstGift is true only when this is the household's one credited gift. */
+  history: { lifetime: number; count: number; lastContact: string; since: string; firstGift: boolean };
+  /** A soft credit: the record the gift came through, "National Christian Foundation (DAF)". Empty for a gift the partner gave. */
+  through: string;
+  soft: boolean;
   phone: string | null;
   team: 'dir' | 'pc';
   owners: string[];
@@ -46,7 +53,19 @@ export async function newGifts(env: Env, request: Request): Promise<{ gifts: Gif
     const rows = (await env.DB.prepare('SELECT gift_id, state, COALESCE(mailed_at, signed_at, printed_at, updated_at) AS on_at FROM act_hqty WHERE gift_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(big)).all<{ gift_id: string; state: string; on_at: string }>().catch(() => ({ results: [] as Array<{ gift_id: string; state: string; on_at: string }> }))).results || [];
     for (const r of rows) letters.set(String(r.gift_id), { state: r.state, on: String(r.on_at || '').slice(0, 10) });
   }
+  // Lifetime, gift count and "first gift" come from the household's credited giving, not from the gifts that sit on the record alone.
+  const giving = await givingForMany(mirrorQ(env), [...new Set(fresh.map((r) => r.cid))], todayEt()).catch(() => new Map());
   const gifts: GiftCard[] = fresh.map((r) => {
+    const pg = giving.get(r.cid);
+    const credited = pg ? pg.gifts.find((x) => x.id === r.giftId) : undefined;
+    const lifetime = pg ? pg.total : r.partner.lifetime;
+    const count = pg ? pg.count : r.partner.count;
+    const firstGift = !!pg && pg.count === 1 && !!credited;
+    const via = credited && credited.via ? pg!.through.find((t) => t.id === credited.via) : undefined;
+    const through = via ? throughName(via) : r.soft ? r.soft.giver : '';
+    // "First gift" is true only when this is the household's one credited gift; a partner with soft credits only has gifts already.
+    const badges = (r.badges || []).filter((b) => b !== 'First gift' || !pg || firstGift);
+    if (firstGift && !badges.includes('First gift') && !badges.includes('First monthly gift')) badges.unshift('First gift');
     const clock = (r.clock || {}) as { due?: string; state?: string; mins?: number };
     const state: GiftCard['thank']['state'] = r.thanked ? 'done' : r.taskIds && r.taskIds.length ? 'task' : r.left ? 'left' : 'owed';
     return {
@@ -58,10 +77,12 @@ export async function newGifts(env: Env, request: Request): Promise<{ gifts: Gif
       fund: r.fund,
       type: r.type,
       hours: r.hours,
-      badges: r.badges || [],
+      badges,
       thank: { state, due: String(clock.due || ''), late: Number(clock.mins) < 0, by: r.thanked ? r.thanked.by : r.left ? r.left.by : '', on: r.thanked ? r.thanked.date : r.left ? r.left.date : '', how: r.thanked ? r.thanked.how : r.left ? r.left.how : '' },
       letter: r.amount >= HQTY_MIN ? letters.get(r.giftId) || { state: 'none', on: '' } : null,
-      history: { lifetime: r.partner.lifetime, count: r.partner.count, lastContact: r.partner.lastContact, since: '' },
+      history: { lifetime, count, lastContact: r.partner.lastContact, since: '', firstGift },
+      through,
+      soft: !!r.soft,
       phone: r.partner.doNotCall ? null : r.partner.phone,
       team: r.team,
       owners: r.owners,

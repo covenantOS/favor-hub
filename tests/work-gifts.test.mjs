@@ -174,7 +174,9 @@ describe('gifts to thank', () => {
     assert.equal(ada.ageDays, 3);
     assert.ok(ada.hours >= 24);
     assert.equal(ada.fund, 'General Fund');
-    assert.equal(ada.partner.lifetime, 100 + 5000 + 500 + 50 + 80);
+    // Lifetime is the credited giving: her own gifts plus the $10,000 sent through the foundation that names her.
+    assert.equal(ada.partner.lifetime, 100 + 5000 + 500 + 50 + 80 + 10000);
+    assert.equal(ada.partner.count, 6);
   });
 
   it('counts what was thanked this week for the director', () => {
@@ -199,6 +201,17 @@ describe('gifts to thank', () => {
     assert.equal(done.rows.length, 0);
     assert.equal(done.today.length, 1);
     assert.equal(done.today[0].how, 'letter');
+  });
+
+  it('a soft-credited partner with earlier gifts is not a first gift, and a soft entry with no amount gives the full gift', async () => {
+    gift('g20', '3', 700, '2026-10-09', { soft: JSON.stringify([{ id: 's20', constituent_id: '1', gift_id: 'g20' }]) });
+    const o = await loadGifts(env, q, { today: TODAY, nowMs: Date.parse('2026-10-10T14:00:00-04:00'), days: 21 });
+    const r = o.rows.find((x) => x.key === 'g20:1');
+    assert.ok(r, 'a soft entry with no amount is not dropped');
+    assert.equal(r.amount, 700);
+    assert.ok(!r.badges.some((b) => /first/i.test(b)));
+    assert.ok(r.badges.includes('Soft credit'));
+    db.prepare('DELETE FROM gifts WHERE id = ?').run('g20');
   });
 
   it('only asks the mirror read-only questions', async () => {
@@ -241,7 +254,7 @@ describe('the call-prep brief', () => {
     assert.equal(b.steps[3].strong, '$1,500');
     assert.equal(b.ask.amount, 1500);
     assert.equal(b.call.number, '(555) 010-0001');
-    assert.equal(b.giving.largest.amount, 5000);
+    assert.equal(b.giving.largest.amount, 10000);
     assert.ok(b.gives && b.gives.fund);
     assert.equal(b.notesLive, true);
   });
@@ -259,6 +272,18 @@ describe('the call-prep brief', () => {
     const steps = stepsOf({ owed: [{ giftId: 'a', amount: 100, date: '2026-10-01', fund: 'General Fund', ageDays: 9 }, { giftId: 'b', amount: 400, date: '2026-10-05', fund: 'Clinics', ageDays: 5 }], giving: { last: null }, gives: null, monthly: [], ask: null, prayer: null, since: '2020' }, TODAY);
     assert.equal(steps[0].strong, '2 gifts, $500');
     assert.match(steps[0].post, /largest is \$400 to Clinics/);
+  });
+
+  it('says "On record since" and never "No gift" for a record that passes gifts on, and names the DAF a last gift came through', () => {
+    const base = { owed: [], gives: null, monthly: [], ask: null, prayer: null };
+    const passes = stepsOf({ ...base, giving: { last: null, passedOn: 3 }, since: '', onRecord: '2019' }, TODAY);
+    assert.match(passes[0].post, /passes gifts on for other partners/);
+    assert.equal(passes[4].post, 'On record since 2019.');
+    const none = stepsOf({ ...base, giving: { last: null }, since: '', onRecord: '' }, TODAY);
+    assert.match(none[0].post, /^No gifts on record yet/);
+    const thru = stepsOf({ ...base, giving: { last: { amount: 1000, date: '2026-09-01', fund: 'General Fund', through: 'National Christian Foundation (DAF)' } }, since: '2021' }, TODAY);
+    assert.match(thru[0].post, /on Sep 1, 2026 through National Christian Foundation \(DAF\)/);
+    assert.equal(thru[4].post, 'Partner since 2021.');
   });
 
   it('returns null for a record that is not in the mirror', async () => {

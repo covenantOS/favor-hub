@@ -4,7 +4,7 @@ summary: Press any name in FavorOS for the same card, then open it, send it to a
 topic: start
 order: 6
 related: [search, partner-page, chat]
-updated: 2026-10-12
+updated: 2026-10-14
 ---
 
 A name in FavorOS is more than text. A coworker, a partner, a fund, an appeal, a task, a request, a meeting, a clip and a course each have one card, and it is the same card on every page.
@@ -15,7 +15,7 @@ On a computer, point at the name and the card appears beside it. On a phone, tap
 
 What the card shows depends on the thing:
 
-- **A partner**: the Lookup ID, lifetime giving, the last gift and who holds the partner.
+- **A partner**: the Lookup ID, lifetime giving and where it came from (their own gifts, or through a donor-advised fund or foundation), the household, the last gift, whether they are active, LYBUNT or lapsed, and who holds the partner. Lifetime giving counts the way the KPI dashboard does: a gift sent through a DAF counts for the partner it names, and spouses count once. Point at or tap an underlined label to see what it means.
 - **A coworker**: team and email, with Message to start a chat.
 - **A fund or an appeal**: its ID, and for an appeal its category, start date and whether it is active.
 - **A task or a request**: its status, owner and due date.

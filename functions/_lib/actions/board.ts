@@ -200,7 +200,7 @@ export function shapeBoard(inp: BoardInput): BoardRow[] {
       if (r.obligationKey && r.giftId) {
         linked = obligations.find((x) => x.key === r.obligationKey) || null;
         const g = giftById.get(r.giftId);
-        if (g) gift = { id: g.id, amount: g.amount, date: g.giftDate, fund: fundOf(g.id) };
+        if (g) gift = { id: g.id, amount: (g as any).credited ?? g.amount, date: g.giftDate, fund: fundOf(g.id) };
       }
     }
     let later: Later | null = null;

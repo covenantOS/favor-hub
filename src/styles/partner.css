@@ -295,3 +295,11 @@ html.pp-locked, html.pp-locked body { overflow: hidden; }
 .pp-copy:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pp-copy:focus-visible { outline: 2px solid var(--h-leaf); outline-offset: 2px; }
 .pv-find__list .pv-find__head { padding: 8px 12px 4px; font: 600 13px var(--h-font); letter-spacing: .12em; text-transform: uppercase; color: var(--h-ink-2); pointer-events: none; }
+
+/* giving notes and the soft credit part of each year's bar (data pass 2026-10-14) */
+.pp-givenote { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 28px 0; font-size: 13px; color: var(--h-ink-2); }
+.pp-bar2 i { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.pp-bar2__via { display: block; width: 100%; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--h-brand) 40%, #fff) 0 4px, color-mix(in srgb, var(--h-brand) 55%, #fff) 4px 8px); }
+.pp-chartkey { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 12.5px; color: var(--h-ink-3); }
+.pp-chartkey s { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--h-brand) 40%, #fff) 0 4px, color-mix(in srgb, var(--h-brand) 55%, #fff) 4px 8px); }
+@media (max-width: 720px) { .pp-givenote { margin: 8px 18px 0; } }

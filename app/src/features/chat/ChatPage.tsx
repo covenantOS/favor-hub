@@ -17,7 +17,7 @@ import './styles';
 const W = window as any;
 
 export function useEngine(e: ChatEngine) {
-  useSyncExternalStore(e.subscribe, e.snap);
+  useSyncExternalStore(e.subscribe, e.snap, e.snap);
   return e;
 }
 

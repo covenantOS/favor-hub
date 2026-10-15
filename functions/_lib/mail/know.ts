@@ -10,6 +10,7 @@ import { idsFor, rowsFor } from './rows';
 import { MAJOR, TEXT_MODEL, scanInbox, tidy, type SmartCtx, type SmartRow } from './smart';
 import { partnerMap } from './partners';
 import { aiFor } from '../ai/guard';
+import { lastGiftLine, lifetimeLine } from '../../../shared/giving';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const DAY = 864e5;
@@ -125,8 +126,11 @@ export async function entityCard(env: Env, mq: MirrorQ, kind: string, qRaw: stri
     if (!digits) return null;
     const r = (await mq<any>("SELECT id, constituent_lookup_id AS lookup, COALESCE(json_extract(raw_json, '$.name'), trim(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'') || COALESCE(organization_name,''))) AS name FROM constituents WHERE constituent_lookup_id = ?1 LIMIT 1", [digits]))[0];
     if (!r) return null;
-    const g = (await mq<any>("SELECT COUNT(*) AS n, COALESCE(SUM(gift_amount), 0) AS total, MAX(substr(gift_date, 1, 10)) AS last FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')", [String(r.id)]))[0] || {};
-    return { kind, key: digits, id: String(r.id), title: String(r.name || 'Record ' + digits), sub: 'Lookup ID ' + digits, lines: [{ k: 'Giving', v: Number(g.n) ? `${money(Number(g.total))} in ${g.n} gifts` : 'No gifts yet' }, ...(g.last ? [{ k: 'Last gift', v: String(g.last) }] : [])], href: '/work/partner/' + encodeURIComponent(String(r.id)) };
+    // The household's credited giving under the shared rule (soft credits count for the partner they name, spouses once).
+    const { givingForMany } = await import('../gifts/partner-giving');
+    const g = (await givingForMany(mq as any, [String(r.id)])).get(String(r.id));
+    const lines = [{ k: 'Giving', v: g ? lifetimeLine(g) : 'No gifts yet' }, ...(g && g.last ? [{ k: 'Last gift', v: lastGiftLine(g) }] : [])];
+    return { kind, key: digits, id: String(r.id), title: String(r.name || 'Record ' + digits), sub: 'Lookup ID ' + digits, lines, href: '/work/partner/' + encodeURIComponent(String(r.id)) };
   }
   if (kind === 'staff') {
     const e = lower(q);
@@ -490,7 +494,7 @@ export async function readSearch(runModel: (system: string, user: string, max: n
   const plainWords = question.replace(/[^\w@.\-\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
   const m = raw.match(/\{[\s\S]*\}/);
   // When the model gives no usable search, Gmail searches the words as typed.
-  if (!m) return plainWords ? { q: plainWords, partners: /partners?/i.test(question), major: /major/i.test(question) } : null;
+  if (!m) return plainWords ? { q: plainWords, partners: /\bpartners?\b/i.test(question), major: /\bmajor\b/i.test(question) } : null;
   try {
     const j = JSON.parse(m[0]);
     const q = String(j.q || '').replace(/[^\w@:.\-"\s/+]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);

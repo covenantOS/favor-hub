@@ -273,6 +273,9 @@
   // A gift that landed in the last three days for one of this person's partners: the thank-you it needs and the partner's history.
   // Receipts are the printed receipts Support sends everyone; they never show here.
   var money = function (n) { var v = Number(n) || 0; return '$' + (Math.round(v) === v ? v.toLocaleString('en-US') : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })); };
+  var whole = function (n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-' : '') + '$' + Math.abs(v).toLocaleString('en-US'); };
+  // Inside .fx-t the rows are click-through (pointer-events: none) and spans are blocks, so the term opts back in and stays inline.
+  var term = function (key, label) { return window.FavorUI && window.FavorUI.term ? window.FavorUI.term(key, label).replace('<span class="h-term"', '<span class="h-term" style="display:inline;margin:0;font:inherit;color:inherit;pointer-events:auto"') : esc(label || key); };
   var day = function (iso) { if (!iso) return ''; var plain = /^\d{4}-\d{2}-\d{2}$/.test(iso); var d = new Date(plain ? iso + 'T12:00:00Z' : iso); return d.toLocaleDateString('en-US', { timeZone: plain ? 'UTC' : ET, month: 'short', day: 'numeric' }); };
   var LETTER = { none: 'Handwritten letter not started', printed: 'Handwritten letter printed', signed: 'Handwritten letter signed', mailed: 'Handwritten letter mailed', cannot: 'Handwritten letter cannot go out' };
   function dueWords(g) {
@@ -290,8 +293,12 @@
       act = '<button type="button" class="fx-btn fx-btn--primary" data-fx-thank="' + i + '">Thank</button>';
     }
     var letter = g.letter ? '<span class="fx-chip fx-chip--plain">' + esc(LETTER[g.letter.state] || LETTER.none) + '</span>' : '';
-    var hist = [g.history.count > 1 ? 'Lifetime ' + money(g.history.lifetime) + ' over ' + g.history.count + ' gifts' : 'First gift', g.history.lastContact ? 'last contact ' + day(g.history.lastContact) : 'no contact on record'].join(' · ');
-    var badges = (g.badges || []).slice(0, 2).map(function (b) { return '<em class="fx-badge">' + esc(b) + '</em>'; }).join(' ');
+    var h = g.history || {};
+    var life = h.count > 0 ? 'Lifetime ' + whole(h.lifetime) + ' over ' + h.count + (h.count === 1 ? ' gift' : ' gifts') : '';
+    var hist = [h.firstGift ? 'First gift' : life, g.soft && g.through ? 'through ' + g.through : '', h.lastContact ? 'last contact ' + day(h.lastContact) : 'no contact on record'].filter(Boolean).join(' · ');
+    // Soft credit first, so it always shows; the plain meaning of each badge is on hover, focus and tap.
+    var bl = (g.badges || []).slice().sort(function (a, b) { return (b === 'Soft credit') - (a === 'Soft credit'); }).slice(0, 3);
+    var badges = bl.map(function (b) { return '<em class="fx-badge">' + (b === 'Soft credit' ? term('soft', b) : esc(b)) + '</em>'; }).join(' ');
     return '<li class="fx-row fx-gift" data-fx-id="gift:' + esc(g.giftId) + '" data-gift="' + esc(g.giftId) + '"><a class="fx-row__open" href="/work/partner/' + encodeURIComponent(g.cid) + '" data-partner-id="' + esc(g.cid) + '" aria-label="' + esc(g.name) + '"></a>' +
       '<span class="fx-amt">' + esc(money(g.amount)) + '<small>' + esc(day(g.date)) + '</small></span>' +
       '<span class="fx-t"><b>' + esc(g.name || 'Partner ' + g.cid) + (badges ? ' ' + badges : '') + '</b><span>' + esc(g.fund || 'No fund on file') + ' · ' + esc(hist) + '</span><span class="fx-gift__st">' + state + letter + '</span></span>' +

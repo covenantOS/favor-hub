@@ -8,6 +8,8 @@ import { nowIso, type Env } from '../http';
 import { mirrorQ, type Q } from '../work/partner';
 import { GIVEN } from '../work/gifts';
 import { isTester } from '../testuser';
+import { softOf, throughName } from '../../../shared/giving';
+import { throughNames, type MirrorQ } from '../gifts/partner-giving';
 import { audienceOf, post, shape } from './db';
 import { publish, type LiveEnv } from './live';
 import { GIFTS_ID, entityName } from './text';
@@ -30,6 +32,9 @@ export interface GiftNotice {
   date: string;
   funds: string[];
   credit: string[];
+  /** A soft-credited gift: the other partners it counts for besides `cid`, and the record it came through ("National Christian Foundation (DAF)"). */
+  also?: { cid: string; partner: string }[];
+  through?: string;
 }
 
 const money = (n: number) => '$' + (Math.round(n) === n ? n.toLocaleString('en-US') : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -38,8 +43,11 @@ const dayWord = (iso: string) => (/^\d{4}-\d{2}-\d{2}/.test(iso) ? `${MON[Number
 
 /** The message for one gift. Pure, so tests read it directly. */
 export function giftMessage(g: GiftNotice): string {
+  const chip = (cid: string, name: string) => `<~p:${cid}|${entityName(name) || 'Partner ' + cid}>`;
+  const who = [chip(g.cid, g.partner), ...(g.also || []).map((a) => chip(a.cid, a.partner))];
+  const from = who.length > 1 ? `${who.slice(0, -1).join(', ')} and ${who[who.length - 1]}` : who[0];
   return [
-    `**${money(g.amount)}** from <~p:${g.cid}|${entityName(g.partner) || 'Partner ' + g.cid}>`,
+    `**${money(g.amount)}** from ${from}${g.through ? ` through ${g.through}` : ''}`,
     `Fund: ${g.funds.length ? g.funds.join(', ') : 'Not set'}`,
     `Fundraiser credit: ${g.credit.length ? g.credit.join(', ') : 'None'}`,
     `Gift date: ${dayWord(g.date)}`,
@@ -56,7 +64,7 @@ function parse<T>(v: unknown, d: T): T {
   }
 }
 
-const GIFTS_SQL = `SELECT g.id AS id, g.constituent_record_id AS cid, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS gdate, g.gift_splits AS splits, g.fundraiser_credits AS credits
+const GIFTS_SQL = `SELECT g.id AS id, g.constituent_record_id AS cid, g.gift_amount AS amount, g.constituent_record_id AS giver, g.soft_credits AS soft, substr(g.gift_date, 1, 10) AS gdate, g.gift_splits AS splits, g.fundraiser_credits AS credits
   FROM gifts g WHERE g.date_added >= ?1 AND g.gift_amount >= ?2 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
  ORDER BY g.date_added, g.id LIMIT 60`;
 const NAMES_SQL = `SELECT c.id AS id, COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name
@@ -66,7 +74,22 @@ const FRS_SQL = `SELECT id AS id, trim(COALESCE(fundraiser_first_name, '') || ' 
 
 /** Today's gifts of $5,000 or more, shaped for the message. */
 export async function newBigGifts(q: Q, now: Date): Promise<GiftNotice[]> {
-  const rows = (await q(GIFTS_SQL, [todayEt(now), GIFT_MIN])) as Array<{ id: unknown; cid: unknown; amount: unknown; gdate: unknown; splits: unknown; credits: unknown }>;
+  const raw = (await q(GIFTS_SQL, [todayEt(now), GIFT_MIN])) as Array<{ id: unknown; cid: unknown; giver: unknown; soft: unknown; amount: unknown; gdate: unknown; splits: unknown; credits: unknown }>;
+  // A gift with soft credits counts for the partners it names (shared/giving.ts), never for the record it sits on, and the $5,000 test
+  // reads the amount credited to them (an entry with no amount gives the full gift, an entry of 0 gives nothing).
+  const rows = raw
+    .map((r) => {
+      const gift = Number(r.amount) || 0;
+      const soft = softOf(r.soft);
+      if (!soft.length) return { ...r, gift, credited: gift, partners: [String(r.cid)], via: '' };
+      const by = new Map<string, number>();
+      for (const s of soft) by.set(s.cid, (by.get(s.cid) || 0) + (s.amount ?? gift));
+      const named = [...by.entries()].filter(([, a]) => a > 0);
+      const credited = Math.min(gift, named.reduce((t, [, a]) => t + a, 0));
+      const onItself = named.length === 1 && named[0][0] === String(r.giver);
+      return { ...r, gift, credited, partners: named.map(([c]) => c), via: onItself ? '' : String(r.giver) };
+    })
+    .filter((r) => r.credited >= GIFT_MIN);
   if (!rows.length) return [];
   const fundIds = new Set<string>();
   const frIds = new Set<string>();
@@ -74,23 +97,31 @@ export async function newBigGifts(q: Q, now: Date): Promise<GiftNotice[]> {
     for (const s of parse<Array<{ fund_id?: unknown }>>(r.splits, [])) if (s && s.fund_id != null) fundIds.add(String(s.fund_id));
     for (const c of parse<Array<{ constituent_id?: unknown }>>(r.credits, [])) if (c && c.constituent_id != null) frIds.add(String(c.constituent_id));
   }
-  const [names, funds, frs] = await Promise.all([
-    q(NAMES_SQL, [JSON.stringify([...new Set(rows.map((r) => String(r.cid)))])]),
+  const nameIds = [...new Set(rows.flatMap((r) => r.partners))];
+  const [names, funds, frs, vias] = await Promise.all([
+    q(NAMES_SQL, [JSON.stringify(nameIds)]),
     fundIds.size ? q(FUNDS_SQL, [JSON.stringify([...fundIds])]) : Promise.resolve([]),
     frIds.size ? q(FRS_SQL, [JSON.stringify([...frIds])]) : Promise.resolve([]),
+    throughNames(q as unknown as MirrorQ, rows.filter((r) => r.via).map((r) => r.via)).catch(() => new Map<string, { name: string; kind: string }>()),
   ]);
   const nameOf = new Map((names as Array<{ id: unknown; name: unknown }>).map((n) => [String(n.id), String(n.name || '').trim()]));
   const fundOf = new Map((funds as Array<{ id: unknown; name: unknown }>).map((n) => [String(n.id), String(n.name || '').trim()]));
   const frOf = new Map((frs as Array<{ id: unknown; name: unknown }>).map((n) => [String(n.id), String(n.name || '').trim()]));
-  return rows.map((r) => ({
-    id: String(r.id),
-    cid: String(r.cid),
-    partner: nameOf.get(String(r.cid)) || '',
-    amount: Number(r.amount) || 0,
-    date: String(r.gdate || ''),
-    funds: [...new Set(parse<Array<{ fund_id?: unknown }>>(r.splits, []).map((s) => fundOf.get(String(s?.fund_id)) || '').filter(Boolean))],
-    credit: [...new Set(parse<Array<{ constituent_id?: unknown }>>(r.credits, []).map((c) => frOf.get(String(c?.constituent_id)) || '').filter(Boolean))],
-  }));
+  return rows.map((r) => {
+    const [first, ...rest] = r.partners;
+    const v = r.via ? vias.get(r.via) : undefined;
+    return {
+      id: String(r.id),
+      cid: first,
+      partner: nameOf.get(first) || '',
+      amount: r.credited,
+      date: String(r.gdate || ''),
+      funds: [...new Set(parse<Array<{ fund_id?: unknown }>>(r.splits, []).map((s) => fundOf.get(String(s?.fund_id)) || '').filter(Boolean))],
+      credit: [...new Set(parse<Array<{ constituent_id?: unknown }>>(r.credits, []).map((c) => frOf.get(String(c?.constituent_id)) || '').filter(Boolean))],
+      also: rest.map((c) => ({ cid: c, partner: nameOf.get(c) || '' })),
+      through: r.via ? (v ? throughName(v) : 'Record ' + r.via) : '',
+    };
+  });
 }
 
 /** Who belongs in the channel: every hub admin (the test users aside) and the leadership list. */

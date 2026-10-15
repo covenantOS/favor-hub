@@ -146,7 +146,7 @@
     }).join('');
     return '<div class="fe-card__head">' + avatar(it) + '<div class="fe-card__who"><b>' + esc(it.title) + '</b><span>' + esc(it.sub || LABEL[it.kind]) + '</span></div>' +
       (phone() ? '<button type="button" class="fe-x" data-fe-act="close" aria-label="Close">' + ic('x') + '</button>' : '') + '</div>' +
-      ((it.facts || []).length ? '<dl class="fe-facts">' + it.facts.map(function (f) { return '<div><dt>' + esc(f.k) + '</dt><dd>' + esc(f.v) + '</dd></div>'; }).join('') + '</dl>' : '') +
+      ((it.facts || []).length ? '<dl class="fe-facts">' + it.facts.map(function (f) { return '<div><dt>' + (f.tip ? '<span class="h-term" tabindex="0" role="button" aria-label="' + esc(f.k + '. ' + f.tip) + '" data-term="' + esc(f.tip) + '">' + esc(f.k) + '</span>' : esc(f.k)) + '</dt><dd>' + esc(f.v) + '</dd></div>'; }).join('') + '</dl>' : '') +
       '<div class="fe-acts">' + btns + '</div>';
   }
   function place(card, el) {

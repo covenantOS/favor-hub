@@ -33,7 +33,7 @@ function action(id, cid, { due, done = null, category = 'Phone call', summary = 
 before(() => {
   mirror = new DatabaseSync(':memory:');
   mirror.exec(`
-    CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, first_name TEXT, last_name TEXT, inactive INTEGER DEFAULT 0, deceased INTEGER DEFAULT 0, raw_json TEXT);
+    CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, first_name TEXT, last_name TEXT, inactive INTEGER DEFAULT 0, deceased INTEGER DEFAULT 0, raw_json TEXT, spouse_id TEXT, organization_name TEXT);
     CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date TEXT);
     CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date TEXT, gift_type TEXT, constituent_record_id TEXT, soft_credits TEXT);
     CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due TEXT, action_completed_date TEXT, action_category TEXT, action_summary TEXT, constituent_record_id TEXT, raw_json TEXT);
@@ -83,7 +83,7 @@ describe('My partners', () => {
     assert.equal(ada.gifts, 3);
     assert.deepEqual(ada.gift, { date: '2026-02-01', amount: 9000 });
     const cy = p.rows.find((r) => r.cid === '3');
-    assert.deepEqual(cy.gift, { date: '2026-08-01', amount: 300, soft: true });
+    assert.deepEqual(cy.gift, { date: '2026-08-01', amount: 300, soft: true, through: 'Giver Nine' });
     assert.equal(cy.gifts, 1);
   });
 

@@ -7,7 +7,7 @@ for: [admin, rdd, pc, ce, grants, leader]
 related: [work-center, search]
 tool: /work/partner/
 toolLabel: Find a partner
-updated: 2026-10-10
+updated: 2026-10-14
 ---
 
 ## Open a partner
@@ -18,7 +18,14 @@ Press any partner's name in FavorOS: a Work Center row, a Favor Brain table, a h
 
 The name, the household, who holds the partner, and the iWave rating sit at the top, with any do-not-call, do-not-email or do-not-mail marks. Call, Text and Email open your phone or mail app. Log a contact records a call, email, meeting or mailing for the partner's holder, with Thanked or another tag if you pick one. Task adds something to do with its due date. Note adds a note to the partner record in Blackbaud.
 
-The four figures below are lifetime giving, this year (with the last 12 months), the last gift and the largest gift.
+The four figures below are lifetime giving, this year (with the last 12 months), the last gift and the largest gift. They count the way the KPI dashboard and Favor Brain count:
+
+- A gift sent through a donor-advised fund (DAF), a foundation or a business and soft-credited to the partner counts for the partner. A partner who gives only through National Christian Foundation shows every one of those gifts, and the line under the figures reads "All through National Christian Foundation (DAF)".
+- The DAF or foundation does not count those gifts as its own. Its page shows them as gifts it passed on for others.
+- A partner and the spouse linked to them in Blackbaud are one household, so either page shows the gifts of both, once.
+- Active means a gift in the last 12 months. LYBUNT means the last gift was 12 to 24 months ago. Lapsed means more than 24 months. A major partner has given one gift of $1,000 or more.
+
+A word with a dotted underline, such as Soft credit, DAF or LYBUNT, shows what it means when you point at it or tap it. In Giving by year, the shaded part of a bar is giving that came through a DAF, foundation or business.
 
 ## Notes
 

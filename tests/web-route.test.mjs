@@ -87,3 +87,19 @@ describe('the classic pages cooperate', () => {
     assert.match(readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8'), /'\/_w\/'/);
   });
 });
+
+describe('the web app reads /api on the Pages address', () => {
+  it('only an /api GET with the shared key is exempt from the canonical-host redirect', async () => {
+    const { webServerRead } = await import('../functions/_lib/web.ts');
+    const env = { WEB_KEY: 'k'.repeat(32) };
+    const req = (path, method = 'GET', key = env.WEB_KEY) => {
+      const url = new URL('https://favor-hub-d4n.pages.dev' + path);
+      return [env, new Request(url, { method, headers: key ? { 'X-Web-Key': key } : {} }), url];
+    };
+    assert.equal(webServerRead(...req('/api/hub/nav')), true);
+    assert.equal(webServerRead(...req('/api/hub/nav', 'POST')), false);
+    assert.equal(webServerRead(...req('/projects/')), false);
+    assert.equal(webServerRead(...req('/api/hub/nav', 'GET', 'wrong')), false);
+    assert.equal(webServerRead({}, ...req('/api/hub/nav').slice(1)), false);
+  });
+});

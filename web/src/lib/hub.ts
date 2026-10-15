@@ -3,7 +3,8 @@
 import { createIsomorphicFn } from '@tanstack/react-start';
 import { getRequestHeader } from '@tanstack/react-start/server';
 
-export const HUB_ORIGIN = 'https://dash.favorintl.org';
+// A Worker's fetch to its own zone (dash.favorintl.org) times out, so server reads go to the Pages address with the shared key.
+export const HUB_ORIGIN = 'https://favor-hub-d4n.pages.dev';
 
 export class HubReadError extends Error {
   status: number;
@@ -14,9 +15,10 @@ export class HubReadError extends Error {
   }
 }
 
-async function read(url: string, cookie: string | undefined): Promise<unknown> {
+async function read(url: string, cookie: string | undefined, key?: string): Promise<unknown> {
   const headers: Record<string, string> = { 'X-Hub-Request': '1', accept: 'application/json' };
   if (cookie) headers.cookie = cookie;
+  if (key) headers['X-Web-Key'] = key;
   const res = await fetch(url, { headers, credentials: 'same-origin' });
   const data = (await res.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
   if (!res.ok || !data || data.ok === false) throw new HubReadError((data && data.message) || 'Something went wrong. Try again.', res.status);
@@ -24,5 +26,8 @@ async function read(url: string, cookie: string | undefined): Promise<unknown> {
 }
 
 export const hubGet = createIsomorphicFn()
-  .server((path: string) => read(HUB_ORIGIN + path, getRequestHeader('cookie')))
+  .server(async (path: string) => {
+    const { env } = await import('cloudflare:workers');
+    return read(HUB_ORIGIN + path, getRequestHeader('cookie'), (env as unknown as { WEB_KEY?: string }).WEB_KEY);
+  })
   .client((path: string) => read(path, undefined));

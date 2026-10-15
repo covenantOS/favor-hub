@@ -6,6 +6,7 @@ import { thankGroups } from '../actions/board';
 import { mirrorQ } from '../work/partner';
 import { createBatch, currentBoard, runBatch, type Ctx } from '../work/service';
 import { contactsFor, dayTime } from './cards';
+import { giftDay, money } from '../../../shared/giving';
 
 export interface TodayItem {
   id: string;
@@ -20,8 +21,6 @@ export interface TodayItem {
 }
 
 const MAX_EACH = 60;
-
-const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
 
 export async function todayFor(ctx: Ctx, fid: string): Promise<TodayItem[]> {
   if (!fid) return [];
@@ -48,7 +47,7 @@ export async function todayFor(ctx: Ctx, fid: string): Promise<TodayItem[]> {
       partner_name: r.partner,
       phone: c?.phone ?? null,
       email: c?.email ?? null,
-      summary: r.gift ? `Thank-you for the ${money(r.gift.amount)} gift on ${r.gift.date}` : r.summary || 'Thank-you',
+      summary: r.gift ? `Thank-you for the ${money(r.gift.amount)} gift on ${giftDay(r.gift.date) || r.gift.date}` : r.summary || 'Thank-you',
       due_date: dayTime(r.due) || dayTime(board.today)!,
       done: false,
     });

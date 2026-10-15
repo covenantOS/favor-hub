@@ -136,7 +136,7 @@ async function call(user, method, path, body, extra = {}) {
     fetcher: fakeGoogle,
     ai,
     giving: async (ids) => Object.fromEntries(ids.map((i) => [i, { max: 2500, total: 9100, last: '2026-10-02', lastAmount: 100 }])),
-    mirror: async (sql) => (/FROM appeals/.test(sql) ? [{ code: 'N26A-EMW2', d: 'Newsletter October week 2', cat: 'Digital Newsletter', off: 0, added: '2026-10-05' }] : /FROM funds/.test(sql) ? [{ code: 'GEN', d: 'General Fund', off: 0 }] : /FROM constituents/.test(sql) ? [{ id: '27202', lookup: '8841', name: 'Maya Okafor' }] : /FROM gifts/.test(sql) ? [{ n: 3, total: 300, last: '2026-10-02' }] : []),
+    mirror: async (sql) => (/FROM appeals/.test(sql) ? [{ code: 'N26A-EMW2', d: 'Newsletter October week 2', cat: 'Digital Newsletter', off: 0, added: '2026-10-05' }] : /FROM funds/.test(sql) ? [{ code: 'GEN', d: 'General Fund', off: 0 }] : /FROM constituents/.test(sql) ? [{ id: '27202', lookup: '8841', name: 'Maya Okafor' }] : /FROM gifts/.test(sql) ? [{ id: 'g1', amount: 100, date: '2025-08-02', type: 'Donation', giver: '27202', soft: null }, { id: 'g2', amount: 100, date: '2025-09-02', type: 'Donation', giver: '27202', soft: null }, { id: 'g3', amount: 100, date: '2025-10-02', type: 'Donation', giver: '27202', soft: null }] : []),
     partners: async (emails) => Object.fromEntries(emails.filter((e) => e === 'maya@example.org').map((e) => [e, { id: '27202', name: 'Maya Okafor' }])),
     partnerCard: async (id) => ({ id, name: 'Maya Okafor', lookup: '8841', giving: { total: 4300.5, count: 12, ytd: 600, firstDate: '2019-03-02', last: { amount: 100, date: '2026-10-02', fund: 'General' } }, assignments: [{ name: 'Grace Lin', type: 'Partner Care', current: true }, { name: 'Old Holder', type: 'East', current: false }], lastContact: { date: '2026-09-12', category: 'Phone call' }, actions: { openCount: 2 }, flags: { doNotEmail: false }, ...extra }),
     ...extra,
@@ -236,7 +236,8 @@ describe('what a message mentions', () => {
     assert.equal((await run('entity?kind=fund&q=General%20Fund')).data.card.title, 'General Fund');
     const l = (await run('entity?kind=lookup&q=8841')).data.card;
     assert.equal(l.id, '27202');
-    assert.match(l.lines[0].v, /\$300/);
+    assert.equal(l.lines[0].v, '$300 in 3 gifts');
+    assert.equal(l.lines[1].v, '$100 on Oct 2, 2025', 'the last gift reads as a day, not an ISO date');
     assert.equal((await run('entity?kind=appeal&q=nope')).status, 404);
     assert.equal((await run('entity?kind=weird&q=x')).status, 404);
   });

@@ -114,7 +114,7 @@ interface Props {
 }
 
 export function Composer({ e, scope, placeholder, slim, latest, alsoLabel }: Props) {
-  useSyncExternalStore(e.subscribe, e.snap);
+  useSyncExternalStore(e.subscribe, e.snap, e.snap);
   const ta = useRef<HTMLTextAreaElement>(null);
   const also = useRef<HTMLInputElement>(null);
   const file = useRef<HTMLInputElement>(null);

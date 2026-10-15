@@ -9,7 +9,11 @@
      FavorUI.when(iso)                    Today 9:44 AM, Yesterday 9:44 AM, Oct 11 9:44 AM
      FavorUI.empty(title, text?)          the one empty state: <div class="h-empty">
      FavorUI.api(method, path, body?)     JSON call with the same-site header; throws an Error with the server's staff-worded message
-     FavorUI.toast(text)                  the small message at the bottom of the page */
+     FavorUI.toast(text)                  the small message at the bottom of the page
+     FavorUI.term(key, label?)            a word with its plain meaning on hover, focus and tap (soft credit, DAF, LYBUNT, household...)
+     FavorUI.tip(label, text)             the same for any label and meaning
+     FavorUI.whole(n)                     $76,500 (whole dollars, for totals; single gifts use money)
+   TERMS is a copy of shared/giving.ts TERMS; tests/giving.test.mjs fails when they differ. */
 (function () {
   'use strict';
   if (window.FavorUI) return;
@@ -72,6 +76,43 @@
       });
     });
   }
+  var TERMS = {"lifetime": {"label": "Lifetime giving", "tip": "Every gift credited to this partner and their spouse: their own gifts plus gifts sent through a donor-advised fund, foundation or business that name them. A gift counts once, for the partner it names."}, "soft": {"label": "Soft credit", "tip": "Someone else’s record sent the money, usually a donor-advised fund, foundation or business, and named this partner as the giver. FavorOS counts the gift for the partner it names, not for the record that sent it."}, "daf": {"label": "DAF", "tip": "Donor-advised fund. A charity account such as National Christian Foundation or Fidelity Charitable that a partner gives through. The gift is on the fund’s record and soft-credited to the partner."}, "household": {"label": "Household", "tip": "A partner and the spouse linked to them in Blackbaud count as one household. A gift either of them gives counts once for both."}, "active": {"label": "Active", "tip": "Gave in the last 12 months."}, "lybunt": {"label": "LYBUNT", "tip": "Last year but not this year: the last gift was 12 to 24 months ago and nothing has come in the 12 months since."}, "lapsed": {"label": "Lapsed", "tip": "The last gift was more than 24 months ago."}, "major": {"label": "Major partner", "tip": "Has given one gift of $1,000 or more at some point. The same gift moves a partner from Partner Care to a Regional Development Director."}, "passedOn": {"label": "Passed on", "tip": "Gifts this record sent for other partners, such as a donor-advised fund granting for a family. They count for the partners named on them, so they are not this record’s own giving."}, "recurring": {"label": "Recurring", "tip": "A payment on a recurring gift schedule. The schedule itself is not a gift; each payment is."}, "other": {"label": "Other", "tip": "Blackbaud recorded the payment type as Other. Most are donor-advised fund grants, wires and online gifts Blackbaud has no closer name for."}};
+  function whole(a) {
+    var n = Math.round(Number(a) || 0);
+    return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US');
+  }
+  function tip(label, text) {
+    if (!text) return esc(label);
+    return '<span class="h-term" tabindex="0" role="button" aria-label="' + esc(label + '. ' + text) + '" data-term="' + esc(text) + '">' + esc(label) + '</span>';
+  }
+  function term(key, label) {
+    var t = TERMS[key];
+    return t ? tip(label || t.label, t.tip) : esc(label || key);
+  }
+  // One floating box for every [data-term] on the page: hover or focus shows it, a tap shows it, Escape, a scroll or a tap elsewhere hides it.
+  var tipBox = null, tipFor = null;
+  function showTip(el) {
+    if (!tipBox) { tipBox = document.createElement('div'); tipBox.className = 'h-tipbox'; tipBox.setAttribute('role', 'tooltip'); document.body.appendChild(tipBox); }
+    tipFor = el;
+    tipBox.textContent = el.getAttribute('data-term');
+    tipBox.classList.add('is-on');
+    var r = el.getBoundingClientRect(), w = Math.min(300, window.innerWidth - 16);
+    tipBox.style.maxWidth = w + 'px';
+    tipBox.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    var h = tipBox.offsetHeight, below = r.bottom + 6;
+    tipBox.style.top = (below + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 6) : below) + 'px';
+  }
+  function hideTip() { if (tipBox) tipBox.classList.remove('is-on'); tipFor = null; }
+  function tipOf(t) { return t && t.closest ? t.closest('[data-term]') : null; }
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('mouseover', function (e) { var el = tipOf(e.target); if (el) { if (el !== tipFor) showTip(el); } else if (tipFor) hideTip(); });
+    document.addEventListener('focusin', function (e) { var el = tipOf(e.target); if (el) showTip(el); });
+    document.addEventListener('focusout', function (e) { if (tipOf(e.target)) hideTip(); });
+    // Capture phase so a term inside a link or a row that opens something shows its meaning instead of opening.
+    document.addEventListener('click', function (e) { var el = tipOf(e.target); if (el) { e.preventDefault(); e.stopPropagation(); showTip(el); } else hideTip(); }, true);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+    window.addEventListener('scroll', hideTip, true);
+  }
   var toastEl = null, toastT = 0;
   function toast(text, href, label) {
     if (window.hubToast) return window.hubToast(text, { link: href ? { href: href, label: label || 'Open' } : null });
@@ -80,5 +121,5 @@
     toastEl.classList.add('is-on');
     clearTimeout(toastT); toastT = setTimeout(function () { toastEl.classList.remove('is-on'); }, href ? 6000 : 3200);
   }
-  window.FavorUI = { esc: esc, ini: ini, person: person, money: money, short: short, day: day, time: time, when: when, empty: empty, api: api, toast: toast, todayEt: todayEt };
+  window.FavorUI = { esc: esc, ini: ini, person: person, money: money, whole: whole, term: term, tip: tip, TERMS: TERMS, short: short, day: day, time: time, when: when, empty: empty, api: api, toast: toast, todayEt: todayEt };
 })();

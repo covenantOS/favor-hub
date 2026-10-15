@@ -2,7 +2,7 @@
 // Everything here is read only and goes through readOnly(), so the mirror never turns a statement away.
 import { HttpError, nowIso, type Env } from '../http';
 import { listStaff } from '../work/db';
-import { GIVEN } from '../work/gifts';
+import { givingForMany, type MirrorQ, type PartnerGiving } from '../gifts/partner-giving';
 import { type Q, mirrorQ } from '../work/partner';
 import { loadPortfolio, type Portfolio, type PortfolioRow } from '../work/portfolio';
 import { readOnly } from '../work/repo';
@@ -63,11 +63,6 @@ export async function bookFor(ctx: Ctx, ownerIn: string, today: string): Promise
   return { owner, directors, portfolio };
 }
 
-const GIFT_PTS = readOnly(`SELECT constituent_record_id AS cid, substr(gift_date, 1, 10) AS d, gift_amount AS a, substr(date_added, 1, 10) AS added
-  FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN} AND substr(gift_date, 1, 10) >= ?2`);
-const GIFT_STATS = readOnly(`SELECT constituent_record_id AS cid, COUNT(*) AS n, MIN(substr(gift_date, 1, 10)) AS firstd,
-  MAX(CASE WHEN substr(gift_date, 1, 10) < ?2 THEN gift_amount END) AS mxb
-  FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN} GROUP BY 1`);
 const EMAIL_FLAGS = readOnly(`SELECT constituent_record_id AS cid, COUNT(*) AS n, MAX(CASE WHEN COALESCE(do_not_email, 0) = 0 THEN 1 ELSE 0 END) AS ok
   FROM emails WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND COALESCE(is_inactive, 0) = 0 GROUP BY 1`);
 
@@ -109,23 +104,30 @@ export async function readBook(q: Q, rows: PortfolioRow[], today: string): Promi
   const ids = rows.map((r) => r.cid);
   const since = addDays(today, -1100);
   const cut = addDays(today, -30);
-  const pts = new Map<string, GiftPt[]>();
-  const stats = new Map<string, { n: number; firstd: string; mxb: number }>();
+  // One source for every gift figure: the household's credited giving (shared/giving.ts), so a DAF gift counts for the partner it names
+  // and the list, the 12-month money, the largest gift and the first-gift date all agree.
+  const giving = new Map<string, PartnerGiving>();
   const mail = new Map<string, { n: number; ok: number }>();
   for (const part of chunks(ids, 400)) {
     const J = JSON.stringify(part);
-    const [g, s, m] = await Promise.all([q<any>(GIFT_PTS, [J, since]), q<any>(GIFT_STATS, [J, cut]), q<any>(EMAIL_FLAGS, [J]).catch(() => [])]);
-    for (const x of g) (pts.get(String(x.cid)) || pts.set(String(x.cid), []).get(String(x.cid))!).push({ d: String(x.d), a: Number(x.a) || 0, added: String(x.added || '') });
-    for (const x of s) stats.set(String(x.cid), { n: Number(x.n) || 0, firstd: String(x.firstd || ''), mxb: Number(x.mxb) || 0 });
+    const [g, m] = await Promise.all([givingForMany(q as unknown as MirrorQ, part, today).catch(() => new Map()), q<any>(EMAIL_FLAGS, [J]).catch(() => [])]);
+    for (const [id, v] of g) giving.set(id, v);
     for (const x of m) mail.set(String(x.cid), { n: Number(x.n) || 0, ok: Number(x.ok) || 0 });
   }
   return rows.map((r) => {
-    const gifts = (pts.get(r.cid) || []).sort((a, b) => (a.d < b.d ? -1 : 1));
-    const st = stats.get(r.cid);
-    const firstDate = st?.firstd || '';
+    const pg = giving.get(r.cid);
+    const all = pg ? pg.gifts.slice().reverse() : [];
+    const gifts: GiftPt[] = all.filter((x) => x.date >= since).map((x) => ({ d: x.date, a: x.amount }));
+    const firstDate = pg?.first || '';
+    // The figures are the household's credited ones; the portfolio row's own sums are the fallback when the mirror read failed.
+    const l12 = pg ? pg.last12 : r.l12;
+    const p12 = pg ? Math.round(all.filter((x) => x.date > addDays(today, -730) && x.date <= addDays(today, -365)).reduce((t, x) => t + x.amount, 0) * 100) / 100 : r.p12;
+    const life = pg ? pg.total : r.life;
+    const count = pg ? pg.count : r.gifts;
     const rhythm = rhythmOf(gifts, today);
-    const h = healthOf({ l12: r.l12, p12: r.p12, life: r.life, gifts: r.gifts, firstDate, quiet: r.quiet, rhythm }, today);
-    const first = gifts.find((x) => x.d === firstDate);
+    const h = healthOf({ l12, p12, life, gifts: count, firstDate, quiet: r.quiet, rhythm, passedOn: pg ? pg.passedOn.count : 0 }, today);
+    const first = all.find((x) => x.date === firstDate);
+    const maxBefore = all.filter((x) => x.date < cut).reduce((m, x) => Math.max(m, x.amount), 0);
     const em = mail.get(r.cid);
     return {
       cid: r.cid,
@@ -138,14 +140,14 @@ export async function readBook(q: Q, rows: PortfolioRow[], today: string): Promi
       doNotEmail: !!em && em.n > 0 && em.ok === 0,
       quiet: r.quiet,
       lastContact: r.last,
-      l12: r.l12,
-      p12: r.p12,
-      ytd: r.ytd,
-      life: r.life,
-      count: st?.n ?? r.gifts,
+      l12,
+      p12,
+      ytd: pg ? pg.ytd : r.ytd,
+      life,
+      count,
       firstDate,
-      firstAmount: first ? first.a : 0,
-      maxBefore: st?.mxb ?? 0,
+      firstAmount: first ? first.amount : 0,
+      maxBefore,
       gifts,
       rhythm,
       health: h.health,

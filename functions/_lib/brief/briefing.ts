@@ -2,12 +2,14 @@
 // Partner content is built only for people the Work Center gate lets in (a person's own partners, the ones Support covers, or every
 // partner for an admin). Everyone else gets the parts that are not about partners.
 import { mirror } from '../foundations/blackbaud';
+import { money, softOf, throughName, whole } from '../../../shared/giving';
+import { throughNames } from '../gifts/partner-giving';
 import { yourDayBlackbaud } from '../hub/actions';
 import type { Env } from '../http';
 import type { HubUser } from '../session';
 import { blackbaudRepo, readOnly, FUNDS_SQL } from '../work/repo';
 import { workAccessFor } from '../work/gate';
-import { GIVEN } from '../work/gifts';
+import { hubThanks } from '../work/gifts';
 import { byClock, clockLabel, type ClockState } from '../work/thank-clock';
 import { giftsResponse, lastWorkday, mayGifts } from '../work/gifts-svc';
 import { mirrorQ } from '../work/partner';
@@ -15,7 +17,7 @@ import { scopeFor } from '../work/role';
 import { todayEt, type Ctx } from '../work/service';
 import { bookFor, momentFacts, nbaOf, readBook, type Director, type PartnerRead } from './facts';
 import { momentsFor, type Moment } from './signals';
-import { cacheGet, cachePut, dayDiff, money, plural } from './text';
+import { cacheGet, cachePut, dayDiff, plural } from './text';
 
 const weekdayOf = (iso: string): string => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
 
@@ -33,10 +35,16 @@ export interface OvernightGift {
   cid: string;
   name: string;
   place: string;
+  /** What counts for this partner: the whole gift, or the part a soft credit names. */
   amount: number;
   date: string;
   fund: string;
+  /** True only when a thank-you is on record for this gift. Never inferred from the gift being absent from the owed list. */
   thanked: boolean;
+  /** A soft credit: the record the gift came through, "National Christian Foundation (DAF)". Empty for a gift the partner gave. */
+  through: string;
+  /** The record the gift sits on. */
+  giver: string;
 }
 
 export interface ThankRow {
@@ -91,14 +99,24 @@ export async function workCtxFor(env: Env, user: HubUser, asEmail?: string): Pro
   return { env, repo: blackbaudRepo(env), actor: user.name || email, email, scope, testCid: undefined };
 }
 
-const OVERNIGHT_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS cid, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS d, g.gift_splits AS splits,
-       COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name,
-       json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st
-  FROM gifts g JOIN constituents c ON c.id = g.constituent_record_id
- WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
-   AND (?2 = '[]' OR g.constituent_record_id IN (SELECT constituent_record_id FROM assignments WHERE assignment_fundraiser_id IN (SELECT value FROM json_each(?2))
-        AND (assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= ?3)))
- ORDER BY g.gift_amount DESC LIMIT 80`);
+// Gifts since a date, by the one giving rule (shared/giving.ts): a gift counts when it is over $0, dated and not a RecurringGift schedule;
+// a gift with soft credits counts for the partners it names, never for the record it sits on.
+const HELD_NOW = readOnly(`SELECT DISTINCT constituent_record_id AS cid FROM assignments
+ WHERE assignment_fundraiser_id IN (SELECT value FROM json_each(?1)) AND (assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= ?2)`);
+
+const NEW_GIFTS_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS giver, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS d, g.gift_splits AS splits, g.soft_credits AS soft
+  FROM gifts g
+ WHERE substr(g.gift_date, 1, 10) >= ?1 AND substr(g.gift_date, 1, 10) <= ?2 AND g.gift_amount > 0 AND g.gift_type <> 'RecurringGift'
+   AND (?3 = '[]' OR g.constituent_record_id IN (SELECT value FROM json_each(?3))
+        OR (g.soft_credits IS NOT NULL AND g.soft_credits NOT IN ('', '[]')
+            AND EXISTS (SELECT 1 FROM json_each(g.soft_credits) s WHERE json_extract(s.value, '$.constituent_id') IN (SELECT value FROM json_each(?3)))))`);
+
+const PEOPLE_SQL = readOnly(`SELECT id, spouse_id AS sid, COALESCE(json_extract(raw_json, '$.name'), trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))) AS name,
+       json_extract(raw_json, '$.address.city') AS city, json_extract(raw_json, '$.address.state') AS st
+  FROM constituents WHERE id IN (SELECT value FROM json_each(?1))`);
+
+/** The most rows the list carries. The count and the total never use this cap. */
+export const OVERNIGHT_LIST_MAX = 80;
 
 function fundNames(splits: unknown, names: Map<string, string>): string {
   let list: any[] = [];
@@ -110,29 +128,119 @@ function fundNames(splits: unknown, names: Map<string, string>): string {
   return [...new Set(list.map((s) => names.get(String(s?.fund_id ?? ''))).filter(Boolean) as string[])].join(', ');
 }
 
-/** Gifts dated since the last workday on the partners this person may see. The scope is a list of fundraiser ids, or empty for every partner (admins). */
+/** Who one gift counts for and how much each: the giver for a gift with no soft credits, else each partner the soft credits name (never more than the gift). */
+export function creditsOf(giver: string, amount: number, softRaw: unknown): { cid: string; amount: number }[] {
+  const soft = softOf(softRaw);
+  if (!soft.length) return [{ cid: giver, amount }];
+  const by = new Map<string, number>();
+  for (const s of soft) by.set(s.cid, (by.get(s.cid) || 0) + (s.amount ?? amount));
+  return [...by.entries()].map(([cid, a]) => ({ cid, amount: Math.min(amount, a) })).filter((c) => c.amount > 0);
+}
+
+interface GiftLine {
+  giftId: string;
+  cid: string;
+  giver: string;
+  amount: number;
+  date: string;
+  splits: unknown;
+  via: boolean;
+}
+
+/**
+ * Gifts dated from `since` through `today` for the partners this person may see. A gift sent through a donor-advised fund, foundation or
+ * business counts for the partner it names, with "through <that record>" beside it, never for the record it sits on. The scope is a list
+ * of fundraiser ids, or empty for every partner (admins). Count and total cover every gift; only the listed rows are capped.
+ */
 export async function overnightGifts(env: Env, fids: string[], today: string, since: string): Promise<{ count: number; total: number; rows: Omit<OvernightGift, 'thanked'>[] }> {
-  const rows = await mirror<any>(env, OVERNIGHT_SQL, [since, JSON.stringify(fids), today]).catch(() => [] as any[]);
+  const q = mirrorQ(env);
+  let scope: Set<string> | null = null;
+  if (fids.length) {
+    scope = new Set((await q(HELD_NOW, [JSON.stringify(fids), today]).catch(() => [] as any[])).map((r: any) => String(r.cid)));
+    if (!scope.size) return { count: 0, total: 0, rows: [] };
+  }
+  const gifts = await q(NEW_GIFTS_SQL, [since, today, JSON.stringify(scope ? [...scope] : [])]).catch(() => [] as any[]);
+  const people = new Map<string, any>();
+  const want = new Set<string>();
+  for (const g of gifts) {
+    want.add(String(g.giver));
+    for (const c of creditsOf(String(g.giver), Number(g.amount) || 0, g.soft)) want.add(c.cid);
+  }
+  for (const r of await q(PEOPLE_SQL, [JSON.stringify([...want])]).catch(() => [] as any[])) people.set(String(r.id), r);
+  const lines: GiftLine[] = [];
+  let total = 0;
+  for (const g of gifts) {
+    const amount = Number(g.amount) || 0;
+    const credits = creditsOf(String(g.giver), amount, g.soft);
+    const mine = credits.filter((c) => !scope || scope.has(c.cid));
+    // Spouses linked in Blackbaud are one household: a gift naming both is one line, and a household never gets more than the gift.
+    const taken = new Set<string>();
+    for (const c of mine) {
+      if (taken.has(c.cid)) continue;
+      const sid = people.get(c.cid)?.sid ? String(people.get(c.cid).sid) : '';
+      const mates = mine.filter((o) => o.cid === c.cid || o.cid === sid || String(people.get(o.cid)?.sid || '') === c.cid);
+      for (const m of mates) taken.add(m.cid);
+      const amt = Math.min(amount, mates.reduce((t, m) => t + m.amount, 0));
+      total += amt;
+      lines.push({ giftId: String(g.id), cid: c.cid, giver: String(g.giver), amount: Math.round(amt * 100) / 100, date: String(g.d), splits: g.splits, via: !mates.some((m) => m.cid === String(g.giver)) });
+    }
+  }
+  const count = new Set(lines.map((r) => r.giftId)).size;
+  const shown = lines.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.amount - a.amount)).slice(0, OVERNIGHT_LIST_MAX);
   const ids = new Set<string>();
-  for (const r of rows) {
+  for (const r of shown) {
     try {
-      for (const s of JSON.parse(r.splits || '[]')) if (s?.fund_id != null) ids.add(String(s.fund_id));
+      for (const s of JSON.parse(String(r.splits || '[]'))) if (s?.fund_id != null) ids.add(String(s.fund_id));
     } catch {
       // a split that does not parse is left out
     }
   }
   const names = new Map<string, string>();
   if (ids.size) for (const f of await mirror<{ id: string; name: string }>(env, readOnly(FUNDS_SQL), [JSON.stringify([...ids])]).catch(() => [])) names.set(String(f.id), f.name || '');
-  const out = rows.map((r) => ({
-    giftId: String(r.id),
-    cid: String(r.cid),
-    name: String(r.name || '').replace(/\s+/g, ' ').trim() || `Record ${r.cid}`,
-    place: [r.city, r.st].filter(Boolean).join(', '),
-    amount: Number(r.amount) || 0,
-    date: String(r.d),
-    fund: fundNames(r.splits, names),
-  }));
-  return { count: out.length, total: out.reduce((n, g) => n + g.amount, 0), rows: out };
+  const via = await throughNames(q, shown.filter((r) => r.via).map((r) => r.giver)).catch(() => new Map<string, { name: string; kind: string }>());
+  const rows = shown.map((r) => {
+    const p = people.get(r.cid);
+    const v = r.via ? via.get(r.giver) || { name: String(people.get(r.giver)?.name || `Record ${r.giver}`), kind: 'organization' } : null;
+    return {
+      giftId: r.giftId,
+      cid: r.cid,
+      name: String((p && p.name) || '').replace(/\s+/g, ' ').trim() || `Record ${r.cid}`,
+      place: p ? [p.city, p.st].filter(Boolean).join(', ') : '',
+      amount: r.amount,
+      date: r.date,
+      fund: fundNames(r.splits, names),
+      through: v ? throughName(v) : '',
+      giver: r.giver,
+    };
+  });
+  return { count, total: Math.round(total * 100) / 100, rows };
+}
+
+/**
+ * The listed gifts that have a thank-you on record: the hub's own record (talked or sent), or a completed thank-you tag, mailing or call
+ * in Blackbaud on or after the gift date on the partner (or, for a soft credit, the record it came through). Keys are "giftId|partnerId".
+ */
+export async function thankedOf(env: Env, rows: { giftId: string; cid: string; giver?: string; through?: string; date: string }[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!rows.length) return out;
+  const hub = await hubThanks(env, [...new Set(rows.map((r) => r.giftId))]).catch(() => []);
+  for (const t of hub) if (t.outcome === 'talked' || t.outcome === 'sent') out.add(`${t.gift_id}|${t.cid}`);
+  const who = [...new Set(rows.flatMap((r) => [r.cid, ...(r.through && r.giver ? [r.giver] : [])]))];
+  const from = rows.reduce((m, r) => (r.date < m ? r.date : m), rows[0].date);
+  const ev = await mirrorQ(env)(
+    `SELECT a.constituent_record_id AS cid, substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) AS d
+       FROM actions a LEFT JOIN action_tags t ON t.id = a.id
+      WHERE a.constituent_record_id IN (SELECT value FROM json_each(?1)) AND json_extract(a.raw_json, '$.completed') = 1
+        AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) >= ?2 AND (COALESCE(t.thanked, 0) = 1 OR a.action_category IN ('Mailing', 'Phone call'))`,
+    [JSON.stringify(who), from]
+  ).catch(() => [] as any[]);
+  const byCid = new Map<string, string[]>();
+  for (const e of ev) (byCid.get(String(e.cid)) || byCid.set(String(e.cid), []).get(String(e.cid))!).push(String(e.d));
+  for (const r of rows) {
+    const ids = [r.cid, ...(r.through && r.giver ? [r.giver] : [])];
+    if (ids.some((w) => (byCid.get(w) || []).some((d) => d >= r.date))) out.add(`${r.giftId}|${r.cid}`);
+  }
+  return out;
 }
 
 export interface BriefInput {
@@ -212,8 +320,11 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
       mayGifts(s) ? giftsResponse(ctx, book.owner, { mine: !i.ownerIn && !book.owner }).catch(() => null) : Promise.resolve(null),
     ]);
     const owed = gifts ? thankRows(gifts) : [];
-    const owedIds = new Set(gifts ? gifts.rows.map((r) => r.giftId) : []);
-    if (night) overnight = { count: night.count, total: night.total, rows: night.rows.slice(0, 8).map((g) => ({ ...g, thanked: !!gifts && !owedIds.has(g.giftId) })) };
+    if (night) {
+      const listed = night.rows.slice(0, 8);
+      const done = await thankedOf(env, listed).catch(() => new Set<string>());
+      overnight = { count: night.count, total: night.total, rows: listed.map((g) => ({ ...g, thanked: done.has(`${g.giftId}|${g.cid}`) })) };
+    }
     if (gifts) {
       const cur = owed.filter((r) => r.state !== 'older');
       thanks = { total: gifts.stats.owed, over24: gifts.stats.over24, onClock: cur.length, olderN: owed.length - cur.length, rows: cur.slice(0, 6), older: owed.filter((r) => r.state === 'older').slice(0, 6) };
@@ -256,7 +367,7 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
   const lines: string[] = [];
   if (thanks && thanks.total) lines.push(`${plural(thanks.total, 'thank-you')} waiting${thanks.onClock ? `, ${thanks.onClock} on the 24-hour clock` : ''}`);
   if (late && late.count) lines.push(`${plural(late.count, 'late action')}`);
-  if (overnight && overnight.count) lines.push(`${plural(overnight.count, 'gift')} since ${weekdayOf(since)}, ${money(overnight.total)}`);
+  if (overnight && overnight.count) lines.push(`${plural(overnight.count, 'gift')} since ${weekdayOf(since)}, ${whole(overnight.total)}`);
   const headline = lines.length ? lines.join('. ') + '.' : '';
   return { ok: true, today, partners, owner, me: (ctx && ctx.scope && ctx.scope.fid) || '', directors, since, overnight, thanks, late, moments, focus, headline, at: new Date().toISOString() };
 }

@@ -35,7 +35,7 @@ function leftHTML(b, d, st) {
     ${d.instruction ? `<div class="wg-instr" role="note"><b>Instruction</b><span>${e(d.instruction.text)}</span></div>` : ''}
     ${owed ? `<div class="cm-sec"><h3>Gifts to thank</h3>${owed}</div>` : ''}
     <div class="cm-sec"><h3>The call</h3><ol class="wg-steps">${steps}</ol></div>
-    <div class="cm-sec"><h3>Giving</h3><div class="wg-facts"><div><b>${f.short(g.lifetime)}</b><span>Lifetime, ${g.count.toLocaleString('en-US')} ${g.count === 1 ? 'gift' : 'gifts'}</span></div><div><b>${f.short(g.last12)}</b><span>12 months${g.prior12 ? ', ' + f.short(g.prior12) + ' before' : ''}</span></div><div><b>${g.last ? f.money(g.last.amount) : 'None'}</b><span>${g.last ? 'Last gift ' + e(f.fd(g.last.date, true)) : 'No gifts'}</span></div><div><b>${m ? f.money(m.amount) : 'None'}</b><span>Monthly</span></div></div></div>
+    <div class="cm-sec"><h3>Giving</h3><div class="wg-facts"><div><b>${f.short(g.lifetime)}</b><span>Lifetime, ${g.count.toLocaleString('en-US')} ${g.count === 1 ? 'gift' : 'gifts'}</span></div><div><b>${f.short(g.last12)}</b><span>12 months${g.prior12 ? ', ' + f.short(g.prior12) + ' before' : ''}</span></div><div><b>${g.last ? f.money(g.last.amount) : 'None'}</b><span>${g.last ? 'Last gift ' + e(f.fd(g.last.date, true)) + (g.last.through ? ' through ' + e(g.last.through) : '') : g.passedOn ? 'Passes gifts on for others' : 'No gifts yet'}</span></div><div><b>${m ? f.money(m.amount) : 'None'}</b><span>Monthly</span></div></div></div>
     <div class="cm-sec"><h3>Last contacts</h3><ul class="wg-said">${notes}</ul></div>
   </div>`;
 }
@@ -60,7 +60,7 @@ function draw(box, b, d, st) {
   const f = F(); const e = f.esc;
   const keepScroll = $('.cm-left', box) ? $('.cm-left', box).scrollTop : 0;
   const call = b.call && !b.flags.includes('Do not call') ? `<a class="cm-dial" href="${tel(b.call.number)}">${f.ic('phone')}Call <b>${e(b.call.number)}</b></a>` : `<span class="cm-dial is-off">${f.ic('phone')}${b.flags.includes('Do not call') ? 'Do not call' : 'No phone to call'}</span>`;
-  box.innerHTML = `<div class="wg-dlg__head"><div><span class="wg-kick">Call mode · ${e(b.kind)}${b.since ? ' · Partner since ' + e(b.since) : ''}</span><h2>${e(b.name)}</h2><p>${e(b.place || 'No city on file')}</p></div><button type="button" class="pp-iconbtn" data-cm-x aria-label="Close">${f.ic('x')}</button></div>
+  box.innerHTML = `<div class="wg-dlg__head"><div><span class="wg-kick">Call mode · ${e(b.kind)}${b.since ? ' · Partner since ' + e(b.since) : b.onRecord ? ' · On record since ' + e(b.onRecord) : ''}</span><h2>${e(b.name)}</h2><p>${e(b.place || 'No city on file')}</p></div><button type="button" class="pp-iconbtn" data-cm-x aria-label="Close">${f.ic('x')}</button></div>
     <div class="cm-bar">${call}${b.flags.length ? b.flags.map((x) => `<span class="wc-tag wc-tag--warn">${e(x)}</span>`).join('') : ''}</div>
     <div class="wg-dlg__body cm-grid">${leftHTML(b, d, st)}${rightHTML(st)}</div>`;
   const l = $('.cm-left', box); if (l) l.scrollTop = keepScroll;

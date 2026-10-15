@@ -9,7 +9,8 @@ import { loadPartner, mirrorQ, type PartnerView, type Q } from '../work/partner'
 import { readOnly, FUNDS_SQL } from '../work/repo';
 import { todayEt, type Ctx } from '../work/service';
 import { markLogged, mentionEvents, prefill, type LogPrefill } from '../integrations/mentions';
-import { cacheGet, cachePut, dayDiff, HOUSE, longDay, money, plural, shortDay, sig, writeText } from './text';
+import { money, softOf, whole } from '../../../shared/giving';
+import { cacheGet, cachePut, dayDiff, HOUSE, longDay, plural, shortDay, sig, writeText } from './text';
 import { type Health, type Nba, healthOf, nextAction, rhythmOf, type GiftPt, type Rhythm } from './signals';
 
 export type Kind = 'gift' | 'call' | 'email' | 'meeting' | 'mail' | 'chat' | 'note' | 'event' | 'clip' | 'task' | 'mention';
@@ -45,7 +46,7 @@ const ACTION_ROWS = readOnly(`SELECT a.id AS id, substr(a.action_date_due, 1, 10
   FROM actions a LEFT JOIN action_tags t ON t.id = a.id WHERE a.constituent_record_id = ?1
  ORDER BY COALESCE(a.action_completed_date, a.action_date_due, a.date_added) DESC LIMIT 150`);
 
-const GIFT_ROWS = readOnly(`SELECT id, gift_amount AS amount, substr(gift_date, 1, 10) AS d, gift_type AS gtype, gift_splits AS splits, gift_comments AS comment
+const GIFT_ROWS = readOnly(`SELECT id, gift_amount AS amount, substr(gift_date, 1, 10) AS d, gift_type AS gtype, gift_splits AS splits, gift_comments AS comment, soft_credits AS soft
   FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} ORDER BY gift_date DESC LIMIT 80`);
 
 const EMAILS_OF = readOnly(`SELECT lower(email_address) AS e FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 LIMIT 8`);
@@ -149,11 +150,18 @@ export async function timelineFor(ctx: Ctx, cid: string, partner?: PartnerView |
   const funds = await fundMap(q, gifts);
   const fundOf = (splits: unknown) => [...new Set(parse<any[]>(splits, []).map((s) => funds.get(String(s?.fund_id ?? ''))).filter(Boolean) as string[])].join(', ');
   const events: TimelineEvent[] = [];
+  // A gift this record sent for other partners (a donor-advised fund granting for a family) is theirs, not this partner's own giving.
+  const household = new Set([cid, ...p.giving.household.map((m) => m.id)]);
   for (const g of gifts) {
+    const named = softOf(g.soft);
+    if (named.length && !named.some((s) => household.has(s.cid))) continue;
     const fund = fundOf(g.splits);
     events.push({ id: `gift:${g.id}`, kind: 'gift', at: String(g.d), title: `${money(Number(g.amount) || 0)} to ${fund || 'no fund on file'}`, text: g.gtype === 'RecurringGiftPayment' ? 'Monthly gift' : oneLine(g.comment).slice(0, 160), by: '', amount: Number(g.amount) || 0, fund: fund || 'No fund on file' });
   }
-  for (const g of soft) events.push({ id: `soft:${g.id}`, kind: 'gift', at: g.date, title: `${money(g.amount)} to ${g.fund || 'no fund on file'}`, text: 'Soft credit', by: '', amount: g.amount, fund: g.fund || 'No fund on file' });
+  for (const g of soft) {
+    const amt = g.credited ?? g.amount;
+    events.push({ id: `soft:${g.id}`, kind: 'gift', at: g.date, title: `${money(amt)} to ${g.fund || 'no fund on file'}`, text: g.through ? `Soft credit, through ${g.through}` : 'Soft credit', by: '', amount: amt, fund: g.fund || 'No fund on file' });
+  }
   const fname = new Map<string, string>();
   for (const a of p.assignments) fname.set(a.fid, a.name);
   for (const a of acts) {
@@ -195,7 +203,7 @@ export interface StoryFacts {
   ytd: number;
   l12: number;
   p12: number;
-  last: { amount: number; date: string; fund: string } | null;
+  last: { amount: number; date: string; fund: string; through: string } | null;
   largest: { amount: number; date: string } | null;
   monthly: { amount: number; status: string } | null;
   fund: string;
@@ -207,6 +215,8 @@ export interface StoryFacts {
   notes: { date: string; line: string }[];
   open: { due: string; line: string }[];
   holders: string[];
+  /** Gifts this record sent for other partners. A record with only these has no gifts of its own, but it is not "without gifts". */
+  passedOn: number;
   owed: { n: number; total: number; oldestDays: number } | null;
   asks: { amount: number; date: string } | null;
 }
@@ -218,12 +228,12 @@ function topFund(p: PartnerView): string {
 }
 
 export async function factsOf(ctx: Ctx, cid: string, p: PartnerView, today: string): Promise<StoryFacts> {
-  const pts: GiftPt[] = p.giving.recent.map((g) => ({ d: g.date, a: g.amount }));
+  const pts: GiftPt[] = p.giving.recent.map((g) => ({ d: g.date, a: g.credited ?? g.amount }));
   const rhythm = rhythmOf(pts, today);
   const lastContact = p.lastContact;
   const quiet = lastContact && lastContact.date ? Math.max(0, dayDiff(lastContact.date, today)) : null;
   const prevYear = p.giving.years.find((y) => y.year === String(Number(today.slice(0, 4)) - 1));
-  const h = healthOf({ l12: p.giving.last12, p12: prevYear ? prevYear.total : 0, life: p.giving.total, gifts: p.giving.count, firstDate: p.giving.firstDate, quiet, rhythm }, today);
+  const h = healthOf({ l12: p.giving.last12, p12: prevYear ? prevYear.total : 0, life: p.giving.total, gifts: p.giving.count, firstDate: p.giving.firstDate, quiet, rhythm, passedOn: p.giving.passedOn.count }, today);
   const owedRows = await giftsForPartner(ctx, cid).catch(() => []);
   const m = p.recurring.find((r) => /active/i.test(r.status));
   return {
@@ -236,8 +246,9 @@ export async function factsOf(ctx: Ctx, cid: string, p: PartnerView, today: stri
     ytd: p.giving.ytd,
     l12: p.giving.last12,
     p12: prevYear ? prevYear.total : 0,
-    last: p.giving.last ? { amount: p.giving.last.amount, date: p.giving.last.date, fund: p.giving.last.fund } : null,
-    largest: p.giving.largest ? { amount: p.giving.largest.amount, date: p.giving.largest.date } : null,
+    last: p.giving.last ? { amount: p.giving.last.credited ?? p.giving.last.amount, date: p.giving.last.date, fund: p.giving.last.fund, through: p.giving.last.through || '' } : null,
+    largest: p.giving.largest ? { amount: p.giving.largest.credited ?? p.giving.largest.amount, date: p.giving.largest.date } : null,
+    passedOn: p.giving.passedOn.count,
     monthly: m ? { amount: m.amount, status: m.status } : null,
     fund: topFund(p),
     rhythm,
@@ -285,9 +296,12 @@ export function nbaFromFacts(f: StoryFacts, p: PartnerView, today: string): Nba 
 export function plainStory(f: StoryFacts, today: string): string {
   const parts: string[] = [];
   const first = f.name.split(/\s+/)[0];
-  if (!f.count) return f.holders.length ? `${f.holders.join(' and ')} holds the record. No gift yet.` : 'No gift yet.';
-  parts.push(`${f.name} has given ${money(f.life)} in ${plural(f.count, 'gift')}${f.since ? ' since ' + f.since : ''}${f.monthly ? `, and gives ${money(f.monthly.amount)} a month` : ''}.`);
-  if (f.last) parts.push(`The last gift was ${money(f.last.amount)}${f.last.fund ? ' to ' + f.last.fund : ''} on ${longDay(f.last.date, today)}.`);
+  if (!f.count) {
+    const none = f.passedOn > 0 ? 'It has no gifts of its own and passes gifts on for other partners.' : 'No gifts yet.';
+    return f.holders.length ? `${f.holders.join(' and ')} holds the record. ${none}` : none;
+  }
+  parts.push(`${f.name} has given ${whole(f.life)} in ${plural(f.count, 'gift')}${f.since ? ' since ' + f.since : ''}${f.monthly ? `, and gives ${money(f.monthly.amount)} a month` : ''}.`);
+  if (f.last) parts.push(`The last gift was ${money(f.last.amount)}${f.last.fund ? ' to ' + f.last.fund : ''} on ${longDay(f.last.date, today)}${f.last.through ? ', through ' + f.last.through : ''}.`);
   parts.push(f.healthWhy);
   if (f.owed) parts.push(`${first} has ${plural(f.owed.n, 'gift')} not thanked yet.`);
   if (f.contacts[0]) parts.push(`The last contact was a ${f.contacts[0].how.toLowerCase()} on ${longDay(f.contacts[0].date, today)}.`);

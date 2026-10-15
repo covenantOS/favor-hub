@@ -11,7 +11,7 @@ export const entityOut = z.object({
   title: z.string(),
   sub: z.string().default(''),
   url: z.string().default(''),
-  facts: z.array(z.object({ k: z.string(), v: z.string() })).default([]),
+  facts: z.array(z.object({ k: z.string(), v: z.string(), tip: z.string().optional() })).default([]),
   acts: z.array(z.string()).default([]),
   pic: z.string().optional(),
   restricted: z.boolean().optional(),

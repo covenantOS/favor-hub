@@ -47,7 +47,8 @@ export interface Card {
   sub: string;
   partnerId: string | null;
   partnerUrl: string | null;
-  giving: { lifetime: number; last12: number; last: { amount: number; date: string } | null } | null;
+  /** The household's credited giving (soft credits count for the partner they name); last.through names the DAF or foundation a gift came through. */
+  giving: { lifetime: number; last12: number; last: { amount: number; date: string; through?: string } | null } | null;
   lastContact: { date: string; what: string } | null;
   open: Array<{ text: string; due: string }>;
   tasks: Array<{ title: string; due: string; mine: boolean; url: string }>;
@@ -162,7 +163,7 @@ export async function cardsFor(env: MeetEnv, user: HubUser, others: Array<{ emai
     if (partner && giving) {
       const pc = await source.current.card(env, partner.id).catch(() => null);
       if (pc) {
-        card.giving = { lifetime: pc.lifetime, last12: pc.last12, last: pc.last ? { amount: pc.last.amount, date: pc.last.date } : null };
+        card.giving = { lifetime: pc.lifetime, last12: pc.last12, last: pc.last ? { amount: pc.last.amount, date: pc.last.date, through: pc.last.through || '' } : null };
         card.lastContact = pc.lastContact ? { date: pc.lastContact.date, what: [pc.lastContact.category, pc.lastContact.summary].filter(Boolean).join(': ') } : null;
         card.open = pc.open.slice(0, 3).map((o) => ({ text: o.what, due: o.due }));
       }

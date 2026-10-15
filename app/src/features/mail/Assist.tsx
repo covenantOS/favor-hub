@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, type ReactNode } from 'react';
 import { MI, when } from './util';
+import { TERMS, money as giftMoney } from '@shared/giving';
 
 const money = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 export const shortDay = (iso: string) => (iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -115,11 +116,18 @@ function PartnerCard({ c, p, a, onLog, onTimeline, tl }: { c: any; p: any; a: As
           <b>{c.name || p.name || 'Partner'}</b>
         </a>
         {c.doNotEmail ? <em className="ml-chip ml-chip--sun">Do not email</em> : null}
-        {a.major ? <em className="ml-chip ml-chip--leaf">Major partner</em> : null}
+        {a.major ? (
+          <em className="ml-chip ml-chip--leaf">
+            <span className="h-term" tabIndex={0} role="button" aria-label={TERMS.major.label + '. ' + TERMS.major.tip} data-term={TERMS.major.tip}>
+              {TERMS.major.label}
+            </span>
+          </em>
+        ) : null}
       </div>
       <dl className="ml-pcard__g">
-        {cell('Lifetime giving', c.count ? money(c.total) + ' in ' + c.count + (c.count === 1 ? ' gift' : ' gifts') : 'No gifts yet')}
-        {cell('Last gift', c.last ? money(c.last.amount) + ' on ' + shortDay(c.last.date) + (c.last.fund ? ', ' + c.last.fund : '') : '')}
+        {cell('Lifetime giving', c.line || (c.count ? money(c.total) + ' in ' + c.count + (c.count === 1 ? ' gift' : ' gifts') : 'No gifts yet'))}
+        {cell('Source', c.source || '')}
+        {cell('Last gift', c.last ? giftMoney(c.last.amount) + ' on ' + shortDay(c.last.date) + (c.last.through ? ' through ' + c.last.through : '') + (c.last.fund ? ', ' + c.last.fund : '') : '')}
         {cell('This year', c.count ? money(c.ytd) : '')}
         {cell('Held by', holders || 'No one assigned')}
         {cell('Last contact', c.lastContact ? shortDay(c.lastContact.date) + (c.lastContact.category ? ', ' + c.lastContact.category : '') : 'None on record')}

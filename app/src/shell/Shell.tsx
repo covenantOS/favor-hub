@@ -38,7 +38,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const app2 = useApp2();
   const meta = useMatches({ select: (m) => m.map((x) => x.staticData as RouteMeta | undefined).filter(Boolean).at(-1) }) ?? {};
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const pm = useSyncExternalStore(pageMeta.subscribe, pageMeta.get);
+  const pm = useSyncExternalStore(pageMeta.subscribe, pageMeta.get, pageMeta.get);
   const navId = meta.nav || pm.nav || '';
   const title = meta.title || pm.title || 'FavorOS';
   const d = nav.data;

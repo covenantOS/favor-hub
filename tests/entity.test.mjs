@@ -17,8 +17,9 @@ const access = (over = {}) => ({ admin: false, workCenter: false, chat: true, pr
 
 function mirrorWith(rows) {
   const db = new DatabaseSync(':memory:');
-  db.exec(`CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, deceased INTEGER DEFAULT 0, raw_json TEXT, organization_name TEXT, first_name TEXT, last_name TEXT);
-    CREATE TABLE gifts (id TEXT PRIMARY KEY, constituent_record_id TEXT, gift_amount REAL, gift_date TEXT, gift_type TEXT);
+  db.exec(`CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, deceased INTEGER DEFAULT 0, raw_json TEXT, organization_name TEXT, first_name TEXT, last_name TEXT, spouse_id TEXT);
+    CREATE TABLE gifts (id TEXT PRIMARY KEY, constituent_record_id TEXT, gift_amount REAL, gift_date TEXT, gift_type TEXT, soft_credits TEXT);
+    CREATE TABLE constituent_codes (id TEXT PRIMARY KEY, constituent_record_id TEXT, code_description TEXT);
     CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_to_date TEXT);
     CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT, fundraiser_type TEXT, fundraiser_end_date TEXT, fundraiser_active INTEGER);
     CREATE TABLE addresses (id TEXT PRIMARY KEY, constituent_record_id TEXT, address_city TEXT, address_state TEXT, is_inactive INTEGER DEFAULT 0, is_primary INTEGER DEFAULT 1);
@@ -52,8 +53,8 @@ describe('entity cards apply the reader\'s access', () => {
   it('a partner shows lifetime giving, last gift and holder to the Work Center, and only a name to anyone else', async () => {
     const w = learnWorld();
     mirrorWith((db) => {
-      db.prepare("INSERT INTO constituents VALUES ('501', '9001', 0, ?, NULL, 'Pat', 'Giver')").run(JSON.stringify({ name: 'Pat Giver' }));
-      db.prepare("INSERT INTO gifts VALUES ('g1', '501', 100, '2025-03-01T00:00:00', 'Donation'), ('g2', '501', 250, '2026-09-01T00:00:00', 'Donation'), ('g3', '501', 999, '2026-09-02T00:00:00', 'Pledge')").run();
+      db.prepare("INSERT INTO constituents VALUES ('501', '9001', 0, ?, NULL, 'Pat', 'Giver', NULL)").run(JSON.stringify({ name: 'Pat Giver' }));
+      db.prepare("INSERT INTO gifts VALUES ('g1', '501', 100, '2025-03-01T00:00:00', 'Donation', NULL), ('g2', '501', 250, '2026-09-01T00:00:00', 'Donation', NULL), ('g3', '501', 999, '2026-09-02T00:00:00', 'RecurringGift', NULL)").run();
       db.prepare("INSERT INTO assignments VALUES ('a1', '501', '77', NULL)").run();
       db.prepare("INSERT INTO fundraisers VALUES ('77', 'Rae', 'Holder', 'x', NULL, 1)").run();
       db.prepare("INSERT INTO addresses VALUES ('d1', '501', 'Tampa', 'FL', 0, 1)").run();
@@ -64,7 +65,7 @@ describe('entity cards apply the reader\'s access', () => {
     assert.equal(p.title, 'Pat Giver');
     assert.equal(p.sub, 'Tampa, FL');
     const facts = Object.fromEntries(p.facts.map((f) => [f.k, f.v]));
-    assert.equal(facts['Lifetime giving'], '$350 in 2 gifts', 'the pledge is not a gift');
+    assert.equal(facts['Lifetime giving'], '$350 in 2 gifts', 'a recurring gift schedule is not a gift; its payments are');
     assert.equal(facts['Last gift'], '$250 on Sep 1, 2026');
     assert.equal(facts['Held by'], 'Rae Holder');
     assert.equal(facts['Lookup ID'], '9001');
@@ -74,6 +75,47 @@ describe('entity cards apply the reader\'s access', () => {
     assert.equal(locked.restricted, true);
     assert.deepEqual(locked.facts, []);
     assert.equal(locked.title, '');
+  });
+
+  it('a partner who gives through a DAF shows that giving, never "No gifts on record", and the DAF shows what it passed on', async () => {
+    const w = learnWorld();
+    mirrorWith((db) => {
+      db.prepare("INSERT INTO constituents VALUES ('601', '2344', 0, ?, NULL, 'Lowell', 'Denton', NULL)").run(JSON.stringify({ name: 'Lowell Denton' }));
+      db.prepare("INSERT INTO constituents VALUES ('602', '199', 0, ?, 'National Christian Foundation', NULL, NULL, NULL)").run(JSON.stringify({ name: 'National Christian Foundation' }));
+      db.prepare("INSERT INTO constituent_codes VALUES ('c1', '602', 'DAF Provider')").run();
+      const soft = (id, amt) => JSON.stringify([{ id: 's' + id, amount: { value: amt }, constituent_id: '601', gift_id: id }]);
+      db.prepare("INSERT INTO gifts VALUES ('h1', '602', 27500, '2025-01-15T00:00:00', 'Donation', ?), ('h2', '602', 1000, '2026-10-13T00:00:00', 'Donation', ?)").run(soft('h1', 27500), soft('h2', 1000));
+    });
+    w.env.MIRROR_API_KEY = 'k';
+    w.env.MIRROR_QUERY_URL = 'https://mirror.test/d1/query';
+    const p = await E.resolveEntity(w.env, req('/x', WILL), WILL, access({ workCenter: true }), 'partner', '601');
+    const facts = Object.fromEntries(p.facts.map((f) => [f.k, f.v]));
+    assert.equal(facts['Lifetime giving'], '$28,500 in 2 gifts');
+    assert.equal(facts['Given'], 'All through National Christian Foundation (DAF)');
+    assert.equal(facts['Last gift'], '$1,000 on Oct 13, 2026 through National Christian Foundation');
+    assert.ok(p.facts.find((f) => f.k === 'Given').tip.includes('Donor-advised fund'), 'DAF is explained');
+    assert.ok(!p.facts.some((f) => /No gifts on record/.test(f.v)));
+    const daf = await E.resolveEntity(w.env, req('/x', WILL), WILL, access({ workCenter: true }), 'partner', '602');
+    const dfacts = Object.fromEntries(daf.facts.map((f) => [f.k, f.v]));
+    assert.equal(dfacts['Lifetime giving'], 'None of its own (it passes gifts on for others)');
+    assert.equal(dfacts['Passed on'], '$28,500 in 2 gifts for 1 partner');
+  });
+
+  it('a couple counts once: either spouse\'s card shows the household total', async () => {
+    const w = learnWorld();
+    mirrorWith((db) => {
+      db.prepare("INSERT INTO constituents VALUES ('701', '1', 0, ?, NULL, 'Ann', 'Lee', '702'), ('702', '2', 0, ?, NULL, 'Bo', 'Lee', '701')").run(JSON.stringify({ name: 'Ann Lee' }), JSON.stringify({ name: 'Bo Lee' }));
+      // A gift on Ann's record soft-credited to Bo counts once for the household.
+      db.prepare("INSERT INTO gifts VALUES ('k1', '701', 100, '2026-01-01T00:00:00', 'Donation', NULL), ('k2', '702', 50, '2026-02-01T00:00:00', 'RecurringGiftPayment', NULL), ('k3', '701', 40, '2026-03-01T00:00:00', 'Donation', ?)").run(JSON.stringify([{ amount: { value: 40 }, constituent_id: '702' }]));
+    });
+    w.env.MIRROR_API_KEY = 'k';
+    w.env.MIRROR_QUERY_URL = 'https://mirror.test/d1/query';
+    for (const id of ['701', '702']) {
+      const p = await E.resolveEntity(w.env, req('/x', WILL), WILL, access({ workCenter: true }), 'partner', id);
+      const facts = Object.fromEntries(p.facts.map((f) => [f.k, f.v]));
+      assert.equal(facts['Lifetime giving'], '$190 in 3 gifts', id);
+      assert.match(facts['Household'], /Counts gifts from (Ann|Bo) Lee too/);
+    }
   });
 
   it('a task shows to someone on it or in its project, and a hidden project stays hidden', async () => {

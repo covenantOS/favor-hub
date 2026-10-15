@@ -1,14 +1,13 @@
-import { mirror } from '../../_lib/foundations/blackbaud';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
-import { readOnly } from '../../_lib/work/repo';
-import { GIVEN } from '../../_lib/work/gifts';
+import { givingForMany, todayEt, type MirrorQ } from '../../_lib/gifts/partner-giving';
+import { mirrorQ } from '../../_lib/work/partner';
 
 // Which of these partners gave for the first time on or after a date: the "new partners" count on the year number's "This week"
 // panel (public/js/drill.js). The page sends the record ids of this week's givers from the drill rows it already holds; this answers
-// with the ones whose first gift ever falls in the span. KPI access, read only, the D1 mirror only.
-const FIRST_SQL = readOnly(`SELECT constituent_record_id AS cid, MIN(substr(gift_date, 1, 10)) AS d FROM gifts
-  WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN} GROUP BY 1`);
+// with the ones whose first credited gift ever falls in the span. "First credited gift" is the household's under the shared rule
+// (shared/giving.ts): a gift sent through a DAF, foundation or business counts for the partner it names, and a spouse's earlier gift
+// is the household's earlier gift, so a partner whose spouse gave before is not new. KPI access, read only, the D1 mirror only.
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
@@ -20,9 +19,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const ids = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => /^\d{1,12}$/.test(x)).slice(0, 2000);
     if (!since || !ids.length) return json({ ok: true, first: {} });
     const first: Record<string, string> = {};
+    const q = mirrorQ(env) as unknown as MirrorQ;
+    const today = todayEt();
     for (let i = 0; i < ids.length; i += 400) {
-      const rows = await mirror<{ cid: string; d: string }>(env, FIRST_SQL, [JSON.stringify(ids.slice(i, i + 400))]);
-      for (const r of rows) if (String(r.d) >= since) first[String(r.cid)] = String(r.d);
+      for (const [id, g] of await givingForMany(q, ids.slice(i, i + 400), today)) if (g.first && g.first >= since) first[id] = g.first;
     }
     return json({ ok: true, first });
   } catch (err) {
