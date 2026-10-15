@@ -39,6 +39,8 @@ export interface Selection {
   onPage: (on: boolean) => void;
   /** Press a checkbox and drag down the column to select (or clear) every row passed over, like a spreadsheet. */
   drag?: boolean;
+  /** A row that cannot be selected right now (its change is still being sent): its checkbox is off and presses skip it. */
+  disabled?: (id: string) => boolean;
 }
 
 export interface DataTableProps<T> {
@@ -120,6 +122,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
     const sel = p.select;
     if (!sel || !sel.drag || e.button !== 0) return;
     e.preventDefault();
+    if (sel.disabled?.(id)) return;
     if (e.shiftKey) {
       sel.onToggle(id, !picked, true);
       return;
@@ -140,7 +143,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
       const row = el && (el.closest('tr[data-pt-row]') as HTMLElement | null);
       const rid = row?.dataset.id;
       const cur = latest.current.select;
-      if (rid && cur && cur.selected.has(rid) !== paint.on) cur.onToggle(rid, paint.on, false);
+      if (rid && cur && !cur.disabled?.(rid) && cur.selected.has(rid) !== paint.on) cur.onToggle(rid, paint.on, false);
     };
     const up = () => {
       painting.current = null;
@@ -160,6 +163,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
       p.onOpen(row);
     } else if ((e.key === 'x' || e.key === ' ') && p.select) {
       e.preventDefault();
+      if (p.select.disabled?.(id)) return;
       p.select.onToggle(id, !p.select.selected.has(id), e.shiftKey);
     }
   };
@@ -221,6 +225,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                             type="checkbox"
                             tabIndex={-1}
                             checked={picked}
+                            disabled={p.select.disabled?.(id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               // With drag on, the press already toggled it; only a keyboard click (no pointer) toggles here.

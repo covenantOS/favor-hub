@@ -101,7 +101,7 @@ function Pills({ as }: { as?: string }) {
           <>
             <span className="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once.">
               <i className="dot" />
-              <span className={'copy-stamp' + (old ? ' is-old' : '')} data-copy-stamp="" hidden={!text}>
+              <span className={'copy-stamp' + (old ? ' is-old' : '')} hidden={!text}>
                 {text}
               </span>
             </span>

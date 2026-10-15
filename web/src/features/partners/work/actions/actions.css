@@ -6,3 +6,25 @@ html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: none; }
 @media (max-width: 860px) {
   html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: inline-flex; }
 }
+
+/* The action lists are real tables (the shared DataTable). Fixed layout keeps every row on one line with the text cut by an ellipsis. */
+#wc-root .wc-at { table-layout: fixed; }
+#wc-root .wc-at tbody td { max-width: none; vertical-align: middle; }
+#wc-root .wc-at tbody td > div { min-width: 0; }
+#wc-root .wc-at th.c-due { width: 200px; }
+#wc-root .wc-at th.c-partner { width: 22%; }
+#wc-root .wc-at th.c-type { width: 272px; }
+#wc-root .wc-at th.c-who { width: 168px; }
+#wc-root .wc-at th.c-added { width: 96px; }
+#wc-root .wc-tg.wc-at th:nth-child(2) { width: 26%; }
+#wc-root .wc-tg.wc-at th:nth-child(3) { width: 32%; }
+#wc-root .wc-tg.wc-at th:nth-child(5) { width: 120px; }
+#wc-root .wc-at .wc-rowbtn { text-align: right; }
+#wc-root .wc-at tr.is-saving { opacity: 0.7; }
+#wc-root .wc-at tr.is-leaving { animation: wc-leave 0.45s ease forwards; }
+#wc-root .wc-at tr.is-back { animation: wc-flash 1.6s ease; }
+#wc-root .wc-at tr.is-flash td { background: var(--h-gold-soft); }
+#wc-root .wc-at tbody tr[data-pt-row] { cursor: default; }
+#wc-root .wc-at .wc-open { text-align: left; }
+#wc-root .pt-wrap--fit { min-height: 280px; }
+#wc-root .wc-tools2 .pt-cols summary svg { display: none; }
