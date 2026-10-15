@@ -10,6 +10,20 @@
   var access = {};
   try { access = ((JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null') || {}).access) || {}; } catch (e) { access = {}; }
   if (access.giftEntry === false) return;
+  // Without a saved menu (a first visit) wait for the menu answer, so a person without gift entry never sends a read the server refuses.
+  if (access.giftEntry !== true) {
+    var done = false;
+    var go = function (d) {
+      if (done) return;
+      done = true;
+      if (d && d.access && d.access.giftEntry === true) load();
+    };
+    if (window.FAVOR_HUB) go(window.FAVOR_HUB);
+    else document.addEventListener('favor-hub', function (e) { go(e.detail); }, { once: true });
+    return;
+  }
+  load();
+  function load() {
   fetch('/api/gifts/overview', { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
@@ -29,4 +43,5 @@
       if (root) root.hidden = false;
     })
     .catch(function () { /* the card stays hidden */ });
+  }
 })();

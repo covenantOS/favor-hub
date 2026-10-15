@@ -5,7 +5,7 @@ import { hubGet } from '../../lib/hub';
 import type { J } from './rank';
 
 /** A read that never throws: any failure (a 403 for staff, a Gmail timeout) is "nothing", and the part stays out. */
-const soft = async (path: string): Promise<J | null> => {
+export const soft = async (path: string): Promise<J | null> => {
   try {
     return await hubGet(path);
   } catch {

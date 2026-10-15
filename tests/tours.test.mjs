@@ -123,6 +123,13 @@ test('the Church Engagement tour ends its team stops on Churches, not on My week
   assert.doesNotMatch(c.body, /—/);
 });
 
+test('the Church Engagement Today stop does not promise My week', () => {
+  const today = D.tourFor('church', WHO.church, 'desk').find((s) => s.id === 'today');
+  assert.doesNotMatch(today.body, /week/i);
+  assert.doesNotMatch(today.body, /—/);
+  assert.match(D.tourFor('rdd', WHO.rdd, 'desk').find((s) => s.id === 'today').body, /your week/);
+});
+
 test('team stops need the access their screen needs', () => {
   const staffRdd = person({ jobs: ['rdd'] }, { work: false });
   const steps = D.tourFor('rdd', staffRdd, 'desk').map((s) => s.id);
