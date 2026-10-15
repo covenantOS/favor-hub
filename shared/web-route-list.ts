@@ -33,4 +33,12 @@ export const WEB_ROUTE_LIST = [
   '/lists/',
   '/lists/credit/',
   '/lists/reports/',
+  '/admin/',
+  '/admin/people/',
+  '/admin/blackbaud-users/',
+  '/admin/audit/',
+  '/admin/adoption/',
+  '/admin/tours/',
+  '/brain/admin/',
+  '/brain/text/',
 ] as const;
