@@ -46,7 +46,7 @@ writeFileSync(LOCK, `${process.pid} ${process.cwd()} ${new Date().toISOString()}
 process.on('exit', () => { try { if (readFileSync(LOCK, 'utf8').startsWith(String(process.pid) + ' ')) unlinkSync(LOCK); } catch { /* gone */ } });
 
 // Tests that fail on main for reasons outside a ship (named in the work log); listed so a ship is not blocked by them.
-const KNOWN = ['/changelog builds with every entry', 'the dock scripts hide on Chat', 'entries are written for staff', 'Huddle on a person rings them', 'Decline with a message posts it', 'the test accounts ring only each other'];
+const KNOWN = ['Huddle on a person rings them', 'Decline with a message posts it', 'the test accounts ring only each other'];
 
 step('clean tree', () => {
   const dirty = sh('git status --porcelain --untracked-files=no', { capture: true }).split('\n').filter((l) => l && !/routeTree\.gen\.ts$/.test(l));
