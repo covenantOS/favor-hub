@@ -180,5 +180,5 @@ test('the dry run is the default and the script holds no key', async () => {
   const early = await M.readData(q(w));
   assert.deepEqual(early.pending, ['hub_intake', 'hub_intake_teams']);
   assert.equal(M.planMigration(early).items.length, 8);
-  assert.match(src, /if \(data\.pending\.length\) \{\n    console\.log\('Not applied/);
+  assert.match(src, /if \(data\.pending\.length\) \{\r?\n    console\.log\('Not applied/);
 });
