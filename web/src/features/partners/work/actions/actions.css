@@ -11,11 +11,11 @@ html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: none; }
 #wc-root .wc-at { table-layout: fixed; }
 #wc-root .wc-at tbody td { max-width: none; vertical-align: middle; }
 #wc-root .wc-at tbody td > div { min-width: 0; }
-#wc-root .wc-at th.c-due { width: 200px; }
-#wc-root .wc-at th.c-partner { width: 22%; }
-#wc-root .wc-at th.c-type { width: 272px; }
-#wc-root .wc-at th.c-who { width: 168px; }
-#wc-root .wc-at th.c-added { width: 96px; }
+#wc-root .wc-at th.c-due { width: 208px; }
+#wc-root .wc-at th.c-partner { width: 17.5%; }
+#wc-root .wc-at th.c-type { width: 227px; }
+#wc-root .wc-at th.c-who { width: 142px; }
+#wc-root .wc-at th.c-added { width: 104px; }
 #wc-root .wc-tg.wc-at th:nth-child(2) { width: 26%; }
 #wc-root .wc-tg.wc-at th:nth-child(3) { width: 32%; }
 #wc-root .wc-tg.wc-at th:nth-child(5) { width: 120px; }
@@ -29,6 +29,16 @@ html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: none; }
 #wc-root .pt-wrap--fit { min-height: 280px; }
 #wc-root .wc-tools2 .pt-cols summary svg { display: none; }
 #wc-root .wc-at thead th, #wc-root .wc-at thead th .pt-th { text-transform: uppercase; letter-spacing: 0.1em; font-size: 11.5px; font-weight: 500; }
+
+/* Compact: classic's rows are 36 px with a 30 px header, and the chips row under the pills is 28 px. */
+@media (min-width: 861px) {
+  html[data-density='compact'] #wc-root .wc-at.wc-grid tbody td { height: 36px; }
+  html[data-density='compact'] #wc-root .wc-at.wc-grid thead th { height: 30px; padding-top: 0; padding-bottom: 0; }
+  html[data-density='compact'] #wc-root .wc-nav { min-height: 28px !important; }
+}
+
+/* Classic loads break-ui.css after partner.css, so its clamp(17px, 2.1vw, 26px) beats the compact 20px on the figures beside the edit panel. */
+#wc-root .ep-ctx .pp--compact .pp-fig b { font-size: clamp(17px, 2.1vw, 26px); }
 
 /* A phone shows each action as a small card, the way the classic list did: partner and date on top, the summary, then who and type. */
 @media (max-width: 860px) {
