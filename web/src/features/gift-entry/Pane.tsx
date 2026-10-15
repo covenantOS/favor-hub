@@ -404,7 +404,9 @@ export function Pane({ r, api }: { r: Row; api: PaneApi }) {
       {r.rule === 'giving_fund' || r.soft ? (
         <div className="ge-field">
           <label>
-            Recommended by (<GeTerm k="soft" label="soft credit" />)
+            <span>
+              Recommended by (<GeTerm k="soft" label="soft credit" />)
+            </span>
           </label>
           {r.soft ? (
             <div className="ge-who">

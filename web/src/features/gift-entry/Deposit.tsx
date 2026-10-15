@@ -17,12 +17,24 @@ import { geToast } from './toast';
 import type { Catalog, DepositView, GeIndex, History, Row } from './types';
 
 function useCrumb(text: string) {
+  // The top bar draws after the page (it waits on the menu read), so the crumb element may not exist yet: ask again until it does.
   useEffect(() => {
-    const el = document.getElementById('h-crumb2');
-    if (!el) return;
-    el.textContent = text ? 'Gift entry / ' + text : '';
+    let el: HTMLElement | null = null;
+    const put = () => {
+      el = document.getElementById('h-crumb2');
+      if (el && text) el.textContent = 'Gift entry / ' + text;
+      return !!el;
+    };
+    let t: ReturnType<typeof setInterval> | undefined;
+    if (!put()) {
+      let n = 0;
+      t = setInterval(() => {
+        if (put() || ++n > 100) clearInterval(t);
+      }, 100);
+    }
     return () => {
-      el.textContent = '';
+      clearInterval(t);
+      if (el) el.textContent = '';
     };
   }, [text]);
 }
