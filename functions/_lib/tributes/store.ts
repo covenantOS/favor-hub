@@ -81,7 +81,7 @@ export async function backfillFromComments(env: Env, actor: string): Promise<{ r
 
 export async function tributesFor(env: Env, by: { gift?: string[]; partner?: string }): Promise<TributeRow[]> {
   if (by.partner) return (await env.DB.prepare('SELECT * FROM fo_gift_tribute WHERE partner_id = ? ORDER BY gift_date DESC').bind(by.partner).all<TributeRow>()).results || [];
-  const ids = (by.gift || []).filter((x) => /^\d+$/.test(x)).slice(0, 200);
+  const ids = (by.gift || []).filter((x) => /^[A-Za-z0-9_-]{1,40}$/.test(x)).slice(0, 200);
   if (!ids.length) return [];
   return (await env.DB.prepare(`SELECT * FROM fo_gift_tribute WHERE bb_gift_id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all<TributeRow>()).results || [];
 }
