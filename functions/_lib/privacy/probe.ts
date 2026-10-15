@@ -25,6 +25,11 @@ import { onRequestGet as brainThreadApi } from '../../api/brain/thread/[id]';
 import { onRequest as bookApi } from '../../api/book/[[path]]';
 import { onRequest as meetGuestApi } from '../../api/meet-guest/[[path]]';
 import { onRequest as todayApi } from '../../api/today/[[path]]';
+import { onRequestGet as fglListApi } from '../../api/gifts/first-gifts/index';
+import { onRequestGet as fglBatchesApi } from '../../api/gifts/first-gifts/batches/index';
+import { onRequestGet as fglWordingApi } from '../../api/gifts/first-gifts/wording';
+import { onRequestGet as fglBatchApi } from '../../api/gifts/first-gifts/batches/[id]/index';
+import { onRequestGet as fglPdfApi } from '../../api/gifts/first-gifts/batches/[id]/pdf';
 
 export type Who = 'staff' | 'field' | 'out';
 
@@ -77,6 +82,11 @@ export function probes(): Probe[] {
     { name: 'Direct message by id', path: `/api/chat/channels/${M.chDm}/messages`, who: both },
     { name: 'Own channel: linked private meeting and task stay unnamed', path: `/api/chat/channels/${M.chProbe}/messages`, who: both, must: MESSAGE_MARKS.meetingLink },
     // Projects and tasks.
+    { name: 'First-gift letters list', path: '/api/gifts/first-gifts?days=90', who: both },
+    { name: 'First-gift letters print files', path: '/api/gifts/first-gifts/batches', who: both },
+    { name: 'First-gift letters wording', path: '/api/gifts/first-gifts/wording', who: both },
+    { name: 'First-gift letters print file by id', path: '/api/gifts/first-gifts/batches/fg_prvcnry', who: both },
+    { name: 'First-gift letters PDF by id', path: '/api/gifts/first-gifts/batches/fg_prvcnry/pdf', who: both },
     { name: 'Projects list', path: '/api/projects', who: ['staff'] },
     { name: 'Members-only project by id', path: `/api/projects/${M.project}`, who: ['staff'] },
     { name: 'Members-only project by key', path: `/api/projects/${M.projectKey}`, who: ['staff'] },
@@ -152,6 +162,11 @@ function handlerFor(path: string): { fn: Handler; params: Record<string, string 
   if (bt) return { fn: brainThreadApi as unknown as Handler, params: { id: bt[1] } };
   if (p.startsWith('/api/integrations/')) return { fn: integrationsApi as unknown as Handler, params: { path: rest('/api/integrations/') } };
   if (p.startsWith('/api/book/')) return { fn: bookApi as unknown as Handler, params: { path: rest('/api/book/') } };
+  // First-gift letters: Support, Partner Care and admins only. The probe people hold none of those roles, so every cell must refuse.
+  if (p === '/api/gifts/first-gifts') return { fn: fglListApi as unknown as Handler, params: {} };
+  if (p === '/api/gifts/first-gifts/batches') return { fn: fglBatchesApi as unknown as Handler, params: {} };
+  if (p === '/api/gifts/first-gifts/wording') return { fn: fglWordingApi as unknown as Handler, params: {} };
+  { const m = /^\/api\/gifts\/first-gifts\/batches\/([\w-]+)(\/pdf)?$/.exec(p); if (m) return { fn: (m[2] ? fglPdfApi : fglBatchApi) as unknown as Handler, params: { id: m[1] } }; }
   if (p.startsWith('/api/today/')) return { fn: todayApi as unknown as Handler, params: { path: rest('/api/today/') } };
   return null;
 }
