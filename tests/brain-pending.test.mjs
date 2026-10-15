@@ -65,19 +65,19 @@ describe('pending turns', () => {
   it('finishes the answer even when nobody waits for the response', async () => {
     const jobs = [];
     let release;
+    let entered;
     const gate = new Promise((r) => (release = r));
+    // The proxy saves the question as pending before it calls the Brain, so the Brain being called is the signal to look.
+    const reached = new Promise((r) => (entered = r));
     brain = async (_u, init) => {
+      entered();
       await gate;
       const b = JSON.parse(init.body);
       return answer(b, b.conv);
     };
     const waiting = proxy.onRequest({ request: call('ask', { question: 'slow one', conv: 'c_bbbb2222', v: 2 }), env, params: { path: ['ask'] }, waitUntil: (p) => jobs.push(p) });
-    // Wait for the question to be saved as pending, not for a fixed time, so a slow machine cannot fail this.
-    for (let i = 0; i < 500; i++) {
-      const seen = await chat.listThreads(env, 'ada@favorintl.org');
-      if (seen.find((t) => t.id === 'c_bbbb2222')?.pending === 1) break;
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    // Wait for the proxy to reach the Brain (an event, not a clock), so a loaded machine cannot fail this.
+    await reached;
     const listed = await chat.listThreads(env, 'ada@favorintl.org');
     assert.equal(listed.find((t) => t.id === 'c_bbbb2222').pending, 1, 'listed as answering');
     const open = await chat.getThread(env, 'ada@favorintl.org', 'c_bbbb2222');

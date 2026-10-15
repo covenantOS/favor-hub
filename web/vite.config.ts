@@ -1,5 +1,6 @@
 // FavorOS web app: TanStack Start on a Cloudflare Worker (favoros-web). It reuses the app2 shell and hooks (../app/src), the shared
 // schemas (../shared), the menu registry and scripts (../src) and the hub stylesheets (../src/styles) in place.
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
@@ -8,8 +9,17 @@ import react from '@vitejs/plugin-react';
 
 const at = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
+// The Pages build's id (dist/version.json), so web pages carry the same hub-build stamp as classic pages and a home screen app
+// reloads when either changes. ship-hub.mjs builds Pages first. Without a Pages build the stamp is empty and nothing reloads.
+let hubBuild = '';
+try {
+  hubBuild = String(JSON.parse(readFileSync(at('../dist/version.json'), 'utf8')).build || '');
+} catch {
+  hubBuild = '';
+}
+
 export default defineConfig({
-  define: { __BUILD__: JSON.stringify(String(Date.now())) },
+  define: { __BUILD__: JSON.stringify(String(Date.now())), __HUB_BUILD__: JSON.stringify(hubBuild) },
   resolve: {
     // ../app, ../shared and ../src resolve packages from here, one copy of each.
     dedupe: ['react', 'react-dom', '@tanstack/react-query', '@tanstack/react-router', 'zod'],
@@ -19,6 +29,8 @@ export default defineConfig({
       { find: /^@hub\//, replacement: at('../src/') + '/' },
     ],
   },
+  // The repo root (../public/js, ../src, ../app) is read by the dev server too.
+  server: { fs: { allow: [at('..')] } },
   build: { target: 'es2022', cssMinify: 'lightningcss' },
   environments: {
     // The server build resolves stylesheet and image URLs (import x from './x.css?url') too, so it must write the same /_w/ path the

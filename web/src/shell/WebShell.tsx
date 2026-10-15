@@ -23,6 +23,7 @@ import { clearStored, keys } from '@/lib/query';
 import { KEYS, writeString } from '@/lib/storage';
 import { WEB_ROUTES } from '@shared/web';
 import { navQuery } from '../lib/queries';
+import { mountClassicHelpers } from './helpers';
 
 const EMPTY_USER: HubUser = { email: '', name: '', picture: '', role: 'staff', via: 'password', kpi: false };
 type RailState = ReturnType<typeof useRail>;
@@ -72,8 +73,32 @@ function ClientBoot() {
       void qc.invalidateQueries({ queryKey: keys.nav, refetchType: force ? 'all' : 'active' });
     };
     afterPaint(() => {
-      void mountShellScripts().then(() => import('@hub/scripts/hub'));
+      void mountShellScripts()
+        .then(() => import('@hub/scripts/hub'))
+        .then(() => mountClassicHelpers());
     });
+    // A home screen app keeps its page in memory: when it comes back to the front and a newer hub is live, reload once (app-update.js).
+    const mine = document.querySelector('meta[name="hub-build"]')?.getAttribute('content');
+    let last = 0;
+    const check = () => {
+      if (!mine || Date.now() - last < 30000) return;
+      last = Date.now();
+      const a = document.activeElement as HTMLInputElement | null;
+      if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT') && a.value) return;
+      fetch('/version.json', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { build?: string } | null) => {
+          if (j && j.build && j.build !== mine) location.reload();
+        })
+        .catch(() => undefined);
+    };
+    const onVis = () => document.visibilityState === 'visible' && check();
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', check);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', check);
+    };
   }, [qc]);
   return null;
 }

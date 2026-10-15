@@ -5,6 +5,11 @@ import type { QueryClient } from '@tanstack/react-query';
 import { WebShell } from '../shell/WebShell';
 import { navQuery } from '../lib/queries';
 import css from '../styles/layout.css?url';
+// The classic layout inlines these three in its head, before anything draws: timer and listener ownership (hub-own), Lite mode's
+// switch, timers, fonts and meter (lite), and held space with fade-through page changes (hub-motion). Web pages do the same.
+import hubOwn from '../../../public/js/hub-own.js?raw';
+import liteJs from '../../../public/js/lite.js?raw';
+import motionJs from '../../../public/js/hub-motion.js?raw';
 
 // Before the first frame: the menu opens the way this person left it, the scrollbar width, and keyboard focus rings. Same as
 // app/index.html and the classic layout.
@@ -48,6 +53,10 @@ function Document({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
         <style>{'html,body{background:#f4efe0}'}</style>
+        {__HUB_BUILD__ ? <meta name="hub-build" content={__HUB_BUILD__} /> : null}
+        <script dangerouslySetInnerHTML={{ __html: hubOwn }} />
+        <script dangerouslySetInnerHTML={{ __html: liteJs }} />
+        <script dangerouslySetInnerHTML={{ __html: motionJs }} />
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
       <body className="h-body">
