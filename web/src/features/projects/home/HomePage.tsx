@@ -18,7 +18,7 @@ import { installTips } from '../kit/tips';
 import { toast } from '../kit/toast';
 import { DrawerHost, openDrawer, setDrawerHooks, closeDrawer } from '../drawer';
 import { ListView } from '../project/ListView';
-import { AsanaChip, ConnectGate, useProjectsKeys } from '../project/shared';
+import { AsanaChip, ConnectGate, useBfcacheReload, useProjectsKeys } from '../project/shared';
 import { openPlanner } from '../sheets/Planner';
 import { openProjectForm } from '../sheets/ProjectForm';
 import { openQuickAdd } from '../sheets/QuickAdd';
@@ -138,6 +138,7 @@ function HomeBody() {
   const page: PageApi = useMemo(() => ({ ctx, openTask, quickAdd }), [ctx, openTask, quickAdd]);
   useTaskLinks(openTask);
   useProjectsKeys({ projectKey: '', openTask, quickAdd });
+  useBfcacheReload();
   useEffect(() => {
     document.title = 'Projects - FavorOS';
   }, []);

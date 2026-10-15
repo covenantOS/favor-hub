@@ -28,7 +28,7 @@ import { FilterBar } from './FilterBar';
 import { activeCount, applyFilters, filtersFrom, writeFilters } from './filters';
 import { ListView, type ListHandle } from './ListView';
 import { Sidebar } from './Sidebar';
-import { AsanaChip, ConnectGate, useProjectsKeys } from './shared';
+import { AsanaChip, ConnectGate, useBfcacheReload, useProjectsKeys } from './shared';
 
 const CalendarView = lazy(() => import('../views/CalendarView').then((m) => ({ default: m.CalendarView })));
 const TimelineView = lazy(() => import('../views/TimelineView').then((m) => ({ default: m.TimelineView })));
@@ -275,6 +275,7 @@ function ProjectBody({ pkey }: { pkey: string }) {
   const page: PageApi = useMemo(() => ({ ctx, openTask, quickAdd }), [ctx, openTask, quickAdd]);
   useTaskLinks(openTask);
   useProjectsKeys({ projectKey: ctx.project?.key || pkey, openTask, quickAdd });
+  useBfcacheReload();
   useEffect(() => {
     document.title = (ctx.project?.name || 'Project') + ' - FavorOS';
   }, [ctx.project?.name]);

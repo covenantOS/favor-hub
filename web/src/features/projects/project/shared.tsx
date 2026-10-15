@@ -140,3 +140,14 @@ export function useProjectsKeys(o: { projectKey: string; openTask: (ref: string)
     };
   }, []);
 }
+
+/** A page restored from the browser's back-forward cache shows what it showed when the person left, so it reads again. */
+export function useBfcacheReload() {
+  useEffect(() => {
+    const f = (e: PageTransitionEvent) => {
+      if (e.persisted) location.reload();
+    };
+    window.addEventListener('pageshow', f);
+    return () => window.removeEventListener('pageshow', f);
+  }, []);
+}
