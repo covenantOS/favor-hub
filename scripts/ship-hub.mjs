@@ -94,6 +94,8 @@ step('push', () => {
     sh('git fetch -q origin');
     const behind = sh('git rev-list --count HEAD..origin/main', { capture: true }).trim();
     if (behind !== '0') {
+      // The builds rewrite the generated route trees; they are written again after the rebase.
+      sh('git checkout -- app/src/routeTree.gen.ts web/src/routeTree.gen.ts');
       sh('git rebase origin/main');
       sh('npm install --no-audit --no-fund && npm --prefix web install --no-audit --no-fund');
       if (!has('--no-pages')) { sh('npm run build'); if (!existsSync('dist/images/favor-icon.png')) throw new Error('dist is incomplete'); }
