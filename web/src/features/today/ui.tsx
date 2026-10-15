@@ -1,5 +1,5 @@
 // Small parts shared across Today: icons, the type chip, the clock, the ids that hold space, and what the browser's classic helpers offer.
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { TYPE } from './rank';
 
 export const P: Record<string, string> = {
@@ -43,28 +43,16 @@ export function TypeChip({ t }: { t: string }) {
 }
 
 /* ---------------------------------------------------------------- the clock */
-// One shared tick: every "5m" and "Due in 2 h" on the page moves together, once a minute.
-let nowValue = Date.now();
-const listeners = new Set<() => void>();
-let timer: ReturnType<typeof setInterval> | null = null;
-function subscribe(fn: () => void) {
-  listeners.add(fn);
-  if (!timer) {
-    timer = setInterval(() => {
-      nowValue = Date.now();
-      listeners.forEach((l) => l());
-    }, 60_000);
-  }
-  return () => {
-    listeners.delete(fn);
-    if (!listeners.size && timer) {
-      clearInterval(timer);
-      timer = null;
-    }
-  };
-}
+// The time a render uses. The server's answer is the moment it renders (never a value kept from when the Worker started), and the browser
+// takes its first value from the same page load and then moves once a minute, so "5m" and "Due in 2 h" tick together.
 export function useNow(): number {
-  return useSyncExternalStore(subscribe, () => nowValue, () => nowValue);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
 }
 
 /** A row that holds space: the box a card shows until its read answers. */
