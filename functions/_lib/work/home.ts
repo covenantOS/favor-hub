@@ -15,6 +15,7 @@ import { loadPortfolio, type PortfolioRow } from './portfolio';
 import { can, type Scope } from './role';
 import { currentBoard, recentBatches, todayEt, type Ctx } from './service';
 import { loadWeek, GOALS, WEEK_TEAMS } from './week';
+import { fundraiserGoalOverride } from '../goals/store';
 import { nowIso } from '../http';
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '...' : s);
@@ -127,7 +128,7 @@ async function directorWeek(ctx: Ctx, fid: string) {
   const today = todayEt();
   const q = listMirrorQ(ctx.env);
   const pf = async (): Promise<PortfolioRow[]> => (await loadPortfolio(q, fid, today)).rows;
-  const w = await loadWeek(q, fid, today, 0, { portfolio: pf });
+  const w = await loadWeek(q, fid, today, 0, { portfolio: pf, goal: await fundraiserGoalOverride(ctx.env, fid).catch(() => undefined) });
   return {
     fid,
     range: w.week.range,

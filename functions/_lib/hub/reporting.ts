@@ -9,6 +9,7 @@
 // decides which team sections they may open; the totals on Executive are open to every KPI user.
 import { HttpError, type Env } from '../http';
 import { kpiGet, SUMMARY_READER } from './kpi';
+import { applyFavorosGoals } from '../goals/apply';
 import {
   dayInfo,
   dayLabel,
@@ -188,6 +189,7 @@ export async function buildReportData(env: Env): Promise<ReportData> {
     kpiGet<GrantsApi>(env, '/api/cf/grants', who),
     kpiGet<TeamApi>(env, '/api/cf/marketing', who),
   ]);
+  await applyFavorosGoals(env, { ytd, rdd, ce, pc, grants, mk });
   const asOf = ytd.donorKpis?.current?.as_of || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const thisKey = monthKey(asOf);
   const prevKey = prevMonthKey(asOf);

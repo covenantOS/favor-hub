@@ -5,6 +5,7 @@ import { loadPortfolio, type PortfolioRow } from '../../_lib/work/portfolio';
 import { work } from '../../_lib/work/route';
 import { todayEt } from '../../_lib/work/service';
 import { loadWeek, WEEK_TEAMS } from '../../_lib/work/week';
+import { fundraiserGoalOverride } from '../../_lib/goals/store';
 
 // My week: the weekly goals, what counted, the giving line and the data behind the report draft. Read only, from the D1 copy of
 // Blackbaud, kept five minutes. A director sees their own week. Support sees the directors they support; an admin sees any director.
@@ -31,7 +32,7 @@ export const onRequestGet = work(async ({ ctx, env, url }) => {
   }
   if (!data) {
     const q = mirrorQ(env);
-    data = await loadWeek(q, owner, today, back, { portfolio: () => portfolioRows(env, q, owner, today) });
+    data = await loadWeek(q, owner, today, back, { portfolio: () => portfolioRows(env, q, owner, today), goal: await fundraiserGoalOverride(env, owner).catch(() => undefined) });
     await env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at')
       .bind(key, JSON.stringify(data), nowIso())
       .run()

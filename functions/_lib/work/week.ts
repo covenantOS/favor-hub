@@ -219,7 +219,7 @@ export async function loadWeek(
   fid: string,
   today: string,
   back = 0,
-  opts: { portfolio?: () => Promise<PortfolioRow[]> } = {}
+  opts: { portfolio?: () => Promise<PortfolioRow[]>; /** The annual goal FavorOS holds for this director; undefined keeps the Blackbaud copy's. */ goal?: number | null } = {}
 ): Promise<WeekData> {
   const week = weekSpan(today, back);
   const like = `%"${fid.replace(/\D/g, '')}"%`;
@@ -233,7 +233,7 @@ export async function loadWeek(
   ]);
   const { counts, rows } = countWeek(acts);
   const f = fr[0] || {};
-  const giving = givingOf(today, num(tot[0] && tot[0].amount), num(f.goal), f.fstart || null, f.fend || null);
+  const giving = givingOf(today, num(tot[0] && tot[0].amount), num(opts.goal !== undefined ? opts.goal : f.goal), f.fstart || null, f.fend || null);
 
   // Gifts on my partners this week: the credited gifts (shared/giving.ts), so a gift sent through a DAF or foundation that names a held
   // partner counts, a spouse pair counts once, and a RecurringGift schedule never does.

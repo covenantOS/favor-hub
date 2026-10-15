@@ -6,6 +6,7 @@
 // itself (/api/kpi/enter), so the KPI pages open inside the hub already signed in.
 import { HttpError, type Env } from '../http';
 import { pace, type Pace } from './reporting-math';
+import { applyFavorosGoals } from '../goals/apply';
 
 const KPI_URL = 'https://kpi.favorintl.org';
 const SUMMARY_CACHE = 'https://hub-cache.favorintl.org/kpi/summary-v2';
@@ -48,6 +49,11 @@ export async function kpiGet<T>(env: Env, path: string, who: { email: string; na
   if (!res || res.status >= 500) res = await fetch(req());
   if (!res.ok) throw new HttpError(502, 'kpi', `The KPI dashboard answered ${res.status} for ${path}.`);
   return (await res.json()) as T;
+}
+
+/** Drops the kept summary so a goals change shows at once (best effort: the cache is per data center). */
+export async function dropSummaryCache(): Promise<void> {
+  await (caches as unknown as { default: Cache }).default.delete(SUMMARY_CACHE).catch(() => false);
 }
 
 export interface KpiTeam {
@@ -96,6 +102,8 @@ export async function kpiSummary(env: Env): Promise<KpiSummary> {
     kpiGet<Goals & { awards?: { awarded?: number } }>(env, '/api/cf/grants', who),
     kpiGet<Goals>(env, '/api/cf/marketing', who),
   ]);
+  // Once an admin switches the source, the goals come from FavorOS (Admin > Fundraiser goals); the totals still come from the dashboard.
+  await applyFavorosGoals(env, { ytd, rdd, ce, pc, grants, mk });
   const team = (name: string) => Number(ytd.teamTotals.find((t) => t.team === name)?.portfolio_amount) || 0;
   const goal = (g: Goals) => Number(g.goals?.annualGoal) || 0;
   const summary: KpiSummary = {
