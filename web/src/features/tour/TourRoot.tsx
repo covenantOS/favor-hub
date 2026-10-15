@@ -561,6 +561,15 @@ export function TourRoot(): ReactElement | null {
         e.preventDefault();
         e.stopPropagation();
         close('skip');
+      } else if (e.key === 'Tab') {
+        // The page behind the card is not for pressing: Tab stays on the card's own buttons.
+        const items = Array.from(cardRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]') || []);
+        if (items.length) {
+          const at = items.indexOf(document.activeElement as HTMLElement);
+          const next = e.shiftKey ? (at <= 0 ? items.length - 1 : at - 1) : at === items.length - 1 ? 0 : at + 1;
+          e.preventDefault();
+          items[next].focus({ preventScroll: true });
+        }
       } else if (e.key === 'ArrowRight' && !(e.target as HTMLElement).matches?.('input,textarea,select')) {
         e.preventDefault();
         void go(r.i + 1, 1);
