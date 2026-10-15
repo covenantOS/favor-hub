@@ -55,7 +55,7 @@ export const COMPOSE_JS = '/js/compose/compose.js?v=3';
 /** Load the shell's helper scripts once the first frame has painted. */
 export async function mountShellScripts(): Promise<void> {
   const { js } = await layoutAssets();
-  const list = ['/js/clips-launch.js?v=5', COMPOSE_JS, '/js/copy-stamp.js?v=2', '/js/changelog-dot.js?v=1', '/js/handoff.js?v=1', '/js/ask-brain.js?v=2', ...FRAME_HELPERS.map((n) => js.find((s) => s.includes('/' + n + '.js'))).filter((x): x is string => !!x)];
+  const list = ['/js/clips-launch.js?v=5', COMPOSE_JS, '/js/copy-stamp.js?v=2', '/js/changelog-dot.js?v=1', '/js/handoff.js?v=1', '/js/ask-brain.js?v=3', ...FRAME_HELPERS.map((n) => js.find((s) => s.includes('/' + n + '.js'))).filter((x): x is string => !!x)];
   await Promise.all(list.map((src) => loadScript(src).catch((e) => console.warn('[legacy]', (e as Error).message))));
 }
 

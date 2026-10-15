@@ -191,9 +191,26 @@
     c.querySelectorAll('.fx-bout, .m-foot, .blk-follow, .bc-cardline, .hintline, button, [data-reading], .reading, .blk-reading').forEach(function (x) { x.remove(); });
     return (c.innerText || c.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
   }
+  // Number formats as the Brain shows them (brain-blocks.js and app/src/features/brain/fmt.ts). The React Brain page does not load
+  // brain-blocks.js, so these are kept here.
+  var F = (function () {
+    var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var money = function (n) { return n == null || n === '' ? '' : (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US'); };
+    var moneyS = function (n) { var a = Math.abs(n); var s = a >= 1e6 ? '$' + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace(/\.?0+$/, '') + 'M' : a >= 1e4 ? '$' + Math.round(a / 1e3) + 'K' : '$' + Math.round(a).toLocaleString('en-US'); return n < 0 ? '-' + s : s; };
+    var int = function (n) { return Math.round(Number(n) || 0).toLocaleString('en-US'); };
+    var dlong = function (iso) { var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? MON[+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1] : String(iso || ''); };
+    var fmt = function (v, f) {
+      if (v == null || v === '') return '';
+      if (typeof v === 'string' && f !== 'money' && f !== 'money_short' && f !== 'int' && f !== 'pct') return f === 'date' ? dlong(v) : v;
+      var n = Number(v);
+      if (!isFinite(n)) return String(v);
+      return f === 'money' ? money(n) : f === 'money_short' ? moneyS(n) : f === 'pct' ? n + '%' : f === 'date' ? dlong(v) : int(n);
+    };
+    return { money: money, moneyS: moneyS, int: int, dlong: dlong, fmt: fmt };
+  })();
   // The answer's one figure: the headline line the answer shows, else its first figure tile, else a team's total.
   function headlineOf(turn, body) {
-    var B = window.BrainBlocks || {};
+    var B = window.BrainBlocks && window.BrainBlocks.fmt ? window.BrainBlocks : F;
     var h = body && body.querySelector('.blk-head');
     if (h) {
       var b = h.querySelector('b'), sp = h.querySelector('span');
@@ -228,7 +245,7 @@
     var tb = blocks.filter(function (b) { return b && b.type === 'table' && Array.isArray(b.rows) && b.rows.length; })[0];
     if (tb && Array.isArray(tb.cols) && tb.cols.length) {
       // The table as the answer shows it: its column names, money as money, counts with commas, numbers right-aligned.
-      var B = window.BrainBlocks || {};
+      var B = window.BrainBlocks && window.BrainBlocks.money ? window.BrainBlocks : F;
       var NUM = { money: 1, int: 1, pct: 1, score: 1 };
       var shown = tb.cols.filter(function (c) { return c && !c.panel_only; });
       var fmtCell = function (c, v) {
