@@ -1,7 +1,7 @@
 // Online gifts: the read (one answer per period, with the optional ?test and ?gift parameters) and the types of what it returns.
 // The rules and every decision are on the server (functions/_lib/online-gifts); this page shows what it returns and posts choices.
 import { queryOptions } from '@tanstack/react-query';
-import { hubGet } from '../../lib/hub';
+import { hubGet, HubReadError } from '../../lib/hub';
 
 export interface OgFund { id: string; code?: string; name: string }
 export interface OgReview {
@@ -63,9 +63,21 @@ export function ogSearch(s: Record<string, unknown>): OgSearch {
   return { days: typeof s.days === 'string' || typeof s.days === 'number' ? String(s.days) : '3', test: String(s.test ?? '') === '1', gift: /^\d+$/.test(String(s.gift ?? '')) ? String(s.gift) : '' };
 }
 
+/** A read that fails (a person without Gift entry access gets a 403) comes back as a message the page prints, as the classic page did. */
+export interface OgFailed {
+  failed: true;
+  message: string;
+}
+
 export const onlineQuery = (s: OgSearch) =>
   queryOptions({
     queryKey: ['online-gifts', s.days, s.test, s.gift] as const,
-    queryFn: async () => (await hubGet(`/api/online-gifts?days=${encodeURIComponent(s.days)}${s.test ? '&test=1' : ''}${s.gift ? '&gift=' + s.gift : ''}`)) as OgOverview,
+    queryFn: async (): Promise<OgOverview | OgFailed> => {
+      try {
+        return (await hubGet(`/api/online-gifts?days=${encodeURIComponent(s.days)}${s.test ? '&test=1' : ''}${s.gift ? '&gift=' + s.gift : ''}`)) as OgOverview;
+      } catch (e) {
+        return { failed: true, message: e instanceof HubReadError ? e.message : 'The online gifts did not load.' };
+      }
+    },
     staleTime: 15_000,
   });
