@@ -2,7 +2,7 @@
 // one needs. Logging a follow-up saves an Information Update action on the partner, sent to Blackbaud with Undo. The Astro page stays at ?classic=1.
 import { createFileRoute } from '@tanstack/react-router';
 import { DeclinesPage } from '../../../features/gifts/desk/DeclinesPage';
-import { deskSearch } from '../../../features/gifts/desk/kit';
+import { deskSearch } from '../../../lib/route-search';
 import { declinesQuery } from '../../../features/gifts/desk/declines';
 
 export const Route = createFileRoute('/gifts/declines/')({

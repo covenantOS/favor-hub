@@ -138,7 +138,7 @@ export function NewExpensePage() {
               Expense <em>Request</em>
             </h1>
           </div>
-          <img src="/images/favor-primary.png" alt="Favor International" />
+          <img src="/images/favor-primary-sm.webp" alt="Favor International" width={40} height={40} />
         </div>
         <p className="exp-lede">Paycom card expenses still go through Paycom.</p>
 

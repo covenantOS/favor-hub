@@ -38,7 +38,7 @@ export function ReviewPage() {
               Review &amp; <em>sign</em>
             </h1>
           </div>
-          <img src="/images/favor-primary.png" alt="Favor International" />
+          <img src="/images/favor-primary-sm.webp" alt="Favor International" width={40} height={40} />
         </div>
         <p className="exp-lede">Approve sends the signed record to the requester and the finance list. Decline sends your note back to the requester.</p>
         <div id="exp-review-stage">

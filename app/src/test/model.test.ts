@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AREAS } from '@hub/data/areas';
-import { barCount, buildNav, pageVisible, tabRowHeld } from '@/shell/model';
+import { NO_HINT, barCount, buildNav, pageVisible, tabRowDrawn, tabRowHeld, tabRowHeldFor } from '@/shell/model';
 import { nav, staffNav } from '../../e2e/fixtures';
 
 const view = (n = nav, navId = 'home', tours = 0) => buildNav({ access: n.access, kpiTeams: n.kpiTeams, counts: n.counts, navId, tours });
@@ -87,5 +87,23 @@ describe('the tab row the web app holds space for', () => {
         expect(rowHides(area.id, p.id, access), `${area.id}/${p.id}`).toBe(false);
       }
     }
+  });
+
+  it('holds the row for an admin wherever the area has two pages, and for anyone where the last visit drew one', () => {
+    expect(tabRowHeldFor('expenses', NO_HINT)).toBe(false);
+    expect(tabRowHeldFor('expenses', { admin: true, rows: {} })).toBe(true);
+    expect(tabRowHeldFor('expenses', { admin: false, rows: { staff: 1 } })).toBe(true);
+    expect(tabRowHeldFor('expenses', { admin: true, rows: { staff: 0 } })).toBe(false);
+    expect(tabRowHeldFor('projects', { admin: true, rows: {} })).toBe(false);
+    expect(tabRowHeldFor('home', { admin: true, rows: {} })).toBe(false);
+    expect(tabRowHeldFor('expense', { admin: true, rows: { staff: 1 } })).toBe(false); // a page that is not in the menu holds nothing
+    expect(tabRowHeldFor('not-a-page', { admin: true, rows: {} })).toBe(false);
+  });
+
+  it('works out whether the row is drawn the way TabRow does', () => {
+    expect(tabRowDrawn('statements', {}, [])).toBe(false);
+    expect(tabRowDrawn('statements', { giftEntry: true }, [])).toBe(true);
+    expect(tabRowDrawn('projects', { projects: true }, [])).toBe(false);
+    expect(tabRowDrawn('not-a-page', {}, [])).toBe(false);
   });
 });

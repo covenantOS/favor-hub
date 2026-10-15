@@ -5,17 +5,13 @@ import { resolveNav } from '@hub/data/areas';
 import type { QueryClient } from '@tanstack/react-query';
 import { WebShell } from '../shell/WebShell';
 import { navQuery } from '../lib/queries';
+import { readRowHint } from '../lib/rowhint';
 import { useIdleReady } from '@/lib/idle';
 import css from '../styles/layout.css?url';
 // The classic layout inlines these three in its head, before anything draws: timer and listener ownership (hub-own), Lite mode's
 // switch, timers, fonts and meter (lite), and held space with fade-through page changes (hub-motion). Web pages do the same.
-import hubOwn from '../../../public/js/hub-own.js?raw';
-import liteJs from '../../../public/js/lite.js?raw';
-import motionJs from '../../../public/js/hub-motion.js?raw';
-
-// The three scripts are sent in the page's head by the server. The browser already ran them by the time React hydrates and never reads
-// their text again, so the browser build carries empty strings: the tree shaker then drops the three ?raw files (about 14 KB gzipped).
-const INLINE_HEAD: readonly [string, string, string] = import.meta.env.SSR ? [hubOwn, liteJs, motionJs] : ['', '', ''];
+// Those three scripts are one cached file (web/scripts/layout-css.mjs writes it), not text repeated inside every page.
+import bootJs from '../boot/favor-boot.js?url';
 
 // Before the first frame: the menu opens the way this person left it, the scrollbar width, and keyboard focus rings. Same as
 // app/index.html and the classic layout.
@@ -65,6 +61,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   // The menu answer is asked for on the server before rendering starts and streams into the page when it arrives.
   loader: ({ context, location }) => {
     if (!isSoloPath(location.pathname)) void context.queryClient.prefetchQuery(navQuery);
+    return { rowHint: readRowHint() };
   },
   shellComponent: Document,
   component: Root,
@@ -97,9 +94,7 @@ function Document({ children }: { children: ReactNode }) {
         <HeadContent />
         <style>{'html,body{background:#f4efe0}'}</style>
         {__HUB_BUILD__ ? <meta name="hub-build" content={__HUB_BUILD__} /> : null}
-        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: INLINE_HEAD[0] }} />
-        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: INLINE_HEAD[1] }} />
-        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: INLINE_HEAD[2] }} />
+        <script src={bootJs} />
         <script dangerouslySetInnerHTML={{ __html: FONTS }} />
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>

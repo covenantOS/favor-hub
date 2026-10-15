@@ -15,4 +15,11 @@ if (kb > CAP_KB) {
   console.error(`budget: the web entry chunk is ${kb} KB gzipped, over the ${CAP_KB} KB cap. Something heavy is imported by __root.tsx, the shell, or a route file outside its component (often a loader importing from the page's component module). Move it behind lazy() or into a queries module.`);
   process.exit(1);
 }
+// A stylesheet that a route file or the shell imports for its side effect rides in the entry, so every page downloads it before it can
+// paint. The entry takes no stylesheet of its own: page styles belong to the page's component, or to a route's head link (?url).
+const entryCss = readdirSync(dir).filter((f) => /^index-.*\.css$/.test(f));
+if (entryCss.length) {
+  console.error(`budget: the entry chunk carries a stylesheet (${entryCss.join(', ')}). A module the entry imports pulls in page CSS (a route file importing a feature module that imports .css). Import only light modules at the top of a route file.`);
+  process.exit(1);
+}
 console.log(`budget: web entry chunk ${kb} KB gzipped (cap ${CAP_KB} KB)`);

@@ -27,9 +27,26 @@ async function read(url: string, cookie: string | undefined, key?: string): Prom
   return data;
 }
 
+// The menu answer is asked for by every page, and it is the slowest read (about 0.4 s through the relay), so the frame waited on it and the
+// top bar arrived after the page. This Worker keeps the last answer for each signed-in visitor for 20 seconds, keyed by their own session
+// cookie, so the next page they open draws its frame at once. It holds the parsed answer (never the promise: a promise made in one request
+// cannot be awaited in another), only in this isolate's memory, only for the cookie that fetched it. The browser asks again after 20 s
+// (staleTime) and every write path checks access on the server, so a role change shows within one refresh.
+const NAV_TTL_MS = 20_000;
+const NAV_MAX = 300;
+const navKept = new Map<string, { at: number; data: unknown }>();
+
 export const hubGet = createIsomorphicFn()
   .server(async (path: string) => {
     const { env } = await import('cloudflare:workers');
-    return read(HUB_ORIGIN + path, getRequestHeader('cookie'), (env as unknown as { WEB_KEY?: string }).WEB_KEY);
+    const cookie = getRequestHeader('cookie');
+    const key = (env as unknown as { WEB_KEY?: string }).WEB_KEY;
+    if (path !== '/api/hub/nav' || !cookie) return read(HUB_ORIGIN + path, cookie, key);
+    const hit = navKept.get(cookie);
+    if (hit && Date.now() - hit.at < NAV_TTL_MS) return hit.data;
+    const data = await read(HUB_ORIGIN + path, cookie, key);
+    if (navKept.size >= NAV_MAX) navKept.delete(navKept.keys().next().value as string);
+    navKept.set(cookie, { at: Date.now(), data });
+    return data;
   })
   .client((path: string) => read(path, undefined));

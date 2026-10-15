@@ -19,10 +19,7 @@ import '@hub/styles/gifts-pages.css';
 export const n0 = (v: number | string | null | undefined): string => (Number(v) || 0).toLocaleString('en-US');
 
 /** A read of the desk, as the page asks for it. A search address carries ?as= (an admin looking at a teammate's view). */
-export interface DeskSearch {
-  as?: string;
-}
-export const deskSearch = (s: Record<string, unknown>): DeskSearch => (typeof s.as === 'string' && s.as ? { as: s.as } : {});
+export { deskSearch, type DeskSearch } from '../../../lib/route-search';
 
 interface EProps {
   reset: () => void;

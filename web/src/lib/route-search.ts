@@ -93,6 +93,12 @@ export function validateDirSearch(raw: Record<string, unknown>): DirSearch {
   return out;
 }
 
+/** The gift desk pages (letters, declines): ?as= is the person an admin looks at the desk as. */
+export interface DeskSearch {
+  as?: string;
+}
+export const deskSearch = (s: Record<string, unknown>): DeskSearch => (typeof s.as === 'string' && s.as ? { as: s.as } : {});
+
 /** Online gifts: the page's search, as the classic page read it from the address: days (default 3), test=1 and a gift ID. */
 export interface OgSearch {
   days: string;

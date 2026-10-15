@@ -35,6 +35,15 @@ export function Signature({ prefill = '', handle }: { prefill?: string; handle: 
 
   // The script font loads before a typed signature is drawn into an image.
   useEffect(() => {
+    // expenses.css pulled this stylesheet in with an @import, which held every page that uses expenses.css back for a font only this box
+    // needs; the web build drops the @import (vite.config.ts) and the box asks for the font itself.
+    if (!document.getElementById('exp-caveat')) {
+      const l = document.createElement('link');
+      l.id = 'exp-caveat';
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap';
+      document.head.appendChild(l);
+    }
     if (document.fonts && document.fonts.load) document.fonts.load('600 72px Caveat').catch(() => undefined);
   }, []);
 
