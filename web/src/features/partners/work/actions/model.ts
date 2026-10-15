@@ -109,7 +109,7 @@ export function makeWork(idx: Index, pend: Pend) {
   const mayAssign = (fid: string) => !!me.anyTeam || fid === me.fid || (me.fids || []).includes(fid) || (!!me.team && P(fid).team === me.team);
   const cur = (a: Act) => {
     const o = pend.ov[a.id] || {};
-    return { due: o.due || a.due, f: o.f || a.f, sum: o.sum ?? a.sum, cat: o.cat || a.cat, type: o.type || a.type };
+    return { due: o.due || a.due, f: o.f || a.f, sum: o.sum ?? a.sum, cat: o.cat || a.cat, type: o.type || a.type, tg: o.tg || a.tg };
   };
   const isOpenNow = (a: Act) => !pend.gone[a.id];
   const pendingOf = (a: Act) => (a.pending && a.pending.state === 'saving' ? 'saving' : '');

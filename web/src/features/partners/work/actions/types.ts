@@ -154,4 +154,6 @@ export interface Overlay {
   sum?: string;
   cat?: string;
   type?: string;
+  /** The short tag labels shown on the row (set by the edit panel after a tag change). */
+  tg?: string[];
 }
