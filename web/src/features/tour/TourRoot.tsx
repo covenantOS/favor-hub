@@ -353,7 +353,7 @@ export function TourRoot(): ReactElement | null {
         return;
       }
       if (isPhone() && step.at[0] && document.querySelector(step.at[0])?.closest('.h-side')) await sleep(260);
-      const found = await findFirst(step.at, 4500);
+      const found = await findFirst(step.at, 6500);
       if (stale()) return;
       if (!found) {
         // Nothing to show here for this person (a page that did not load, a card that is not on it): the stop is left out.
@@ -866,6 +866,7 @@ export function TourRoot(): ReactElement | null {
           tabIndex={-1}
           data-at={place_?.at || ''}
           data-step={run.steps[run.i]?.id}
+          data-gone={Array.from(gone.current).join(',')}
           style={place_ ? { transform: `translate(${Math.round(place_.x)}px, ${Math.round(place_.y)}px)` } : undefined}
         >
           {(

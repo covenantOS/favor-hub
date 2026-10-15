@@ -33,7 +33,7 @@ const WHERE: Record<string, Where> = {
   clips: { page: '/clips/', via: 'clips', at: TITLE },
   chat: { page: '/chat/', via: 'chat', at: ['.ch-side', ...TITLE], need: 'chat' },
   mail: { page: '/mail/', via: 'mail', at: ['.ml-compose', ...TITLE], need: 'mail' },
-  brain: { page: '/brain/', via: 'brain', at: ['#bc-compose', ...TITLE] },
+  brain: { page: '/brain/', via: 'brain', at: ['.bc-compose', '#bc-compose', ...TITLE] },
   reporting: { page: '/highlights/', via: 'reporting', at: TITLE, need: 'kpi' },
   lists: { page: '/lists/', via: 'lists', at: TITLE, need: 'work' },
   admin: { page: '/admin/', via: 'admin-home', at: ['#ad-strip', ...TITLE], need: 'admin' },

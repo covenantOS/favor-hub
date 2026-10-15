@@ -423,7 +423,7 @@ const SHARED: Record<string, StepDef> = {
     id: 'brain',
     page: '/brain/',
     via: 'brain',
-    at: ['#bc-compose', '.bc-pane', '#bc-app'],
+    at: ['.bc-compose', '#bc-compose', '.bc-starters', '.bc-pane'],
     title: 'Ask Favor Brain',
     body: () => 'Ask about a partner, a team number or a manual in plain words, and the answer comes back as cards and tables.',
     side: 'top',
