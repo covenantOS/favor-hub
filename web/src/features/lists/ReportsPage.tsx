@@ -7,6 +7,7 @@ import { Component, Fragment, Suspense, startTransition, useState, type Keyboard
 import { useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { EntityChip } from '@/features/entity/EntityChip';
+import { hubOv } from '@/lib/hubOv';
 import { reportQuery, reportsQuery, type ReportCol, type ReportItem, type ReportResult, type ReportsList, type Row } from './api';
 import { day, money, num } from './fmt';
 import { encodeSpec } from './spec';
@@ -138,7 +139,8 @@ function Report({ list, id, values, busy, setValues, onBack }: { list: ReportsLi
   const { data: res } = useSuspenseQuery(reportQuery(id, values));
   // A new answer draws new elements instead of editing the old ones in place, so right-aligned columns that change width do not count as the page shifting.
   const shown = id + JSON.stringify(values);
-  const drill = (r: Row) => void navigate({ to: '/lists/', search: { spec: encodeSpec(r._drill) } });
+  // Same as a link press elsewhere in the app: any open overlay unwinds first, then the page changes.
+  const drill = (r: Row) => hubOv.unwind(() => void navigate({ to: '/lists/', search: { spec: encodeSpec(r._drill) } }));
   const rowProps = (r: Row) =>
     r._drill
       ? {

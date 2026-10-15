@@ -8,4 +8,5 @@
 
 /* Until the first page of rows arrives the table box holds about the height it will have, so going Back to this page can put the scroll
    where it was (the browser restores it before the rows are drawn). */
-.ls-tbl.is-wait { min-height: min(600px, calc(100vh - 200px)); }
+.ls-tbl.is-wait { min-height: calc(100vh - 210px); }
+@media (max-width: 860px) { .ls-tbl.is-wait { min-height: 560px; } }
