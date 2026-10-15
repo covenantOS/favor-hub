@@ -1,7 +1,7 @@
 // Admin > AI use: the guard's switches (kept in KV ai:settings), today's units against the free allowance, the last 7 days, and the
 // reconciler that writes Cloudflare's own totals over the guard's estimate every 10 minutes.
 import type { Env } from '../http';
-import { DAILY_CAP, FEATURES, FREE_UNITS, KILL_AT, TIER_CAP, monthOf, readSettings, reconcile, trueTotals, utcDay, type GuardStore, type Settings } from './guard';
+import { DAILY_CAP, FEATURES, FREE_UNITS, KILL_AT, TIER_CAP, monthOf, readSettings, reconcile, trueByModel, trueTotals, utcDay, type GuardStore, type Settings } from './guard';
 
 type AiEnv = Env & { BB_KV?: KVNamespace; CF_API_KEY?: string; CF_API_EMAIL?: string; CF_ACCOUNT_ID?: string };
 
@@ -30,8 +30,11 @@ export async function reconcileNow(env: Env, fetcher: typeof fetch = fetch) {
   if (!e.CF_API_KEY || !e.CF_API_EMAIL) throw new Error('The analytics key is not set on this copy of FavorOS.');
   const today = utcDay();
   const from = utcDay(new Date(Date.parse(`${today}T12:00:00Z`) - 6 * 86_400_000));
-  const totals = await trueTotals({ account: e.CF_ACCOUNT_ID || MARKETING_ACCOUNT, email: e.CF_API_EMAIL, key: e.CF_API_KEY }, from, today, fetcher);
-  return reconcile(storeOf(env), totals, today, 7);
+  const auth = { account: e.CF_ACCOUNT_ID || MARKETING_ACCOUNT, email: e.CF_API_EMAIL, key: e.CF_API_KEY };
+  const totals = await trueTotals(auth, from, today, fetcher);
+  // Staff use attributed by source (REST calls and test bookings are testing); without the split, the old subtraction stands.
+  const split = await trueByModel(auth, from, today, fetcher).catch(() => undefined);
+  return reconcile(storeOf(env), totals, today, 7, split);
 }
 
 /** The facts for Admin > AI use. */

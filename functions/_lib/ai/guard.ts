@@ -146,6 +146,14 @@ export const RATES: Record<string, Rate> = {
   '@cf/cloudflare/clef-omni': { in: 31_876, out: 50_488 },
   '@cf/mistralai/mistral-small-3.1-24b-instruct': { in: 31_876, out: 50_488 },
   '@cf/openai/gpt-oss-120b': { in: 31_818, out: 68_182 },
+  // The reader bake-off (2026-10-14), from the same price list.
+  '@cf/zai-org/glm-5.3': { in: 127_273, out: 400_000, cachedIn: 23_636 },
+  '@cf/zai-org/glm-5.2': { in: 127_273, out: 400_000, cachedIn: 23_636 },
+  '@cf/moonshotai/kimi-k2.6': { in: 86_364, out: 363_636, cachedIn: 14_545 },
+  '@cf/moonshotai/kimi-k2.5': { in: 54_545, out: 272_727, cachedIn: 9_091 },
+  '@cf/deepseek-ai/deepseek-v4-pro-0813': { in: 120_000, out: 360_000, cachedIn: 4_000 },
+  '@cf/deepseek-ai/deepseek-v4-flash-0731': { in: 40_000, out: 120_000, cachedIn: 1_273 },
+  '@cf/nvidia/nemotron-3-120b-a12b': { in: 45_455, out: 136_364 },
   '@cf/openai/gpt-oss-20b': { in: 18_182, out: 27_273 },
   '@cf/meta/llama-4-scout-17b-16e-instruct': { in: 24_545, out: 77_273 },
   '@cf/meta/llama-3.3-70b-instruct-fp8-fast': { in: 26_668, out: 204_805 },
@@ -511,6 +519,56 @@ export async function trueTotals(auth: { account: string; email: string; key: st
   return out;
 }
 
+/** One model's neurons on one day, as Cloudflare counted them: calls over the REST API (scripts, the harness, the bake-off) and calls
+ * through a Worker binding (production Workers and wrangler dev alike; Cloudflare cannot tell them apart). */
+export type ModelSplit = Record<string, Record<string, { rest: number; worker: number }>>;
+
+/** Cloudflare's neurons by UTC day, model and request source (aiInferenceAdaptiveGroups). */
+export async function trueByModel(auth: { account: string; email: string; key: string }, from: string, to: string, fetcher: typeof fetch = fetch): Promise<ModelSplit> {
+  const query = `query($a:String!,$s:Date!,$e:Date!){viewer{accounts(filter:{accountTag:$a}){aiInferenceAdaptiveGroups(limit:5000,filter:{date_geq:$s,date_leq:$e}){sum{totalNeurons} dimensions{date modelId requestSource}}}}}`;
+  const res = await fetcher('https://api.cloudflare.com/client/v4/graphql', {
+    method: 'POST',
+    headers: { 'X-Auth-Email': auth.email, 'X-Auth-Key': auth.key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { a: auth.account, s: from, e: to } }),
+  });
+  const body = (await res.json().catch(() => null)) as any;
+  if (!res.ok || body?.errors?.length) throw new Error(`analytics answered ${res.status}: ${JSON.stringify(body?.errors || '').slice(0, 200)}`);
+  const out: ModelSplit = {};
+  for (const g of body?.data?.viewer?.accounts?.[0]?.aiInferenceAdaptiveGroups || []) {
+    const d = g.dimensions?.date;
+    const m = String(g.dimensions?.modelId || 'unknown');
+    if (!d) continue;
+    const cell = ((out[d] ||= {})[m] ||= { rest: 0, worker: 0 });
+    if (g.dimensions?.requestSource === 'rest api') cell.rest += Number(g.sum?.totalNeurons) || 0;
+    else cell.worker += Number(g.sum?.totalNeurons) || 0;
+  }
+  return out;
+}
+
+/**
+ * The staff share of a day's true neurons, attributed by source (Will, 2026-10-15: the $10 ceiling is for staff traffic; testing has
+ * its own budget). Calls over the REST API are scripts and tests, never staff. Calls through a Worker binding come from production
+ * and from wrangler dev exam servers alike, so each model's Worker neurons are split by what the guard booked for it: staff features
+ * against brain-test (less the REST share of brain-test). A model the guard booked nothing for counts as staff, the careful side.
+ * Until 2026-10-15 the staff figure was Cloudflare's total less the booked test neurons, so every test call that cost more than its
+ * estimate, or ran on after a reader's deadline, landed on staff and paused the staff Brain twice in one night.
+ */
+export async function staffTruth(store: GuardStore, day: string, split: Record<string, { rest: number; worker: number }>): Promise<number> {
+  const rows = await store.db
+    .prepare("SELECT model, SUM(CASE WHEN feature = ? THEN neurons ELSE 0 END) AS t, SUM(CASE WHEN feature <> ? THEN neurons ELSE 0 END) AS s FROM ai_budget_use WHERE day = ? GROUP BY model")
+    .bind(TEST_FEATURE, TEST_FEATURE, day)
+    .all<{ model: string; t: number; s: number }>();
+  const booked = new Map((rows.results || []).map((r) => [r.model, { s: Number(r.s) || 0, t: Number(r.t) || 0 }] as const));
+  let staff = 0;
+  for (const [model, cf] of Object.entries(split)) {
+    const b = booked.get(model) || { s: 0, t: 0 };
+    const testWorker = Math.max(0, b.t - cf.rest);
+    const share = b.s + testWorker > 0 ? b.s / (b.s + testWorker) : 1;
+    staff += cf.worker * share;
+  }
+  return Math.round(staff * 100) / 100;
+}
+
 /** Neurons booked under brain-test on a UTC day. */
 export async function testUsed(store: GuardStore, day: string): Promise<number> {
   const row = await store.db
@@ -537,22 +595,23 @@ export async function ceilingedUsed(store: GuardStore, day: string): Promise<num
 }
 
 /** Writes Cloudflare's totals for the last `days` days into D1 and KV, and sets today's kill flag past KILL_AT. */
-export async function reconcile(store: GuardStore, totals: Record<string, number>, today = utcDay(), days = 7): Promise<{ day: string; est: number; truth: number; used: number; off: boolean }> {
+export async function reconcile(store: GuardStore, totals: Record<string, number>, today = utcDay(), days = 7, split?: ModelSplit): Promise<{ day: string; est: number; truth: number; used: number; off: boolean }> {
   const settings = await readSettings(store.kv);
   const stamp = new Date().toISOString();
   for (let i = days - 1; i >= 0; i--) {
     const day = utcDay(new Date(Date.parse(`${today}T12:00:00Z`) - i * 86_400_000));
-    // Cloudflare's total less what exam, bake-off and grader runs booked that day: the staff-facing total the kill flag judges.
+    // The staff-facing total the kill flag and the ceilings judge: attributed by source when Cloudflare's split by model is at hand,
+    // else Cloudflare's total less what exam, bake-off and grader runs booked that day.
     const test = await testUsed(store, day);
-    const truth = Math.max(0, Math.round(((totals[day] || 0) - test) * 100) / 100);
+    const truth = split?.[day] ? await staffTruth(store, day, split[day]) : Math.max(0, Math.round(((totals[day] || 0) - test) * 100) / 100);
     await store.db.prepare('INSERT OR IGNORE INTO ai_budget_day (day) VALUES (?)').bind(day).run();
     // With test traffic booked the value is set outright (a max would keep a total that still held the test runs).
-    await store.db.prepare(test > 0 ? 'UPDATE ai_budget_day SET truth = ?, reconciled_at = ? WHERE day = ?' : 'UPDATE ai_budget_day SET truth = MAX(truth, ?), reconciled_at = ? WHERE day = ?').bind(truth, stamp, day).run();
+    await store.db.prepare(test > 0 || split?.[day] ? 'UPDATE ai_budget_day SET truth = ?, reconciled_at = ? WHERE day = ?' : 'UPDATE ai_budget_day SET truth = MAX(truth, ?), reconciled_at = ? WHERE day = ?').bind(truth, stamp, day).run();
   }
   // The estimate errs high on purpose, and the error builds up through the day (2026-10-13: an estimate of 5,044 against a true
   // 3,354 held a meeting's notes). Today's estimate comes back down to the true total plus the calls since the count.
   if (totals[today] != null) {
-    const t = Math.max(0, Math.round(((totals[today] || 0) - (await testUsed(store, today))) * 100) / 100);
+    const t = split?.[today] ? await staffTruth(store, today, split[today]) : Math.max(0, Math.round(((totals[today] || 0) - (await testUsed(store, today))) * 100) / 100);
     await store.db.prepare('UPDATE ai_budget_day SET est = ?2 WHERE day = ?1 AND est > ?2').bind(today, t + RECONCILE_SLACK).run();
   }
   const row = (await store.db.prepare('SELECT est, truth, off, test_over FROM ai_budget_day WHERE day = ?').bind(today).first<{ est: number; truth: number; off: number; test_over: number }>()) || { est: 0, truth: 0, off: 0, test_over: 0 };

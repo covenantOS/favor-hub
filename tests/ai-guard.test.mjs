@@ -196,6 +196,33 @@ describe('meetings and the overnight index (2026-10-13)', () => {
   });
 });
 
+describe('staff use is attributed by source (2026-10-15)', () => {
+  it('REST calls and test bookings are testing; a model shared with production splits by what the guard booked', async () => {
+    const book = (feature, m, n) => d1.prepare('INSERT INTO ai_budget_use (day, feature, model, calls, neurons, refused) VALUES (?, ?, ?, 1, ?, 0) ON CONFLICT(day, feature, model) DO UPDATE SET neurons = excluded.neurons').bind(DAY, feature, m, n).run();
+    await book('brain-other', 'gpt', 200);
+    await book('brain-test', 'gpt', 700);
+    await book('brain-test', 'glm', 140);
+    // Cloudflare: gpt 100 over REST (a script) and 1,200 through Worker bindings; glm 125 over REST only; an unbooked model 30.
+    const split = { [DAY]: { gpt: { rest: 100, worker: 1200 }, glm: { rest: 125, worker: 0 }, other: { rest: 0, worker: 30 } } };
+    const r = await G.reconcile(store(), { [DAY]: 1455 }, DAY, 7, split);
+    // gpt: test bookings less the REST share leave 600 against 200 staff, so a quarter of 1,200 is staff; glm is all test; the
+    // unbooked model counts as staff.
+    assert.equal(r.truth, 300 + 30);
+    // Without the split the old subtraction stands: 1,455 less 840 booked as test.
+    const old = await G.reconcile(store(), { [DAY]: 1455 }, DAY, 7);
+    assert.equal(old.truth, 1455 - 840);
+  });
+  it('reads Cloudflare by day, model and request source', async () => {
+    const fake = async () => new Response(JSON.stringify({ data: { viewer: { accounts: [{ aiInferenceAdaptiveGroups: [
+      { sum: { totalNeurons: 10 }, dimensions: { date: DAY, modelId: 'gpt', requestSource: 'rest api' } },
+      { sum: { totalNeurons: 30 }, dimensions: { date: DAY, modelId: 'gpt', requestSource: 'unknown' } },
+      { sum: { totalNeurons: 5 }, dimensions: { date: DAY, modelId: 'gpt', requestSource: 'unknown' } },
+    ] }] } } }), { status: 200 });
+    const s = await G.trueByModel({ account: 'a', email: 'e', key: 'k' }, DAY, DAY, fake);
+    assert.deepEqual(s[DAY].gpt, { rest: 10, worker: 35 });
+  });
+});
+
 describe('speech is charged by its length (2026-10-13)', () => {
   const W = '@cf/openai/whisper-large-v3-turbo';
   it('a ten-second meeting slice reserves its length, not its bytes, and settles on the length Whisper heard', async () => {
