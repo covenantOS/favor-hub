@@ -153,7 +153,8 @@ export async function reportData(env: Env, waitUntil?: (p: Promise<unknown>) => 
   } catch {
     return buildReportData(env);
   }
-  if (row) {
+  // A row still holding the placeholder (a first build that failed or is running) is no copy: build it here.
+  if (row && row.data && row.data !== 'null') {
     const age = Date.now() - new Date(row.built_at).getTime();
     if (age > FRESH_MS && waitUntil) waitUntil(refreshSnapshot(env).catch(() => undefined));
     return JSON.parse(row.data) as ReportData;
