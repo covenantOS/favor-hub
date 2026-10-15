@@ -42,7 +42,10 @@
   };
   EventTarget.prototype.addEventListener = function (type, fn, opts) {
     if ((this === document || this === window) && fn) {
-      if (st.sync && (type === 'DOMContentLoaded' || type === 'load')) { st.held.push([type, fn]); return; }
+      // Only the page-load handlers are held and run once after a page change: DOMContentLoaded, and load on the window. A load
+      // listener on the document is a picture or a frame telling it has loaded (brain-blocks.js used one for photo cards); it is
+      // added as asked, or it would run once with no picture and never again.
+      if (st.sync && (type === 'DOMContentLoaded' || (type === 'load' && this === window))) { st.held.push([type, fn]); return; }
       if (owned()) own.ls.push([this, type, fn, opts]);
     }
     return oAdd.call(this, type, fn, opts);
