@@ -1,0 +1,7 @@
+/* The Lists page in the web app. A phone opens with the criteria folded: the server cannot know the screen, so the stylesheet hides them
+   until the page has run (data-auto is removed then, and the folded state is set on the element itself). */
+@media (max-width: 860px) {
+  .ls-crit[data-auto] > #ls-critbody,
+  .ls-crit[data-auto] > .ls-show { display: none; }
+  .ls-crit[data-auto] > .ls-crit__h { border-bottom: 0; }
+}
