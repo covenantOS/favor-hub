@@ -43,6 +43,7 @@ function Body({ id, compact, canAdd }: { id: string; compact: boolean; canAdd: b
   const { data } = useSuspenseQuery(relQuery(id));
   const router = useRouter();
   const [adding, setAdding] = useState(false);
+  if (data.off) return null;
   const open = (cid: string) => router.history.push('/work/partner/' + cid);
   const drawn = data.nodes.slice(0, MAX_DRAWN);
   const cx = W / 2;

@@ -25,6 +25,7 @@ import { waitingOn } from '../evals/service';
 import { mailMode, mailUnreadCount, mayUseMail } from '../mail/route';
 import { mayOpen as mayOpenGiftEntry } from '../gifts/perm';
 import { mayUseOther } from '../other-gifts/access';
+import { mayUseMoves } from '../moves/access';
 
 export interface Access {
   admin: boolean;
@@ -56,6 +57,8 @@ export interface Access {
   giftEntry: boolean;
   /** Other gifts (DAF, foundation, wire, stock and phone gifts in a batch a second person approves): off for staff until Will turns on hub setting gifts.other. */
   otherGifts: boolean;
+  /** Moves and the relationship map: off for staff until hub setting moves.board is on (functions/_lib/moves/access.ts). */
+  moves: boolean;
   /** Mail in FavorOS (the person's own Gmail): hub admins until Admin > Chat > Mail opens it to staff (hub setting mail.enabled). */
   mail: boolean;
 }
@@ -71,7 +74,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
   const admin = user.role === 'admin';
   // Every check reads on its own, all at once: the menu and the bell call this on every page, and one after another it was about a dozen
   // D1 round trips before either could start its own reads.
-  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM, otherGifts] = await Promise.all([
+  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM, otherGifts, movesOn] = await Promise.all([
     user.via === 'google' ? approverEmails(env) : Promise.resolve(new Set<string>()),
     workAccessFor(env, email, admin).catch(() => null),
     admin ? Promise.resolve(true) : onAnyRequest(env, email),
@@ -85,6 +88,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     mayOpenGiftEntry(env, user),
     mailMode(env),
     mayUseOther(env, user).catch(() => false),
+    mayUseMoves(env, user).catch(() => false),
   ]);
   // The access groups (functions/_lib/access.ts): read only when a feature is in group mode.
   const [chatMembers, mailMembers] = await Promise.all([chatM === 'group' ? groupMembers(env, 'chat') : null, mailM === 'group' ? groupMembers(env, 'mail') : null]);
@@ -107,6 +111,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     hr,
     giftEntry,
     otherGifts,
+    moves: movesOn && !!work && work.ok,
     mail: mayUseMail(mailM, user, mailMembers),
   };
 }

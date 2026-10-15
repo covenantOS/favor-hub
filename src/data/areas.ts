@@ -9,7 +9,7 @@
 // jobs sits in the rail for those people and under More for everyone else; a page with jobs comes first in the tab row for
 // those people and sits in the row's More menu for everyone else. Nothing is locked by a job: `need` alone decides access.
 
-export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
+export type Need = 'admin' | 'giftEntry' | 'otherGifts' | 'moves' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
 
 /** The jobs /api/hub/nav works out for a person (functions/_lib/hub/jobs.ts). Admins hold every job. */
 export type Job = 'admin' | 'rdd' | 'partner_care' | 'church' | 'grants' | 'support' | 'exec' | 'giftdesk' | 'hr' | 'approver';
@@ -120,7 +120,7 @@ export const AREAS: NavArea[] = [
       { id: 'partners-entry', label: 'Entry', href: '/work/?view=intake', desc: "The directors' contacts waiting to be entered in Blackbaud", keywords: 'entry intake enter contacts tracking sheet support team queue', need: 'workCenter', learn: 'work-center', swap: true, jobs: ['support'], was: 'Work > Work Center > Gifts > Entry' },
       { id: 'partners-churches', label: 'Churches', href: '/churches/', desc: 'Church partners with their giving, pastors, last contact and the next call, for Church Engagement', keywords: 'churches church pastor pastors congregation church engagement giving region thank call quarterly newsletter josh caden', learn: 'churches', jobs: ['church'] },
       { id: 'partners-grants', label: 'Grants', href: '/work/?view=grants', desc: 'Grant reports, proposals and conversations with funders', keywords: 'grants grant report proposal funder conversation award foundation', need: 'workCenter', learn: 'work-center', swap: true, jobs: ['grants', 'support'], was: 'Work > Work Center > Grants' },
-      { id: 'partners-moves', label: 'Moves', href: '/moves/', desc: 'Major partners by stage with the next step, the amount asked and who each partner is related to', keywords: 'moves pipeline moves management major partners stage identify qualify cultivate ask close steward next step relationships relationship map board', need: 'workCenter', learn: 'moves', jobs: ['rdd', 'church', 'support'] },
+      { id: 'partners-moves', label: 'Moves', href: '/moves/', desc: 'Major partners by stage with the next step, the amount asked and who each partner is related to', keywords: 'moves pipeline moves management major partners stage identify qualify cultivate ask close steward next step relationships relationship map board', need: 'moves', learn: 'moves', jobs: ['rdd', 'church', 'support'] },
       { id: 'partners-datacare', label: 'Data care', href: '/data-care/', desc: 'Partners who gave this year with no mailing address, and possible duplicate records lined up side by side to merge', keywords: 'data care duplicates duplicate merge address missing mailing no address returned mail hygiene clean up records', need: 'workCenter', jobs: ['support', 'giftdesk']  },
       { id: 'foundations', label: 'Foundations', href: '/foundations/', desc: 'Check a foundation, log a contact', keywords: 'foundation foundations prospect grant rdd blackbaud unsolicited contact call', learn: 'foundation-prospects', jobs: ['grants', 'rdd', 'support'], was: 'Work > Foundations' },
     ],

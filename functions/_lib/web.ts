@@ -7,6 +7,7 @@
 //   5. the WEB binding exists (a preview without it keeps every Astro page).
 // Everyone else gets the Astro page, unchanged. See the plan: Obsidian Projects/FavorOS React migration plan.md.
 import { WEB_COOKIE, WEB_EXACT_ROUTES, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_OWN_SWITCH, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebEntries, webServes, type WebAudience, type WebEntry } from '../../shared/web';
+import { mayUseMoves } from './moves/access';
 import { mayUseOther } from './other-gifts/access';
 import { isPageLoad } from './app2';
 import { hubSettings } from './admin/hubcache';
@@ -98,6 +99,7 @@ async function ownRoutesFor(env: Env, user: HubUser): Promise<string[]> {
   const out: string[] = [];
   for (const route of Object.keys(WEB_OWN_SWITCH)) {
     if (route === '/gifts/other/' && (await mayUseOther(env, user).catch(() => false))) out.push(route);
+    if (route === '/moves/' && (await mayUseMoves(env, user).catch(() => false))) out.push(route);
   }
   return out;
 }

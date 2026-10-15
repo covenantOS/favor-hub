@@ -59,6 +59,8 @@ export interface MapNode {
   source: 'blackbaud' | 'favoros' | 'favoros-only';
 }
 export interface RelGraph {
+  /** Set when the Moves switch leaves this person out: nothing to draw. */
+  off?: boolean;
   center: { cid: string; name: string; lifetime: number; largest: number; lastGift: string | null; major: boolean };
   nodes: MapNode[];
   types: { type: string; back: string }[];

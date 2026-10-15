@@ -163,3 +163,4 @@
   .mv-card { transition: box-shadow .15s, border-color .15s; }
 }
 .pc-grid > .mv-map { grid-column: 1 / -1; }
+.mv-map:empty { display: none; }

@@ -69,7 +69,7 @@ describe('who gets the web app', () => {
   it('a pass tells classic pages which routes are on (for hub-swap.js)', async () => {
     const d = await go(world({ 'web.routes': '*', 'web.audience': 'all' }), '/meet/', staff);
     assert.equal(d.kind, 'pass');
-    assert.deepEqual(d.routes, WEB_ROUTES.filter((r) => r !== '/gifts/other/'));
+    assert.deepEqual(d.routes, WEB_ROUTES.filter((r) => r !== '/gifts/other/' && r !== '/moves/'));
     assert.match(webCookie(d.routes), /^hub_web=/);
     assert.match(webCookie([]), /Max-Age=0/);
   });
@@ -175,6 +175,27 @@ describe('Other gifts carries its own switch', () => {
   it('tells classic pages the route is theirs to load whole', async () => {
     const d = await go(world({ 'gifts.other': 'admins' }), '/gifts/', admin);
     assert.deepEqual(d.routes, [OG]);
+  });
+});
+
+describe('Moves carries its own switch', () => {
+  const MV = '/moves/';
+  it('is not turned on by web.routes', async () => {
+    assert.equal(parseWebRoutes('*').includes(MV), false);
+    assert.equal((await go(world({ 'web.routes': MV + '@all', 'web.audience': 'all' }), MV, staff)).kind, 'pass');
+  });
+  it('is served to Will and the testers while moves.board is off, and to nobody else', async () => {
+    const env = world();
+    assert.equal((await go(env, MV, will)).kind, 'web');
+    assert.equal((await go(env, MV, tester)).kind, 'web');
+    assert.equal((await go(env, MV, admin)).kind, 'pass');
+    assert.equal((await go(env, MV, staff)).kind, 'pass');
+  });
+  it('moves.board = admins serves admins, on serves staff, never field staff', async () => {
+    assert.equal((await go(world({ 'moves.board': 'admins' }), MV, admin)).kind, 'web');
+    assert.equal((await go(world({ 'moves.board': 'admins' }), MV, staff)).kind, 'pass');
+    assert.equal((await go(world({ 'moves.board': 'on' }), MV, staff)).kind, 'web');
+    assert.equal((await go(world({ 'moves.board': 'on' }), MV, field)).kind, 'pass');
   });
 });
 

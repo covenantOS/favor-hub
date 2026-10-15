@@ -8,7 +8,7 @@ const BASE = process.env.HUB_ORIGIN || 'https://dash.favorintl.org';
 const FULL_LOAD = ['/dashboard/', '/meet/room/', '/meet/g/', '/clips/rec/', '/login/', '/help/videos/'];
 const SOLO = ['/clips/rec/', '/dashboard/'];
 const EXACT = ['/gifts/', '/brain/', '/admin/'];
-const OWN_SWITCH = ['/gifts/other/'];
+const OWN_SWITCH = ['/gifts/other/', '/moves/'];
 const key = process.env.HUB_AGENT_KEY;
 if (!key) throw new Error('HUB_AGENT_KEY is not set');
 const s = await fetch(BASE + '/api/admin/test-session', { method: 'POST', headers: { Authorization: 'Bearer ' + key } });

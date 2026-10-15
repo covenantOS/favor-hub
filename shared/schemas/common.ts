@@ -35,6 +35,7 @@ export const access = z
     hr: z.boolean().optional(),
     giftEntry: z.boolean().optional(),
     otherGifts: z.boolean().optional(),
+    moves: z.boolean().optional(),
     mail: z.boolean().optional(),
   })
   .passthrough();
