@@ -62,6 +62,8 @@ function remember(p) {
     const rest = recent().filter((x) => String(x.cid) !== String(p.id));
     localStorage.setItem(RECENT_KEY, JSON.stringify([{ cid: String(p.id), name: p.name, place: p.place || '', lookup: p.lookup || '', deceased: !!p.deceased }, ...rest].slice(0, 8)));
   } catch (_) { /* private mode: the list stays empty */ }
+  // Recently opened in All partners, on every device.
+  if (window.FavorPartnerCRM) window.FavorPartnerCRM.opened(p.id);
 }
 async function copyText(text) { try { await navigator.clipboard.writeText(text); return true; } catch (_) { return false; } }
 const copyBtn = (v, what) => (v ? `<button type="button" class="pp-copy" data-pp-copy="${esc(v)}" aria-label="Copy ${what}">${esc(v)}</button>` : '');
@@ -227,7 +229,7 @@ function view(p, o = {}) {
     <div class="pp-head">
       <div><span class="pp-kicker">${esc(p.kind)} · ID ${esc(p.lookup)}${g.firstDate ? ' · Giving since ' + esc(String(g.firstDate).slice(0, 4)) : ''}</span>
         <h1>${o.full ? esc(String(p.name || '').trim() || 'No name on file') : `<a href="${href(p.id)}" class="pp-h1link">${esc(String(p.name || '').trim() || 'No name on file')}</a>`}</h1>
-        <p class="pp-house">${esc(p.place || 'No city on file')}${p.household && p.household.length ? ' · ' + p.household.map((h) => `${esc(h.relation || 'Household')} <a href="${href(h.id)}" class="pp-link" data-partner-id="${esc(h.id)}">${esc(h.name)}</a>`).join(', ') : ''}</p></div>
+        <p class="pp-house">${esc(p.place || 'No city on file')}${p.household && p.household.length ? ' · ' + p.household.map((h) => `${esc(h.relation || 'Household')} <a href="${href(h.id)}" class="pp-link" data-partner-id="${esc(h.id)}">${esc(h.name)}</a>`).join(', ') : ''}</p>${o.compact ? '' : '<div class="pc-head" data-pc-head></div>'}</div>
       <div class="pp-meta">
         ${holders.length ? holders.slice(0, 2).map((h) => `<div class="pp-holder"><i>${esc(ini(h.name))}</i><span><b>${esc(h.name)}</b>${h.type ? ' · ' + esc(h.type) : ''}</span></div>`).join('') : '<div class="pp-holder"><span>No current holder</span></div>'}
         ${iw ? `<div class="pp-iw" title="iWave${iw.ratedOn ? ', rated ' + esc(fd(iw.ratedOn, true)) : ''}">iWave <span class="pp-iw__dots">${Array.from({ length: 10 }, (_, i) => `<s class="${iw.overall != null && i < iw.overall ? 'on' : ''}"></s>`).join('')}</span> ${iw.overall != null ? esc(iw.overall) : 'Not rated'}${iw.capacityBand ? ' · ' + esc(iw.capacityBand) : iw.capacity ? ' · ' + short(iw.capacity) : ''}</div>` : ''}
@@ -281,8 +283,10 @@ function view(p, o = {}) {
         ${row('Added', esc(fd(p.addedOn, true)))}
       </dl>
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
-  const tabs = `<nav class="pp-tabs" role="tablist" aria-label="Partner sections">${[['overview', 'Overview'], ['contact', 'Contact'], ['codes', 'Codes'], ['record', 'Record']].map(([k, l]) => `<button type="button" role="tab" class="${V.tab === k ? 'is-on' : ''}" aria-selected="${V.tab === k}" data-pp-tab="${k}">${l}</button>`).join('')}</nav>`;
-  if (V.tab !== 'overview' && window.FavorRecords) return `<div class="pp">${head}${instrBox()}${acts}${tabs}<div data-pp-pane></div><div class="pp-pad"></div></div>`;
+  const tabs = `<nav class="pp-tabs" role="tablist" aria-label="Partner sections">${[['overview', 'Overview'], ...(window.FavorPartnerCRM ? window.FavorPartnerCRM.TABS : []), ['contact', 'Contact'], ['codes', 'Codes'], ['record', 'Record']].map(([k, l]) => `<button type="button" role="tab" class="${V.tab === k ? 'is-on' : ''}" aria-selected="${V.tab === k}" data-pp-tab="${k}">${l}</button>`).join('')}</nav>`;
+  if (V.tab !== 'overview' && (window.FavorRecords || window.FavorPartnerCRM)) return `<div class="pp">${head}${instrBox()}${acts}${tabs}<div data-pp-pane></div><div class="pp-pad"></div></div>`;
+  // The full page on a wide screen: the day's work on the left, the record's reference facts on the right.
+  if (o.full) return `<div class="pp pp--cols">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${window.FavorBrief ? window.FavorBrief.storyHTML(V) : ''}${giving}<div class="pp-cols"><div class="pp-colmain">${commSec()}${due}${timeline}${notesSection({})}</div><aside class="pp-colside">${chart}${opps}${details.replace('<details class="pp-fold">', '<details class="pp-fold" open>')}</aside></div><div class="pp-pad"></div></div>`;
   return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${window.FavorBrief ? window.FavorBrief.storyHTML(V) : ''}${giving}${commSec()}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
 }
 /** Overdue wording: whole days up to 60, then months ("34 mo late"). */
@@ -342,7 +346,8 @@ function paint() {
   sc.innerHTML = view(V.p, { full: V.mode === 'full' });
   commFill(sc, V.p);
   const slot = $('[data-pp-pane]', sc);
-  if (slot && window.FavorRecords) slot.replaceWith(paneFor(V.id, V.tab));
+  if (slot && (window.FavorRecords || window.FavorPartnerCRM)) slot.replaceWith(paneFor(V.id, V.tab));
+  if (window.FavorPartnerCRM) window.FavorPartnerCRM.decorate(sc, V.id);
   sc.scrollTop = y;
 }
 async function show(host, id, mode) {
@@ -397,6 +402,8 @@ function paneFor(id, tab) {
     const el = document.createElement('div');
     el.className = 'rc-pane';
     PANES.set(key, el);
+    // Gifts, Actions and Relationships come from partner-crm.js; Contact, Codes and Record from records.js.
+    if (window.FavorPartnerCRM && window.FavorPartnerCRM.TABS.some((t) => t[0] === tab)) { el.className = 'pc-pane'; window.FavorPartnerCRM.mount(el, { id, tab, partner: () => (V.p && V.p.id === id ? V.p : null) }); return el; }
     window.FavorRecords.mount(el, { id, tab, partner: () => (V.p && V.p.id === id ? V.p : null), tools: TOOLS, merge: mergeRecord, goto: (t) => { V.tab = t; paint(); } });
   }
   return PANES.get(key);

@@ -11,6 +11,8 @@ import '../styles/settle.css';
 import '../styles/motion.css';
 import '../styles/clipbtn.css';
 import '../styles/partner.css';
+import '../styles/ptable.css';
+import '../styles/partner-crm.css';
 import '../styles/comm-picture.css';
 import '../styles/records.css';
 import '../styles/fix-records.css';
@@ -146,7 +148,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           }
         } catch (e) { need = true; drill = true; }
         window.__hubPartnerTools = need;
-        var files = (drill ? ['drill.js?v=9'] : []).concat(need ? ['thank.js?v=5', 'prep.js?v=2', 'call-mode.js?v=1', 'partner-brief.js?v=3', 'comm-picture.js?v=3', 'partner.js?v=20', 'records.js?v=2', 'add-partner.js?v=2'] : []);
+        var files = (drill ? ['drill.js?v=9'] : []).concat(need ? ['thank.js?v=5', 'prep.js?v=2', 'call-mode.js?v=1', 'partner-brief.js?v=3', 'comm-picture.js?v=3', 'ptable.js?v=1', 'partner-crm.js?v=1', 'partner.js?v=21', 'records.js?v=2', 'add-partner.js?v=2'] : []);
         if (files.length) document.write(files.map(function (f) { return '<script src="/js/' + f + '" defer><' + '/script>'; }).join(''));
       })();
     </script>}

@@ -1,7 +1,8 @@
 // Rebuilding the lists snapshot from the Blackbaud mirror, one run at a time, and the background rebuild when the copy is old.
 import type { Env } from '../http.ts';
 import { mirror } from '../foundations/blackbaud';
-import { buildSnapshot, type SnapshotResult } from './snapshot.ts';
+import { buildSnapshot, type SnapshotIO, type SnapshotResult } from './snapshot.ts';
+import { buildDirectory } from '../partners/directory.ts';
 import { hubQ, snapshotMeta, todayET, type SnapMeta } from './service.ts';
 
 const LOCK_MS = 4 * 60 * 1000;
@@ -29,16 +30,17 @@ export async function refreshSnapshot(env: Env, now = new Date()): Promise<{ ok:
   if (lock && now.getTime() - Date.parse(lock.value) < LOCK_MS) return { ok: false, busy: true };
   await env.DB.prepare(`INSERT INTO lr_meta (key, value) VALUES ('refreshing', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).bind(now.toISOString()).run();
   try {
-    const result = await buildSnapshot(
-      {
-        read: (sql, params = []) => mirror(env, sql, params),
-        hub: (sql, params = []) => hubQ(env)(sql, params),
-        write: async (stmts) => {
-          await env.DB.batch(stmts.map((s) => env.DB.prepare(s.sql).bind(...s.params)));
-        },
+    const io: SnapshotIO = {
+      read: (sql, params = []) => mirror(env, sql, params),
+      hub: (sql, params = []) => hubQ(env)(sql, params),
+      write: async (stmts) => {
+        await env.DB.batch(stmts.map((s) => env.DB.prepare(s.sql).bind(...s.params)));
       },
-      todayET(now)
-    );
+    };
+    const result = await buildSnapshot(io, todayET(now));
+    // The Partners directory reads its giving from this snapshot, so it is rebuilt right after it. A failure here leaves the
+    // directory's last copy in place and never fails the lists.
+    await buildDirectory(io, todayET(now)).catch((err) => console.warn('[partners] directory', err));
     return { ok: true, result };
   } finally {
     await env.DB.prepare(`DELETE FROM lr_meta WHERE key = 'refreshing'`).run().catch(() => undefined);

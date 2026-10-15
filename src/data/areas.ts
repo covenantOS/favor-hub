@@ -111,6 +111,7 @@ export const AREAS: NavArea[] = [
     jobs: PARTNER_JOBS,
     pages: [
       { id: 'work', label: 'Actions', href: '/work/', desc: 'Open actions on your partners: finish many together, thank gifts, enter the week', keywords: 'work center actions bulk select complete thank you entry tracking stale reassign reschedule support partner partners', need: 'workCenter', count: 'workOpen', learn: 'work-center', swap: true, jobs: PARTNER_JOBS, was: 'Work > Work Center' },
+      { id: 'partners-all', label: 'All partners', href: '/partners/', desc: 'Every partner record in Blackbaud, givers or not: search, filter, sort, save a view and export', keywords: 'all partners directory every partner record constituent search find crm lookup id email phone address individual household organization church foundation lybunt lapsed tags star saved view export duplicates merge', need: 'workCenter', learn: 'work-center', swap: true, jobs: PARTNER_JOBS },
       { id: 'partners-thank', label: 'Gifts to thank', href: '/work/?view=gifts', desc: 'Gifts on your partners waiting for your thank-you, on the 24-hour clock', keywords: 'gifts to thank thank you thanks new gift call text email 24 hour clock partner', need: 'workCenter', learn: 'work-center', swap: true, jobs: ['rdd', 'partner_care', 'church'], was: 'Work > Work Center > Gifts to thank' },
       { id: 'partners-mine', label: 'My partners', href: '/work/?view=mine', desc: 'Every partner you hold, with their giving and when anyone last spoke to them', keywords: 'my partners portfolio holder rdd director church relationship', need: 'workCenter', learn: 'my-partners-and-reminders', swap: true, jobs: ['rdd', 'church'], was: 'Work > Work Center > My partners' },
       { id: 'partners-asks', label: 'Asks', href: '/work/?view=asks', desc: 'Every ask from the last year: asked, closing, past the close date, gave', keywords: 'asks ask amount of ask opportunity close pipeline director', need: 'workCenter', learn: 'work-center', swap: true, jobs: ['rdd', 'support'], was: 'Work > Work Center > Asks' },
@@ -340,7 +341,8 @@ export const REDIRECTS: Array<[string, string]> = [
   ['/docs', '/help/'],
   ['/videos', '/help/videos/'],
   // The Work area split into Partners, Gifts, Projects and Staff (2026-10-14).
-  ['/partners', '/work/'],
+  ['/directory', '/partners/'],
+  ['/constituents', '/partners/'],
   ['/actions', '/work/'],
   ['/gifts/overview', '/gifts/'],
   ['/letters', '/gifts/letters/'],
