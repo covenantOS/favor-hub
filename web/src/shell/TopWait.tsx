@@ -7,7 +7,7 @@ import { topHead } from '@/shell/TopBar';
 import { tabRowHeld, tabRowCount } from '@/shell/model';
 
 export function TopWait({ navId, title }: { navId: string; title: string }) {
-  const { found, area, sameAsArea, headTitle, headKey, crumb } = topHead(navId, title);
+  const { found, area, sameAsArea, headTitle, headKey } = topHead(navId, title);
   return (
     <header className="h-top h-top--wait">
       <span className="h-top__menu" aria-hidden="true">
@@ -20,7 +20,7 @@ export function TopWait({ navId, title }: { navId: string; title: string }) {
       )}
       <div className="h-top__head">
         <div className="h-top__crumb" hidden={found && !sameAsArea ? undefined : true}>
-          {found ? found.area.label : crumb}
+          {found ? found.area.label : 'FavorOS'}
         </div>
         <div className="h-top__title">
           {headTitle}
