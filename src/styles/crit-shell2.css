@@ -73,8 +73,6 @@
   .wm-x { width: 44px; height: 44px; }
   .wm-foot button, .tr-link, dialog.fb .fb-acts a, .lp__go { display: inline-flex; align-items: center; min-height: 44px; }
   .tr-x { width: 44px; height: 44px; font-size: 16px; }
-  .tr-as select { height: 44px; }
-  .tr-acts .tr-link { padding: 0 4px; }
 }
 
 /* ---------- iPad portrait and big phones turned sideways use the phone layout, so their sheets stay a card width instead of spanning the screen. */
@@ -92,9 +90,6 @@
 @media (min-width: 861px) and (max-width: 1280px) and (pointer: coarse) {
   body.h-body #clip-lib { display: none; }
 }
-
-/* ---------- Tour card: opaque, so the page behind it never shows through the words. */
-body.h-body .tr-pop { background: #fbfaf6; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* Rail and tab bar: the keyboard ring sits inside the item's own shape, in cream, instead of a green ring around it. A
    script returning focus to a rail item (Safari shows that as a keyboard ring) no longer draws a second outline. */
@@ -131,8 +126,6 @@ body.h-body .h-top .h-top__title { padding-top: 2px; line-height: 1.2; }
 .h-tt.is-on { opacity: 1; }
 body.h-body .h-top .h-top__right { padding: 8px; }
 
-/* The walkthrough's moving mouse pointer belongs on a computer. A phone or tablet shows the highlight and the card only. */
-@media (pointer: coarse) { .tr-cursor { display: none !important; } }
 /* Network guard (public/js/net-guard.js): a save that did not land, offline, slow connection, and a button held while its save runs. */
 .ng-toast { position: fixed; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 131; max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 14px; background: #1d211b; color: #fbfaf6; font: 500 14px/1.35 var(--h-font); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity 0.18s, transform 0.18s; }
 .ng-toast.is-on { opacity: 1; transform: translate(-50%, 0); }

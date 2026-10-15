@@ -1,8 +1,9 @@
 // What each person has seen of the tours, and when FavorOS may open one by itself. No page code here: the browser, the
 // server and the tests all use these rules.
 //
-// An item is the core tour ("core"), a release ("r:2026-10-11", which carries the snooze for its walkthroughs) or one
-// feature's walkthrough ("f:2026-10-11.chat").
+// An item is the tour ("core": its state, its skips and the step the person stopped on) or the What's new line ("news":
+// its `at` is the moment the person last saw what changed). Older rows named "r:..." and "f:..." belong to the walkthroughs
+// this replaced; they still read as valid names and the server drops them.
 //
 // The rules: a tour opens by itself until it is done. Skip for now puts it off until the next working day. It comes
 // back three times. After that it never opens by itself again, and waits as a number on Help and a card on Today.
@@ -16,6 +17,8 @@ export type ItemState = {
   until?: string;
   /** When this last changed, ISO. */
   at: string;
+  /** The step the person stopped on (0 is the first). Kept while the tour is not done. */
+  i?: number;
 };
 
 export type Progress = Record<string, ItemState>;
@@ -23,7 +26,7 @@ export type Progress = Record<string, ItemState>;
 /** A tour comes back this many times after the first skip. */
 export const RETURNS = 3;
 
-export const ITEM = /^(core|r:\d{4}-\d{2}-\d{2}|f:\d{4}-\d{2}-\d{2}\.[a-z0-9-]{1,40})$/;
+export const ITEM = /^(core|news|r:\d{4}-\d{2}-\d{2}|f:\d{4}-\d{2}-\d{2}\.[a-z0-9-]{1,40})$/;
 
 export const etToday = (now = new Date()): string => now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
@@ -68,6 +71,23 @@ export function finish(p: Progress, item: string, at = new Date().toISOString())
   return { ...p, [item]: { s: 'done', n: p[item]?.n || 0, at } };
 }
 
+/** Remember the step the person is on. A finished item keeps no place. */
+export function place(p: Progress, item: string, i: number, at = new Date().toISOString()): Progress {
+  const was = p[item];
+  if (was?.s === 'done') return p;
+  const row: ItemState = { s: was?.s === 'snoozed' || was?.s === 'queued' ? was.s : 'offered', n: was?.n || 0, at };
+  if (was?.until) row.until = was.until;
+  if (i > 0) row.i = Math.min(40, Math.max(0, Math.round(i)));
+  return { ...p, [item]: row };
+}
+
+/** The Eastern clock as the changelog writes it: YYYY-MM-DDTHH:MM. */
+export function etStamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('sv-SE', { timeZone: 'America/New_York', hour12: false }).replace(' ', 'T').slice(0, 16);
+}
+
 export function offer(p: Progress, items: string[], at = new Date().toISOString()): Progress {
   const out = { ...p };
   for (const i of items) if (!out[i]) out[i] = { s: 'offered', n: 0, at };
@@ -87,7 +107,11 @@ const clean = (v: unknown): ItemState | null => {
   if (!at) return null;
   const n = Math.max(0, Math.min(99, Math.round(Number(o.n) || 0)));
   const until = typeof o.until === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.until) ? o.until : undefined;
-  return until ? { s: o.s, n, until, at } : { s: o.s, n, at };
+  const i = Math.max(0, Math.min(40, Math.round(Number(o.i) || 0)));
+  const row: ItemState = { s: o.s, n, at };
+  if (until) row.until = until;
+  if (i) row.i = i;
+  return row;
 };
 
 /** Keep only well-formed rows for known item names. */

@@ -7,7 +7,8 @@
     "build": "node scripts/layout-css.mjs && vite build",
     "test": "node scripts/layout-css.mjs && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
-    "deploy": "echo use scripts/ship-web.mjs"
+    "deploy": "echo use scripts/ship-web.mjs",
+    "tour": "vite build -c vite.tour.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",

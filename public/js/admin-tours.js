@@ -4,7 +4,7 @@
   var A = window.Admin, $ = function (id) { return document.getElementById(id); };
   var data = null, armed = '';
 
-  var ROLES = [['', 'Me'], ['staff', 'Any staff member'], ['rdd', 'RDD team'], ['pc', 'Partner Care'], ['ce', 'Church Engagement'], ['grants', 'Grants'], ['marketing', 'Marketing'], ['leader', 'Leadership']];
+  var ROLES = [['', 'Me'], ['staff', 'Any staff member'], ['rdd', 'Regional directors'], ['partner_care', 'Partner Care'], ['church', 'Church Engagement'], ['grants', 'Grants'], ['support', 'Support Team'], ['marketing', 'Marketing'], ['exec', 'Leadership'], ['admin', 'FavorOS admins']];
 
   function coreCell(c) {
     if (c.state === 'done') return '<span class="tu-pill tu-pill--done">Finished</span><small>' + A.esc(A.day(c.at)) + '</small>';
@@ -77,7 +77,7 @@
       var team = $('tu-team'), keep = team.value;
       team.innerHTML = '<option value="">Every team</option>' + d.teams.map(function (t) { return '<option>' + A.esc(t) + '</option>'; }).join('');
       team.value = keep;
-      $('tu-what').innerHTML = '<option value="core">Tour of FavorOS</option>' + d.releases.map(function (r) { return '<option value="r:' + A.esc(r.id) + '">' + A.esc(r.title) + '</option>'; }).join('');
+      $('tu-what').innerHTML = '<option value="core">Tour of FavorOS</option>';
       $('tu-as').innerHTML = ROLES.map(function (r) {
         return '<div class="tu-as__row"><b>' + r[1] + '</b><a class="ad-btn" href="/?tour=core' + (r[0] ? '&as=' + r[0] : '') + '">Tour of FavorOS</a>' +
           d.releases.map(function (x) { return '<a class="ad-btn" href="/?tour=new' + (r[0] ? '&as=' + r[0] : '') + '">' + A.esc(x.title) + '</a>'; }).join('') + '</div>';

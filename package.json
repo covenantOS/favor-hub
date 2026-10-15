@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build && node scripts/stamp-build.mjs && npm run app:build",
+    "build": "astro build && node scripts/stamp-build.mjs && npm run app:build && npm run tour:build",
     "preview": "astro preview",
     "astro": "astro",
     "test": "node --test \"tests/**/*.test.mjs\" && npm run typecheck && npm run app:test",
@@ -18,7 +18,8 @@
     "app:test": "vitest run -c app/vite.config.ts",
     "app:e2e": "node app/e2e/run.mjs",
     "typecheck": "tsc -p app/tsconfig.json --noEmit",
-    "app:e2e:islands": "node app/e2e/islands.mjs"
+    "app:e2e:islands": "node app/e2e/islands.mjs",
+    "tour:build": "npm --prefix web run tour"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

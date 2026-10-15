@@ -21,6 +21,7 @@ import { KEYS, writeString } from '@/lib/storage';
 import { WEB_ROUTES } from '@shared/web';
 import { navQuery } from '../lib/queries';
 import { mountClassicHelpers } from './helpers';
+import { TourHost } from '../features/tour/TourHost';
 
 // Overlays nobody sees until they open them (Ctrl K, hover cards, the dock) load after the page is idle, in their own files, so the
 // first screen downloads and runs less on a slow phone.
@@ -229,6 +230,7 @@ export function WebShell({ children }: { children: ReactNode }) {
         <DockPart />
       </Suspense>
       <ClientBoot />
+      <TourHost />
     </ServedRoutes.Provider>
   );
 }
