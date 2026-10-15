@@ -279,7 +279,7 @@ function Body() {
 
 export function GiftsSettingsPage() {
   return (
-    <AdminPage on="gifts" title="Gifts" wait={<Wait />}>
+    <AdminPage on="gifts" title="Gifts" wait={<Wait />} failArea="data-ad-gifts">
       <Body />
     </AdminPage>
   );
