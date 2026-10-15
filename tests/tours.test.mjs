@@ -213,14 +213,14 @@ test("What's new: entries newer than the last visit, one stop per area, only for
   const staff = person({}, { kpi: true });
   const steps = N.newsSteps(staff, NEWS, '2026-10-13T00:00');
   // Gifts needs gift entry access, Mail needs Mail, Chat needs Chat: the Brain needs Early access.
-  assert.deepEqual(steps.map((s) => s.title), [], 'the Brain is for Early access, so a plain staff member sees none of these');
+  assert.deepEqual(steps.map((s) => s.title), ['New in Favor Brain']);
   const rich = person({}, { gifts: true, mail: true, chat: true, early: true });
   const all = N.newsSteps(rich, NEWS, '2026-10-13T00:00');
   assert.deepEqual(all.map((s) => s.title), ['New in Gifts', 'New in Chat', 'New in Favor Brain', 'New in Mail'], 'new before improved, then newest first');
   assert.equal(N.newsSteps(rich, NEWS, '2026-10-14T22:45').length, 0, 'nothing is newer than the newest');
   assert.equal(N.newsSteps(rich, NEWS, '').length, 0, 'a first visit is shown nothing');
   assert.equal(N.newsCount(rich, NEWS, '2026-10-13T00:00'), 4);
-  assert.equal(N.newsCount(staff, NEWS, '2026-10-13T00:00'), 0);
+  assert.equal(N.newsCount(staff, NEWS, '2026-10-13T00:00'), 1);
   // An admin-only area shows to admins only; an area with no page shows as a card with nothing to point at.
   const adm = person({ role: 'admin' }, { admin: true });
   const a = N.newsSteps(adm, NEWS, '2026-10-10T00:00');

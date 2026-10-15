@@ -15,8 +15,8 @@ test('Today, Partners, Gifts, Projects requests, Staff, Reporting and Help stay 
   for (const id of ['request-new', 'my-requests', 'clips', 'kpi', 'reports', 'kpi-definitions', 'expenses']) assert.ok(ids.includes(id), id);
 });
 
-test('Meetings, Chat, Mail and the Brain are held, and the room an invited person opens is not', () => {
+test('Meetings, Chat, Mail are held, and the room an invited person opens is not', () => {
   const held = earlyPaths(AREAS);
-  for (const path of ['/meet/', '/chat/', '/mail/', '/brain/', '/moves/', '/data-care/', '/highlights/']) assert.ok(held.has(path), path);
+  for (const path of ['/meet/', '/chat/', '/mail/', '/moves/', '/data-care/', '/highlights/']) assert.ok(held.has(path), path);
   for (const path of ['/meet/room/', '/clips/', '/projects/', '/reports/']) assert.equal(held.has(path), false, path);
 });

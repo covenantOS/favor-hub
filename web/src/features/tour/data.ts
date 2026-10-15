@@ -427,7 +427,6 @@ const TEAM: Record<TourId, StepDef[]> = {
 const SHARED: Record<string, StepDef> = {
   brain: {
     id: 'brain',
-    need: 'early',
     page: '/brain/',
     via: 'brain',
     at: ['.bc-compose', '#bc-compose', '.bc-starters', '.bc-pane'],

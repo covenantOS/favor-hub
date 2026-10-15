@@ -8,7 +8,7 @@ export const OPEN_AREAS = new Set(['today', 'partners', 'gifts', 'projects', 'as
 /** Areas held to Early access whole. */
 export const EARLY_AREAS = new Set(['meet', 'chat', 'mail']);
 /** Single pages held to Early access whatever their badge. */
-export const EARLY_PAGES = new Set(['brain', 'connect-ai', 'partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting']);
+export const EARLY_PAGES = new Set(['partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting']);
 
 /** True when a page (by id, inside an area by id) is for Early access only. Reads the built-in badges. */
 export function earlyOnly(areaId: string, pageId: string): boolean {

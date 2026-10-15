@@ -380,7 +380,7 @@ export const FULL_LOAD_PATHS = ['/work/', '/dashboard/'];
 
 // Pages held to Early access: Meetings, Chat, Mail, Clips and every page with its own Alpha or Beta badge (tests/early-access.test.mjs checks this list against src/data/release.ts).
 const EARLY_AREA_IDS = ['meet', 'chat', 'mail'];
-const EARLY_PAGE_IDS = ['online-gifts', 'statements', 'lists', 'list-reports', 'list-credit', 'welcome', 'brain', 'connect-ai', 'partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting'];
+const EARLY_PAGE_IDS = ['online-gifts', 'statements', 'lists', 'list-reports', 'list-credit', 'welcome', 'partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting'];
 for (const area of AREAS) for (const page of area.pages) if ((EARLY_AREA_IDS.includes(area.id) && page.id !== 'clips') || EARLY_PAGE_IDS.includes(page.id)) page.early = true;
 
 export const NAV_IDS = new Map<string, { area: NavArea; page: NavPage }>();
