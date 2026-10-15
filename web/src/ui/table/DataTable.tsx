@@ -37,6 +37,8 @@ export interface Selection {
   selected: ReadonlySet<string>;
   onToggle: (id: string, on: boolean, shift: boolean) => void;
   onPage: (on: boolean) => void;
+  /** Press a checkbox and drag down the column to select (or clear) every row passed over, like a spreadsheet. */
+  drag?: boolean;
 }
 
 export interface DataTableProps<T> {
@@ -50,6 +52,8 @@ export interface DataTableProps<T> {
   select?: Selection;
   /** Called for a row press (outside a link or button) and for Enter. */
   onOpen?: (row: T) => void;
+  /** When set, a row press (outside a link or button) calls this instead of onOpen; Enter still calls onOpen. */
+  onRowClick?: (row: T, e: React.MouseEvent) => void;
   rowClassName?: (row: T) => string;
   rowTitle?: (row: T) => string | undefined;
   /** Shown when rows is empty and not loading. */
@@ -104,7 +108,50 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const rowClick = (e: React.MouseEvent, row: T) => {
     const t = e.target as HTMLElement;
     if (t.closest('a,button,input,select,textarea,label,summary')) return;
-    if (p.onOpen) p.onOpen(row);
+    if (p.onRowClick) p.onRowClick(row, e);
+    else if (p.onOpen) p.onOpen(row);
+  };
+  // Drag down the checkbox column to paint the selection. The handlers read the latest props through a ref.
+  const latest = useRef(p);
+  latest.current = p;
+  const wrap = useRef<HTMLDivElement>(null);
+  const painting = useRef<{ on: boolean } | null>(null);
+  const cbDown = (e: React.PointerEvent, id: string, picked: boolean) => {
+    const sel = p.select;
+    if (!sel || !sel.drag || e.button !== 0) return;
+    e.preventDefault();
+    if (e.shiftKey) {
+      sel.onToggle(id, !picked, true);
+      return;
+    }
+    sel.onToggle(id, !picked, false);
+    painting.current = { on: !picked };
+    document.body.classList.add('wc-dragging');
+    const move = (ev: PointerEvent) => {
+      const paint = painting.current;
+      if (!paint) return;
+      const box = wrap.current;
+      if (box && box.scrollHeight > box.clientHeight) {
+        const r = box.getBoundingClientRect();
+        if (ev.clientY > r.bottom - 36) box.scrollTop += 18;
+        else if (ev.clientY < r.top + 70) box.scrollTop -= 18;
+      }
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const row = el && (el.closest('tr[data-pt-row]') as HTMLElement | null);
+      const rid = row?.dataset.id;
+      const cur = latest.current.select;
+      if (rid && cur && cur.selected.has(rid) !== paint.on) cur.onToggle(rid, paint.on, false);
+    };
+    const up = () => {
+      painting.current = null;
+      document.body.classList.remove('wc-dragging');
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
   };
   const onKey = (e: KeyboardEvent<HTMLTableRowElement>, row: T, id: string) => {
     if (e.target !== e.currentTarget) return;
@@ -120,7 +167,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const span = cols.length + (p.select ? 1 : 0);
 
   return (
-    <div className={'pt-wrap' + (p.noFit ? '' : ' pt-wrap--fit')} style={style} data-density={density}>
+    <div ref={wrap} className={'pt-wrap' + (p.noFit ? '' : ' pt-wrap--fit')} style={style} data-density={density}>
       <table className={'pt-table' + (p.className ? ' ' + p.className : '') + (p.busy ? ' is-busy' : '')} aria-label={p.label}>
         <thead>
           <tr>
@@ -167,15 +214,17 @@ export function DataTable<T>(p: DataTableProps<T>) {
                   const picked = !!p.select && p.select.selected.has(id);
                   const cls = [picked ? 'is-picked' : '', p.openId === id ? 'is-open' : '', p.rowClassName ? p.rowClassName(row) : ''].filter(Boolean).join(' ');
                   return (
-                    <tr key={id} data-pt-row="" data-id={id} tabIndex={-1} className={cls || undefined} title={p.rowTitle ? p.rowTitle(row) : undefined} onClick={(e) => rowClick(e, row)} onKeyDown={(e) => onKey(e, row, id)}>
+                    <tr key={id} data-pt-row="" data-id={id} tabIndex={-1} className={cls || undefined} title={p.rowTitle ? p.rowTitle(row) : undefined} onClick={(e) => rowClick(e, row)} onKeyDown={(e) => onKey(e, row, id)} onMouseDown={p.select?.drag ? (e) => { if (e.shiftKey) e.preventDefault(); } : undefined}>
                       {p.select ? (
-                        <td className="pt-cb">
+                        <td className="pt-cb" style={p.select.drag ? { touchAction: 'none' } : undefined} onPointerDown={p.select.drag ? (e) => cbDown(e, id, picked) : undefined}>
                           <input
                             type="checkbox"
                             tabIndex={-1}
                             checked={picked}
                             onClick={(e) => {
                               e.stopPropagation();
+                              // With drag on, the press already toggled it; only a keyboard click (no pointer) toggles here.
+                              if (p.select!.drag && e.detail !== 0) return;
                               p.select!.onToggle(id, !picked, e.shiftKey);
                             }}
                             onChange={() => undefined}
