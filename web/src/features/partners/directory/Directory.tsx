@@ -14,6 +14,7 @@ import {
   dirParams, dirQuery, KIND, menusQuery, money, N, pdKeys, pdPost, pipes, short, STATUS, STATUS_TIP, todayEt, viewsQuery, whole, fd, ago,
   type DirAnswer, type DirRow, type DirSearch, type Menus, type SavedView,
 } from '../api';
+import { Boundary } from '../record/Boundary';
 import { RecentPane, useMergeCount } from './Panes';
 import { SheetMark } from '../work/lists/icons';
 import { useMounted } from '../record/lib';
@@ -88,13 +89,35 @@ export function Directory({ search }: { search: DirSearch }) {
         </a>
       </div>
       {pane === 'recent' ? (
-        <Suspense fallback={<PaneSkeleton />}><RecentPane /></Suspense>
+        <Boundary fallback={(e, retry) => <LoadFailed what="The partners" error={e} retry={retry} />}>
+          <Suspense fallback={<PaneSkeleton />}><RecentPane /></Suspense>
+        </Boundary>
       ) : pane === 'dups' || pane === 'merges' ? (
         <GoDataCare />
       ) : (
-        <AllPartners search={search} go={go} />
+        <Boundary fallback={(e, retry) => <LoadFailed what="The partners" error={e} retry={retry} />}>
+          <AllPartners search={search} go={go} />
+        </Boundary>
       )}
     </div>
+  );
+}
+
+/** What the list shows when its read was refused or failed: the server's own words (for a person the Work Center is closed to, why). */
+function LoadFailed({ what, error, retry }: { what: string; error: Error; retry: () => void }) {
+  const qc = useQueryClient();
+  return (
+    <section className="h-card pd-sheet">
+      <div className="pt-empty">
+        <b>{what} did not load</b>
+        {error.message}
+        <p>
+          <button type="button" className="h-btn h-btn--primary" onClick={() => { void qc.resetQueries({ queryKey: pdKeys.all }); retry(); }}>
+            Try again
+          </button>
+        </p>
+      </div>
+    </section>
   );
 }
 
