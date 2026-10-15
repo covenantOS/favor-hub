@@ -184,10 +184,12 @@ function meetingLive() {
 }
 
 function runBatch() {
-  const entries = queued();
-  if (!entries.length) return false;
+  if (!queued().length) return false;
   takeLock();
+  // Read the queue again once the lock is ours: branches queued while a solo ship held the lock join this batch.
+  const entries = queued();
   try {
+    if (!entries.length) return false;
     sh('git fetch -q origin');
     log('batch:', entries.map((e) => e.branch).join(', '));
     const good = solve([], entries);
