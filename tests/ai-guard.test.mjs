@@ -73,7 +73,7 @@ describe('the cap', () => {
   it('holds a call past its tier and lets a higher tier through', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 6600)`);
     await assert.rejects(G.guardedRun(store(), model().run, { feature: 'brief', day: DAY }, '@cf/meta/llama-3.1-8b-instruct-fast', { prompt: 'x' }), (e) => G.isAiPaused(e) && e.why === 'budget');
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'mail-sort', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'budget');
     await G.guardedRun(store(), model({ answers: {} }).run, { feature: 'clef-understand', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' });
     assert.deepEqual(calls, ['@cf/cloudflare/clef-flash']);
     const held = await d1.prepare('SELECT SUM(refused) AS n FROM ai_budget_use WHERE day = ?').bind(DAY).first();
@@ -81,20 +81,20 @@ describe('the cap', () => {
   });
   it('never passes 8,000 for any feature', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 7995)`);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(5000) }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(5000) }), (e) => e.why === 'budget');
     assert.equal(calls.length, 0);
   });
   it('counts Cloudflare\'s total when it is above the estimate', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est, truth) VALUES ('${DAY}', 10, 7999)`);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'budget');
   });
   it('reads the KV total as a floor', async () => {
     kv.m.set(`ai:budget:${DAY}`, '7999');
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(100) }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(100) }), (e) => e.why === 'budget');
   });
   it('fails closed when the database is down', async () => {
     const broken = { db: { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('down'); }, first: async () => { throw new Error('down'); }, all: async () => ({ results: [] }) }) }) }, kv };
-    await assert.rejects(G.guardedRun(broken, model().run, { feature: 'translate', day: DAY }, '@cf/meta/m2m100-1.2b', { text: 'x' }), (e) => e.why === 'unavailable');
+    await assert.rejects(G.guardedRun(broken, model().run, { feature: 'request-route', day: DAY }, '@cf/meta/m2m100-1.2b', { text: 'x' }), (e) => e.why === 'unavailable');
     assert.equal(calls.length, 0);
   });
   it('corrects the reservation from the reported tokens', async () => {
@@ -115,7 +115,7 @@ describe('switches', () => {
   });
   it('stops every call on the kill flag and on the tester\'s closed switch', async () => {
     kv.m.set(`ai:off:${DAY}`, '1');
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'kill');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'kill');
     kv.m.delete(`ai:off:${DAY}`);
     G.resetGuardCache();
     const ai = G.guardBinding(store(), model(), { closedFor: () => true, day: DAY });
@@ -135,12 +135,12 @@ describe('switches', () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 7999)`);
     kv.m.set('ai:settings', JSON.stringify({ allow: {}, extra: { '2026-10': 500 } }));
     G.resetGuardCache();
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
-    await G.guardedRun(store(), model({ answers: {} }).run, { feature: 'translate', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) });
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
+    await G.guardedRun(store(), model({ answers: {} }).run, { feature: 'request-route', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) });
     const row = await dayRow();
     assert.ok(row.test_over > 0 && row.test_over <= 500, `test_over ${row.test_over}`);
     d1.exec(`UPDATE ai_budget_day SET test_over = 500 WHERE day = '${DAY}'`);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
   });
 });
 
@@ -164,7 +164,7 @@ describe('the reconciler', () => {
     assert.equal(r.off, true);
     assert.equal(kv.m.get(`ai:off:${DAY}`), '1');
     assert.equal((await dayRow()).off, 1);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => G.isAiPaused(e));
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => G.isAiPaused(e));
   });
 });
 
@@ -250,7 +250,7 @@ describe('the meeting notes ceiling (2026-10-14)', () => {
   });
   it('still holds every other tier once the total passes its cap, and the kill flag still stops them', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 9500)`);
-    for (const feature of ['brief', 'translate', 'clip-text']) {
+    for (const feature of ['brief', 'request-route', 'clip-text']) {
       await assert.rejects(G.guardedRun(store(), model().run, { feature, day: DAY, now: new Date('2026-10-14T03:00:00Z') }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget', feature);
     }
     // The Drive index has its own 50,000 (2026-10-14) and runs past the day total and the kill flag.
@@ -259,7 +259,7 @@ describe('the meeting notes ceiling (2026-10-14)', () => {
     d1.exec(`UPDATE ai_budget_day SET est = 50000, off = 1 WHERE day = '${DAY}'`);
     kv.m.set(`ai:off:${DAY}`, '1');
     G.resetGuardCache();
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, M, small), (e) => e.why === 'kill');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'request-route', day: DAY }, M, small), (e) => e.why === 'kill');
     assert.equal(calls.length, 0);
   });
 });
@@ -285,5 +285,37 @@ describe('the Favor Brain ceiling (2026-10-14)', () => {
   it('still refuses a non-Brain tier 3 feature at 9,500', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 9500)`);
     await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clip-text', day: DAY }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget');
+  });
+});
+
+describe('the mail sorting and translation ceilings (2026-10-15)', () => {
+  const small = { messages: [{ role: 'user', content: 'x' }], max_tokens: 10 };
+  const M = '@cf/meta/llama-3.1-8b-instruct-fast';
+  for (const feature of ['mail-sort', 'translate']) {
+    it(`${feature} runs past the day total and the kill flag, up to 50,000 of its own`, async () => {
+      d1.exec(`INSERT INTO ai_budget_day (day, est, truth, off) VALUES ('${DAY}', 500000, 500000, 1)`);
+      kv.m.set(`ai:off:${DAY}`, '1');
+      G.resetGuardCache();
+      await G.guardedRun(store(), model().run, { feature, day: DAY }, M, small);
+      assert.equal(calls.length, 1);
+      d1.exec(`UPDATE ai_budget_use SET neurons = 49999 WHERE day = '${DAY}' AND feature = '${feature}'`);
+      await assert.rejects(G.guardedRun(store(), model().run, { feature, day: DAY }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget');
+      assert.equal(calls.length, 1);
+    });
+  }
+  it('usage under them leaves the 9,000 kill alone', async () => {
+    d1.exec(`INSERT INTO ai_budget_use (day, feature, model, calls, neurons, refused) VALUES ('${DAY}', 'mail-sort', 'm', 5, 30000, 0)`);
+    assert.equal(await G.ceilingedUsed(store(), DAY), 30000);
+  });
+});
+
+describe('a call that throws after the reservation (2026-10-15)', () => {
+  it('books the reserved neurons under its feature, so Cloudflare\'s count has a row to match', async () => {
+    const boom = async () => { throw new Error('model timed out'); };
+    await assert.rejects(G.guardedRun(store(), boom, { feature: 'mail-sort', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), /timed out/);
+    const use = await d1.prepare('SELECT calls, neurons FROM ai_budget_use WHERE day = ? AND feature = ?').bind(DAY, 'mail-sort').first();
+    assert.equal(use.calls, 1);
+    assert.ok(use.neurons > 0);
+    assert.equal(Math.round(use.neurons), Math.round((await dayRow()).est));
   });
 });

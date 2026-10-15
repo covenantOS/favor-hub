@@ -41,6 +41,9 @@ export const TEST_CEILING = 1_500_000;
 // The Drive indexer has its own $0.50 a day (50,000 neurons), counted from its own bookings. It runs past the day's kill flag.
 export const DRIVE_INDEX_CEILING = 50_000;
 const NO_DAY_CAP = 1_000_000_000;
+// Chat translation and mail sorting are staff features with a ceiling of their own: 50,000 neurons a day each, about $0.55 (Will,
+// 2026-10-15: spend carefully to keep staff working). They run past the day's kill flag up to that ceiling and no further.
+export const STAFF_FEATURE_CEILING = 50_000;
 
 /** How far into the day's units each tier may go. Tier 1 keeps the last 1,500 to itself, tier 2 the next 1,500, and so on. */
 export const TIER_CAP: Record<number, number> = { 1: 8_000, 2: 6_500, 3: 5_000, 4: 2_500 };
@@ -64,8 +67,8 @@ export interface Feature {
 export const FEATURES: Record<string, Feature> = {
   'clef-understand': { tier: 1, label: 'Favor Brain: reading the question', cap: BRAIN_CEILING },
   'clef-pick': { tier: 1, label: 'Favor Brain: picking the answer', cap: BRAIN_CEILING },
-  translate: { tier: 2, label: 'Chat translation' },
-  'mail-sort': { tier: 2, label: 'Mail sorting' },
+  translate: { tier: 2, label: 'Chat translation', cap: NO_DAY_CAP, own: STAFF_FEATURE_CEILING },
+  'mail-sort': { tier: 2, label: 'Mail sorting', cap: NO_DAY_CAP, own: STAFF_FEATURE_CEILING },
   'brain-understand': { tier: 3, label: 'Favor Brain: question reader (larger model)', cap: BRAIN_CEILING },
   'brain-search': { tier: 3, label: 'Favor Brain: file search', cap: BRAIN_CEILING },
   'brain-howto': { tier: 3, label: 'Favor Brain: how-to answers', cap: BRAIN_CEILING },
@@ -453,7 +456,15 @@ export async function settle(store: GuardStore, r: { day: string; est: number; f
 /** Runs one model call through the budget. Throws AiPaused when the call may not run. */
 export async function guardedRun(store: GuardStore, run: (model: string, input: unknown) => Promise<unknown>, opts: GuardOpts, model: string, input: unknown): Promise<unknown> {
   const r = await reserve(store, opts, model, input);
-  const out = await run(model, input);
+  let out: unknown;
+  try {
+    out = await run(model, input);
+  } catch (err) {
+    // A call that throws after the model started can still be billed by Cloudflare (2026-10-15: calls on Cloudflare's count with no
+    // ai_budget_use row). The reservation stands in the day's estimate; book it under the feature too.
+    await bump(store, r.day, r.feature, model, r.est, false).catch(() => {});
+    throw err;
+  }
   await settle(store, r, r.feature, model, out);
   return out;
 }
