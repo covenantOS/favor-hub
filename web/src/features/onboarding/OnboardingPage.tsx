@@ -30,7 +30,7 @@ import {
   type RunSummary,
   type Template,
 } from './logic';
-import { doneQuery, listQuery, sendJson, templateQuery, type ListOk } from './queries';
+import { doneQuery, listQuery, sendJson, templateQuery, type ListOk, type ListState } from './queries';
 import { Ic, PersonField, Sheet, toast } from './ui';
 
 const Skeleton = () => (
@@ -454,7 +454,7 @@ function OwnersPanel({ data }: { data: ListOk }) {
   const qc = useQueryClient();
   const setOwner = async (duty: string, email: string) => {
     const was = data.owners[duty] || '';
-    const put = (v: string) => qc.setQueryData(listQuery.queryKey, (cur) => (cur && cur.state === 'ok' ? { ...cur, owners: { ...cur.owners, [duty]: v } } : cur));
+    const put = (v: string) => qc.setQueryData<ListState>(listQuery.queryKey, (cur) => (cur && cur.state === 'ok' ? { ...cur, owners: { ...cur.owners, [duty]: v } } : cur));
     put(email);
     try {
       await sendJson('owners', 'PUT', { duty, email });

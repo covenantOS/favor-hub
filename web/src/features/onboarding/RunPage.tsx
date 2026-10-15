@@ -35,7 +35,7 @@ import {
   type Owned,
   type Step,
 } from './logic';
-import { ownedQuery, runQuery, sendJson } from './queries';
+import { obKeys, ownedQuery, runQuery, sendJson, type RunState } from './queries';
 import { Avatar, Ic, PersonField, PickSheet, Sheet, toast, takeFresh, useNameOf, usePeople } from './ui';
 import { personIn } from './logic';
 
@@ -103,8 +103,11 @@ function RunView({ id, d }: { id: string; d: Detail }) {
   }, [run.name]);
 
   const put = (out: Record<string, unknown> | null) => {
-    if (out && out.run) qc.setQueryData(runQuery(id).queryKey, { state: 'ok', d: out as unknown as Detail });
-    if (out && out.owned) qc.setQueryData(ownedQuery(id).queryKey, out.owned as Owned);
+    if (out && out.run) {
+      const next: RunState = { state: 'ok', d: out as unknown as Detail };
+      qc.setQueryData<RunState>(obKeys.run(id), () => next);
+    }
+    if (out && out.owned) qc.setQueryData<Owned | null>(obKeys.owned(id), out.owned as Owned);
   };
 
   /** Run a change, draw the answer, show the server's words when it refuses. Resolves to the answer or null. */
