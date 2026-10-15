@@ -96,11 +96,21 @@ async function keptFirst(request) {
 }
 
 const LITE_PAGES = ['/', '/chat/'];
+// A page load the worker passes on goes out as a script fetch, and the server tells pages from script reads by the browser's own
+// Sec-Fetch-Dest header, which a script fetch does not carry as "document". Without a word from here, every repeat visit to a page the web app
+// serves came back as the classic page. X-Hub-Doc says it is a page load (functions/_lib/app2.ts isPageLoad); redirects go back to the browser.
+function pageFetch(request) {
+  const h = new Headers();
+  h.set('X-Hub-Doc', '1');
+  const a = request.headers.get('Accept');
+  if (a) h.set('Accept', a);
+  return fetch(request.url, { credentials: 'same-origin', headers: h, redirect: 'manual', cache: 'no-cache' });
+}
 async function litePage(request) {
   const cache = await caches.open(SHELL);
   try {
-    const res = await fetch(request);
-    if (res.ok && !res.redirected && new URL(res.url).pathname === new URL(request.url).pathname) cache.put(new URL(request.url).pathname, res.clone());
+    const res = await pageFetch(request);
+    if (res.ok && !res.redirected && res.type === 'basic') cache.put(new URL(request.url).pathname, res.clone());
     return res;
   } catch {
     return (await cache.match(new URL(request.url).pathname)) || Response.error();
@@ -124,7 +134,7 @@ self.addEventListener('fetch', (event) => {
   }
   if (req.mode === 'navigate' && SHELL_PATHS.includes(url.pathname)) { event.respondWith(shellFirstFromNetwork(req)); return; }
   // Lite mode: Today and Chat are kept too, so they open with no signal (Chat then reads its kept messages, chat.js).
-  if (req.mode === 'navigate' && LITE_PAGES.includes(url.pathname)) event.respondWith(lite().then((on) => (on ? litePage(req) : fetch(req))));
+  if (req.mode === 'navigate' && LITE_PAGES.includes(url.pathname)) event.respondWith(lite().then((on) => (on ? litePage(req) : pageFetch(req))));
 });
 
 self.addEventListener('message', (event) => {

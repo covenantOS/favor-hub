@@ -42,6 +42,8 @@ export function hasOptInCookie(request: Request): boolean {
 /** A browser opening the page (not a script reading it). Older browsers without Sec-Fetch headers count when they accept HTML. */
 export function isPageLoad(request: Request): boolean {
   if (request.method !== 'GET') return false;
+  // The service worker re-sends a page load as a script fetch (Sec-Fetch-Dest: empty), so it says so itself (public/sw.js).
+  if (request.headers.get('X-Hub-Doc') === '1') return true;
   const dest = request.headers.get('Sec-Fetch-Dest');
   if (dest) return dest === 'document';
   return (request.headers.get('Accept') || '').includes('text/html') && !request.headers.get('X-Hub-Request');

@@ -60,6 +60,9 @@ describe('who gets the app', () => {
   it('a page load is told from a script read', () => {
     assert.equal(isPageLoad(page('/').request), true);
     assert.equal(isPageLoad(page('/', { dest: 'empty' }).request), false);
+    // The service worker passes a page load on as a script fetch and says so.
+    const sw = page('/', { dest: 'empty' }).request;
+    assert.equal(isPageLoad(new Request(sw.url, { headers: { 'Sec-Fetch-Dest': 'empty', 'X-Hub-Doc': '1' } })), true);
   });
   it('settings default to off and admin-only', async () => {
     assert.deepEqual(await readApp2Settings(world()), { routes: [], audience: 'admin' });
