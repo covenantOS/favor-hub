@@ -164,7 +164,7 @@ test('the nav entry, the gate flag, the settings and the page shells are in plac
   const { AREAS } = await import('../src/data/areas.ts');
   const entry = AREAS.find((a) => a.id === 'projects').pages.find((p) => p.id === 'projects');
   assert.equal(entry.href, '/projects/');
-  assert.equal(entry.need, 'projects');
+  assert.equal(entry.need, 'projectsNav');
   assert.equal(entry.label, 'Projects');
   const w = world({ mode: 'admins' });
   const { projectsFlag } = await import('../functions/_lib/projects/access.ts');

@@ -77,7 +77,7 @@ test('a person who triages nothing gets no request number, and the phone bar sum
   // The rail reads counts[page.count] for each page of the area; the phone bar and the area header add the pages up (app/src/shell/model.ts).
   const area = AREAS.find((x) => x.id === 'projects');
   const pages = area.pages.filter((p) => p.menu !== false);
-  assert.deepEqual(pages.map((p) => [p.id, p.count]), [['projects', 'projectsMine']], 'Projects is the one entry in its area, and its count key is projectsMine');
+  assert.deepEqual(pages.map((p) => [p.id, p.count]), [['projects', 'projectsMine'], ['request-new', undefined], ['my-requests', undefined]], 'Projects carries the count key projectsMine; the two request pages carry none');
   assert.equal(pages.reduce((n, p) => n + (Number(counts[p.count]) || 0), 0), 1, 'rail badge = phone bar');
 });
 
