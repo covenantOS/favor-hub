@@ -11,10 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrainIndexRouteImport } from './routes/brain/index'
+import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
+import { Route as FeedbackIndexRouteImport } from './routes/feedback/index'
 import { Route as FoundationsIndexRouteImport } from './routes/foundations/index'
 import { Route as GiftsIndexRouteImport } from './routes/gifts/index'
+import { Route as HelpIndexRouteImport } from './routes/help/index'
+import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as OnlineGiftsIndexRouteImport } from './routes/online-gifts/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners/index'
@@ -22,6 +26,7 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as ReceiptsIndexRouteImport } from './routes/receipts/index'
 import { Route as StatementsIndexRouteImport } from './routes/statements/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
+import { Route as WelcomeIndexRouteImport } from './routes/welcome/index'
 import { Route as WorkIndexRouteImport } from './routes/work/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
@@ -46,6 +51,11 @@ const BrainIndexRoute = BrainIndexRouteImport.update({
   path: '/brain/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
+  id: '/changelog/',
+  path: '/changelog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
   id: '/churches/',
   path: '/churches/',
@@ -56,6 +66,11 @@ const DataCareIndexRoute = DataCareIndexRouteImport.update({
   path: '/data-care/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeedbackIndexRoute = FeedbackIndexRouteImport.update({
+  id: '/feedback/',
+  path: '/feedback/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FoundationsIndexRoute = FoundationsIndexRouteImport.update({
   id: '/foundations/',
   path: '/foundations/',
@@ -64,6 +79,16 @@ const FoundationsIndexRoute = FoundationsIndexRouteImport.update({
 const GiftsIndexRoute = GiftsIndexRouteImport.update({
   id: '/gifts/',
   path: '/gifts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpIndexRoute = HelpIndexRouteImport.update({
+  id: '/help/',
+  path: '/help/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpSlugRoute = HelpSlugRouteImport.update({
+  id: '/help/$slug',
+  path: '/help/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnIndexRoute = LearnIndexRouteImport.update({
@@ -99,6 +124,11 @@ const StatementsIndexRoute = StatementsIndexRouteImport.update({
 const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
   id: '/web-check/',
   path: '/web-check/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeIndexRoute = WelcomeIndexRouteImport.update({
+  id: '/welcome/',
+  path: '/welcome/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkIndexRoute = WorkIndexRouteImport.update({
@@ -169,11 +199,15 @@ const LearnAdminCourseIndexRoute = LearnAdminCourseIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/help/$slug': typeof HelpSlugRoute
   '/brain/': typeof BrainIndexRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/feedback/': typeof FeedbackIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
   '/gifts/': typeof GiftsIndexRoute
+  '/help/': typeof HelpIndexRoute
   '/learn/': typeof LearnIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
@@ -181,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/receipts/': typeof ReceiptsIndexRoute
   '/statements/': typeof StatementsIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
+  '/welcome/': typeof WelcomeIndexRoute
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
@@ -197,11 +232,15 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/help/$slug': typeof HelpSlugRoute
   '/brain': typeof BrainIndexRoute
+  '/changelog': typeof ChangelogIndexRoute
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
+  '/feedback': typeof FeedbackIndexRoute
   '/foundations': typeof FoundationsIndexRoute
   '/gifts': typeof GiftsIndexRoute
+  '/help': typeof HelpIndexRoute
   '/learn': typeof LearnIndexRoute
   '/online-gifts': typeof OnlineGiftsIndexRoute
   '/partners': typeof PartnersIndexRoute
@@ -209,6 +248,7 @@ export interface FileRoutesByTo {
   '/receipts': typeof ReceiptsIndexRoute
   '/statements': typeof StatementsIndexRoute
   '/web-check': typeof WebCheckIndexRoute
+  '/welcome': typeof WelcomeIndexRoute
   '/work': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals': typeof AdminGoalsIndexRoute
@@ -226,11 +266,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/help/$slug': typeof HelpSlugRoute
   '/brain/': typeof BrainIndexRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/feedback/': typeof FeedbackIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
   '/gifts/': typeof GiftsIndexRoute
+  '/help/': typeof HelpIndexRoute
   '/learn/': typeof LearnIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
@@ -238,6 +282,7 @@ export interface FileRoutesById {
   '/receipts/': typeof ReceiptsIndexRoute
   '/statements/': typeof StatementsIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
+  '/welcome/': typeof WelcomeIndexRoute
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
@@ -256,11 +301,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/help/$slug'
     | '/brain/'
+    | '/changelog/'
     | '/churches/'
     | '/data-care/'
+    | '/feedback/'
     | '/foundations/'
     | '/gifts/'
+    | '/help/'
     | '/learn/'
     | '/online-gifts/'
     | '/partners/'
@@ -268,6 +317,7 @@ export interface FileRouteTypes {
     | '/receipts/'
     | '/statements/'
     | '/web-check/'
+    | '/welcome/'
     | '/work/'
     | '/work/partner/$id'
     | '/admin/goals/'
@@ -284,11 +334,15 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/help/$slug'
     | '/brain'
+    | '/changelog'
     | '/churches'
     | '/data-care'
+    | '/feedback'
     | '/foundations'
     | '/gifts'
+    | '/help'
     | '/learn'
     | '/online-gifts'
     | '/partners'
@@ -296,6 +350,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/statements'
     | '/web-check'
+    | '/welcome'
     | '/work'
     | '/work/partner/$id'
     | '/admin/goals'
@@ -312,11 +367,15 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/help/$slug'
     | '/brain/'
+    | '/changelog/'
     | '/churches/'
     | '/data-care/'
+    | '/feedback/'
     | '/foundations/'
     | '/gifts/'
+    | '/help/'
     | '/learn/'
     | '/online-gifts/'
     | '/partners/'
@@ -324,6 +383,7 @@ export interface FileRouteTypes {
     | '/receipts/'
     | '/statements/'
     | '/web-check/'
+    | '/welcome/'
     | '/work/'
     | '/work/partner/$id'
     | '/admin/goals/'
@@ -341,11 +401,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HelpSlugRoute: typeof HelpSlugRoute
   BrainIndexRoute: typeof BrainIndexRoute
+  ChangelogIndexRoute: typeof ChangelogIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
+  FeedbackIndexRoute: typeof FeedbackIndexRoute
   FoundationsIndexRoute: typeof FoundationsIndexRoute
   GiftsIndexRoute: typeof GiftsIndexRoute
+  HelpIndexRoute: typeof HelpIndexRoute
   LearnIndexRoute: typeof LearnIndexRoute
   OnlineGiftsIndexRoute: typeof OnlineGiftsIndexRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
@@ -353,6 +417,7 @@ export interface RootRouteChildren {
   ReceiptsIndexRoute: typeof ReceiptsIndexRoute
   StatementsIndexRoute: typeof StatementsIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
+  WelcomeIndexRoute: typeof WelcomeIndexRoute
   WorkIndexRoute: typeof WorkIndexRoute
   WorkPartnerIdRoute: typeof WorkPartnerIdRoute
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
@@ -384,6 +449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrainIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/changelog/': {
+      id: '/changelog/'
+      path: '/changelog'
+      fullPath: '/changelog/'
+      preLoaderRoute: typeof ChangelogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/churches/': {
       id: '/churches/'
       path: '/churches'
@@ -398,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataCareIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/feedback/': {
+      id: '/feedback/'
+      path: '/feedback'
+      fullPath: '/feedback/'
+      preLoaderRoute: typeof FeedbackIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/foundations/': {
       id: '/foundations/'
       path: '/foundations'
@@ -410,6 +489,20 @@ declare module '@tanstack/react-router' {
       path: '/gifts'
       fullPath: '/gifts/'
       preLoaderRoute: typeof GiftsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help/': {
+      id: '/help/'
+      path: '/help'
+      fullPath: '/help/'
+      preLoaderRoute: typeof HelpIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help/$slug': {
+      id: '/help/$slug'
+      path: '/help/$slug'
+      fullPath: '/help/$slug'
+      preLoaderRoute: typeof HelpSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learn/': {
@@ -459,6 +552,13 @@ declare module '@tanstack/react-router' {
       path: '/web-check'
       fullPath: '/web-check/'
       preLoaderRoute: typeof WebCheckIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome/': {
+      id: '/welcome/'
+      path: '/welcome'
+      fullPath: '/welcome/'
+      preLoaderRoute: typeof WelcomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/work/': {
@@ -557,11 +657,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HelpSlugRoute: HelpSlugRoute,
   BrainIndexRoute: BrainIndexRoute,
+  ChangelogIndexRoute: ChangelogIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
+  FeedbackIndexRoute: FeedbackIndexRoute,
   FoundationsIndexRoute: FoundationsIndexRoute,
   GiftsIndexRoute: GiftsIndexRoute,
+  HelpIndexRoute: HelpIndexRoute,
   LearnIndexRoute: LearnIndexRoute,
   OnlineGiftsIndexRoute: OnlineGiftsIndexRoute,
   PartnersIndexRoute: PartnersIndexRoute,
@@ -569,6 +673,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReceiptsIndexRoute: ReceiptsIndexRoute,
   StatementsIndexRoute: StatementsIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
+  WelcomeIndexRoute: WelcomeIndexRoute,
   WorkIndexRoute: WorkIndexRoute,
   WorkPartnerIdRoute: WorkPartnerIdRoute,
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
