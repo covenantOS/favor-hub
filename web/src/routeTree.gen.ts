@@ -14,6 +14,8 @@ import { Route as BrainIndexRouteImport } from './routes/brain/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as FoundationsIndexRouteImport } from './routes/foundations/index'
+import { Route as GiftsIndexRouteImport } from './routes/gifts/index'
+import { Route as OnlineGiftsIndexRouteImport } from './routes/online-gifts/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
@@ -47,6 +49,16 @@ const DataCareIndexRoute = DataCareIndexRouteImport.update({
 const FoundationsIndexRoute = FoundationsIndexRouteImport.update({
   id: '/foundations/',
   path: '/foundations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GiftsIndexRoute = GiftsIndexRouteImport.update({
+  id: '/gifts/',
+  path: '/gifts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnlineGiftsIndexRoute = OnlineGiftsIndexRouteImport.update({
+  id: '/online-gifts/',
+  path: '/online-gifts/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartnersIndexRoute = PartnersIndexRouteImport.update({
@@ -101,6 +113,8 @@ export interface FileRoutesByFullPath {
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
+  '/gifts/': typeof GiftsIndexRoute
+  '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
@@ -117,6 +131,8 @@ export interface FileRoutesByTo {
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
   '/foundations': typeof FoundationsIndexRoute
+  '/gifts': typeof GiftsIndexRoute
+  '/online-gifts': typeof OnlineGiftsIndexRoute
   '/partners': typeof PartnersIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/web-check': typeof WebCheckIndexRoute
@@ -134,6 +150,8 @@ export interface FileRoutesById {
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
+  '/gifts/': typeof GiftsIndexRoute
+  '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
@@ -152,6 +170,8 @@ export interface FileRouteTypes {
     | '/churches/'
     | '/data-care/'
     | '/foundations/'
+    | '/gifts/'
+    | '/online-gifts/'
     | '/partners/'
     | '/projects/'
     | '/web-check/'
@@ -168,6 +188,8 @@ export interface FileRouteTypes {
     | '/churches'
     | '/data-care'
     | '/foundations'
+    | '/gifts'
+    | '/online-gifts'
     | '/partners'
     | '/projects'
     | '/web-check'
@@ -184,6 +206,8 @@ export interface FileRouteTypes {
     | '/churches/'
     | '/data-care/'
     | '/foundations/'
+    | '/gifts/'
+    | '/online-gifts/'
     | '/partners/'
     | '/projects/'
     | '/web-check/'
@@ -201,6 +225,8 @@ export interface RootRouteChildren {
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
   FoundationsIndexRoute: typeof FoundationsIndexRoute
+  GiftsIndexRoute: typeof GiftsIndexRoute
+  OnlineGiftsIndexRoute: typeof OnlineGiftsIndexRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
@@ -247,6 +273,20 @@ declare module '@tanstack/react-router' {
       path: '/foundations'
       fullPath: '/foundations/'
       preLoaderRoute: typeof FoundationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gifts/': {
+      id: '/gifts/'
+      path: '/gifts'
+      fullPath: '/gifts/'
+      preLoaderRoute: typeof GiftsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/online-gifts/': {
+      id: '/online-gifts/'
+      path: '/online-gifts'
+      fullPath: '/online-gifts/'
+      preLoaderRoute: typeof OnlineGiftsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/partners/': {
@@ -321,6 +361,8 @@ const rootRouteChildren: RootRouteChildren = {
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
   FoundationsIndexRoute: FoundationsIndexRoute,
+  GiftsIndexRoute: GiftsIndexRoute,
+  OnlineGiftsIndexRoute: OnlineGiftsIndexRoute,
   PartnersIndexRoute: PartnersIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
