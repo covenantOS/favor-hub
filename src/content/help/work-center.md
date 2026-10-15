@@ -7,7 +7,7 @@ for: [admin, rdd, pc, ce, grants, leader]
 related: [today, getting-started]
 tool: /work/
 toolLabel: Open Partners
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 Partners is the area for partner relationship work. Its Actions page (the Work Center) lists every open action in Blackbaud, the week's contacts to enter and the thank-yous still owed. Blackbaud finishes one action at a time. The Work Center finishes as many as you pick in one pass. Foundations sits beside it. Partners is in the menu for regional directors, Partner Care, Church Engagement, Grants, the Support Team and leadership; everyone else finds it under More.
@@ -17,6 +17,10 @@ Partners is the area for partner relationship work. Its Actions page (the Work C
 The Work Overview moved onto Today in October 2026; /work-home/ opens Today. Under Needs you, **Your work** lists your actions due today and overdue, oldest first. Press the circle to complete one, Snooze to move it to tomorrow, in three days, next week or a date you pick, or the partner name to open the partner. Each change is saved, sent to Blackbaud and undone from the message at the bottom for 24 hours, and Your recent changes lists your own changes with Undo.
 
 Gifts to thank lists five gifts waiting for your role, the soonest due on the 24-hour clock first. Thank opens the same form as the Gifts to thank tab. Your week shows a director's goals, the Support Team's entry backlog, or Partner Care's cadence counts. The Gift day card gives the gift day's six numbers to the people who work it. Log a contact and New task in Start something work on any partner you find. Admins also see a team table with open and overdue actions per person. Every number opens the Work Center page it comes from.
+
+## The top row
+
+Under the tabs, one row of buttons shows the state of the page. **As of** gives the time of the Blackbaud copy the lists read. **Blackbaud** shows the calls used today against the 3,000 a day Favor allows itself. **Opens on** sets the tab you land on. **Settings** (admins) opens the Work Center settings in Admin. **Morning email** opens your weekday email settings.
 
 ## What each number counts
 
@@ -80,7 +84,7 @@ A gift counts as thanked when the partner has a completed contact after the gift
 
 ## Thank-you letters (HQTY)
 
-The handwritten letters moved to **Gifts > Thank-you letters** in October 2026. The Support Team and admins use it. It lists every gift of $5,000 and up, newest first, grouped by month. Each row shows the amount, the partner the letter goes to (the partner a gift is credited to when there is one, otherwise the giver), the fund, the mailing address and where the letter stands: To write, Printed, Signed, Mailed or Cannot send. A gift counts as written when Blackbaud already holds an HQTY Letter on its partner dated on or after the gift. These are separate from the printed receipt every partner who gives gets from Receipts.
+The handwritten letters have their own page, **Gifts > Thank-you letters**, and their own article, [Thank-you letters](/help/thank-you-letters/). The Support Team and admins use it. It lists every gift of $5,000 and up, newest first, grouped by month. Each row shows the amount, the partner the letter goes to (the partner a gift is credited to when there is one, otherwise the giver), the fund, the mailing address and where the letter stands: To write, Printed, Signed, Mailed or Cannot send. A gift counts as written when Blackbaud already holds an HQTY Letter on its partner dated on or after the gift. These are separate from the printed receipt every partner who gives gets from Receipts.
 
 Press **Print** and the page opens one PDF with a page per letter and marks the gift Printed. Press **Signed** once the letters are signed. Press **Mark mailed** when they go out and FavorOS records one HQTY Letter action on the partner in Blackbaud, and Undo in Recent takes it back. Tick several rows to print, sign or mail them together. Each row has a **Signed by** picker. It can be Terry Goodman, Carole Ward, Rachel Cox, Michael Hinton, or the partner's Regional Development Director. With no pick, the letter takes the partner's RDD when one is assigned, and otherwise the last signer you chose. The signer prints in the signature block and goes into the summary of the HQTY Letter action in Blackbaud. Select letters and use **Set for all selected** in the bar to set one signer for the batch. A letter that is printed, signed or mailed keeps its signer, so put it back to To write to change it.
 
@@ -88,7 +92,7 @@ The month button, for example **October letter**, edits the letter text once for
 
 ## Letters from Gifts to thank
 
-The Support Team and admins see **Letter** next to Prep on every row of Gifts to thank. It opens a page with the letter on the right. Pick who the letter is from (the partner's director by default), paste what the director said, and switch the Designation, Director's words and Invitation paragraphs on or off. **Print PDF and log** prints the letter and records a Mailing action with the Thanked tag, which clears the row. **Copy for email** copies the text and records an Email action instead. Tick several gifts and press **Letters, one PDF** to print them together. Directors keep Thank on their own list and do not see Letter.
+The [Thank-you letters](/help/thank-you-letters/) article covers this too. The Support Team and admins see **Letter** next to Prep on every row of Gifts to thank. It opens a page with the letter on the right. Pick who the letter is from (the partner's director by default), paste what the director said, and switch the Designation, Director's words and Invitation paragraphs on or off. **Print PDF and log** prints the letter and records a Mailing action with the Thanked tag, which clears the row. **Copy for email** copies the text and records an Email action instead. Tick several gifts and press **Letters, one PDF** to print them together. Directors keep Thank on their own list and do not see Letter.
 ## My week and the weekly report
 
 Regional directors see a strip above the Work Center tabs. It shows this week's connections, meetings attended or hosted, event scheduled and one-on-ones against the weekly goals of 20, 3, 1 and 3, and the year's giving credited to the director against the annual goal, with a mark for where pace puts it. Press the strip to open My week.
@@ -113,7 +117,7 @@ The five numbers across the top filter the list: Due now, First-time partners, M
 
 ## Declines
 
-Declines moved to **Gifts > Declines** in October 2026. The admin desk, the Support Team and Partner Care use it. It lists every declined monthly payment and every gift set to zero in the last 90 days, newest first. Blackbaud records a failed charge as a $0 payment with the processor's reason, so a **Hard reject** (the card or account will not work again) sits apart from a **Soft reject** (the bank said try again). **Recorded at full amount** and **Zeroed gift** hold the gifts a person has to look at one by one, such as a returned check.
+Declines has its own page, **Gifts > Declines**, and its own article, [Declined payments](/help/declines/). The admin desk, the Support Team and Partner Care use it. It lists every declined monthly payment and every gift set to zero in the last 90 days, newest first. Blackbaud records a failed charge as a $0 payment with the processor's reason, so a **Hard reject** (the card or account will not work again) sits apart from a **Soft reject** (the bank said try again). **Recorded at full amount** and **Zeroed gift** hold the gifts a person has to look at one by one, such as a returned check.
 
 Each row shows the partner, the card or bank, the amount that failed, the reason, how many times the same schedule has declined, who holds the partner and the last follow-up. Press **Log**, choose Call, Text, Email, Card or Note, say what happened and pick where it stands: Still open, Card or bank fixed, Partner ended the gift, Cannot reach or Nothing to do. FavorOS saves one Information Update action on the partner in Blackbaud. That type counts as no portfolio contact, so a billing call never changes who is credited. Left a message keeps the row open and sets a reminder for the next workday.
 

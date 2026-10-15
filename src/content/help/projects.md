@@ -14,7 +14,7 @@ Projects is where FavorOS keeps work that has an owner and a date. Admin > Proje
 
 ## The pages
 
-The Projects page has three tabs. **My tasks** counts what is assigned to you, with tiles for Overdue, Due today and Open, a search box, **Show completed**, and your tasks grouped under Today, Next 7 days, Later and No date. Each group has a line to add a task. **All projects** lists the projects, with Active, All and Archived filters. **Team workload** is described below. **Add task**, **Plan a project** and **New project** sit at the top right. **Requests**, beside Projects in the page tabs, is the [request board](/help/request-board/).
+The Projects page has tabs for **My tasks**, **All projects** and **Team workload**, and for requests the **My requests** tab and, for the people who triage a team's requests, the **Intake** tab. Both are covered in [Intake and My requests](/help/request-board/). **My tasks** counts what is assigned to you, with tiles for Overdue, Due today and Open, a search box, **Show completed**, and your tasks grouped under Today, Next 7 days, Later and No date. Each group has a line to add a task. **All projects** lists the projects, with Active, All and Archived filters. **Team workload** is described below. **Add task**, **Plan a project** and **New project** sit at the top right.
 
 A project opens with its own page: a project list in the left column and, across the top, **List**, **Board**, **Calendar**, **Timeline** and **Workload**, with **Filter**, **Select**, **Add task**, Assignee, Due, Status, Tag and **Show completed** under them.
 
