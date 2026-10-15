@@ -137,6 +137,7 @@
   function preview(email) {
     open('<h2>Reading</h2>');
     A.api('/api/admin/people?preview=' + encodeURIComponent(email)).then(function (d) {
+      d = d.preview || d; // the route answers { preview }
       var by = {};
       d.pages.forEach(function (p) { (by[p.area] = by[p.area] || []).push(p.label); });
       var chip = d.person.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : '<span class="ad-chip' + (d.person.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (d.person.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
