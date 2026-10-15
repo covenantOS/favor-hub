@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import type { ReactNode } from 'react';
-import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useMatches } from '@tanstack/react-router';
+import { resolveNav } from '@hub/data/areas';
 import type { QueryClient } from '@tanstack/react-query';
 import { WebShell } from '../shell/WebShell';
 import { navQuery } from '../lib/queries';
@@ -49,6 +50,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function Document({ children }: { children: ReactNode }) {
+  // The page's area colors (body[data-area]) are on the server copy too, so the first paint is already in its accent.
+  const navId = useMatches({ select: (m) => m.map((x) => x.staticData?.nav).filter(Boolean).at(-1) }) || '';
+  const area = navId ? resolveNav(navId)?.area.id : undefined;
   return (
     // The boot script sets classes and --sbw on <html> before React hydrates; those are expected to differ from the server copy.
     <html lang="en" suppressHydrationWarning>
@@ -62,7 +66,7 @@ function Document({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: FONTS }} />
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
-      <body className="h-body">
+      <body className="h-body" data-nav={navId || undefined} data-area={area}>
         {children}
         <Scripts />
       </body>

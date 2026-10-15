@@ -1,0 +1,5 @@
+/* In the classic cascade the layout's page-title rules (app.css, elevate.css: .h-page h1) come after the Projects styles and win over them.
+   The web app loads a route's styles after the layout, so the same result is stated here once, with enough weight to hold. */
+.h-page .pj-ph h1, .h-page .pj-pheader h1 {
+  font-family: var(--h-serif); font-weight: 500; font-size: clamp(22px, 2.4vw, 28px); letter-spacing: -0.01em; line-height: 1.2; color: var(--h-ink);
+}

@@ -13,10 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrainIndexRouteImport } from './routes/brain/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
+import { Route as ProjectsPIndexRouteImport } from './routes/projects/p/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,6 +38,11 @@ const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
 const DataCareIndexRoute = DataCareIndexRouteImport.update({
   id: '/data-care/',
   path: '/data-care/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
@@ -58,26 +65,35 @@ const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
   path: '/gifts/recurring/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsPIndexRoute = ProjectsPIndexRouteImport.update({
+  id: '/projects/p/',
+  path: '/projects/p/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/brain/': typeof BrainIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
+  '/projects/p/': typeof ProjectsPIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/brain': typeof BrainIndexRoute
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
+  '/projects': typeof ProjectsIndexRoute
   '/web-check': typeof WebCheckIndexRoute
   '/admin/goals': typeof AdminGoalsIndexRoute
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
+  '/projects/p': typeof ProjectsPIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,10 +101,12 @@ export interface FileRoutesById {
   '/brain/': typeof BrainIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
+  '/projects/p/': typeof ProjectsPIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,30 +115,36 @@ export interface FileRouteTypes {
     | '/brain/'
     | '/churches/'
     | '/data-care/'
+    | '/projects/'
     | '/web-check/'
     | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
+    | '/projects/p/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/brain'
     | '/churches'
     | '/data-care'
+    | '/projects'
     | '/web-check'
     | '/admin/goals'
     | '/gifts/other'
     | '/gifts/recurring'
+    | '/projects/p'
   id:
     | '__root__'
     | '/'
     | '/brain/'
     | '/churches/'
     | '/data-care/'
+    | '/projects/'
     | '/web-check/'
     | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
+    | '/projects/p/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -128,10 +152,12 @@ export interface RootRouteChildren {
   BrainIndexRoute: typeof BrainIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
+  ProjectsPIndexRoute: typeof ProjectsPIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -164,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataCareIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/': {
+      id: '/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/web-check/': {
       id: '/web-check/'
       path: '/web-check'
@@ -192,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GiftsRecurringIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/p/': {
+      id: '/projects/p/'
+      path: '/projects/p'
+      fullPath: '/projects/p/'
+      preLoaderRoute: typeof ProjectsPIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -200,20 +240,13 @@ const rootRouteChildren: RootRouteChildren = {
   BrainIndexRoute: BrainIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
+  ProjectsPIndexRoute: ProjectsPIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
