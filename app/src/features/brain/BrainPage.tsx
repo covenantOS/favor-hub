@@ -20,7 +20,8 @@ import { dlong } from './fmt';
 import { useAnswerResolver } from './useAnswerResolver';
 import './styles';
 
-const LATER = 'favor.brain.connect.later';
+// The Connect banner shows until it is dismissed once (Will, 2026-10-15); Connect stays in the More menu.
+const LATER = 'favor.brain.connect.dismissed';
 const hourET = () => Number(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false })) % 24;
 
 const STARTERS = (e: BrainEngine, role: string) => {
@@ -427,6 +428,7 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
   const [wide, setWide] = useState(true);
   const [panel, setPanel] = useState<null | { kind: 'table'; key: string } | { kind: 'access' } | { kind: 'connect'; app: 'claude' | 'chatgpt' }>(null);
   const [find, setFind] = useState('');
+  const [railTab, setRailTab] = useState<'chats' | 'sheets'>('chats');
   const [jump, setJump] = useState(false);
   const [focus, setFocus] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
@@ -462,7 +464,7 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
       } catch {
         later = 0;
       }
-      setBanner(!(later && Date.now() - later < 864e5));
+      setBanner(!later);
     })();
     const p = new URLSearchParams(location.search);
     if (p.get('connect') === '1') setPanel({ kind: 'connect', app: 'claude' });
@@ -666,47 +668,55 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
                 }}
               />
             </div>
-            <div className="bc-convs" role="list">
-              <ConvList
-                e={e}
-                list={s.convs}
-                cur={s.cur && s.cur.id}
-                working={s.busy && s.busy.conv ? s.busy.conv.id : null}
-                q={find}
-                found={s.found}
-                renaming={s.renaming}
-                onOpen={(id) => {
-                  void e.openConv(id);
-                  closeOver();
-                  setPanel(null);
-                }}
-              />
+            <div className="bc-railtabs h-tabs" role="tablist" aria-label="Your chats and sheets">
+              {(['chats', 'sheets'] as const).map((t) => (
+                <button key={t} type="button" role="tab" className={'h-tab' + (railTab === t ? ' is-on' : '')} aria-selected={railTab === t} onClick={() => setRailTab(t)}>
+                  {t === 'chats' ? 'Chats' : 'Sheets'}
+                </button>
+              ))}
             </div>
-            <div className="bc-rail__foot">
-              <div className="bc-grp" style={{ paddingTop: 2 }}>
-                Your sheets
+            {railTab === 'chats' ? (
+              <div className="bc-convs" role="list">
+                <ConvList
+                  e={e}
+                  list={s.convs}
+                  cur={s.cur && s.cur.id}
+                  working={s.busy && s.busy.conv ? s.busy.conv.id : null}
+                  q={find}
+                  found={s.found}
+                  renaming={s.renaming}
+                  onOpen={(id) => {
+                    void e.openConv(id);
+                    closeOver();
+                    setPanel(null);
+                  }}
+                />
               </div>
-              <div className="bc-sheets-mini">
-                {s.sheets.length ? (
-                  s.sheets.slice(0, 3).map((x, i) => (
-                    <a key={i} href={x.url} target="_blank" rel="noopener">
-                      <Ic n="sheet" />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.title}</span>
-                    </a>
-                  ))
+            ) : (
+              <div className="bc-convs bc-sheetlist" role="list">
+                {s.sheets.filter((x) => !find.trim() || x.title.toLowerCase().includes(find.trim().toLowerCase())).length ? (
+                  s.sheets
+                    .filter((x) => !find.trim() || x.title.toLowerCase().includes(find.trim().toLowerCase()))
+                    .map((x, i) => (
+                      <a key={i} className="cvr" role="listitem" href={x.url} target="_blank" rel="noopener">
+                        <span className="cvr__go">
+                          <span className="cvr__ic" aria-hidden="true">
+                            <Ic n="sheet" />
+                          </span>
+                          <span className="cvr__tx">
+                            <span className="cvr__top">
+                              <span className="cvr__t">{x.title}</span>
+                            </span>
+                            <span className="cvr__p">Google Sheet in your Drive</span>
+                          </span>
+                        </span>
+                      </a>
+                    ))
                 ) : (
-                  <div className="bc-sheets-empty">Sheets you make show here.</div>
+                  <div className="cvr-none">Sheets you make from an answer show here.</div>
                 )}
               </div>
-              <button type="button" className="bc-hint" onClick={() => connect()}>
-                <Ic n="link" />
-                Connect Claude or ChatGPT
-              </button>
-              <a className="bc-hint" href="/brain/text/" style={{ textDecoration: 'none' }}>
-                <Ic n="chat" />
-                Text Favor Brain
-              </a>
-            </div>
+            )}
           </div>
         </aside>
         <section className="bc-pane" aria-label="Chat">

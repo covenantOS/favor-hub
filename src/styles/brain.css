@@ -1000,3 +1000,8 @@ html.plb-on { overflow: hidden; }
   .h-body .bc-root .tb-faces .tb-av:nth-child(n+3) { display: none; }
   .h-body .bc-root .tb-snip { display: none; }
 }
+/* The rail's Chats and Sheets tabs (React Brain page, 2026-10-15): sheets have their own list, out of the chat history. */
+.h-body .bc-root .bc-railtabs { display: flex; gap: 4px; margin: 8px 0 2px; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--h-surface-2, #f1eee8) 80%, transparent); }
+.h-body .bc-root .bc-railtabs .h-tab { flex: 1; height: 30px; border: 0; border-radius: 999px; background: none; font: 600 13px var(--h-font); color: var(--h-ink-3); cursor: pointer; }
+.h-body .bc-root .bc-railtabs .h-tab.is-on { background: var(--h-surface, #fff); color: var(--h-ink); box-shadow: 0 1px 2px rgba(42, 39, 34, .08); }
+.h-body .bc-root .bc-sheetlist a.cvr { display: block; text-decoration: none; color: inherit; }
