@@ -59,6 +59,10 @@ export interface AskRow {
   close: { date: string; by: string } | null;
   state: AskState;
   gave: { amount: number; date: string; giftId: string } | null;
+  /** Who tagged the ask: the fundraisers named on its actions, before the partner's current holders are looked up. */
+  taggers: string[];
+  /** The whole ask as written (summary and description), only when it says more than `line`. */
+  text: string;
   /** Actions tagged with this same ask (a follow-up that repeats the amount is not a new ask). */
   tags: number;
   /** Day of the first tag. The gift match starts here; `date` is the latest tag. */
@@ -87,6 +91,14 @@ const daysBetween = (a: string, b: string): number => Math.round((Date.parse(b +
 export function lineOf(description: string, summary: string): string {
   const first = String(description || '').split(/\r?\n/).map((s) => s.trim()).find(Boolean) || String(summary || '').trim();
   return first.length > 160 ? first.slice(0, 157).replace(/\s+\S*$/, '') + '...' : first;
+}
+
+/** Everything the person wrote about the ask, for the side panel. Empty when `line` already holds all of it. */
+export function textOf(description: string, summary: string): string {
+  const d = String(description || '').trim();
+  const sm = String(summary || '').trim();
+  const full = ((sm && !d.includes(sm) ? sm + (d ? '\n' : '') : '') + d).trim();
+  return full === lineOf(description, summary) ? '' : full;
 }
 
 /** Put every ask in its column. An ask with a zero amount is not an ask. Asks are settled oldest first, and a gift settles one ask. */
@@ -146,6 +158,8 @@ export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: As
       close,
       state,
       gave: hit ? { amount: hit.amount, date: hit.date, giftId: hit.id } : null,
+      taggers: [...ch.owners],
+      text: textOf(a.description, a.summary),
       tags: ch.n,
       first: ch.first,
       review: needsCheck(amount, num((raw.largest || {})[String(a.cid)])),
@@ -330,6 +344,10 @@ export interface AskQuery {
   state?: string;
   /** Text to find in the partner's name, the first line and the place. */
   q?: string;
+  /** The order: amount, partner, asked, close, director or stage. Default asked. */
+  sort?: string;
+  /** asc or desc. Default newest first for asked, largest first for amount, A to Z or soonest first for the others. */
+  dir?: string;
   offset?: number;
   limit?: number;
 }
@@ -345,13 +363,31 @@ const inStatus = (r: AskRow, s: string): boolean =>
 const colTotal = (r: AskRow): number => (r.state === 'gave' ? (r.gave ? r.gave.amount : 0) : r.amount);
 const cmp = (x: string, y: string): number => (x < y ? -1 : x > y ? 1 : 0);
 const STATE_ORDER: Record<AskState, number> = { past: 0, closing: 1, open: 2, gave: 3 };
-/** The order of one board column, or the list order when no column is named. Ties break on the ask id, newest first. */
-export function askOrder(state: string): (a: AskRow, b: AskRow) => number {
-  if (state === 'open') return (a, b) => cmp(b.date, a.date) || cmp(b.id, a.id);
-  if (state === 'closing') return (a, b) => cmp(a.close!.date, b.close!.date) || cmp(a.id, b.id);
-  if (state === 'past') return (a, b) => cmp(b.close!.date, a.close!.date) || cmp(b.id, a.id);
-  if (state === 'gave') return (a, b) => cmp(b.gave!.date, a.gave!.date) || cmp(b.id, a.id);
-  return (a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || cmp(b.date, a.date) || cmp(b.id, a.id);
+export const SORTS = ['amount', 'partner', 'asked', 'close', 'director', 'stage'] as const;
+export type AskSort = (typeof SORTS)[number];
+/** The direction a column opens in when none is given: largest and newest first, the others A to Z or soonest first. */
+export const defaultDir = (sort: AskSort): 'asc' | 'desc' => (sort === 'amount' || sort === 'asked' ? 'desc' : 'asc');
+type Named = AskRow & { ownerNames: string[] };
+/** The order of the whole list, applied before a page is cut. Asks with no value in the column (no close date, no director) sit last in either
+ *  direction. Ties break on the asked day, newest first, then the ask id, so every page of the same filter agrees. */
+export function askSort(sort: AskSort, dir: 'asc' | 'desc'): (a: Named, b: Named) => number {
+  const sign = dir === 'asc' ? 1 : -1;
+  const by = (x: string | number | null, y: string | number | null): number => {
+    if (x === null && y === null) return 0;
+    if (x === null) return 1;
+    if (y === null) return -1;
+    return (x < y ? -1 : x > y ? 1 : 0) * sign;
+  };
+  const key: Record<AskSort, (r: Named) => string | number | null> = {
+    amount: (r) => r.amount,
+    partner: (r) => r.name.toLowerCase(),
+    asked: (r) => r.first || r.date,
+    close: (r) => (r.close ? r.close.date : null),
+    director: (r) => r.ownerNames.join(', ').toLowerCase() || null,
+    stage: (r) => STATE_ORDER[r.state],
+  };
+  const f = key[sort];
+  return (x, y) => by(f(x), f(y)) || cmp(y.first || y.date, x.first || x.date) || cmp(y.id, x.id);
 }
 const whole = (v: unknown, dflt: number, lo: number, hi: number): number => {
   if (v === undefined || v === null || v === '') return dflt;
@@ -371,6 +407,9 @@ export interface AsksOut {
   status: string;
   state: string;
   q: string;
+  /** The order of this page, as applied. */
+  sort: AskSort;
+  dir: 'asc' | 'desc';
   /** Asks that match the status, search and director, in the state named (all four when none is named). */
   matched: number;
   /** Every ask that matches the status, search and director, across all columns. */
@@ -383,7 +422,7 @@ export interface AsksOut {
   /** Every ask in the person's portfolio, before the director picker narrows it. */
   everyone: number;
   owners: { id: string; name: string; n: number }[];
-  rows: (AskRow & { ownerNames: string[] })[];
+  rows: (AskRow & { ownerNames: string[]; taggedNames: string[] })[];
   stats: AskStats;
   columns: AskColumns;
   /** Asks on partners no current fundraiser holds, left out of every total above. */
@@ -423,7 +462,10 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m', q
     return [s, { n: l.length, total: l.reduce((t, r) => t + colTotal(r), 0) }];
   })) as Record<AskState, ColumnCount>;
   const pick = state ? filtered.filter((r) => r.state === state) : filtered;
-  const page = pick.slice().sort(askOrder(state)).slice(offset, offset + limit);
+  const sort: AskSort = (SORTS as readonly string[]).includes(query.sort || '') ? (query.sort as AskSort) : 'asked';
+  const dir: 'asc' | 'desc' = query.dir === 'asc' || query.dir === 'desc' ? query.dir : defaultDir(sort);
+  const named = (r: AskRow) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`), taggedNames: r.taggers.map((o) => nameOf[o] || `Fundraiser ${o}`) });
+  const page = pick.map(named).sort(askSort(sort, dir)).slice(offset, offset + limit);
   return {
     ok: true,
     today,
@@ -434,6 +476,8 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m', q
     status,
     state,
     q: text,
+    sort,
+    dir,
     matched: pick.length,
     shown: filtered.length,
     counts,
@@ -441,7 +485,7 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m', q
     limit,
     everyone: mine.filter((r) => !r.former).length,
     owners: [...count.entries()].map(([id, n]) => ({ id, name: nameOf[id] || `Fundraiser ${id}`, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)),
-    rows: page.map((r) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`) })),
+    rows: page,
     stats,
     columns,
     former: { n: rows.filter((r) => r.former && !r.review && r.state !== 'gave').length, total: rows.filter((r) => r.former && !r.review && r.state !== 'gave').reduce((t, r) => t + r.amount, 0) },
