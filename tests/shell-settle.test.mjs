@@ -17,7 +17,7 @@ describe('the top bar before the menu answer', () => {
 
   it('holds the tab row space without showing a page name or anything to tap', () => {
     assert.match(wait, /className="h-top__tabs"/);
-    assert.match(wait, /tabRowHeld\(navId\)/);
+    assert.match(wait, /tabRowHeldFor\(navId, hint\)/);
     assert.match(wait, /aria-hidden="true" inert/);
     const row = wait.slice(wait.indexOf('<nav'), wait.indexOf('</nav>'));
     assert.doesNotMatch(wait, /TabRow|NavLink|href=/);
