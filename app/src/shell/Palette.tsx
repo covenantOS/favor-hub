@@ -107,7 +107,7 @@ export function Palette({ access, kpiTeams }: Props) {
       const hasChat = !!access.chat;
       for (const tier of TIERS) {
         await Promise.all(
-          tier.map((kind) =>
+          tier.filter((kind) => kind !== 'meetings' || !!access.meetings).map((kind) =>
             runSource(kind, t, hasChat)
               .then((hits) => {
                 if (mine === seq.current) setRemote((r) => ({ ...r, [kind]: hits }));

@@ -789,7 +789,7 @@
     }).catch(() => { if (!S.day) { const box = $('td-sched-list'); if (box) { box.removeAttribute('aria-busy'); box.innerHTML = '<li class="td-empty">Your day could not load. Refresh to try again.</li>'; } } });
   }
   function loadNext() {
-    try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nv && nv.access && nv.access.meetings === false) return; } catch { /* no saved menu */ }
+    try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (!nv || !nv.access || nv.access.meetings !== true) return; } catch { return; }
     get('/api/meet/meetings?scope=upcoming').then((d) => {
       const now = Date.now();
       const list = (d.meetings || []).filter((m) => m.status !== 'cancelled' && m.status !== 'ended' && m.startsAt && Date.parse(m.endsAt || m.startsAt) > now && Date.parse(m.startsAt) - now < 8 * 864e5 && dayKey(m.startsAt) !== TODAY);

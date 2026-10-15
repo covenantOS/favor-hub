@@ -222,7 +222,7 @@ function Body() {
   const now = useNow();
   const { data: day } = useSuspenseQuery(dayQ);
   const nav = useQuery(navQuery).data;
-  const meetingsOff = !!nav && (nav.access as J)?.meetings === false;
+  const meetingsOff = !nav || (nav.access as J)?.meetings !== true;
   const up = useQuery({ ...upcomingQ, enabled: !meetingsOff }).data;
   const [view, setView] = useState<SheetView | null>(null);
   const [pastOpen, setPastOpen] = useState(false);

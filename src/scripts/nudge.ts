@@ -41,6 +41,7 @@ async function refresh(force = false): Promise<void> {
       if (c && Date.now() - c.at < TTL) { list = c.list; return; }
     } catch { /* no cache */ }
   }
+  try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (!nv || !nv.access || nv.access.meetings !== true) return; } catch { return; }
   loading = true;
   try {
     const up = await getJSON('/api/meet/meetings?scope=upcoming');
