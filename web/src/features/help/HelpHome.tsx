@@ -1,6 +1,7 @@
 // Help home: search, the tour, topics, and "For your work". Articles come from src/content/help at build time.
 import docs from 'virtual:help-meta';
-import { TOPICS } from '@hub/data/help-topics';
+import { TOPICS, mins } from '@hub/data/help-topics';
+import videos from '@hub/data/videos.json';
 import { NavLink } from '@/shell/NavLink';
 import { Gate, visibleFor, type Tags } from './tags';
 import { SearchBox } from './Search';
@@ -16,6 +17,8 @@ const ICON: Record<string, string> = {
   help: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
 };
 const Ico = ({ d }: { d: string }) => <svg className="h-i" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: d }} />;
+
+const newest = [...videos].sort((a, b) => b.added.localeCompare(a.added)).slice(0, 4);
 
 const STARTERS = ['getting-started', 'ask-favor', 'feedback'];
 
@@ -97,6 +100,10 @@ export function HelpHome() {
             <Ico d='<path d="M5 3.5 19 12l-6.5 1.4L10 20z"/>' />
             Tours and what is new
           </button>
+          <a className="h-btn h-btn--ghost" href="/help/videos/">
+            <Ico d='<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>' />
+            Training videos
+          </a>
           <button type="button" className="h-btn h-btn--ghost" data-feedback="help" data-title="What's missing from the help docs?">
             <Ico d='<path d="M4 5h16v11H9l-5 4z"/>' />
             Can't find it? Tell us
@@ -108,6 +115,27 @@ export function HelpHome() {
         <h2>Topics</h2>
       </div>
       <Gate>{(tags) => <Topics tags={tags} />}</Gate>
+      <div className="h-section">
+        <h2>Newest videos</h2>
+        <p>
+          <a className="h-link" href="/help/videos/">
+            All {videos.length} {videos.length === 1 ? 'video' : 'videos'}
+          </a>
+        </p>
+      </div>
+      <div className="hd-vids">
+        {newest.map((v) => (
+          <a key={v.slug} className="h-card hd-vid" href={`/help/videos/${v.slug}/`}>
+            <span className="hd-vid__poster">
+              <img src={`/api/videos/${v.slug}.jpg${(v as { cut?: string }).cut ? `?v=${(v as { cut?: string }).cut}` : ''}`} alt="" loading="lazy" />
+              <em>{mins(v.seconds)}</em>
+              <i aria-hidden="true"></i>
+            </span>
+            <b>{v.title}</b>
+            <span>{v.summary}</span>
+          </a>
+        ))}
+      </div>
     </div>
   );
 }
