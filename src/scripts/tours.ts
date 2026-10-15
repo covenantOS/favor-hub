@@ -485,7 +485,7 @@ export const RELEASES: Release[] = [
             at: '.rg-hl-grid',
             alt: '#rg-week',
             title: 'The week in plain words',
-            body: 'One short summary for all of Favor and one for each team you can open, from the same gifts the KPI dashboard counts. Copy as text puts it in an email or a Chat message.',
+            body: 'A card for all of Favor and one for each team you can open: the last 7 days against the week before, 8 weeks of bars, the goal and the pace, the largest gift and the month so far. Copy as text puts it in an email or a Chat message.',
             added: '2026-10-12',
             side: 'top',
           },

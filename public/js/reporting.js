@@ -110,7 +110,7 @@
       <div class="rg-sec">
         <div class="rg-sec__h rg-sec__h--row"><div><h2>This week</h2><p>${esc(day(hl.week.from))} to ${esc(day(hl.week.to))}</p></div>
           <button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rg-copy">Copy as text</button></div>
-        <div class="rg-hl-grid">${highlightCard(hl.overall, true)}${hl.teams.map((h) => highlightCard(h, false)).join('')}</div>
+        <div class="rg-hl-grid" id="rg-hl-root">${highlightCard(hl.overall, true)}${hl.teams.map((h) => highlightCard(h, false)).join('')}</div>
         ${d.giftsAvailable ? '' : '<p class="rg-note">Gift detail did not load, so the weekly lines are short. Reload in a minute.</p>'}
       </div>`;
     $('rg-copy').addEventListener('click', async () => {
@@ -121,6 +121,9 @@
         toast('Your browser would not copy.');
       }
     });
+    // The cards (a React island, /_app/islands/hl-cards.js) draw over the text version above once they load.
+    window.__rgWeek = d;
+    document.dispatchEvent(new CustomEvent('rg:week', { detail: d }));
     if (d.lastUpdated) {
       const f = $('rg-fresh');
       f.textContent = 'KPI dashboard updated ' + clock(d.lastUpdated);

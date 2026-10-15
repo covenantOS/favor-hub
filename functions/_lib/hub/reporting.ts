@@ -23,6 +23,7 @@ import {
   type Change,
   type GiftRow,
   type Highlight,
+  type HighlightGrants,
   type Pace,
   type SliceMonth,
 } from './reporting-math';
@@ -125,6 +126,7 @@ async function brainSlice(env: BrainEnv, slice: string, label: string, month: st
     const rows: GiftRow[] = (d.rows || []).map((r) => ({
       date: String(r.date || '').slice(0, 10),
       partner: String(r.partner || ''),
+      cid: r.record_id != null && String(r.record_id) ? String(r.record_id) : null,
       amount: Number(r.amount) || 0,
       gift_amount: Number(r.gift_amount) || 0,
     }));
@@ -134,7 +136,8 @@ async function brainSlice(env: BrainEnv, slice: string, label: string, month: st
   }
 }
 
-const SNAP_KEY = 'data-v1';
+// v2 (2026-10-14): gift rows carry the partner's record id, and a third month feeds the 8-week line on the highlight cards.
+const SNAP_KEY = 'data-v2';
 const FRESH_MS = DATA_SECONDS * 1000;
 const LOCK_MS = 3 * 60 * 1000;
 
@@ -193,10 +196,11 @@ export async function buildReportData(env: Env): Promise<ReportData> {
   const asOf = ytd.donorKpis?.current?.as_of || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const thisKey = monthKey(asOf);
   const prevKey = prevMonthKey(asOf);
+  const prev2Key = prevMonthKey(prevKey + '-15');
   const apis: Record<string, TeamApi | GrantsApi> = { rdd, ce, pc, mk, grants };
   const total = (name: string) => Number(ytd.teamTotals.find((t) => t.team === name)?.portfolio_amount) || 0;
 
-  const pulls = await Promise.all(SLICES.flatMap(([slice, label]) => [brainSlice(env, slice, label, thisKey), brainSlice(env, slice, label, prevKey)]));
+  const pulls = await Promise.all(SLICES.flatMap(([slice, label]) => [brainSlice(env, slice, label, thisKey), brainSlice(env, slice, label, prevKey), brainSlice(env, slice, label, prev2Key)]));
   const slices = pulls.filter((s): s is SliceMonth => !!s);
 
   const data: ReportData = {
@@ -222,7 +226,8 @@ export async function buildReportData(env: Env): Promise<ReportData> {
     }),
     grants: grants.awards || null,
     slices,
-    giftsAvailable: slices.length === SLICES.length * 2,
+    // This month and last month for every slice; the third month only lengthens the 8-week line.
+    giftsAvailable: slices.filter((x) => x.month !== prev2Key).length === SLICES.length * 2,
   };
   return data;
 }
@@ -264,17 +269,38 @@ function grantsLines(data: ReportData): string[] {
   return lines;
 }
 
+function grantsCard(data: ReportData): HighlightGrants | null {
+  const g = data.grants;
+  if (!g) return null;
+  const m = (g.months || []).find((x) => x.month === monthKey(data.asOf));
+  const last = (g.months || []).find((x) => x.month === prevMonthKey(data.asOf));
+  return {
+    awarded: Number(g.awarded) || 0,
+    count: Number(g.count) || 0,
+    received: Number(g.received) || 0,
+    toCome: Number(g.toCome) || 0,
+    open: (g.open || []).length,
+    thisMonth: m ? { awards: m.awards, awarded: m.awarded } : null,
+    lastMonth: last ? { awards: last.awards, awarded: last.awarded } : null,
+    enteredThrough: g.enteredThrough || null,
+  };
+}
+
 export function highlights(data: ReportData, allowed: string[] | 'all'): HighlightSet {
   const p = paces(data);
   const thisKey = monthKey(data.asOf);
   const prevKey = prevMonthKey(data.asOf);
-  const rowsOf = (slices: string[]) => [thisKey, prevKey].flatMap((m) => sliceOf(data, slices, m).flatMap((s) => s.rows));
+  const prev2Key = prevMonthKey(prevKey + '-15');
+  const rowsOf = (slices: string[]) => [thisKey, prevKey, prev2Key].flatMap((m) => sliceOf(data, slices, m).flatMap((s) => s.rows));
+  // The 8-week line starts where every slice it covers has rows: the month before last when it loaded, last month otherwise.
+  const fromOf = (slices: string[]) => (slices.every((sl) => data.slices.some((x) => x.slice === sl && x.month === prev2Key)) ? prev2Key + '-01' : prevKey + '-01');
   const monthTotal = (slices: string[], month: string) => (data.giftsAvailable ? sliceOf(data, slices, month).reduce((s, x) => s + x.total, 0) : null);
   const overall = weeklyHighlight({
     key: 'year',
     name: 'All of Favor',
     asOf: data.asOf,
     rows: rowsOf(SLICES.map(([s]) => s)),
+    rowsFrom: fromOf(SLICES.map(([s]) => s)),
     pace: p.year || null,
     monthSoFar: monthTotal(SLICES.map(([s]) => s), thisKey),
     lastMonthTotal: monthTotal(SLICES.map(([s]) => s), prevKey),
@@ -285,10 +311,12 @@ export function highlights(data: ReportData, allowed: string[] | 'all'): Highlig
       name: t.name,
       asOf: data.asOf,
       rows: rowsOf(t.slices),
+      rowsFrom: fromOf(t.slices),
       pace: p[t.key] || null,
       monthSoFar: t.key === 'grants' ? null : monthTotal(t.slices, thisKey),
       lastMonthTotal: t.key === 'grants' ? null : monthTotal(t.slices, prevKey),
       extra: t.key === 'grants' ? grantsLines(data) : [],
+      grants: t.key === 'grants' ? grantsCard(data) : null,
       noun: t.key === 'grants' ? 'grant payment' : 'gift',
     }),
   );

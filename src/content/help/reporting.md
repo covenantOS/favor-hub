@@ -24,7 +24,7 @@ The card also shows where the line sits today, the goal, what is left and the am
 
 ## The week in plain words
 
-Highlights has a short summary for all of Favor and one for each team whose tab you can open: gifts in the last 7 days against the 7 days before, the largest gift, the month so far against last month, and what is left to the goal. Grants adds awards. **Copy as text** puts the whole week on the clipboard for an email or a Chat message.
+Highlights has a card for all of Favor and one for each team whose tab you can open. Each card shows the gifts in the last 7 days with how many there were, the change from the 7 days before (green up, red down), bars for the last 8 weeks, the annual goal with what is left, the amount needed each week and the weeks left, and a pill that says On pace, Close or Behind. Under them are the largest gift (press the name to open the partner) and the month so far against last month. Grants adds what has been received against what was awarded, what is still to come and the open awards. Point at a figure for its detail. **Copy as text** puts the whole week on the clipboard for an email or a Chat message.
 
 ## My dashboard
 

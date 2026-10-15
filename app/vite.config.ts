@@ -37,7 +37,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 400,
     cssMinify: 'lightningcss',
     rollupOptions: {
+      // The app, and the islands: React pieces that classic pages load by a fixed address (/_app/islands/<name>.js).
+      input: { index: fileURLToPath(new URL('./index.html', import.meta.url)), 'hl-cards': fileURLToPath(new URL('./src/islands/highlights.tsx', import.meta.url)) },
       output: {
+        entryFileNames: (chunk) => (chunk.name === 'hl-cards' ? 'islands/[name].js' : 'assets/[name]-[hash].js'),
         // Vendor code in its own long-lived files, so a release of our own code does not refetch React.
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;

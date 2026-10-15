@@ -321,3 +321,33 @@ describe('snapshot', () => {
     assert.match(d.change.tie.note, /The \$51\.75 difference is a gift entered in Blackbaud after the dashboard last rebuilt/);
   });
 });
+
+describe('weekly highlight cards', () => {
+  const rows = [
+    { date: '2026-10-14', partner: 'Ada Lovelace', cid: '101', amount: 500 },
+    { date: '2026-10-09', partner: 'Grace Hopper', cid: '102', amount: 1200 },
+    { date: '2026-10-03', partner: 'Alan Turing', cid: '103', amount: 300 },
+    { date: '2026-09-20', partner: 'Ada Lovelace', cid: '101', amount: 50 },
+    { date: '2026-08-30', partner: 'Old Gift', cid: '104', amount: 75 },
+  ];
+  const pace = M.pace({ key: 'year', name: 'Raised this year', raised: 7000, goal: 10000, asOf: '2026-10-14' });
+  const h = M.weeklyHighlight({ key: 'year', name: 'All of Favor', asOf: '2026-10-14', rows, rowsFrom: '2026-08-01', pace, monthSoFar: 2000, lastMonthTotal: 3500 });
+  it('carries the same figures the sentences say', () => {
+    assert.equal(h.amount, 1700);
+    assert.equal(h.gifts, 2);
+    assert.deepEqual(h.largest, { partner: 'Grace Hopper', cid: '102', amount: 1200, date: '2026-10-09' });
+    assert.ok(h.lines.some((l) => l.includes('$1,200 from Grace Hopper on Oct 9')));
+    assert.deepEqual(h.month, { key: '2026-10', soFar: 2000, lastKey: '2026-09', last: 3500 });
+    assert.equal(h.goal.toGo, pace.toGo);
+    assert.ok(h.lines.some((l) => l.includes(`${M.money0(pace.toGo)} is left`)));
+  });
+  it('lists eight weeks ending on the card week, oldest first, and leaves out weeks the rows do not reach', () => {
+    assert.equal(h.weeks.length, 8);
+    assert.equal(h.weeks[7].to, '2026-10-14');
+    assert.equal(h.weeks[7].amount, 1700);
+    assert.equal(h.weeks[0].from, '2026-08-20');
+    const short = M.weeklyHighlight({ key: 'x', name: 'X', asOf: '2026-10-14', rows, rowsFrom: '2026-09-01', pace: null });
+    assert.ok(short.weeks.every((w) => w.from >= '2026-09-01'));
+    assert.equal(short.weeks.length, 6);
+  });
+});

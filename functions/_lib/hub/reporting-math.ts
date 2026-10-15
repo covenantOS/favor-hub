@@ -195,6 +195,8 @@ export function paceMethod(p: Pace): string {
 export interface GiftRow {
   date: string;
   partner: string;
+  /** The partner's record id (the first partner a soft-credited gift names), for the partner link. */
+  cid?: string | null;
   /** What counts toward the number. */
   amount: number;
   gift_amount?: number;
@@ -330,6 +332,28 @@ export interface HighlightInput {
   extra?: string[];
   /** What a row is called: "gift" by default, "grant payment" for Grants. */
   noun?: string;
+  /** The first day the rows cover. Weeks of the 8-week line that start before it are left out (no data, not zero). */
+  rowsFrom?: string;
+  /** Grants only: awards against payments, for the card's mini bar. */
+  grants?: HighlightGrants | null;
+}
+
+export interface HighlightWeek {
+  from: string;
+  to: string;
+  gifts: number;
+  amount: number;
+}
+
+export interface HighlightGrants {
+  awarded: number;
+  count: number;
+  received: number;
+  toCome: number;
+  open: number;
+  thisMonth: { awards: number; awarded: number } | null;
+  lastMonth: { awards: number; awarded: number } | null;
+  enteredThrough: string | null;
 }
 
 export interface Highlight {
@@ -344,6 +368,14 @@ export interface Highlight {
   headline: string;
   lines: string[];
   status: PaceStatus | null;
+  /** The figures the card draws, the same ones the lines say. */
+  largest: { partner: string; cid: string | null; amount: number; date: string } | null;
+  month: { key: string; soFar: number; lastKey: string; last: number } | null;
+  goal: { goal: number; raised: number; pctGoal: number; toGo: number; perWeekNeeded: number; weeksLeft: number } | null;
+  /** The last 8 weeks, oldest first, each ending on the same weekday as the week shown. */
+  weeks: HighlightWeek[];
+  noun: string;
+  grants: HighlightGrants | null;
 }
 
 export function weeklyHighlight(i: HighlightInput): Highlight {
@@ -384,5 +416,23 @@ export function weeklyHighlight(i: HighlightInput): Highlight {
     const p = i.pace;
     lines.push(`${money0(p.toGo)} is left to the ${money0(p.goal)} goal, ${money0(p.perWeekNeeded)} a week for ${Math.round(p.weeksLeft)} weeks. ${STATUS_LABEL[p.status]}.`);
   }
-  return { key: i.key, name: i.name, from, to, gifts: now.length, amount, prevGifts: before.length, prevAmount, headline, lines, status: i.pace ? i.pace.status : null };
+  const bigRow = [...now].sort((a, b) => b.amount - a.amount || (a.date < b.date ? 1 : -1))[0];
+  const weeks: HighlightWeek[] = [];
+  for (let k = 7; k >= 0; k--) {
+    const wTo = addDays(to, -7 * k);
+    const wFrom = addDays(wTo, -6);
+    if (i.rowsFrom && wFrom < i.rowsFrom) continue;
+    const w = within(i.rows, wFrom, wTo);
+    weeks.push({ from: wFrom, to: wTo, gifts: w.length, amount: sum(w) });
+  }
+  const p = i.pace && i.pace.goal > 0 ? i.pace : null;
+  return {
+    key: i.key, name: i.name, from, to, gifts: now.length, amount, prevGifts: before.length, prevAmount, headline, lines, status: i.pace ? i.pace.status : null,
+    largest: bigRow ? { partner: bigRow.partner, cid: bigRow.cid || null, amount: bigRow.amount, date: bigRow.date } : null,
+    month: i.monthSoFar != null && i.lastMonthTotal != null ? { key: monthKey(to), soFar: i.monthSoFar, lastKey: prevMonthKey(to), last: i.lastMonthTotal } : null,
+    goal: p ? { goal: p.goal, raised: p.raised, pctGoal: p.pctGoal, toGo: p.toGo, perWeekNeeded: p.perWeekNeeded, weeksLeft: p.weeksLeft } : null,
+    weeks,
+    noun,
+    grants: i.grants || null,
+  };
 }
