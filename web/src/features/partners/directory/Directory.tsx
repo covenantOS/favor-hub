@@ -15,6 +15,22 @@ import {
   type DirAnswer, type DirRow, type DirSearch, type Menus, type SavedView,
 } from '../api';
 import { QueuePane, RecentPane, useMergeCount } from './Panes';
+import { SheetMark } from '../work/lists/icons';
+import { useMounted } from '../record/lib';
+
+// The toolbar icons partners-dir.js draws (its I.views, I.filter and I.down), same paths.
+const BAR_ICON: Record<'views' | 'filter' | 'down', string> = {
+  views: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  filter: '<path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+  down: '<path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>',
+};
+function BarIc({ n }: { n: keyof typeof BAR_ICON }) {
+  return <svg className="h-i" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: BAR_ICON[n] }} />;
+}
+/** The filters behind More that are set (partners-dir.js moreCount). */
+function moreCount(s: DirSearch): number {
+  return [s.codesNot, s.solicit, s.solicitNot, s.firstFrom || s.firstTo, s.lastFrom || s.lastTo, s.noContactDays, s.major, s.recurring, s.openActions, s.deceased, s.inactive].filter(Boolean).length;
+}
 
 const KINDS = ['individual', 'household', 'organization', 'church', 'foundation'];
 const ARR = ['kinds', 'status', 'states', 'codes', 'codesNot', 'solicit', 'solicitNot', 'tags'] as const;
@@ -166,8 +182,14 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
     };
   }, [search]);
 
+  // The menus and the fundraiser id stream in after the server draws, so the first browser frame draws without them, as the server
+  // did; otherwise the options can differ between the two and React throws away the server copy (error 418).
+  const mounted = useMounted();
   const menus = useQuery(menusQuery);
-  const m: Partial<Menus> = menus.data || {};
+  const m: Partial<Menus> = (mounted && menus.data) || {};
+  // My partners shows only for someone who holds partners (the directory answer carries their fundraiser id), as on the classic page.
+  const fid = useQuery({ ...dirQuery(search, size), enabled: false }).data?.fid;
+  const showMine = mounted && !!fid;
   const exportCsv = async (ids?: string[]) => {
     const qs = dirParams(search, ids && ids.length ? { ids: ids.join(',') } : {});
     const res = await fetch('/api/partners/export?' + qs, { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } });
@@ -202,15 +224,18 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
           <KindSeg search={search} size={size} onPick={(k) => set({ kinds: k || undefined })} />
         </Suspense>
         <button type="button" className="h-btn h-btn--ghost h-btn--sm pd-phf" aria-expanded={fopen} onClick={() => setFopen(!fopen)}>
+          <BarIc n="filter" />
           Filters
         </button>
         <span className="pt-spacer" />
         <ViewsMenu search={search} go={go} say={say} />
         <ColumnsPart />
         <button type="button" className="h-btn h-btn--ghost h-btn--sm" onClick={() => void exportCsv()}>
+          <BarIc n="down" />
           Export
         </button>
         <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-sheets="partners">
+          <SheetMark />
           Sheets
         </button>
       </div>
@@ -220,7 +245,7 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
         </Suspense>
         <select className={'pt-sel' + (search.holder ? ' is-set' : '')} aria-label="Holder" value={search.holder || ''} onChange={(e) => set({ holder: e.target.value || undefined })}>
           <option value="">Any holder</option>
-          <option value="_mine">My partners</option>
+          {showMine ? <option value="_mine">My partners</option> : null}
           <option value="_none">No holder</option>
           {(m.holders || []).map((h) => (
             <option key={h.v} value={h.v}>
@@ -240,7 +265,8 @@ function AllPartners({ search, go }: { search: DirSearch; go: (s: DirSearch) => 
         {selectAdd('codes', 'Code', 'Any code', m.codes)}
         {selectAdd('tags', 'Tag', 'Any tag', (m.tags || []).map((t) => ({ v: t.tag, n: t.n })))}
         <button type="button" className={'h-btn h-btn--ghost h-btn--sm' + (fopen ? ' is-on' : '')} aria-expanded={fopen} onClick={() => setFopen(!fopen)}>
-          More
+          <BarIc n="filter" />
+          More{moreCount(search) ? ' ' + moreCount(search) : ''}
         </button>
         <span className="pt-spacer" />
         <DensitySwitch />
@@ -564,7 +590,10 @@ function ViewsMenu({ search, go, say }: { search: DirSearch; go: (s: DirSearch) 
   );
   return (
     <details className="pd-menu" open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className="h-btn h-btn--ghost h-btn--sm">{cur ? cur.name : 'Views'}</summary>
+      <summary className="h-btn h-btn--ghost h-btn--sm">
+        <BarIc n="views" />
+        {cur ? cur.name : 'Views'}
+      </summary>
       <div className="pd-menu__list">
         {views.isLoading ? <p className="pd-mute">Loading views</p> : null}
         {vs.some((v) => v.mine) ? <h5>My views</h5> : null}

@@ -311,7 +311,7 @@ export function Pager({ listKey, total, page, size, onPage, noun, sizes = true }
     <nav className="pt-pager" data-pt-pager={listKey} aria-label="Pages">
       <span className="pt-range" aria-live="polite">
         {total ? `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')}` : 'None'}
-        {noun ? ' ' + noun : ''}
+        {total && noun ? ' ' + noun : ''}
       </span>
       {last > 1 ? (
         <span className="pt-nums">

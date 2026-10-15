@@ -257,7 +257,8 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
       closeCompose: () => setVs((v) => ({ ...v, compose: null, prefill: null })),
       setTab: (tab) => {
         setVs((v) => (v.tab === tab ? v : { ...v, tab, compose: null }));
-        setVisited((a) => (a.includes(tab) ? a : [...a, tab]));
+        // Overview draws on its own; only the other tabs keep a pane, or a pane for it asks /api/work/partners/:id/overview (404).
+        if (tab !== 'overview') setVisited((a) => (a.includes(tab) ? a : [...a, tab]));
       },
       reload: () => void refresh(true),
       thank: (el, g) => {
