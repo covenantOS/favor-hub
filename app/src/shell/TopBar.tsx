@@ -84,7 +84,7 @@ export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', ac
           </label>
           <ul className="pv-find__list" role="listbox" hidden />
         </div>
-        <button type="button" className="h-top__search" data-cmdk-open aria-label="Search FavorOS">
+        <button type="button" className="h-top__search" data-cmdk-open aria-label="Search FavorOS" title="Search FavorOS (Ctrl K)">
           <Icon name="search" />
         </button>
         <span className="h-top__actions" id="h-actions" dangerouslySetInnerHTML={{ __html: actions }} />

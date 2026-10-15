@@ -7,7 +7,7 @@ for: [admin, leader, marketing, rdd, pc, grants]
 related: [reports, kpi-definitions, lists-and-downloads]
 tool: /lists/
 toolLabel: Open Lists
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
 Lists is under Reporting. Choose **Partners** or **Gifts**, then set criteria from the menus on the left. The count at the top changes as you go.
@@ -31,6 +31,10 @@ A list that is only a status shows a line comparing its count with the KPI dashb
 Standard reports, beside the builder, runs nine one-click reports with a period picker: giving by fund, appeal and month; credit by fundraiser with one-time and recurring; portfolio by holder; new and lost partners; LYBUNT and lapsed by how they came in; first-time givers; retention; actions by person and type; and the grants pipeline. A report that has a matching KPI dashboard figure shows whether the two agree. Press a row to open the partners or gifts behind it in Lists. Reports cover every partner, so they open for admins and for people with access to all partners.
 
 **Mail house columns** in the Columns menu sets addressee, salutation, address, city, state and ZIP and leaves out Do Not Mail partners and partners with no valid address. The page shows how many it left out. Email and phone columns appear for admins, Support and Partner Care.
+
+## Grants pipeline
+
+**Grants pipeline** is one of the standard reports, under Team. It counts the active opportunities in Blackbaud by stage, with the number of opportunities, the amount asked and the amount funded in each stage, and tiles for the total opportunities and the total funded. An opportunity with no stage shows as **No stage**. For the grant actions themselves (requests, letters of inquiry, reports and funder conversations), use the **Grants** tab in Partners. For awarded against received, open **Highlights**, where the Grants card shows what has been received, what is still to come and the open awards.
 
 ## Credit and assignments
 

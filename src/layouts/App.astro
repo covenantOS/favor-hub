@@ -458,7 +458,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
               {TOOL_LINKS.map((t) => <a role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer"><Fragment set:html={icon('ext')} />{t.label}</a>)}
               <button type="button" role="menuitem" data-lite-open><Fragment set:html={icon('signal')} />Data saver<Rel k="lite" b={badgeFor('lite')} /></button>
-              <button type="button" role="menuitem" class="h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>
+              <button type="button" role="menuitem" class="h-sound" data-sound-switch data-hs-open aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>
               <button type="button" role="menuitem" id="h-out"><Fragment set:html={icon('out')} />Sign out</button>
             </div>
             <script is:inline>

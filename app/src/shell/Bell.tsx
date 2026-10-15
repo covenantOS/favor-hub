@@ -233,6 +233,17 @@ export function Bell({ access }: { access: A }) {
               <button type="button" aria-expanded={quiet} onClick={() => setQuiet((v) => !v)}>
                 Quiet hours
               </button>
+              {(window as unknown as { hubSound?: { open: () => void } }).hubSound && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    (window as unknown as { hubSound: { open: () => void } }).hubSound.open();
+                  }}
+                >
+                  Sounds
+                </button>
+              )}
               {(window as unknown as { FavorIx?: { meetSettings?: () => void } }).FavorIx?.meetSettings && (
                 <button
                   type="button"
