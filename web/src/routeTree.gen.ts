@@ -38,8 +38,15 @@ import { Route as StatementsIndexRouteImport } from './routes/statements/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
 import { Route as WelcomeIndexRouteImport } from './routes/welcome/index'
 import { Route as WorkIndexRouteImport } from './routes/work/index'
+import { Route as AdminAppealCodesIndexRouteImport } from './routes/admin/appeal-codes/index'
+import { Route as AdminExpensesIndexRouteImport } from './routes/admin/expenses/index'
+import { Route as AdminGiftsIndexRouteImport } from './routes/admin/gifts/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
+import { Route as AdminProjectsIndexRouteImport } from './routes/admin/projects/index'
+import { Route as AdminReceiptsIndexRouteImport } from './routes/admin/receipts/index'
 import { Route as AdminReportsIndexRouteImport } from './routes/admin/reports/index'
+import { Route as AdminStatementsIndexRouteImport } from './routes/admin/statements/index'
+import { Route as AdminWorkCenterIndexRouteImport } from './routes/admin/work-center/index'
 import { Route as EvaluationsAdminIndexRouteImport } from './routes/evaluations/admin/index'
 import { Route as ExpensesNewIndexRouteImport } from './routes/expenses/new/index'
 import { Route as ExpensesReviewIndexRouteImport } from './routes/expenses/review/index'
@@ -205,14 +212,49 @@ const WorkIndexRoute = WorkIndexRouteImport.update({
   path: '/work/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAppealCodesIndexRoute = AdminAppealCodesIndexRouteImport.update({
+  id: '/admin/appeal-codes/',
+  path: '/admin/appeal-codes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminExpensesIndexRoute = AdminExpensesIndexRouteImport.update({
+  id: '/admin/expenses/',
+  path: '/admin/expenses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminGiftsIndexRoute = AdminGiftsIndexRouteImport.update({
+  id: '/admin/gifts/',
+  path: '/admin/gifts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminGoalsIndexRoute = AdminGoalsIndexRouteImport.update({
   id: '/admin/goals/',
   path: '/admin/goals/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminProjectsIndexRoute = AdminProjectsIndexRouteImport.update({
+  id: '/admin/projects/',
+  path: '/admin/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReceiptsIndexRoute = AdminReceiptsIndexRouteImport.update({
+  id: '/admin/receipts/',
+  path: '/admin/receipts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminReportsIndexRoute = AdminReportsIndexRouteImport.update({
   id: '/admin/reports/',
   path: '/admin/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminStatementsIndexRoute = AdminStatementsIndexRouteImport.update({
+  id: '/admin/statements/',
+  path: '/admin/statements/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminWorkCenterIndexRoute = AdminWorkCenterIndexRouteImport.update({
+  id: '/admin/work-center/',
+  path: '/admin/work-center/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EvaluationsAdminIndexRoute = EvaluationsAdminIndexRouteImport.update({
@@ -342,8 +384,15 @@ export interface FileRoutesByFullPath {
   '/welcome/': typeof WelcomeIndexRoute
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
+  '/admin/appeal-codes/': typeof AdminAppealCodesIndexRoute
+  '/admin/expenses/': typeof AdminExpensesIndexRoute
+  '/admin/gifts/': typeof AdminGiftsIndexRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
+  '/admin/projects/': typeof AdminProjectsIndexRoute
+  '/admin/receipts/': typeof AdminReceiptsIndexRoute
   '/admin/reports/': typeof AdminReportsIndexRoute
+  '/admin/statements/': typeof AdminStatementsIndexRoute
+  '/admin/work-center/': typeof AdminWorkCenterIndexRoute
   '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
   '/expenses/new/': typeof ExpensesNewIndexRoute
   '/expenses/review/': typeof ExpensesReviewIndexRoute
@@ -394,8 +443,15 @@ export interface FileRoutesByTo {
   '/welcome': typeof WelcomeIndexRoute
   '/work': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
+  '/admin/appeal-codes': typeof AdminAppealCodesIndexRoute
+  '/admin/expenses': typeof AdminExpensesIndexRoute
+  '/admin/gifts': typeof AdminGiftsIndexRoute
   '/admin/goals': typeof AdminGoalsIndexRoute
+  '/admin/projects': typeof AdminProjectsIndexRoute
+  '/admin/receipts': typeof AdminReceiptsIndexRoute
   '/admin/reports': typeof AdminReportsIndexRoute
+  '/admin/statements': typeof AdminStatementsIndexRoute
+  '/admin/work-center': typeof AdminWorkCenterIndexRoute
   '/evaluations/admin': typeof EvaluationsAdminIndexRoute
   '/expenses/new': typeof ExpensesNewIndexRoute
   '/expenses/review': typeof ExpensesReviewIndexRoute
@@ -447,8 +503,15 @@ export interface FileRoutesById {
   '/welcome/': typeof WelcomeIndexRoute
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
+  '/admin/appeal-codes/': typeof AdminAppealCodesIndexRoute
+  '/admin/expenses/': typeof AdminExpensesIndexRoute
+  '/admin/gifts/': typeof AdminGiftsIndexRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
+  '/admin/projects/': typeof AdminProjectsIndexRoute
+  '/admin/receipts/': typeof AdminReceiptsIndexRoute
   '/admin/reports/': typeof AdminReportsIndexRoute
+  '/admin/statements/': typeof AdminStatementsIndexRoute
+  '/admin/work-center/': typeof AdminWorkCenterIndexRoute
   '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
   '/expenses/new/': typeof ExpensesNewIndexRoute
   '/expenses/review/': typeof ExpensesReviewIndexRoute
@@ -501,8 +564,15 @@ export interface FileRouteTypes {
     | '/welcome/'
     | '/work/'
     | '/work/partner/$id'
+    | '/admin/appeal-codes/'
+    | '/admin/expenses/'
+    | '/admin/gifts/'
     | '/admin/goals/'
+    | '/admin/projects/'
+    | '/admin/receipts/'
     | '/admin/reports/'
+    | '/admin/statements/'
+    | '/admin/work-center/'
     | '/evaluations/admin/'
     | '/expenses/new/'
     | '/expenses/review/'
@@ -553,8 +623,15 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/work'
     | '/work/partner/$id'
+    | '/admin/appeal-codes'
+    | '/admin/expenses'
+    | '/admin/gifts'
     | '/admin/goals'
+    | '/admin/projects'
+    | '/admin/receipts'
     | '/admin/reports'
+    | '/admin/statements'
+    | '/admin/work-center'
     | '/evaluations/admin'
     | '/expenses/new'
     | '/expenses/review'
@@ -605,8 +682,15 @@ export interface FileRouteTypes {
     | '/welcome/'
     | '/work/'
     | '/work/partner/$id'
+    | '/admin/appeal-codes/'
+    | '/admin/expenses/'
+    | '/admin/gifts/'
     | '/admin/goals/'
+    | '/admin/projects/'
+    | '/admin/receipts/'
     | '/admin/reports/'
+    | '/admin/statements/'
+    | '/admin/work-center/'
     | '/evaluations/admin/'
     | '/expenses/new/'
     | '/expenses/review/'
@@ -658,8 +742,15 @@ export interface RootRouteChildren {
   WelcomeIndexRoute: typeof WelcomeIndexRoute
   WorkIndexRoute: typeof WorkIndexRoute
   WorkPartnerIdRoute: typeof WorkPartnerIdRoute
+  AdminAppealCodesIndexRoute: typeof AdminAppealCodesIndexRoute
+  AdminExpensesIndexRoute: typeof AdminExpensesIndexRoute
+  AdminGiftsIndexRoute: typeof AdminGiftsIndexRoute
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
+  AdminProjectsIndexRoute: typeof AdminProjectsIndexRoute
+  AdminReceiptsIndexRoute: typeof AdminReceiptsIndexRoute
   AdminReportsIndexRoute: typeof AdminReportsIndexRoute
+  AdminStatementsIndexRoute: typeof AdminStatementsIndexRoute
+  AdminWorkCenterIndexRoute: typeof AdminWorkCenterIndexRoute
   EvaluationsAdminIndexRoute: typeof EvaluationsAdminIndexRoute
   ExpensesNewIndexRoute: typeof ExpensesNewIndexRoute
   ExpensesReviewIndexRoute: typeof ExpensesReviewIndexRoute
@@ -885,6 +976,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/appeal-codes/': {
+      id: '/admin/appeal-codes/'
+      path: '/admin/appeal-codes'
+      fullPath: '/admin/appeal-codes/'
+      preLoaderRoute: typeof AdminAppealCodesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/expenses/': {
+      id: '/admin/expenses/'
+      path: '/admin/expenses'
+      fullPath: '/admin/expenses/'
+      preLoaderRoute: typeof AdminExpensesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/gifts/': {
+      id: '/admin/gifts/'
+      path: '/admin/gifts'
+      fullPath: '/admin/gifts/'
+      preLoaderRoute: typeof AdminGiftsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/goals/': {
       id: '/admin/goals/'
       path: '/admin/goals'
@@ -892,11 +1004,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminGoalsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/projects/': {
+      id: '/admin/projects/'
+      path: '/admin/projects'
+      fullPath: '/admin/projects/'
+      preLoaderRoute: typeof AdminProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/receipts/': {
+      id: '/admin/receipts/'
+      path: '/admin/receipts'
+      fullPath: '/admin/receipts/'
+      preLoaderRoute: typeof AdminReceiptsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/reports/': {
       id: '/admin/reports/'
       path: '/admin/reports'
       fullPath: '/admin/reports/'
       preLoaderRoute: typeof AdminReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/statements/': {
+      id: '/admin/statements/'
+      path: '/admin/statements'
+      fullPath: '/admin/statements/'
+      preLoaderRoute: typeof AdminStatementsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/work-center/': {
+      id: '/admin/work-center/'
+      path: '/admin/work-center'
+      fullPath: '/admin/work-center/'
+      preLoaderRoute: typeof AdminWorkCenterIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/evaluations/admin/': {
@@ -1066,8 +1206,15 @@ const rootRouteChildren: RootRouteChildren = {
   WelcomeIndexRoute: WelcomeIndexRoute,
   WorkIndexRoute: WorkIndexRoute,
   WorkPartnerIdRoute: WorkPartnerIdRoute,
+  AdminAppealCodesIndexRoute: AdminAppealCodesIndexRoute,
+  AdminExpensesIndexRoute: AdminExpensesIndexRoute,
+  AdminGiftsIndexRoute: AdminGiftsIndexRoute,
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
+  AdminProjectsIndexRoute: AdminProjectsIndexRoute,
+  AdminReceiptsIndexRoute: AdminReceiptsIndexRoute,
   AdminReportsIndexRoute: AdminReportsIndexRoute,
+  AdminStatementsIndexRoute: AdminStatementsIndexRoute,
+  AdminWorkCenterIndexRoute: AdminWorkCenterIndexRoute,
   EvaluationsAdminIndexRoute: EvaluationsAdminIndexRoute,
   ExpensesNewIndexRoute: ExpensesNewIndexRoute,
   ExpensesReviewIndexRoute: ExpensesReviewIndexRoute,
