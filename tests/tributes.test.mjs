@@ -18,6 +18,9 @@ describe('parseTribute', () => {
     ['In Honor of Jo Example of your staff.', 'honor', 'Jo Example'],
     ['In honor of Greg and Pam Example', 'honor', 'Greg and Pam Example'],
     ['Tribute to Chris Example', 'honor', 'Chris Example'],
+    ['Honor of Jo Example ', 'honor', 'Jo Example'],
+    ['Honor Jo Example ', 'honor', 'Jo Example'],
+    ['Memory of his belated mother Ann Example ', 'memorial', 'his belated mother Ann Example'],
     ['I wanted to support you to honor Gabe Example and his wonderful wife, Terese.', 'honor', 'Gabe Example and his wonderful wife, Terese'],
     ['Letter states "...check is in honor of Dan Example\'s birthday, which will be on April 27. Please send an acknowledgment of this gift in his honor to his home address."', 'honor', 'Dan Example'],
     ['Online gift via favorintl.org | Designation: Education | Donor note: To honor Jo Example in his continuing work in Jesus’ name.', 'honor', 'Jo Example'],
@@ -30,6 +33,9 @@ describe('parseTribute', () => {
     assert.equal(parseTribute('Thank You Father God for Your Glory to honor The Name of Yeshua'), null);
     assert.equal(parseTribute('HARDREJECT: Your bank requested that we do not honor this card'), null);
     assert.equal(parseTribute(''), null);
+    assert.equal(parseTribute('We honor and bless you all so much!'), null);
+    assert.equal(parseTribute('Jesus please bless my memory. Jesus please bless me'), null);
+    assert.equal(parseTribute('Jesus thank You for the honor of being able to give back to You'), null);
   });
 });
 

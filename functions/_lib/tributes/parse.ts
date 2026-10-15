@@ -26,6 +26,9 @@ export function parseTribute(comment: string | null | undefined): ParsedTribute 
     [/\bin honou?r of\s+(.+)/i, 'honor'],
     [/\btribute to\s+(.+)/i, 'honor'],
     [/\bto honou?r\s+(?!the name\b)(.+)/i, 'honor'],
+    [/\b[Tt]he [Hh]onou?r of\s+([A-Z].+)/, 'honor'],
+    [/^[Hh]onou?r(?: of)?\s+([A-Z][a-z]+ .+)/, 'honor'],
+    [/^memory of\s+(.+)/i, 'memorial'],
   ];
   for (const [re, kind] of rules) {
     const m = body.match(re);
