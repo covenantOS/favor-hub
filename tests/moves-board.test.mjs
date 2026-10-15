@@ -115,11 +115,13 @@ describe('relationships', () => {
 
 describe('test accounts', () => {
   const as = (email) => ({ email });
-  it('lets a test account change only the two test partners', () => {
-    guardTester(as('tester@favorintl.org'), '18698');
-    guardTester(as('tester2@favorintl.org'), '16269', '18698');
-    assert.throws(() => guardTester(as('tester@favorintl.org'), '27202'), /test partners/);
-    assert.throws(() => guardTester(as('tester@favorintl.org'), '18698', '12345'), /test partners/);
+  it('lets a test account change only the ids in TEST_PARTNER_IDS', async () => {
+    const { TEST_PARTNER_IDS } = await import('../functions/_lib/testuser.ts');
+    const [t1, t2] = TEST_PARTNER_IDS;
+    guardTester(as('tester@favorintl.org'), t1);
+    if (t2) guardTester(as('tester2@favorintl.org'), t2, t1);
+    assert.throws(() => guardTester(as('tester@favorintl.org'), '999999999'));
+    assert.throws(() => guardTester(as('tester@favorintl.org'), t1, '999999999'));
   });
   it('leaves real staff alone', () => {
     guardTester(as('someone@favorintl.org'), '27202');

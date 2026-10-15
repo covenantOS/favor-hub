@@ -8,7 +8,7 @@ import { loadAsks, mayAsks, type AskRow } from '../work/asks';
 import { todayEt, type Ctx } from '../work/service';
 import { listStaff } from '../work/db';
 import { addReminders, dueFor, finishReminder } from '../work/remind';
-import { isTester } from '../testuser';
+import { isTester, TEST_PARTNER_IDS, TEST_PARTNER_REFUSAL } from '../testuser';
 import { partnerGiving, type MirrorQ } from '../gifts/partner-giving';
 import { compose, inScope, keyIndex, matches, sorter, tally, POOL, SORTS, type BoardRow, type CardRow, type Household, type Sort, type Stage } from './board';
 
@@ -204,10 +204,8 @@ export async function cardDetail(ctx: Ctx, cid: string) {
 
 /* ------------------------------------------------------------------ writes */
 
-/** The only partners a test account may change. Every other record is real. */
-export const TEST_PARTNERS = ['18698', '16269'];
 export function guardTester(ctx: Ctx, ...cids: string[]): void {
-  if (isTester(ctx.email) && cids.some((c) => !TEST_PARTNERS.includes(c))) throw new HttpError(403, 'test_only', 'The FavorOS test user may change only the two test partners, National Christian Foundation and Lowell Denton.');
+  if (isTester(ctx.email) && cids.some((c) => !TEST_PARTNER_IDS.includes(c))) throw new HttpError(403, 'test_only', TEST_PARTNER_REFUSAL);
 }
 
 const clip = (v: unknown, n: number) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
