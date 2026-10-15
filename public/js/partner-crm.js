@@ -57,6 +57,7 @@ function mount(el, c) {
     try {
       if (c.tab === 'connections') S.data = await xOf(id);
       else {
+        if (c.tab === 'gifts') xOf(id).then((x) => { S.x = x; if (S.data) draw(); });
         const q = new URLSearchParams({ page: S.page, size: S.size });
         if (c.tab === 'gifts') { q.set('sort', S.sort); q.set('dir', S.dir); }
         if (c.tab === 'actions' && S.filter) q.set('filter', S.filter);
@@ -72,6 +73,23 @@ function mount(el, c) {
     el.innerHTML = c.tab === 'gifts' ? gifts() : c.tab === 'actions' ? actions() : connections();
   }
   const pager = () => (window.PT ? window.PT.pager(key, { total: S.data.total, page: S.page, size: S.size }) : '');
+  function recurringHTML() {
+    const r = (S.x && S.x.recurring) || [];
+    if (!r.length) return '';
+    const freq = (f) => ({ MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', WEEKLY: 'Weekly', ANNUALLY: 'Yearly', SEMIANNUALLY: 'Twice a year', BIWEEKLY: 'Every two weeks' }[String(f).toUpperCase()] || f);
+    return `<section class="pc-sec pc-recur"><h3>Recurring gifts</h3><table class="pt-table"><thead><tr><th>Status</th><th class="is-num">Amount</th><th>How often</th><th class="is-num">A year</th><th>Since</th><th>Next charge</th><th>Set up by</th></tr></thead><tbody>${r.map((x) => {
+      const missed = x.status === 'Active' && x.next && x.next < TODAY;
+      return `<tr><td><span class="pt-badge${x.status === 'Active' ? ' pt-badge--good' : x.status === 'Held' ? ' pt-badge--gold' : ''}">${esc(x.status)}</span>${missed ? ' <span class="pt-badge pt-badge--warn" title="Active, and the next charge date has passed">Missed a charge</span>' : ''}</td><td class="is-num">${esc(money(x.amount))}</td><td>${esc(freq(x.frequency))}</td><td class="is-num">${x.annual ? esc(money(x.annual)) : ''}</td><td>${esc(fd(x.start))}</td><td>${x.status === 'Active' ? esc(fd(x.next)) : x.statusDate ? esc(x.status + ' ' + fd(x.statusDate)) : ''}</td><td>${esc(x.origin)}</td></tr>`;
+    }).join('')}</tbody></table></section>`;
+  }
+  function askHTML() {
+    const r = (S.x && S.x.ratings) || [];
+    const pick = (cat) => r.find((x) => x.category === cat);
+    const lo = pick('Minimum ask amount - NXT'), hi = pick('Maximum ask amount - NXT'), type = pick('Recommended donor type - NXT'), wealth = pick('Overall wealth rating - NXT');
+    if (!lo && !hi && !type) return '';
+    const amt = (x) => (x && x.num != null ? money(x.num) : x ? x.value : '');
+    return `<p class="pc-ask"><b>Ask guidance from Blackbaud:</b> ${lo || hi ? 'ask ' + esc([amt(lo), amt(hi)].filter(Boolean).join(' to ')) : ''}${type ? (lo || hi ? ' · ' : '') + esc(type.value) : ''}${wealth ? ' · wealth rating ' + esc(wealth.value) : ''}${(lo || hi || type).date ? ' <span class="pt-sub">(' + esc(fd((lo || hi || type).date)) + ')</span>' : ''}</p>`;
+  }
   function gifts() {
     const d = S.data;
     const sort = { col: S.sort, dir: S.dir };
@@ -79,9 +97,9 @@ function mount(el, c) {
     const how = (g) => g.credit === 'soft' ? `<span class="pt-badge" title="The gift sits on ${esc(g.through.name)}; Favor's rule credits it here">Soft credit</span> <span class="pt-sub">through <a href="/work/partner/${esc(g.through.id)}" data-partner-id="${esc(g.through.id)}">${esc(g.through.name)}</a></span>`
       : g.credit === 'passed' ? `<span class="pt-badge pt-badge--gold" title="On this record, credited to the partners named">Passed on</span> <span class="pt-sub">for ${g.to.slice(0, 2).map((t) => `<a href="/work/partner/${esc(t.id)}" data-partner-id="${esc(t.id)}">${esc(t.name)}</a>`).join(', ')}${g.to.length > 2 ? ' and ' + (g.to.length - 2) + ' more' : ''}</span>`
         : '<span class="pt-badge pt-badge--good">Own</span>';
-    return `<div class="pc-bar"><b>${N(d.total)} ${d.total === 1 ? 'gift' : 'gifts'}</b><span class="pt-sub">On this record and soft credited to it. Own and soft credit gifts count toward the partner's giving; passed-on gifts count for the partners named.</span></div>
+    return `${askHTML()}${recurringHTML()}<div class="pc-bar"><b>${N(d.total)} ${d.total === 1 ? 'gift' : 'gifts'}</b><span class="pt-sub">On this record and soft credited to it. Own and soft credit gifts count toward the partner's giving; passed-on gifts count for the partners named.</span></div>
       <div class="pt-wrap"><table class="pt-table"><thead><tr><th>${th('date', 'Date')}</th><th class="is-num">${th('amount', 'Amount', 'is-num')}</th><th>${th('type', 'Type')}</th><th>Fund</th><th>Appeal</th><th>Counts as</th><th>Method</th><th>Thanked</th></tr></thead>
-      <tbody data-pt-list="${esc(key)}">${d.rows.length ? d.rows.map((g) => `<tr data-pt-row tabindex="-1" title="${esc(g.comment || '')}"><td>${esc(fd(g.date))}</td><td class="is-num">${esc(money(g.amount))}${g.amount !== g.giftAmount ? `<div class="pt-sub">of ${esc(money(g.giftAmount))}</div>` : ''}</td><td>${esc(g.type === 'RecurringGiftPayment' ? 'Recurring payment' : g.type)}</td><td class="is-clip">${esc(g.fund)}</td><td>${esc(g.appeal)}</td><td class="is-wrap">${how(g)}</td><td>${esc(g.method)}</td><td>${esc(g.ack || '')}</td></tr>`).join('') : '<tr><td colspan="8"><div class="pt-empty"><b>No gifts yet</b></div></td></tr>'}</tbody></table></div>${pager()}`;
+      <tbody data-pt-list="${esc(key)}">${d.rows.length ? d.rows.map((g) => `<tr data-pt-row tabindex="-1" title="${esc(g.comment || '')}"><td>${esc(fd(g.date))}</td><td class="is-num">${esc(money(g.amount))}${g.amount !== g.giftAmount ? `<div class="pt-sub">of ${esc(money(g.giftAmount))}</div>` : ''}</td><td>${esc(g.type === 'RecurringGiftPayment' ? 'Recurring payment' : g.type)}</td><td class="is-clip">${esc(g.fund)}</td><td>${esc(g.appeal)}</td><td class="is-wrap">${how(g)}</td><td>${esc(g.method)}</td><td>${esc({ Acknowledged: 'Yes', NotAcknowledged: 'Not yet', DoNotAcknowledge: 'Do not thank' }[g.ack] || g.ack || '')}</td></tr>`).join('') : '<tr><td colspan="8"><div class="pt-empty"><b>No gifts yet</b></div></td></tr>'}</tbody></table></div>${pager()}`;
   }
   function actions() {
     const d = S.data;
@@ -113,6 +131,7 @@ function mount(el, c) {
       ${sec('Communication preferences (solicit codes)', sol.length ? dl(sol) : '<p class="pt-mute pc-p">None. Favor may write, call and email.</p>')}
       ${sec('Constituent codes', codes.length ? dl(codes) : '<p class="pt-mute pc-p">None.</p>')}
       ${sec('Attributes', attrs.length ? dl(attrs) : '<p class="pt-mute pc-p">None.</p>')}
+      ${sec('Ratings', (d.ratings || []).length ? dl(d.ratings.map((x) => `<dt>${esc(x.category.replace(/ - NXT$/, ''))}</dt><dd>${esc(x.num != null && /amount|assets|income|worth|capacity value|investments/i.test(x.category) ? money(x.num) : x.value)}${x.date ? ' <span class="pt-sub">' + esc(fd(x.date)) + '</span>' : ''}</dd>`)) : '<p class="pt-mute pc-p">None in Blackbaud.</p>')}
       ${sec('Tags in FavorOS', `<div class="pc-tags">${headHTML(id, d).replace(/^[\s\S]*?<\/button>/, '')}</div><p class="pt-sub pc-p">Tags are FavorOS labels everyone can see and filter by in All partners. They do not go to Blackbaud.</p>`)}
     </div>`;
   }

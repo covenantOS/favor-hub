@@ -274,10 +274,21 @@ export async function actionPage(q: Q, id: string, page: number, size: number, f
   };
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Seasonal dates come as {"m":3,"d":1} (or an empty {}); a season reads "Mar 1 to Oct 31", and an empty one reads as none. */
+function seasonOf(ss: unknown, se: unknown): string {
+  const md = (v: unknown) => {
+    const o = parse<Row>(text(v), {});
+    return o && o.m ? `${MONTHS[Number(o.m) - 1] || ''} ${o.d || ''}`.trim() : '';
+  };
+  const a = md(ss), b = md(se);
+  return a && b ? `${a} to ${b}` : '';
+}
+
 /** Relationships, attributes, constituent codes and solicit codes with their dates, every address, email, phone and web address. */
 export async function extras(q: Q, id: string): Promise<Row> {
   checkId(id);
-  const [rels, attrs, codes, solicit, addrs, emails, phones, web] = await Promise.all([
+  const [rels, attrs, codes, solicit, addrs, emails, phones, web, recur, ratings] = await Promise.all([
     q<Row>(
       `SELECT relation_id AS rid, type, reciprocal_type AS rtype, COALESCE(name, trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))) AS name, is_spouse AS spouse,
               is_organization_contact AS orgc, is_primary_business AS biz, position, organization_contact_type AS ctype, substr(COALESCE(comment, ''), 1, 300) AS comment,
@@ -295,15 +306,33 @@ export async function extras(q: Q, id: string): Promise<Row> {
     q<Row>(`SELECT email_address AS v, json_extract(raw_json, '$.type') AS type, is_primary AS p, do_not_email AS dn FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 12`, [id]),
     q<Row>(`SELECT phone_number AS v, phone_type AS type, is_primary AS p, do_not_call AS dn FROM phones WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 12`, [id]),
     q<Row>(`SELECT online_presence_address AS v, online_presence_type AS type FROM online_presences WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 LIMIT 8`, [id]),
+    // Every recurring gift setup on the record (a copy of Blackbaud's schedules), newest first. A table not in the mirror yet reads as none.
+    q<Row>(
+      `SELECT gift_id AS gid, gift_status AS st, amount, frequency AS freq, substr(start_date, 1, 10) AS sd, substr(end_date, 1, 10) AS ed, substr(next_transaction_date, 1, 10) AS nd,
+              substr(status_date, 1, 10) AS sdate, annual_amount AS annual, origin FROM recurring_schedules WHERE constituent_record_id = ?1 ORDER BY (gift_status = 'Active') DESC, start_date DESC LIMIT 20`,
+      [id]
+    ).catch(() => [] as Row[]),
+    // Blackbaud's ratings and ask amounts, the newest of each kind.
+    q<Row>(
+      `SELECT category, source, value, value_num AS num, substr(rating_date, 1, 10) AS d FROM constituent_ratings WHERE constituent_record_id = ?1 AND COALESCE(inactive, 0) = 0 ORDER BY rating_date DESC LIMIT 60`,
+      [id]
+    ).catch(() => [] as Row[]),
   ]);
+  const seenCat = new Set<string>();
+  const rated = ratings.filter((r) => (seenCat.has(text(r.category)) ? false : (seenCat.add(text(r.category)), true)));
   return {
     relationships: rels.map((r) => ({ id: r.rid ? String(r.rid) : '', name: text(r.name), type: text(r.type), reciprocal: text(r.rtype), spouse: num(r.spouse) === 1, contact: num(r.orgc) === 1, business: num(r.biz) === 1, position: text(r.position), contactType: text(r.ctype), comment: text(r.comment), start: text(r.sd), end: text(r.ed) })),
     attributes: attrs.map((a) => ({ category: text(a.category), value: text(a.value), date: text(a.d), comment: text(a.comment) })),
     codes: codes.map((c) => ({ value: text(c.v), start: text(c.sd), end: text(c.ed), inactive: num(c.ina) === 1 })),
     solicit: solicit.map((c) => ({ value: text(c.v), start: text(c.sd), end: text(c.ed) })),
-    addresses: addrs.map((a) => ({ type: text(a.type), lines: text(a.lines).replace(/\r?\n/g, ', '), city: text(a.city), state: text(a.st), zip: text(a.zip), country: text(a.country), primary: num(a.p) === 1, doNotMail: num(a.dnm) === 1, seasonal: a.ss ? `${text(a.ss)} to ${text(a.se)}` : '' })),
+    addresses: addrs.map((a) => ({ type: text(a.type), lines: text(a.lines).replace(/\r?\n/g, ', '), city: text(a.city), state: text(a.st), zip: text(a.zip), country: text(a.country), primary: num(a.p) === 1, doNotMail: num(a.dnm) === 1, seasonal: seasonOf(a.ss, a.se) })),
     emails: emails.map((e) => ({ value: text(e.v), type: text(e.type), primary: num(e.p) === 1, doNotEmail: num(e.dn) === 1 })),
     phones: phones.map((e) => ({ value: text(e.v), type: text(e.type), primary: num(e.p) === 1, doNotCall: num(e.dn) === 1 })),
     web: web.map((w) => ({ value: text(w.v), type: text(w.type) })),
+    recurring: recur.map((r) => ({
+      id: text(r.gid), status: text(r.st), amount: num(r.amount), frequency: text(r.freq), start: text(r.sd), end: text(r.ed), next: text(r.nd), statusDate: text(r.sdate),
+      annual: num(r.annual), origin: text(r.origin) === 'API' ? 'Website' : text(r.origin) === 'SingleGiftEntry' ? 'Staff' : text(r.origin),
+    })),
+    ratings: rated.map((r) => ({ category: text(r.category), source: text(r.source), value: text(r.value), num: r.num == null ? null : num(r.num), date: text(r.d) })),
   };
 }

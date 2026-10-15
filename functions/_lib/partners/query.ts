@@ -215,9 +215,16 @@ export function listQuery(spec: DirSpec, ctx: Ctx, page: number, size: number, c
   const w = where(spec, ctx);
   const lim = Math.min(Math.max(1, Math.floor(size)), 200);
   const off = (Math.max(1, Math.floor(page)) - 1) * lim;
+  // A search sorted by name puts the records whose name holds the typed words first.
+  let order = orderBy(spec);
+  const params = w.params.slice();
+  if (spec.q && spec.sort === 'name') {
+    params.push(spec.q.toLowerCase());
+    order = order.replace('ORDER BY ', `ORDER BY (instr(lower(p.name), ?${params.length}) = 0) ASC, `);
+  }
   return {
-    sql: `SELECT ${selectCols(w.status, contacts)} FROM pd_partner p WHERE ${w.sql} ${orderBy(spec)} LIMIT ${lim} OFFSET ${off}`,
-    params: w.params,
+    sql: `SELECT ${selectCols(w.status, contacts)} FROM pd_partner p WHERE ${w.sql} ${order} LIMIT ${lim} OFFSET ${off}`,
+    params,
     countSql: `SELECT COUNT(*) AS n, COALESCE(SUM(p.lifetime), 0) AS lifetime FROM pd_partner p WHERE ${w.sql}`,
     countParams: w.params,
   };
@@ -258,7 +265,11 @@ WITH e AS (SELECT lower(email) AS k, 'email' AS why, id FROM pd_partner WHERE em
      allk AS (SELECT * FROM e UNION ALL SELECT * FROM ph WHERE length(k) >= 7 UNION ALL SELECT * FROM nz)
 SELECT a.id AS a, b.id AS b, group_concat(DISTINCT a.why) AS why
   FROM allk a JOIN allk b ON a.k = b.k AND a.why = b.why AND a.id < b.id
- WHERE NOT EXISTS (SELECT 1 FROM pd_partner x WHERE (x.id = a.id AND x.spouse_id = b.id))
+  JOIN pd_partner pa ON pa.id = a.id JOIN pd_partner pb ON pb.id = b.id
+ WHERE (pa.kind = 'individual') = (pb.kind = 'individual')
+   AND COALESCE(pa.spouse_id, '') <> pb.id
+   -- A shared phone or email between two people counts only when they share a last name (a household phone is not a duplicate).
+   AND (a.why = 'name and ZIP' OR pa.kind <> 'individual' OR substr(pa.sort_name, 1, instr(pa.sort_name || ',', ',')) = substr(pb.sort_name, 1, instr(pb.sort_name || ',', ',')))
    AND NOT EXISTS (SELECT 1 FROM pd_merge m WHERE m.state = 'not_same' AND ((m.keep_cid = a.id AND m.other_cid = b.id) OR (m.keep_cid = b.id AND m.other_cid = a.id)))
  GROUP BY a.id, b.id
  ORDER BY a.id

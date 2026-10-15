@@ -85,7 +85,7 @@ const COLS = [
   { k: 'open', l: 'Open actions', s: 'open', num: 1 }, { k: 'codes', l: 'Constituent codes' }, { k: 'solicit', l: 'Solicit codes' },
   { k: 'email', l: 'Email', contact: 1 }, { k: 'phone', l: 'Phone', contact: 1 }, { k: 'zip', l: 'ZIP' }, { k: 'lookup', l: 'Lookup ID', s: 'lookup' }, { k: 'added', l: 'Added', s: 'added' },
 ];
-const HIDE_DEFAULT = ['l12', 'last_year', 'largest', 'gifts', 'first_gift', 'solicit', 'email', 'phone', 'zip', 'lookup', 'added'];
+const HIDE_DEFAULT = ['codes', 'l12', 'last_year', 'largest', 'gifts', 'first_gift', 'solicit', 'email', 'phone', 'zip', 'lookup', 'added'];
 let HIDDEN = PT.hidden('pd', HIDE_DEFAULT);
 const shown = () => COLS.filter((c) => !HIDDEN.has(c.k) && (!c.contact || (S.data && S.data.contacts)));
 
@@ -171,25 +171,27 @@ function bar() {
   return `<div class="pt-bar pd-bar1">
       <label class="pt-search"><svg viewBox="0 0 24 24" aria-hidden="true">${I.search}</svg><span class="sr-only">Search partners</span><input id="pd-q" data-pt-search type="search" placeholder="Name, email, phone, lookup ID, street, city or ZIP" value="${esc(s.q)}" autocomplete="off" /></label>
       <div class="pt-seg" role="group" aria-label="Kind">${kseg}</div>
+      <button type="button" class="h-btn h-btn--ghost h-btn--sm pd-phf" data-more aria-expanded="${S.fopen}">${ic('filter')}Filters${chipsCount() ? ' ' + chipsCount() : ''}</button>
       <span class="pt-spacer"></span>
       ${viewsBtn}
       ${PT.colsHTML('pd', COLS.filter((c) => !c.contact || (S.data && S.data.contacts)), HIDE_DEFAULT)}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-export>${ic('down')}Export</button>
       ${window.FavorSheets ? window.FavorSheets.buttonHtml('partners', 'Sheets') : ''}
-      ${PT.densityHTML()}
     </div>
     <div class="pt-bar pd-bar2">
       <div class="pt-seg" role="group" aria-label="Status">${sseg}</div>
       <select class="pt-sel${s.holder ? ' is-set' : ''}" data-f="holder" aria-label="Holder">${holderOpts}</select>
       <select class="pt-sel${s.states.length ? ' is-set' : ''}" data-add="states" aria-label="State">${optList(m.states, '', s.states.length ? 'Add a state' : 'Any state')}</select>
-      <select class="pt-sel${s.band ? ' is-set' : ''}" data-f="band" aria-label="Lifetime giving"><option value="">Any lifetime giving</option>${Object.entries(m.bands || {}).map(([k, l]) => `<option value="${k}"${s.band === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
-      <select class="pt-sel${s.codes.length ? ' is-set' : ''}" data-add="codes" aria-label="Constituent code">${optList(m.codes, '', s.codes.length ? 'Add a code' : 'Any constituent code')}</select>
+      <select class="pt-sel${s.band ? ' is-set' : ''}" data-f="band" aria-label="Lifetime giving"><option value="">Any lifetime</option>${Object.entries(m.bands || {}).map(([k, l]) => `<option value="${k}"${s.band === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      <select class="pt-sel${s.codes.length ? ' is-set' : ''}" data-add="codes" aria-label="Constituent code">${optList(m.codes, '', s.codes.length ? 'Add a code' : 'Any code')}</select>
       <select class="pt-sel${s.tags.length ? ' is-set' : ''}" data-add="tags" aria-label="Tag">${optList((m.tags || []).map((t) => ({ v: t.tag, n: t.n })), '', 'Any tag')}</select>
-      <button type="button" class="h-btn h-btn--ghost h-btn--sm${S.fopen ? ' is-on' : ''}" data-more aria-expanded="${S.fopen}">${ic('filter')}More filters${moreCount() ? ' ' + moreCount() : ''}</button>
+      <button type="button" class="h-btn h-btn--ghost h-btn--sm${S.fopen ? ' is-on' : ''}" data-more aria-expanded="${S.fopen}">${ic('filter')}More${moreCount() ? ' ' + moreCount() : ''}</button>
+      <span class="pt-spacer"></span>${PT.densityHTML()}
     </div>
     ${S.fopen ? moreHTML() : ''}
     <div class="pt-chips" id="pd-chips">${chips()}</div>`;
 }
+function chipsCount() { const el = document.createElement('div'); el.innerHTML = chips(); return el.querySelectorAll('.pt-chip').length; }
 function moreCount() { const s = S.spec; return [s.codesNot.length, s.solicit.length, s.solicitNot.length, s.firstFrom || s.firstTo, s.lastFrom || s.lastTo, s.noContactDays, s.major, s.recurring, s.openActions, s.deceased !== 'exclude', s.inactive !== 'exclude'].filter(Boolean).length; }
 function moreHTML() {
   const s = S.spec, m = S.menus || {};
@@ -268,8 +270,7 @@ function footHTML() {
   const d = S.data; if (!d) return '';
   const built = d.builtAt ? new Date(d.builtAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   return `${PT.pager('pd', { total: d.total, page: S.page, size: S.size, label: d.total === 1 ? 'partner' : 'partners' })}
-    <div class="pd-foot"><span>${N(d.total)} ${d.total === 1 ? 'record matches' : 'records match'} of ${N(d.records)} in Blackbaud. Lifetime giving for these: ${esc(whole(d.lifetime))} (spouses share their household's figure).</span>
-      <span>${built ? 'Copy of Blackbaud from ' + esc(built) + '. ' : ''}Lifetime and status follow the partner rule the KPI dashboard and the Brain use: soft credits count for the partner named, spouses are one household.</span>
+    <div class="pd-foot"><span title="Lifetime and status follow the partner rule the KPI dashboard, Lists and the Brain use: a soft credit counts for the partner named, and spouses are one household, so both spouses show the household's figures.">${N(d.records)} records in Blackbaud${built ? ', copied ' + esc(built) : ''}.</span>
       <span class="pd-keys"><kbd>j</kbd><kbd>k</kbd> move <kbd>Enter</kbd> open <kbd>x</kbd> select <kbd>s</kbd> star <kbd>/</kbd> search <kbd>[</kbd><kbd>]</kbd> page</span></div>`;
 }
 
@@ -286,7 +287,7 @@ function paint() {
   const cursor = (document.activeElement && document.activeElement.closest && document.activeElement.closest('[data-pt-row]')) ? document.activeElement.closest('[data-pt-row]').dataset.id : '';
   const openViews = !!$('[data-pd-views][open]');
   if (S.error && !S.data) { root.innerHTML = `${paneTabs()}<section class="h-card pd-sheet"><div class="pt-empty"><b>The partners did not load</b>${esc(S.error)}<p><button type="button" class="h-btn h-btn--primary" data-reload>Try again</button></p></div></section>`; return; }
-  root.innerHTML = `${paneTabs()}<section class="h-card pd-sheet" aria-label="All partners">${bar()}${tableHTML()}${footHTML()}</section>`;
+  root.innerHTML = `${paneTabs()}<section class="h-card pd-sheet${S.fopen ? ' is-fopen' : ''}" aria-label="All partners">${bar()}${tableHTML()}${footHTML()}</section>`;
   if (typing) { const i = $('#pd-q'); i.value = qv; i.focus(); i.setSelectionRange(caret, caret); }
   if (cursor) { const r = $(`#pd-table tr[data-id="${CSS.escape(cursor)}"]`); if (r) PT.focusRow(r); }
   if (openViews) { const v = $('[data-pd-views]'); if (v) v.setAttribute('open', ''); }

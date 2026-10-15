@@ -140,6 +140,8 @@ describe('directory list', () => {
     assert.deepEqual(list({ q: '(555) 010-1234' }).rows.map((r) => r.id), ['101']);
     assert.deepEqual(list({ q: 'church way' }).rows.map((r) => r.id), ['107']);
     assert.deepEqual(list({ q: 'austin' }).rows.map((r) => r.id), ['103']);
+    // Names holding the words come before other matches.
+    assert.equal(list({ q: 'test' }).rows[0].name, 'The Test Church');
   });
   it('filters by kind, household, status, holder, code, solicit code and band', () => {
     assert.deepEqual(list({ kinds: ['household'] }).rows.map((r) => r.id).sort(), ['101', '102']);
@@ -184,9 +186,13 @@ describe('directory list', () => {
     const e = exportQuery(normalizeSpec({}), ctx, true, ['107', '101']);
     assert.deepEqual(q(e.sql, e.params).map((r) => r.id).sort(), ['101', '107']);
   });
-  it('finds records that share an email as possible duplicates', () => {
+  it('offers two people as possible duplicates only when they share a last name or a name and ZIP', () => {
     const pairs = q(DUP_SQL);
-    assert.ok(pairs.some((p) => p.a === '103' && p.b === '104' && p.why.includes('email')));
+    // Carol Solo and Dan Never share an email but not a last name.
+    assert.ok(!pairs.some((p) => p.a === '103' && p.b === '104'));
+    hub.prepare("UPDATE pd_partner SET sort_name = 'solo, dan' WHERE id = '104'").run();
+    assert.ok(q(DUP_SQL).some((p) => p.a === '103' && p.b === '104' && p.why.includes('email')));
+    hub.prepare("UPDATE pd_partner SET sort_name = 'never, dan' WHERE id = '104'").run();
     // Spouses are never offered as duplicates.
     assert.ok(!pairs.some((p) => p.a === '101' && p.b === '102'));
   });
