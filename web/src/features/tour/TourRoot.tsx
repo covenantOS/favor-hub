@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { RETURNS, comesBack, dayWord, etStamp, etToday, finish as markDone, isDone, mayOpen, place, skip as markSkipped, type Progress } from '@hub/scripts/tour-state';
 import { TOUR_IDS, TOUR_LABEL, pickTour, say, tourFor, tourFromAs, whoFromNav, type NavAnswer, type Step, type TourId, type Who } from './data';
 import { loadNews, newsCount, newsSteps, type News } from './news';
-import { busy, clearSpacer, clearTyping, deviceNow, findFirst, stable, holeRect, isPhone, isTouch, leadsTo, linkTo, navLink, openMenuFor, placeAlone, pressEl, reduced, samePage, settle, sleep, visible, watchTyping, type Placement } from './engine';
+import { vh, vw, busy, clearSpacer, clearTyping, deviceNow, findFirst, stable, holeRect, isPhone, isTouch, leadsTo, linkTo, navLink, openMenuFor, placeAlone, pressEl, reduced, samePage, settle, sleep, visible, watchTyping, type Placement } from './engine';
 import { openStore, type ProgressStore } from './store';
 import './tour.css';
 
@@ -109,6 +109,11 @@ function usePath(): string {
   return p;
 }
 
+/** The island's stylesheet loads beside its script: wait until the card is styled before measuring it. */
+async function styled(el: HTMLElement | null): Promise<void> {
+  for (let k = 0; k < 40 && el && getComputedStyle(el).position !== 'absolute' && getComputedStyle(el).position !== 'fixed'; k++) await new Promise((r) => setTimeout(r, 50));
+}
+
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
 export function TourRoot(): ReactElement | null {
@@ -145,6 +150,7 @@ export function TourRoot(): ReactElement | null {
   const gen = useRef(0);
   const travelling = useRef(false);
   const lostAt = useRef(0);
+  const offAt = useRef(0);
   // Steps whose page the tour has already loaded once. A page that sends the person elsewhere (a view they cannot open) drops the step instead of looping.
   const tried = useRef<Set<string>>(new Set());
   const refinding = useRef(false);
@@ -346,6 +352,7 @@ export function TourRoot(): ReactElement | null {
       targetRef.current = null;
       holeRef.current?.classList.add('is-none');
       await nextFrame();
+      await styled(cardRef.current);
       if (stale()) return;
       const el = cardRef.current;
       const size = { w: el?.offsetWidth || 380, h: el?.offsetHeight || 160, safeTop: parseFloat(getComputedStyle(document.querySelector('.tour') || document.body).paddingTop) || 0 };
@@ -398,6 +405,7 @@ export function TourRoot(): ReactElement | null {
       openMenuFor(undefined);
       setCard({ title: say(step.title, device), body: 'Opening the page.', busy: true, key: `go-${step.id}` });
       await nextFrame();
+      await styled(cardRef.current);
       if (stale()) return;
       const el = cardRef.current;
       const size = { w: el?.offsetWidth || 380, h: el?.offsetHeight || 140, safeTop: parseFloat(getComputedStyle(document.querySelector('.tour') || document.body).paddingTop) || 0 };
@@ -533,6 +541,28 @@ export function TourRoot(): ReactElement | null {
         if (again) { targetRef.current = again; t = again; }
       }
       const pl = placeRef.current;
+      // The card itself must stay on the screen: a card measured before its content or its styles settled is placed again.
+      const cc = cardRef.current;
+      if (cc && pl && !card?.busy && !refinding.current) {
+        const cr = cc.getBoundingClientRect();
+        const bad = cr.height > 0 && (cr.bottom > vh() + 1 || cr.top < -1 || cr.right > vw() + 1 || cr.left < -1);
+        if (bad) {
+          offAt.current = offAt.current || Date.now();
+          if (Date.now() - offAt.current > 500) {
+            offAt.current = 0;
+            refinding.current = true;
+            const my = gen.current;
+            const r0 = runRef.current;
+            void (async () => {
+              const el = targetRef.current;
+              const size = { w: cc.offsetWidth, h: cc.offsetHeight, safeTop: 0 };
+              const at = el && el.isConnected ? await settle(el, r0?.steps[r0.i]?.side, size, () => my !== gen.current) : placeAlone(size);
+              if (at && my === gen.current) setPlace(at);
+              refinding.current = false;
+            })();
+          }
+        } else offAt.current = 0;
+      }
       const rect = t && t.isConnected && pl ? holeRect(t, pl.clip) : null;
       if (!rect) {
         if (last !== 'none') { hole.classList.add('is-none'); last = 'none'; }
