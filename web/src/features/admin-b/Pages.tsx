@@ -17,3 +17,5 @@ export const StatementsSettingsPage = () => (
     </p>
   </AdminSettingsPage>
 );
+
+export const ChatSettingsPage = () => <AdminSettingsPage area="chat" on="chat" title="Chat" fact="Who can use Chat." />;

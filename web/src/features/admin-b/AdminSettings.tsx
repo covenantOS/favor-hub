@@ -13,9 +13,11 @@ import { Full } from './Time';
 import { Mail } from './Mail';
 import { controlId, confirmLead, grouped, needsConfirm, resetWord, shown } from './settings';
 import { num, shortDay } from './format';
+import { AccessField, type Directory } from './AccessField';
 
-function Control({ s, draft, set }: { s: Setting; draft: string; set: (v: string) => void }) {
+function Control({ s, draft, set, dir }: { s: Setting; draft: string; set: (v: string) => void; dir?: Directory }) {
   const id = controlId(s.id);
+  if (s.kind === 'access') return <AccessField id={s.id} draft={draft} set={set} dir={dir ?? { people: [], teams: [] }} />;
   if (s.kind === 'enum')
     return (
       <select className="ad-field" id={id} data-id={s.id} value={draft} onChange={(e: ChangeEvent<HTMLSelectElement>) => set(e.target.value)}>
@@ -39,7 +41,7 @@ function Control({ s, draft, set }: { s: Setting; draft: string; set: (v: string
   return <input className="ad-field" id={id} data-id={s.id} type="text" value={draft} onChange={(e) => set(e.target.value)} />;
 }
 
-function Row({ s, onChanged }: { s: Setting; onChanged: (next: Setting) => void }) {
+function Row({ s, onChanged, dir }: { s: Setting; onChanged: (next: Setting) => void; dir?: Directory }) {
   const [draft, setDraft] = useState(s.value);
   const [msg, setMsg] = useState<Msg | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -80,6 +82,7 @@ function Row({ s, onChanged }: { s: Setting; onChanged: (next: Setting) => void 
       <div>
         <Control
           s={s}
+          dir={dir}
           draft={draft}
           set={(v) => {
             setDraft(v);
@@ -286,7 +289,7 @@ function Tab({ area }: { area: string }) {
         <section className="ad-card ad-group" key={g.group}>
           {g.group ? <h3>{g.group}</h3> : null}
           {g.rows.map((s) => (
-            <Row key={s.id} s={s} onChanged={changed} />
+            <Row key={s.id} s={s} onChanged={changed} dir={data.extras.directory} />
           ))}
         </section>
       ))}
