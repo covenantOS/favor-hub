@@ -289,7 +289,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           }
           sums.railmore = railMore;
           var tabs = document.getElementById('h-tabs');
-          if (tabs) tabs.hidden = q('a.h-tab[data-nav-id]:not([hidden])', tabs).length < 2;
+          // One tab left is still shown when it is not the open page: a person on a page outside their access sees the page they may open.
+          if (tabs) { var vt = q('a.h-tab[data-nav-id]:not([hidden])', tabs); tabs.hidden = !vt.length || (vt.length === 1 && vt[0].classList.contains('is-on')); }
           if (window.hubTabsLayout) window.hubTabsLayout();
           // The phone bar: Today and this person's next three areas, in rail order. More holds every other area.
           var bar = q('#h-bar [data-bar]');
