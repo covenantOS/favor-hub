@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
+import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 
 const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
   id: '/churches/',
   path: '/churches/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataCareIndexRoute = DataCareIndexRouteImport.update({
+  id: '/data-care/',
+  path: '/data-care/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
@@ -31,30 +37,39 @@ const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/churches/': typeof ChurchesIndexRoute
+  '/data-care/': typeof DataCareIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesByTo {
   '/churches': typeof ChurchesIndexRoute
+  '/data-care': typeof DataCareIndexRoute
   '/web-check': typeof WebCheckIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/churches/': typeof ChurchesIndexRoute
+  '/data-care/': typeof DataCareIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/churches/' | '/web-check/' | '/gifts/recurring/'
+  fullPaths: '/churches/' | '/data-care/' | '/web-check/' | '/gifts/recurring/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/churches' | '/web-check' | '/gifts/recurring'
-  id: '__root__' | '/churches/' | '/web-check/' | '/gifts/recurring/'
+  to: '/churches' | '/data-care' | '/web-check' | '/gifts/recurring'
+  id:
+    | '__root__'
+    | '/churches/'
+    | '/data-care/'
+    | '/web-check/'
+    | '/gifts/recurring/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   ChurchesIndexRoute: typeof ChurchesIndexRoute
+  DataCareIndexRoute: typeof DataCareIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
 }
@@ -66,6 +81,13 @@ declare module '@tanstack/react-router' {
       path: '/churches'
       fullPath: '/churches/'
       preLoaderRoute: typeof ChurchesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-care/': {
+      id: '/data-care/'
+      path: '/data-care'
+      fullPath: '/data-care/'
+      preLoaderRoute: typeof DataCareIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/web-check/': {
@@ -87,6 +109,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   ChurchesIndexRoute: ChurchesIndexRoute,
+  DataCareIndexRoute: DataCareIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
 }
