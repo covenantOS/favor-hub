@@ -208,11 +208,11 @@ const kpi = (id: string, page: string, via: string, title: string, body: string)
   id,
   page,
   via,
-  at: ['#kpi-frame'],
+  at: ['#h-tabs', '.h-top__tabs'],
   title,
   need: 'kpi',
   body: () => body,
-  side: 'left',
+  side: 'bottom',
 });
 
 const highlights: StepDef = {
@@ -325,7 +325,7 @@ const TEAM: Record<TourId, StepDef[]> = {
     },
   ],
   marketing: [
-    kpi('marketing', '/dashboard/?page=%2Fmarketing', 'kpi-marketing', 'Marketing numbers', "Your team's numbers are on this tab, and Definitions says how each one is counted."),
+    kpi('marketing', '/dashboard/?page=%2Fmarketing', 'kpi-marketing', 'Marketing numbers', "Your team's numbers are on the Marketing tab, and Definitions says how each is counted."),
     highlights,
     {
       id: 'requests',
@@ -339,7 +339,7 @@ const TEAM: Record<TourId, StepDef[]> = {
     },
   ],
   exec: [
-    kpi('executive', '/dashboard/', 'kpi', 'The year at a glance', 'Each team has its own tab here, and Definitions says how every number is counted.'),
+    kpi('executive', '/dashboard/', 'kpi', 'The year at a glance', 'The Executive tab shows the year at a glance, and Definitions says how every number is counted.'),
     highlights,
     {
       id: 'approvals',
@@ -408,11 +408,11 @@ const TEAM: Record<TourId, StepDef[]> = {
       id: 'numbers',
       page: '/dashboard/',
       via: 'kpi',
-      at: ['#kpi-frame'],
+      at: ['#h-tabs', '.h-top__tabs'],
       title: 'The numbers',
       need: 'kpi',
       body: () => 'Reporting opens on the year at a glance, and Definitions says how each number is counted.',
-      side: 'left',
+      side: 'bottom',
     },
   ],
 };
