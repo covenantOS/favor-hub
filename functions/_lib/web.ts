@@ -6,7 +6,7 @@
 //   4. the request is a page load (hub-swap.js reads classic pages with fetch and must keep getting them),
 //   5. the WEB binding exists (a preview without it keeps every Astro page).
 // Everyone else gets the Astro page, unchanged. See the plan: Obsidian Projects/FavorOS React migration plan.md.
-import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebRoutes, webServes, type WebAudience } from '../../shared/web';
+import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebRoutes, webServes, type WebAudience } from '../../shared/web';
 import { isPageLoad } from './app2';
 import { hubSettings } from './admin/hubcache';
 import { isTester } from './testuser';
@@ -60,6 +60,9 @@ export async function decideWeb(env: Env, request: Request, url: URL, user: HubU
   }
   if (!env.WEB) return { kind: 'pass', routes: [] };
   const s = await readWebSettings(env);
+  // A page with no Astro twin cannot fall back, so it ignores the audience and the opt-out: it is on for every staff sign-in the moment an admin lists it.
+  const only = s.routes.length > 0 && webServes(url.pathname, WEB_ONLY_ROUTES) && webServes(url.pathname, s.routes) && user.role !== 'field' && (user.via === 'google' || user.via === 'password');
+  if (only && url.searchParams.get('classic') !== '1' && isPageLoad(request)) return { kind: 'web' };
   if (!s.routes.length || !inWebAudience(user, s) || optedOut(request)) return { kind: 'pass', routes: [] };
   if (url.searchParams.get('classic') === '1' || !isPageLoad(request) || !webServes(url.pathname, s.routes)) return { kind: 'pass', routes: s.routes };
   return { kind: 'web' };

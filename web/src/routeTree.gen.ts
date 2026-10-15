@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 
+const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
+  id: '/churches/',
+  path: '/churches/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
   id: '/web-check/',
   path: '/web-check/',
@@ -24,33 +30,44 @@ const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/churches/': typeof ChurchesIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesByTo {
+  '/churches': typeof ChurchesIndexRoute
   '/web-check': typeof WebCheckIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/churches/': typeof ChurchesIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/web-check/' | '/gifts/recurring/'
+  fullPaths: '/churches/' | '/web-check/' | '/gifts/recurring/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/web-check' | '/gifts/recurring'
-  id: '__root__' | '/web-check/' | '/gifts/recurring/'
+  to: '/churches' | '/web-check' | '/gifts/recurring'
+  id: '__root__' | '/churches/' | '/web-check/' | '/gifts/recurring/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  ChurchesIndexRoute: typeof ChurchesIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/churches/': {
+      id: '/churches/'
+      path: '/churches'
+      fullPath: '/churches/'
+      preLoaderRoute: typeof ChurchesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/web-check/': {
       id: '/web-check/'
       path: '/web-check'
@@ -69,6 +86,7 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  ChurchesIndexRoute: ChurchesIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
 }
