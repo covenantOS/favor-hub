@@ -397,8 +397,10 @@
   function loadBrainCode() {
     if (brain.ready) return brain.ready;
     var code = new Promise(function (ok, bad) {
-      if (window.BrainBlocks) { ok(); return; }
-      var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=13'; s.onload = function () { if (window.BrainTrace) return ok(); var tr = document.createElement('script'); tr.src = '/js/brain-trace.js?v=1'; tr.onload = ok; tr.onerror = ok; document.head.appendChild(tr); }; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
+      // brain-blocks.js draws answers; brain-trace.js the steps; brain-convs.js the chat list; /brain/sprite.js the icons.
+      var more = function () { var need = ['/js/brain-trace.js?v=1', '/js/brain-convs.js?v=1', '/brain/sprite.js?v=1'].filter(function (u) { return u.indexOf('trace') >= 0 ? !window.BrainTrace : u.indexOf('convs') >= 0 ? !window.BrainConvs : !document.querySelector('symbol[id^="bci-"]'); }); if (!need.length) return ok(); var n = 0, one = function () { if (++n === need.length) ok(); }; need.forEach(function (u) { var x = document.createElement('script'); x.src = u; x.onload = one; x.onerror = one; document.head.appendChild(x); }); };
+      if (window.BrainBlocks) { more(); return; }
+      var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=13'; s.onload = more; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
     });
     // The Brain tab draws once its stylesheet is in, so its answers never show unstyled for a moment.
     var css = new Promise(function (ok) {
@@ -434,7 +436,8 @@
     if (S.tab !== 'brain') return;
     var cur = brain.cur;
     if (brain.view === 'list') {
-      body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head"><button type="button" class="fp-back" data-bback aria-label="Back">' + ic('back') + '</button><b class="fp-head__t">Your chats</b><button type="button" class="fp-new" data-bnew>' + ic('plus') + 'New chat</button></header><div class="fp-scroll" data-bconvs><div class="fp-wait"><i></i><i></i><i></i></div></div></div>';
+      body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head"><button type="button" class="fp-back" data-bback aria-label="Back">' + ic('back') + '</button><b class="fp-head__t">Your chats</b><button type="button" class="fp-new fp-new--strong" data-bnew>' + ic('plus') + 'New chat</button></header><div class="fp-cfind"><input type="search" data-bfind placeholder="Search your chats" aria-label="Search your chats" autocomplete="off" value="' + esc(brain.find || '') + '" /></div><div class="fp-scroll bc-root" data-bconvs role="list"><div class="fp-wait"><i></i><i></i><i></i></div></div></div>';
+      var fi = $('[data-bfind]', body); if (fi) fi.addEventListener('input', function () { brain.find = fi.value; paintConvs(); });
       if (brain.convs) paintConvs(); loadConvs(); return;
     }
     body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head fp-head--brain"><button type="button" class="fp-all" data-blist aria-label="All chats" title="All chats">' + ic('list') + '<span>All chats</span></button><b class="fp-head__t">' + esc(cur ? cur.title : 'New chat') + '</b><button type="button" class="fp-back" data-bnew aria-label="New chat" title="New chat"' + (cur && cur.turns.length ? '' : ' disabled') + '>' + ic('newchat') + '</button></header>' +
@@ -450,7 +453,16 @@
   function paintConvs() {
     var host = $('[data-bconvs]', body); if (!host) return;
     var l = brain.convs || [];
-    host.innerHTML = l.length ? l.map(function (c) { return '<button type="button" class="fp-row" data-bopen="' + esc(c.id) + '">' + (c.pending ? '<i class="fp-work" role="img" aria-label="Answering"></i>' : '') + '<span class="fp-row__n">' + esc(c.title) + '</span></button>'; }).join('') : '<div class="fp-none">Your chats show here for 30 days.</div>';
+    // Drawn by brain-convs.js, the same list as the Brain page's rail.
+    if (!window.BrainConvs) { loadBrainCode().then(paintConvs).catch(function () {}); return; }
+    host.innerHTML = window.BrainConvs.html(l, { cur: brain.cur && brain.cur.id, working: brain.busy && brain.busy.conv ? brain.busy.conv.id : null, q: brain.find || '', renaming: brain.renaming });
+    var rn = $('[data-rename]', host);
+    if (rn) {
+      rn.focus(); rn.select();
+      var done = function (save) { if (brain.renaming !== rn.dataset.rename) return; var c = l.filter(function (x) { return x.id === rn.dataset.rename; })[0]; brain.renaming = null; var v = rn.value.trim().slice(0, 80); if (save && c && v && v !== c.title) { c.title = v; bapi('thread/' + encodeURIComponent(c.id), { method: 'PATCH', body: { title: v } }).catch(function (e) { toast(e.message); }); } paintConvs(); };
+      rn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } });
+      rn.addEventListener('blur', function () { done(true); });
+    }
   }
   var STARTERS = [['How is Favor doing this year?', 'Raised, goal and the same date last year'], ['How do I enter a check gift?', 'Steps from the Operations Manual'], ['What can you do?', 'Everything you can ask about']];
   function brainThread() {
@@ -478,9 +490,9 @@
     if (t.error) h += '<div class="blk-text"><p class="bc-err">' + esc(t.error) + '</p></div>';
     else if (t.stopped) h += '<div class="blk-text"><p>Stopped. Ask again when you are ready.</p></div>';
     else if (!t.blocks || !t.blocks.length) h += B.fallback(t.markdown || 'No answer was kept for this one. Ask again.');
-    else h += (t.steps && t.steps.length && window.BrainTrace ? window.BrainTrace.done(t.steps) : '') + t.blocks.map(function (b, bi) { return B.render(b, { ti: ti, bi: bi, canSheets: false, canRequest: function () { return false; }, expired: expired }); }).join('');
+    else h += (t.steps && t.steps.length && window.BrainTrace ? window.BrainTrace.done(t.steps, B.reading(t.reading, ti)) : '') + B.renderAll(t.blocks, { ti: ti, canSheets: false, canRequest: function () { return false; }, expired: expired });
     (t.extras || []).forEach(function (x) { h += B.render(x, { ti: ti, bi: -1, canSheets: false }); });
-    h += B.reading(t.reading, ti);
+    if (!(t.steps && t.steps.length && t.blocks && t.blocks.length)) h += B.reading(t.reading, ti);
     if (last && t.follow && t.follow.length && !t.error) h += '<div class="blk-follow" aria-label="Follow-up questions">' + t.follow.map(function (q) { return '<button type="button" class="fu" data-act="ask" data-q="' + esc(q) + '">' + B.ic('arrow') + esc(q) + '</button>'; }).join('') + '</div>';
     // Drag the answer into what you are writing, or send it to an email (ask-brain.js).
     if (!t.error && !t.stopped && window.FavorAskBrain && ((t.blocks && t.blocks.length) || t.markdown)) h += window.FavorAskBrain.footer();
@@ -505,7 +517,27 @@
     if (t.hasAttribute('data-blist')) { brain.view = 'list'; brainRender(); return; }
     if (t.hasAttribute('data-bback')) { brain.view = 'chat'; brainRender(); return; }
     if (t.hasAttribute('data-bopen')) { brainOpen(t.getAttribute('data-bopen')); return; }
+    if (t.dataset && t.dataset.act === 'conv' && brain.view === 'list') { brainOpen(t.dataset.id); return; }
+    if (t.dataset && t.dataset.act === 'cvact') { convAct(t); return; }
     if (B && t.dataset && t.dataset.act && B.handle(e, t, host)) return;
+  }
+  // Pin, rename and delete on a chat row (brain-convs.js). Delete asks once, on the row; a row standing for the same question
+  // asked several times deletes them all.
+  function convAct(el) {
+    var l = brain.convs || [], c = l.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!c) return;
+    var v = el.dataset.v;
+    if (v === 'pin') { c.pinned = c.pinned ? 0 : 1; paintConvs(); toast(c.pinned ? 'Pinned' : 'Unpinned'); bapi('thread/' + encodeURIComponent(c.id), { method: 'PATCH', body: { pinned: !!c.pinned } }).catch(function (e) { c.pinned = c.pinned ? 0 : 1; paintConvs(); toast(e.message); }); return; }
+    if (v === 'rename') { brain.renaming = c.id; paintConvs(); return; }
+    if (v === 'del') {
+      if (el.getAttribute('data-sure') !== '1') { el.setAttribute('data-sure', '1'); el.classList.add('is-sure'); el.setAttribute('aria-label', 'Press again to delete'); el.title = 'Press again to delete'; setTimeout(function () { el.removeAttribute('data-sure'); el.classList.remove('is-sure'); }, 3000); return; }
+      var row = el.closest('.cvr'); if (row) row.classList.add('is-gone');
+      var ids = [c.id].concat(c.same || []);
+      Promise.all(ids.map(function (id) { return bapi('thread/' + encodeURIComponent(id), { method: 'DELETE' }); })).then(function () {
+        brain.convs = l.filter(function (x) { return x !== c; });
+        if (brain.cur && ids.indexOf(brain.cur.id) >= 0) { brain.cur = null; D.save({ bc: null }); }
+        setTimeout(paintConvs, 200); toast('Chat deleted');
+      }).catch(function (e) { toast(e.message); paintConvs(); });
+    }
   }
   function brainOpen(id, quiet) {
     brain.view = 'chat'; brain.busy = null;

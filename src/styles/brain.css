@@ -788,3 +788,75 @@ html.plb-on { overflow: hidden; }
   .h-body .bc-root .btr-body, .h-body .bc-root .btr-chev, .h-body .bc-root .btr-line { transition: none; }
   .h-body .bc-root .btr-row.is-turn .btr-line { animation: none; }
 }
+
+/* ---- Your chats (2026-10-14, brain-convs.js): the Brain page's rail and the dock share these rows. Mark, title, time, one line of
+   the last answer; pin, rename and delete on hover (always shown on touch). */
+.h-body .bc-root .cvr-grp { font: 600 12px var(--h-font); letter-spacing: .12em; text-transform: uppercase; color: var(--h-ink-3); padding: 14px 10px 4px; }
+.h-body .bc-root .cvr-grp:first-child { padding-top: 6px; }
+.h-body .bc-root .cvr { position: relative; border-radius: 12px; transition: background-color var(--m-fast) var(--m-out); }
+.h-body .bc-root .cvr:hover { background: color-mix(in srgb, var(--h-leaf-soft) 55%, transparent); }
+.h-body .bc-root .cvr.is-on { background: var(--h-leaf-soft); }
+.h-body .bc-root .cvr__go { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; width: 100%; padding: 8px 10px; border-radius: 12px; cursor: pointer; }
+.h-body .bc-root .cvr__go:focus-visible { outline: 2px solid color-mix(in srgb, var(--h-brand) 55%, transparent); outline-offset: -2px; }
+.h-body .bc-root .cvr__ic { width: 18px; height: 18px; margin-top: 1px; display: grid; place-items: center; color: var(--h-ink-3); }
+.h-body .bc-root .cvr__ic svg { width: 16px; height: 16px; }
+.h-body .bc-root .cvr.is-on .cvr__ic { color: var(--h-brand-ink, var(--h-brand)); }
+.h-body .bc-root .cvr.is-pin .cvr__ic { color: var(--h-gold-ink, #8a6a1f); }
+.h-body .bc-root .cvr__work { width: 8px; height: 8px; border-radius: 50%; background: var(--h-gold, #c9a24b); animation: bc-work 1.1s ease-in-out infinite; }
+.h-body .bc-root .cvr__tx { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.h-body .bc-root .cvr__top { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.h-body .bc-root .cvr__t { flex: 1; min-width: 0; font: 600 13.5px/1.35 var(--h-font); color: var(--h-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-body .bc-root .cvr.is-on .cvr__t { color: var(--h-brand-ink, var(--h-ink)); }
+.h-body .bc-root .cvr__n { flex: none; font: 600 11px var(--h-font); color: var(--h-ink-3); background: var(--h-surface-2, #f1eee8); border-radius: 999px; padding: 1px 6px; }
+.h-body .bc-root .cvr__tm { flex: none; font: 500 12px var(--h-font); color: var(--h-ink-3); font-variant-numeric: tabular-nums; transition: opacity var(--m-fast) var(--m-out); }
+.h-body .bc-root .cvr__p { font: 400 12.5px/1.4 var(--h-font); color: var(--h-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.4em; }
+.h-body .bc-root .cvr__acts { position: absolute; right: 6px; top: 5px; display: flex; gap: 2px; padding-left: 14px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity var(--m-fast) var(--m-out);
+  background: linear-gradient(90deg, transparent, var(--cvr-bg, color-mix(in srgb, var(--h-leaf-soft) 55%, var(--h-surface, #fff))) 14px); }
+.h-body .bc-root .cvr.is-on .cvr__acts { --cvr-bg: var(--h-leaf-soft); }
+.h-body .bc-root .cvr:hover .cvr__acts, .h-body .bc-root .cvr:focus-within .cvr__acts { opacity: 1; pointer-events: auto; }
+.h-body .bc-root .cvr:hover .cvr__tm, .h-body .bc-root .cvr:focus-within .cvr__tm { opacity: 0; }
+.h-body .bc-root .cvr__a { all: unset; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: var(--h-ink-3); cursor: pointer; }
+.h-body .bc-root .cvr__a svg { width: 15px; height: 15px; }
+.h-body .bc-root .cvr__a:hover { background: rgba(42, 39, 34, .07); color: var(--h-ink); }
+.h-body .bc-root .cvr__a:focus-visible { outline: 2px solid color-mix(in srgb, var(--h-brand) 55%, transparent); }
+.h-body .bc-root .cvr__a--del:hover, .h-body .bc-root .cvr__a.is-sure { color: var(--h-red, #93391f); background: color-mix(in srgb, var(--h-red, #93391f) 10%, transparent); }
+.h-body .bc-root .cvr.is-edit { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 10px; }
+.h-body .bc-root .cvr.is-edit input { height: 32px; border-radius: 9px; border: 1px solid var(--h-brand); padding: 0 10px; font: 500 13px var(--h-font); outline: none; box-shadow: 0 0 0 3px rgba(90, 114, 80, .14); min-width: 0; }
+.h-body .bc-root .cvr.is-gone { animation: bc-gone .25s ease forwards; }
+.h-body .bc-root .cvr-none { padding: 18px 12px; font: 400 13px var(--h-font); color: var(--h-ink-3); }
+@media (hover: none) {
+  .h-body .bc-root .cvr__acts { position: static; opacity: 1; pointer-events: auto; background: none; padding: 0 6px 6px 38px; }
+  .h-body .bc-root .cvr__tm { opacity: 1 !important; }
+}
+@media (prefers-reduced-motion: reduce) { .h-body .bc-root .cvr__work { animation: none; } .h-body .bc-root .cvr, .h-body .bc-root .cvr__acts, .h-body .bc-root .cvr__tm { transition: none; } }
+
+/* ---- Answers in a narrow space (2026-10-14): the dock, a phone, a narrow window. Each answer is its own container, so the
+   layout follows the answer's width wherever it is drawn. One headline line, a five-row list with Open full table, icon tools. */
+.h-body .bc-root .m-a__body, .h-body .fp-a.bc-root { container: answer / inline-size; }
+.h-body .fp-a.bc-root { display: block; min-width: 0; }
+.h-body .bc-root .blk-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 14px; font: 400 16px/1.35 var(--h-font); color: var(--h-ink-2); }
+.h-body .bc-root .blk-head b { font: 600 34px/1.05 var(--h-serif); color: var(--h-ink); font-variant-numeric: tabular-nums; }
+.h-body .bc-root .tbl__mini, .h-body .bc-root .tbl__minifoot { display: none; }
+.h-body .bc-root .btr-extra { margin-top: 8px; }
+.h-body .bc-root .btr-extra .blk-read { margin: 0; }
+.h-body .bc-root .btr-extra .blk-read > .lbl { font-size: 11px; }
+@container answer (max-width: 520px) {
+  .h-body .bc-root .blk-head b { font-size: 28px; }
+  .h-body .bc-root .blk-table .tbl__wrap, .h-body .bc-root .blk-table .tbl__chips, .h-body .bc-root .blk-table .tbl__foot { display: none; }
+  .h-body .bc-root .blk-table .tbl__mini { display: block; list-style: none; margin: 0; padding: 0 14px; }
+  .h-body .bc-root .blk-table .tbl__mini li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--h-line); font: 400 13.5px/1.35 var(--h-font); min-width: 0; }
+  .h-body .bc-root .blk-table .tbl__mini li:first-child { border-top: 0; }
+  .h-body .bc-root .blk-table .tbl__mini .mn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--h-ink); font-weight: 500; }
+  .h-body .bc-root .blk-table .tbl__mini .mn a { color: inherit; }
+  .h-body .bc-root .blk-table .tbl__mini .mk { flex: none; color: var(--h-ink-3); font-variant-numeric: tabular-nums; }
+  .h-body .bc-root .blk-table .tbl__minifoot { display: flex; padding: 6px 10px 10px; border-top: 1px solid var(--h-line); }
+  .h-body .bc-root .blk-table .card__h { flex-wrap: nowrap; align-items: center; gap: 8px; }
+  .h-body .bc-root .blk-table .card__h > div:first-child { min-width: 0; }
+  .h-body .bc-root .blk-table .card__t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-body .bc-root .blk-table .card__acts { margin-left: auto; width: auto; flex-wrap: nowrap; gap: 2px; }
+  .h-body .bc-root .blk-table .card__acts .tb-ic { width: 30px; height: 30px; padding: 0; justify-content: center; }
+  .h-body .bc-root .blk-table .card__acts .tb-ic .lbl-l, .h-body .bc-root .blk-table .card__acts [data-sheetbtn] span { display: none; }
+  .h-body .bc-root .blk-table .card__acts [data-sheetbtn] { width: 30px; height: 30px; padding: 0; justify-content: center; }
+  .h-body .bc-root .blk-tiles { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .h-body .bc-root .blk-read { gap: 4px; }
+}

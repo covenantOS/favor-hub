@@ -68,8 +68,7 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
   const ts = live ? new TransformStream<Uint8Array, Uint8Array>() : null;
   const out = ts ? ts.writable.getWriter() : null;
   const enc = new TextEncoder();
-  const send = (o: unknown) => (out ? out.write(enc.encode(JSON.stringify(o) + '
-')).catch(() => undefined) : Promise.resolve());
+  const send = (o: unknown) => (out ? out.write(enc.encode(JSON.stringify(o) + '\n')).catch(() => undefined) : Promise.resolve());
   const job = (async () => {
     let status = 500;
     let text = '';
@@ -94,8 +93,7 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
           if (r.done) break;
           buf += dec.decode(r.value, { stream: true });
           let i;
-          while ((i = buf.indexOf('
-')) >= 0) { await take(buf.slice(0, i)); buf = buf.slice(i + 1); }
+          while ((i = buf.indexOf('\n')) >= 0) { await take(buf.slice(0, i)); buf = buf.slice(i + 1); }
         }
         await take(buf);
       } else text = hubCsvLinks(await res.text(), env);

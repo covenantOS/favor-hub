@@ -57,11 +57,12 @@
   }
 
   /** The list above a finished answer: one line, open to see each step. */
-  function done(steps) {
+  /** extra: more to show when the line is opened (the reading chips, so the answer below stays short). */
+  function done(steps, extra) {
     steps = (steps || []).filter(function (s) { return s && s.id && s.label; });
     if (!steps.length) return '';
     var sm = summary(steps);
-    return '<div class="btr btr--done" data-btr><button type="button" class="btr-trig btr-sum" data-btr-toggle aria-expanded="false"><span class="btr-line" data-status="' + (sm.held ? 'withheld' : 'done') + '"><span class="btr-ic" aria-hidden="true">' + (sm.held ? ICON.held : ICON.done) + '</span><span class="btr-t">' + esc(sm.text) + '</span><span class="btr-ic btr-chev" aria-hidden="true">' + ICON.chev + '</span></span></button><div class="btr-body"><div class="btr-in btr-list">' + steps.map(function (s) { return rowHTML(s, false); }).join('') + '</div></div></div>';
+    return '<div class="btr btr--done" data-btr><button type="button" class="btr-trig btr-sum" data-btr-toggle aria-expanded="false"><span class="btr-line" data-status="' + (sm.held ? 'withheld' : 'done') + '"><span class="btr-ic" aria-hidden="true">' + (sm.held ? ICON.held : ICON.done) + '</span><span class="btr-t">' + esc(sm.text) + '</span><span class="btr-ic btr-chev" aria-hidden="true">' + ICON.chev + '</span></span></button><div class="btr-body"><div class="btr-in btr-list">' + steps.map(function (s) { return rowHTML(s, false); }).join('') + (extra ? '<div class="btr-extra">' + extra + '</div>' : '') + '</div></div></div>';
   }
   /** The live list in place of the old "thinking" skeleton. */
   function live(steps) {

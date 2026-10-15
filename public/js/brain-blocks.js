@@ -204,8 +204,8 @@
   // The Brain names the rows in the plural ("partners"); one row reads "1 partner".
   const rowLabel = (tb, n) => `${int(n)} ${tb.noun ? (Number(n) === 1 ? String(tb.noun).replace(/s$/, '') : tb.noun) : Number(n) === 1 ? 'row' : 'rows'}`;
   function toolsHTML(tb, inPanel, canSheets) {
-    return `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcopy" data-tb="${tb.id}">${ic('copy')}<span class="lbl-l">Copy</span></button>
-    <button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcsv" data-tb="${tb.id}">${ic('dl')}<span class="lbl-l">CSV</span></button>
+    return `<button type="button" class="h-btn h-btn--ghost h-btn--xs tb-ic" data-act="tcopy" data-tb="${tb.id}" aria-label="Copy the table" data-tip="Copy">${ic('copy')}<span class="lbl-l">Copy</span></button>
+    <button type="button" class="h-btn h-btn--ghost h-btn--xs tb-ic" data-act="tcsv" data-tb="${tb.id}" aria-label="Download a CSV" data-tip="Download CSV">${ic('dl')}<span class="lbl-l">CSV</span></button>
     ${canSheets ? `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tsheet" data-tb="${tb.id}" data-sheetbtn="${tb.id}">${ic('sheet')}<span>Open in Google Sheets</span></button>` : ''}
     ${inPanel ? '' : `<button type="button" class="ib ib--sm" data-act="topen" data-tb="${tb.id}" aria-label="Open large" data-tip="Open large">${ic('expand')}</button>`}`;
   }
@@ -220,9 +220,10 @@
     const n = tb.count || tb.rows.length;
     const shown = Math.min(tb.preview, tableRows(tb).length);
     return `<div class="card blk-table" data-tbwrap="${id}">
-      <div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
+      <div class="card__h"><div><div class="card__t" title="${esc(b.title)}">${esc(shortTitle(b.title))}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
         <div class="card__acts">${ctx && ctx.expired ? '' : toolsHTML(tb, false, tb.canSheets)}</div></div>
       ${chipsHTML(tb)}
+      ${miniHTML(tb, n)}
       <div class="tbl__wrap"><div class="tbl__scroll" data-tbbody="${id}" tabindex="0" role="region" aria-label="${esc(b.title)}, scroll sideways for every column">${tableInner(tb)}</div></div>
       ${ctx && ctx.expired ? `<div class="bc-expired">Expired. Lists last 24 hours.<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="ask-again" data-turn="${ctx.ti}">Ask again</button></div>` : n > tb.preview || tb.partial ? `<div class="tbl__foot"><span data-cnt2="${id}">Showing ${int(shown)} of ${int(n)}${b.more ? '+' : ''}</span><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="topen" data-tb="${id}">Show all ${ic('arrow')}</button></div>` : ''}
       ${b.note ? `<div class="tbl__foot"><span>${esc(b.note)}</span></div>` : ''}
@@ -266,6 +267,24 @@
 
   // ---- Tiles, team ----------------------------------------------------------------------------------
   const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(Number(d.pct) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 }))}%</span>` : '');
+  // A table's title said plainly: "How many lapsed (last gift over 24 months ago) partners (households) in Ohio" reads
+  // "Lapsed partners in Ohio". The full wording stays in the title attribute and in the steps above the answer.
+  function shortTitle(t) {
+    let s = String(t || '').replace(/^\s*(how many|list(?: of)?|a list of|show me|which)\s+/i, '').replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').replace(/[?.]+$/, '').trim();
+    if (!s) return String(t || '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  B.shortTitle = shortTitle;
+  // The table in a narrow answer (the dock, a phone, a narrow window; container query in brain.css): up to five rows, each the
+  // name and one key field, and Open full table.
+  function miniHTML(tb, n) {
+    const rows = tableRows(tb).slice(0, 5);
+    if (!rows.length || !tb.cols.length) return '';
+    const name = tb.cols[0];
+    const key = tb.cols.slice(1).find((c) => !c.panel_only && ['money', 'date', 'int'].includes(c.type)) || tb.cols.slice(1).find((c) => !c.panel_only);
+    return `<ul class="tbl__mini" aria-label="${esc(shortTitle(tb.title))}, first ${rows.length}">${rows.map((x) => `<li><span class="mn">${cell(name, x)}</span>${key ? `<span class="mk">${cell(key, x)}</span>` : ''}</li>`).join('')}</ul>
+      <div class="tbl__minifoot"><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="topen" data-tb="${tb.id}">Open full table${n > rows.length ? ` (${int(n)})` : ''} ${ic('arrow')}</button></div>`;
+  }
   function spark(v) {
     if (!v || v.length < 2) return '';
     const mx = Math.max(...v), mn = Math.min(...v);
@@ -665,6 +684,29 @@
       case 'files': return filesHTML(b);
       default: return b && b.md ? `<div class="blk-text">${md(b.md)}</div>` : '';
     }
+  };
+  /**
+   * Draws an answer's blocks with each number said once. A lone figure tile followed by a short sentence that repeats it ("121
+   * partners (households).") becomes one headline line: the figure and a short label ("121 lapsed partners in Ohio").
+   */
+  B.renderAll = (blocks, ctx) => {
+    const bs = (blocks || []).slice();
+    const ti = bs.findIndex((b) => b && b.type === 'tiles' && (b.tiles || []).length === 1 && typeof b.tiles[0].value === 'number' && !b.tiles[0].delta && !b.tiles[0].trend && b.tiles[0].progress == null && !b.tiles[0].compare);
+    let head = '';
+    if (ti >= 0) {
+      const tile = bs[ti].tiles[0];
+      const shown = fmt(tile.value, tile.format || 'int');
+      const xi = bs.findIndex((b, k) => k > ti && k <= ti + 2 && b && b.type === 'text' && String(b.md || '').replace(/[*_]/g, '').length < 160 && String(b.md || '').replace(/[*_]/g, '').includes(shown));
+      if (xi >= 0) {
+        const tb = bs.find((b) => b && b.type === 'table' && b.title);
+        const said = String(bs[xi].md).replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
+        const rest = tb ? shortTitle(tb.title).replace(/^\w/, (c) => c.toLowerCase()) : said.replace(shown, '').replace(/^[\s:,-]+/, '').replace(/\.$/, '');
+        head = `<div class="blk-head"><b data-count="${tile.value}" data-f="${esc(tile.format || 'int')}">${esc(shown)}</b> <span>${esc(rest || tile.label)}</span></div>`;
+        bs.splice(xi, 1);
+        bs.splice(ti, 1);
+      }
+    }
+    return head + bs.map((b, bi) => B.render(b, typeof ctx === 'function' ? ctx(bi) : { ...ctx, bi })).join('');
   };
   B.fallback = (markdown) => `<div class="blk-text">${md(markdown)}</div>`;
 

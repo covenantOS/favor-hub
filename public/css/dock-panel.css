@@ -120,3 +120,10 @@
 /* The answer's steps in the dock (brain-trace.js; row styles come with dock-brain.css). */
 .fp-think--trace { align-items: flex-start; }
 .fp-think--trace .btr--live { padding-top: 4px; }
+/* Your chats in the dock: a search box over the shared rows (brain-convs.js, styled in brain.css), New chat filled. */
+.fp-cfind { padding: 8px 12px 4px; }
+.fp-cfind input { width: 100%; box-sizing: border-box; height: 34px; border-radius: 999px; border: 1px solid var(--h-line); background: var(--h-surface-2, #f4f1ec); padding: 0 14px; font: 400 13px var(--h-font); color: var(--h-ink); }
+.fp-cfind input:focus { outline: none; border-color: var(--h-brand); background: var(--h-surface, #fff); box-shadow: 0 0 0 3px rgba(90, 114, 80, .14); }
+.fp-new.fp-new--strong { background: var(--h-brand); color: #fff; border-color: var(--h-brand); }
+.fp-new.fp-new--strong:hover { filter: brightness(1.08); }
+[data-bconvs].bc-root { display: block; padding: 2px 6px 12px; }
