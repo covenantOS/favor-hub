@@ -11,7 +11,7 @@ import { can } from '../work/role';
 import { standInSender, type Sender } from '../work/addpartner';
 import { isTester } from '../testuser';
 import { givingForMany, type MirrorQ } from '../gifts/partner-giving';
-import { mayMoves } from './service';
+import { guardTester, mayMoves } from './service';
 
 const ID = /^\d{1,12}$/;
 
@@ -142,6 +142,7 @@ export async function addRelationship(ctx: Ctx, b: RelIn, send?: Sender) {
   if (cid === other) throw new HttpError(400, 'same', 'A partner cannot be related to themselves.');
   if (!REL_TYPES[type]) throw new HttpError(400, 'bad_relationship', 'Pick the relationship from the list.');
   if (ctx.testCid && cid !== ctx.testCid) throw new HttpError(403, 'test_only', 'A role test may change only the test record.');
+  guardTester(ctx, cid, other);
   const env = ctx.env;
   const q = listMirrorQ(env);
   const recs = await q<{ id: string; name: string }>(NAME_SQL, [JSON.stringify([cid, other])]);

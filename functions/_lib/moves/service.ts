@@ -204,6 +204,12 @@ export async function cardDetail(ctx: Ctx, cid: string) {
 
 /* ------------------------------------------------------------------ writes */
 
+/** The only partners a test account may change. Every other record is real. */
+export const TEST_PARTNERS = ['18698', '16269'];
+export function guardTester(ctx: Ctx, ...cids: string[]): void {
+  if (isTester(ctx.email) && cids.some((c) => !TEST_PARTNERS.includes(c))) throw new HttpError(403, 'test_only', 'The FavorOS test user may change only the two test partners, National Christian Foundation and Lowell Denton.');
+}
+
 const clip = (v: unknown, n: number) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
 async function ownerEmail(ctx: Ctx, row: BoardRow): Promise<string> {
@@ -222,6 +228,7 @@ export async function saveCard(ctx: Ctx, b: MoveIn) {
   const cid = String(b.cid || '');
   if (!ID.test(cid)) throw new HttpError(400, 'bad_id', 'That is not a partner number.');
   if (ctx.testCid && cid !== ctx.testCid) throw new HttpError(403, 'test_only', 'A role test may change only the test record.');
+  guardTester(ctx, cid);
   const env = ctx.env;
   const hit = await rowFor(ctx, cid);
   if (!hit) throw new HttpError(403, 'not_yours', 'That partner is not on your board.');

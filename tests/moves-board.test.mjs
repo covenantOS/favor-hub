@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import './support/resolve-ts.mjs';
 
 const { compose, inScope, keyIndex, sorter, tally, matches, POOL } = await import('../functions/_lib/moves/board.ts');
+const { guardTester } = await import('../functions/_lib/moves/service.ts');
 const { groupOf, REL_TYPES } = await import('../functions/_lib/moves/relations.ts');
 
 const stages = [
@@ -109,5 +110,18 @@ describe('relationships', () => {
     for (const [t, back] of Object.entries(REL_TYPES)) assert.ok(back && t !== back || ['Sibling', 'Friend'].includes(t));
     assert.equal(REL_TYPES.Pastor, 'Church');
     assert.equal(REL_TYPES.Child, 'Parent');
+  });
+});
+
+describe('test accounts', () => {
+  const as = (email) => ({ email });
+  it('lets a test account change only the two test partners', () => {
+    guardTester(as('tester@favorintl.org'), '18698');
+    guardTester(as('tester2@favorintl.org'), '16269', '18698');
+    assert.throws(() => guardTester(as('tester@favorintl.org'), '27202'), /test partners/);
+    assert.throws(() => guardTester(as('tester@favorintl.org'), '18698', '12345'), /test partners/);
+  });
+  it('leaves real staff alone', () => {
+    guardTester(as('someone@favorintl.org'), '27202');
   });
 });
