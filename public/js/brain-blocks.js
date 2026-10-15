@@ -690,7 +690,9 @@
    * partners (households).") becomes one headline line: the figure and a short label ("121 lapsed partners in Ohio").
    */
   B.renderAll = (blocks, ctx) => {
-    const bs = (blocks || []).slice();
+    let bs = (blocks || []).slice();
+    // With the steps above the answer, "How I read it" lives in them; its line is not said again under the answer.
+    if (ctx && ctx.steps) bs = bs.map((b) => (b && b.type === 'text' && /How I read it/i.test(b.md || '') ? { ...b, md: String(b.md).split(/\n/).filter((l) => !/^\s*_?How I read it/i.test(l)).join('\n').trim() } : b)).filter((b) => !(b && b.type === 'text' && !b.md));
     const ti = bs.findIndex((b) => b && b.type === 'tiles' && (b.tiles || []).length === 1 && typeof b.tiles[0].value === 'number' && !b.tiles[0].delta && !b.tiles[0].trend && b.tiles[0].progress == null && !b.tiles[0].compare);
     let head = '';
     if (ti >= 0) {
@@ -698,16 +700,23 @@
       const shown = fmt(tile.value, tile.format || 'int');
       // Only a short sentence whose one figure is this number ("121 partners (households).") is folded in; a sentence with
       // more in it ("$4,291,689.40 so far, $5,000,000 goal") stays as written.
-      const esc_ = shown.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // The figures in a sentence, years left out ("2026 so far" is a period, not a figure).
+      const FIG = /\$?\d[\d,]*(?:\.\d+)?%?/g;
+      const figs = (t) => (t.match(FIG) || []).filter((x) => !/^(19|20)\d\d$/.test(x));
+      const val = (x) => Number(x.replace(/[$,%]/g, ''));
+      let tok = '';
       const xi = bs.findIndex((b, k) => {
         if (k <= ti || k > ti + 2 || !b || b.type !== 'text') return false;
         const t = String(b.md || '').replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
-        return t.length < 90 && new RegExp('(^|[^\\d.,])' + esc_ + '(?![\\d]|[.,]\\d)').test(t) && !/\d/.test(t.replace(shown, '')) && !/:\s*$/.test(t);
+        const f = figs(t);
+        if (t.length >= 120 || f.length !== 1 || Math.round(val(f[0])) !== Math.round(tile.value)) return false;
+        tok = f[0];
+        return true;
       });
       if (xi >= 0) {
         const tb = bs.find((b) => b && b.type === 'table' && b.title);
         const said = String(bs[xi].md).replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
-        const rest = tb ? shortTitle(tb.title).replace(/^\w/, (c) => c.toLowerCase()) : said.replace(shown, '').replace(/^[\s:,-]+/, '').replace(/\.$/, '');
+        const rest = tb ? shortTitle(tb.title).replace(/^\w/, (c) => c.toLowerCase()) : said.replace(tok, '').replace(/^[\s:,-]+/, '').replace(/[\s:,.-]+$/, '');
         head = `<div class="blk-head"><b data-count="${tile.value}" data-f="${esc(tile.format || 'int')}">${esc(shown)}</b> <span>${esc(rest || tile.label)}</span></div>`;
         bs.splice(xi, 1);
         bs.splice(ti, 1);

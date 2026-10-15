@@ -490,7 +490,7 @@
     if (t.error) h += '<div class="blk-text"><p class="bc-err">' + esc(t.error) + '</p></div>';
     else if (t.stopped) h += '<div class="blk-text"><p>Stopped. Ask again when you are ready.</p></div>';
     else if (!t.blocks || !t.blocks.length) h += B.fallback(t.markdown || 'No answer was kept for this one. Ask again.');
-    else h += (t.steps && t.steps.length && window.BrainTrace ? window.BrainTrace.done(t.steps, B.reading(t.reading, ti)) : '') + B.renderAll(t.blocks, { ti: ti, canSheets: false, canRequest: function () { return false; }, expired: expired });
+    else h += (t.steps && t.steps.length && window.BrainTrace ? window.BrainTrace.done(t.steps, B.reading(t.reading, ti)) : '') + B.renderAll(t.blocks, { ti: ti, steps: !!(t.steps && t.steps.length), canSheets: false, canRequest: function () { return false; }, expired: expired });
     (t.extras || []).forEach(function (x) { h += B.render(x, { ti: ti, bi: -1, canSheets: false }); });
     if (!(t.steps && t.steps.length && t.blocks && t.blocks.length)) h += B.reading(t.reading, ti);
     if (last && t.follow && t.follow.length && !t.error) h += '<div class="blk-follow" aria-label="Follow-up questions">' + t.follow.map(function (q) { return '<button type="button" class="fu" data-act="ask" data-q="' + esc(q) + '">' + B.ic('arrow') + esc(q) + '</button>'; }).join('') + '</div>';

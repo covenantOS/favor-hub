@@ -114,7 +114,7 @@
     else if (t.stopped) h += '<div class="blk-text"><p>Stopped. Ask again when you are ready.</p></div>';
     else if (!t.blocks || !t.blocks.length) h += B.fallback(t.markdown || 'No answer was kept for this one. Ask again.');
     else
-      h += (t.steps && t.steps.length ? window.BrainTrace.done(t.steps, B.reading(t.reading, ti)) : '') + B.renderAll(t.blocks, { ti, canSheets: canSheets(), canRequest: (k) => canRequest(k) && !pending(k), expired: ok });
+      h += (t.steps && t.steps.length ? window.BrainTrace.done(t.steps, B.reading(t.reading, ti)) : '') + B.renderAll(t.blocks, { ti, steps: !!(t.steps && t.steps.length), canSheets: canSheets(), canRequest: (k) => canRequest(k) && !pending(k), expired: ok });
     for (const x of t.extras || []) h += B.render(x, { ti, bi: -1, canSheets: canSheets() });
     // With steps, the reading chips sit inside them (brain-trace.js); an older stored answer keeps them under it.
     if (!(t.steps && t.steps.length && t.blocks && t.blocks.length)) h += B.reading(t.reading, ti);
