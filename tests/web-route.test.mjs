@@ -236,13 +236,14 @@ describe('a test account set to staff', () => {
 describe('live-front.mjs judges a check by web.routes as it stands', () => {
   it('keeps its copies of the full-load, exact and own-switch lists the same as shared/', async () => {
     const { FULL_LOAD } = await import('../shared/app2.ts');
-    const { WEB_EXACT_ROUTES, WEB_OWN_SWITCH } = await import('../shared/web.ts');
+    const { WEB_EXACT_ROUTES, WEB_OWN_SWITCH, WEB_WHOLE_PAGE_ROUTES } = await import('../shared/web.ts');
     const src = readFileSync(new URL('../scripts/live-front.mjs', import.meta.url), 'utf8');
     const copy = (name) => JSON.parse(src.match(new RegExp(`const ${name} = (\\[[^\\]]*\\]);`))[1].replace(/'/g, '"'));
     assert.deepEqual(copy('FULL_LOAD'), [...FULL_LOAD]);
     assert.deepEqual(copy('EXACT'), [...WEB_EXACT_ROUTES]);
     const { WEB_SOLO_ROUTES } = await import('../shared/web.ts');
     assert.deepEqual(copy('SOLO'), [...WEB_SOLO_ROUTES]);
+    assert.deepEqual(copy('WHOLE'), [...WEB_WHOLE_PAGE_ROUTES]);
     assert.deepEqual(copy('OWN_SWITCH'), Object.keys(WEB_OWN_SWITCH));
   });
 });

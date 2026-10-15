@@ -12,7 +12,13 @@ export const WEB_ROUTES = WEB_ROUTE_LIST;
  * /gifts/declines/, /gifts/recurring/, /gifts/other/) are listed and switched one at a time, so listing /gifts/ must not hand them over. The same
  * holds for /brain/ (Brain admin and Text Favor Brain are separate pages) and /admin/ (the Overview; each settings page under it is listed on its own).
  */
-export const WEB_EXACT_ROUTES = ['/gifts/', '/brain/', '/admin/'] as const;
+export const WEB_EXACT_ROUTES = ['/gifts/', '/brain/', '/admin/', '/meet/'] as const;
+
+/**
+ * Paths in FULL_LOAD (shared/app2.ts) that the web app does serve. A link to one still loads the page whole, never by moving inside the app
+ * (the meeting room holds a live call, so it is always its own page load); the middleware hands the whole-page request to the web app.
+ */
+export const WEB_WHOLE_PAGE_ROUTES = ['/meet/room/'] as const;
 
 /** Routes that have no Astro page. Anyone signed in who may use the hub gets them once an admin lists them in web.routes, whatever the audience. */
 export const WEB_ONLY_ROUTES = ['/churches/', '/data-care/'] as const;
@@ -81,7 +87,7 @@ export function webServes(path: string, routes: readonly string[]): boolean {
   const p = normalizeRoute(path);
   // A path that always loads whole from Astro (the help videos under /help/) never goes to the web app, whatever route owns the paths above it.
   // The solo routes (the Clips recorder, the KPI dashboard) have a web page of their own and are exempt.
-  if (FULL_LOAD.some((f) => !WEB_SOLO_ROUTES.includes(f) && (p === f || p.startsWith(f)))) return false;
+  if (FULL_LOAD.some((f) => !WEB_SOLO_ROUTES.includes(f) && !(WEB_WHOLE_PAGE_ROUTES as readonly string[]).includes(f) && (p === f || p.startsWith(f)))) return false;
   // Files that only look like pages (a JSON index, a script) belong to the Pages project, even under a route the web app owns.
   if ((STAY_PAGES as readonly string[]).includes(p)) return false;
   return routes.some((r) => (r === '/' || (WEB_EXACT_ROUTES as readonly string[]).includes(r) ? p === r : p === r || p.startsWith(r)));

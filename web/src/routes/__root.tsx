@@ -122,12 +122,13 @@ function IdlePartnerLinks() {
 
 function Root() {
   const solo = useMatches({ select: (m) => m.some((x) => x.staticData?.solo) });
+  const lean = !!useMatches({ select: (m) => m.map((x) => x.staticData).filter(Boolean).at(-1)?.lean });
   if (solo) return <Outlet />;
   return (
     <WebShell>
       <Outlet />
       {/* Partner names open the partner drawer on every web page, as partner.js does on classic pages. A page that mounts its own copy keeps it. */}
-      <IdlePartnerLinks />
+      {lean ? null : <IdlePartnerLinks />}
     </WebShell>
   );
 }

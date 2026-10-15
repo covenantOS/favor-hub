@@ -34,6 +34,8 @@ declare module '@tanstack/react-router' {
     layout?: 'page' | 'wide' | 'full' | 'bare';
     /** Drawn without the frame (the Clips recorder window): no rail, no top bar, and none of the frame's scripts or stylesheet. */
     solo?: boolean;
+    /** A page that draws without the chat dock, tours and partner drawer (the meeting room): what the Astro layout called lean. */
+    lean?: boolean;
     /** A page with tabs in its address (/work/?view=gifts): the menu entry and title for this address. */
     navOf?: (search: Record<string, unknown>) => { nav: string; title: string } | null;
   }

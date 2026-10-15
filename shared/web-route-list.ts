@@ -59,4 +59,13 @@ export const WEB_ROUTE_LIST = [
   '/admin/clips/',
   '/dashboard/',
   '/admin/chat/',
+  '/meet/',
+  '/meet/book/',
+  '/meet/booking/',
+  '/meet/library/',
+  '/meet/notes/',
+  '/meet/prep/',
+  '/meet/series/',
+  '/meet/room/',
+  '/admin/meetings/',
 ] as const;
