@@ -1,16 +1,20 @@
 ---
 title: Meetings
-summary: Start or join a meeting in FavorOS, run it with host controls, record it, and find the notes afterward.
+summary: Start, book and join meetings in FavorOS, run a room, share a booking page, and find the notes afterward.
 topic: work
 order: 6
-for: [admin]
+for: [all]
 related: [clips, whats-new]
 tool: /meet/
 toolLabel: Open Meetings
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 Meetings runs video calls inside FavorOS. Nobody installs anything. You join from the browser on a computer or a phone, and a call can hold the whole staff.
+
+## The Meetings tabs
+
+Meetings has five tabs under its title: **Calendar**, **Book**, **Booking page**, **Notes** and **Clips**. **Start now** and **Book** also sit at the top right of every Meetings page. Calendar shows your day, week or month with the notes list beside it. Book schedules a meeting. Booking page sets up the link where partners and staff book time with you. Notes is the library of every meeting you can open. Clips is your recorded clips (see Clips). A line at the top of Calendar offers **Connect my Google** when your Google Calendar is not connected; until then Calendar shows only FavorOS meetings.
 
 ## Start or join
 
@@ -56,6 +60,27 @@ Open **People** and use **Add people** at the bottom. Pick a colleague from the 
 
 What a meeting records starts from your setting in the Notifications gear under **Meeting recording**: Record video (video, sound and notes), Transcribe only (notes from the sound, no video kept) or Neither. The booking page starts with the same choice. During the call a host presses the recording button at the top of the room to switch between them; everyone in the room is told and sees Recording, Transcribing or Not recorded. **Pause recording** stops everything for a stretch. The host's browser starts the recording; when the host has not joined, a made host or the person who has been there longest starts it. If a meeting set to record has recorded nothing 20 seconds after two people are in it, the hosts see **Recording did not start** with **Retry**. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, FavorOS saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. The notes start the moment the last person leaves and appear under **Meeting notes** a few minutes later. The recording plays on that page. A Google Doc of the notes, with the summary, action items, chapters and the transcript with speaker names, is saved next to the recording and linked as Notes in Google Docs. The transcript is searchable on the notes page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
 
+## Book a meeting
+
+**Book** walks through three steps, shown as 1 Who, 2 When and 3 Details.
+
+**1 Who.** Press a team chip (All staff, Support Team, Marketing and the others, each with its head count) to add everyone on it, and press it again to take those people off. Type a name or Favor email under **Add people** and press **Add**. Under Guests from outside Favor, type an email address and press **Add guest**. The count above the names shows how many are invited. Pick **30 min**, **45 min**, **60 min** or **90 min**. **Start now** opens a room at once with these people. **Find times** goes to step 2.
+
+**2 When.** Suggested times lists the best times from everyone's Google Calendar, which FavorOS reads for free and busy only. Beside each person, **Required** switches to **Optional** and back. Below it a grid of the next seven days, in Eastern time, marks who is busy at each time; use the arrow keys and Enter, or tap a time, then **Use this time**. **Select times to hold** lets you pick two to four times and press **Hold these times**; **Release holds** frees them. **Working hours** shows each person's hours. The first time, a note asks you to allow calendar access once.
+
+**3 Details.** Set the Title and Agenda, and choose Record video, Transcribe only or Neither. **Post the summary to** picks a Chat channel. **Team** and **Drive notes folder** file the meeting. **Repeats** makes a series: every day, weekday, week, month or year, on the days you pick, ending never, after a number of meetings or on a date. **Start from a template** fills the form from a saved template; **Save as template** keeps this form, and **Share with all staff** lets others use it. **Email reminders** sends the join link a day before and shortly before the meeting. **Book it and send invites** books it and shows a guest link to copy and an **Open the series** button for a repeating meeting. **Book another** starts over.
+
+To move a booked meeting, open it on Calendar and press **Edit**, or drag it (see Change a meeting on the calendar). Changing the time updates the invitation for everyone.
+
+## The Booking page
+
+**Booking page** sets up the page where partners and staff book time with you.
+
+- **Your booking link** shows your link with **Copy** and **Open**.
+- **Meeting types** lists each type with its length, where it happens and who can book. **On** and **Off** switch a type; **Edit** opens it; **New meeting type** adds one. A type has a name, an About line, a length (15 to 90 minutes), Who can book (Partners and anyone with the link, or Staff only), Where (Video call in FavorOS, Phone call or In person, with a Place and Travel time), its own hours and time zone, buffer, minimum notice, how far ahead, most per day, how often times start, Recording (Off, Notes or Video) and up to eight questions, each Required or not. Leave every day off to use your working hours.
+- **Your working hours** holds your time zone, days, from and to times and a buffer. **Save working hours** saves them. **Connect Google Calendar** appears when your calendar is not connected, so the page can skip times you are busy.
+- **Upcoming bookings** lists each booking with the person's name, email, answers, **Open** for the meeting and **Cancel**. Cancel asks first and sends the partner a cancellation with a calendar file.
+
 ## Day, Week and Month
 
 The Meetings page opens on today. **Day**, **Week** and **Month** sit beside the date, the arrows move by a day, a week or a month, and FavorOS remembers the view you used last. A week starts on Sunday and a month shows its whole weeks. Times are Eastern. On a phone the week is a list by day and the month is a small grid with a dot for each meeting; tap a day to see its list, then **Open day** for the timeline. The Notes column stays beside the calendar in every view and lists the notes for the days on screen; on a phone it sits below the calendar. Google Calendar meetings load by date range and stay on screen while a range loads or if Google is slow.
@@ -78,9 +103,9 @@ Each action item with a named owner becomes a task for that person in Projects. 
 
 If a person on the invite is a partner, the notes page shows a **Log on a partner record** card to the host. Nothing goes to Blackbaud on its own. The host presses **Log in Blackbaud**, confirms, and one completed Meeting action goes on that partner's record with the date, who from Favor was there, the summary, the decisions and the follow-ups. The host can also find a partner by hand or press **Not a partner meeting**. Logging needs the Work Center.
 
-## Ask your meetings
+## Notes library and Ask your meetings
 
-On **Meeting notes**, **Ask your meetings** answers a question from the notes and transcripts of every meeting you can open, and lists the moments it used. Press a time to jump to it in that meeting's notes.
+**Notes** (or **Ask or search all notes** at the top of the Calendar notes list) opens Meeting notes, every meeting you can open. **Ask your meetings** answers a question from the notes and transcripts of those meetings and lists the moments it used. Press a time to jump to it in that meeting's notes. The search box below finds titles, summaries and what was said. Team chips narrow the list to meetings hosted by one team, and **Everything** clears the chip. Each card shows the host's team, the date and length, one line of the summary, how many action items it has, and Saved in Drive when the recording is stored. Your action items sit above the list with a box to check each one off, and a **Log on a partner record** card lists meetings with a partner on the invite.
 
 ## Two minutes before
 
@@ -94,6 +119,6 @@ Open a meeting's notes and press **Book the follow-up**. The booking opens with 
 
 On Today, **Move to FavorOS** makes a FavorOS meeting at the same time with the same people. The sheet has a box, checked at the start, that emails each invitee the join link, the time in Eastern and a calendar file, with a line telling them to use it instead of the Zoom, Google Meet, Teams or phone link on the calendar invite. You are not emailed, and no one gets it twice.
 
-## Limits while it is tested
+## Limits
 
-Only FavorOS admins see Meetings. Guests from outside Favor join from an invite link (see Invite above). If a room fails to load, tell the technology team through Feedback.
+Meetings is open to every FavorOS user. Guests from outside Favor join from an invite link (see Invite above). If a room fails to load, tell the technology team through Feedback.

@@ -7,7 +7,7 @@ for: [all]
 related: [getting-started, whats-new]
 tool: /clips/
 toolLabel: Open Clips
-updated: 2026-10-12
+updated: 2026-10-14
 ---
 
 Clips records your screen, a window, a browser tab or your camera and gives you a link. It suits a short walkthrough of something you do every week, or a question you want to show instead of type. Every staff member with a FavorOS sign-in can record. Your clips are your own: other people see a clip only when you send them its link.
@@ -81,7 +81,7 @@ On the watch page, the Help article tab writes a draft in the shape FavorOS's he
 
 ## Your clips and your space
 
-**Clips** in the menu, **My clips** under your name and the small clips button beside the camera all open your list. Search it by title, summary, what was said or what was on screen. Hover a clip to preview it. You can rename a clip, copy its link, switch sharing, or delete it. Delete removes the video, the transcript, the screen text and every comment for good, and the link stops working.
+**Clips** in the menu, **My clips** under your name and the small clips button beside the camera all open your list. Search it by title, summary, what was said or what was on screen. **All**, **Shared** and **Private** filter the list. Each card shows who can watch it, and pressing that label opens the share window. **Select** lets you tick several clips and set them to Private, Specific people or Anyone at Favor, or delete them together. On a card, **Send to email** adds the clip to a Mail draft, and **Help article** and **Learn lesson** appear once the clip is ready. Hover a clip to preview it. You can rename a clip, copy its link, switch sharing, or delete it. Delete removes the video, the transcript, the screen text and every comment for good, and the link stops working.
 
 Each person has 10 GB for clips. The top of your list shows how much you have used. Past 80%, it lists your oldest clips that nobody has watched, with a Delete button on each. At 10 GB a new recording waits until you delete something.
 
