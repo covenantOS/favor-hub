@@ -13,7 +13,7 @@ import './tour.css';
 
 type Mode = 'tour' | 'news';
 type Run = { mode: Mode; tour: TourId; steps: Step[]; i: number; replay: boolean; as?: TourId; since?: string };
-type Saved = { mode: Mode; tour: TourId; ids: string[]; i: number; at: number; replay: boolean; as?: TourId; since?: string };
+type Saved = { mode: Mode; tour: TourId; ids: string[]; i: number; at: number; replay: boolean; as?: TourId; since?: string; tried?: string[] };
 
 const SESSION = 'favor.hub.tour3';
 const INVITED = 'favor.hub.tour3.invited';
@@ -145,6 +145,8 @@ export function TourRoot(): ReactElement | null {
   const gen = useRef(0);
   const travelling = useRef(false);
   const lostAt = useRef(0);
+  // Steps whose page the tour has already loaded once. A page that sends the person elsewhere (a view they cannot open) drops the step instead of looping.
+  const tried = useRef<Set<string>>(new Set());
   const refinding = useRef(false);
   const gone = useRef<Set<string>>(new Set());
   const [, bump] = useState(0);
@@ -293,7 +295,7 @@ export function TourRoot(): ReactElement | null {
   }, [stopOv]);
 
   const saveSession = (r: Run) =>
-    sess.set({ mode: r.mode, tour: r.tour, ids: r.steps.map((s) => s.id), i: r.i, replay: r.replay, as: r.as, since: r.since });
+    sess.set({ mode: r.mode, tour: r.tour, ids: r.steps.map((s) => s.id), i: r.i, replay: r.replay, as: r.as, since: r.since, tried: [...tried.current] });
 
   /** Leave the tour. The step stays saved, so Resume picks up there. */
   const close = useCallback(
@@ -420,6 +422,8 @@ export function TourRoot(): ReactElement | null {
         // A link that opens some other page (an area's first page) is not pressed: the tour goes straight to its own page.
         if (leadsTo(link, step.page)) pressEl(link as HTMLElement);
         else {
+          tried.current.add(step.id);
+          saveSession({ ...runRef.current!, i });
           location.assign(step.page || '/');
           return;
         }
@@ -440,6 +444,7 @@ export function TourRoot(): ReactElement | null {
         }
       }
       if (!samePage(step.page)) {
+        tried.current.add(step.id);
         saveSession({ ...runRef.current!, i });
         location.assign(step.page || '/');
         return;
@@ -467,6 +472,15 @@ export function TourRoot(): ReactElement | null {
         if (p !== progressRef.current) commit(p);
       }
       const step = r.steps[i];
+      if (!samePage(step.page) && tried.current.has(step.id)) {
+        // The page was loaded for this step and answered with another view: the person cannot open it, so the stop is left out.
+        gone.current.add(step.id);
+        bump((n) => n + 1);
+        const live = r.steps.map((s, k) => ({ s, k })).filter((x) => !gone.current.has(x.s.id));
+        const nxt = dir === 1 ? live.find((x) => x.k > i) : [...live].reverse().find((x) => x.k < i);
+        if (nxt) return void go(nxt.k, dir);
+        return dir === 1 ? finishRun() : void go(Math.max(0, live[0]?.k ?? 0), 1);
+      }
       if (!samePage(step.page)) return void travel(r.steps, i, my, dir);
       travelling.current = false;
       return void show(r.steps, i, my, dir);
@@ -485,6 +499,7 @@ export function TourRoot(): ReactElement | null {
       }
       if (!steps.length) return;
       gone.current = new Set();
+      if (!opts.ids) tried.current = new Set();
       const replay = opts.replay ?? (mode === 'tour' ? isDone(progressRef.current, 'core') : false);
       const i = Math.min(Math.max(0, opts.at || 0), steps.length - 1);
       const r: Run = { mode, tour, steps, i, replay, as: opts.as, since: opts.since };
@@ -578,7 +593,7 @@ export function TourRoot(): ReactElement | null {
       const r = runRef.current;
       if (!r || travelling.current) return;
       const step = r.steps[r.i];
-      if (step && !samePage(step.page)) close('skip');
+      if (step?.page && new URL(step.page, location.origin).pathname.replace(/\/+$/, '') !== location.pathname.replace(/\/+$/, '')) close('skip');
     }, 600);
     return () => window.clearInterval(t);
   }, [ui, run, close]);
@@ -701,6 +716,7 @@ export function TourRoot(): ReactElement | null {
     if (s.mode === 'news' && !news) return;
     resumed.current = true;
     setAsTour(s.as);
+    tried.current = new Set(s.tried || []);
     begin(s.mode, { tour: s.tour, at: s.i, replay: s.replay, as: s.as, since: s.since, ids: s.ids });
   }, [who, loaded, myTour, begin, news]);
 
