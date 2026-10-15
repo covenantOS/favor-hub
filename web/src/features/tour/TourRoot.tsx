@@ -353,7 +353,15 @@ export function TourRoot(): ReactElement | null {
         return;
       }
       if (isPhone() && step.at[0] && document.querySelector(step.at[0])?.closest('.h-side')) await sleep(260);
-      const found = await findFirst(step.at, 6500);
+      let found = await findFirst(step.at, 6500);
+      // A page that draws its list again replaces the element while it settles: wait for the one that stays.
+      for (let k = 0; found && k < 3; k++) {
+        await stable(found.el);
+        if (stale()) return;
+        const r = found.el.getBoundingClientRect();
+        if (found.el.isConnected && r.width >= 8 && r.height >= 8) break;
+        found = await findFirst(step.at, 3000);
+      }
       if (stale()) return;
       if (!found) {
         // Nothing to show here for this person (a page that did not load, a card that is not on it): the stop is left out.
@@ -365,8 +373,6 @@ export function TourRoot(): ReactElement | null {
         if (dir === 1) return finishRun();
         return void go(Math.max(0, live[0]?.k ?? 0), 1);
       }
-      await stable(found.el);
-      if (stale()) return;
       const at = await settle(found.el, step.side, size, stale);
       if (stale() || !at) return;
       if (el) el.dataset.size = `${size.w}x${size.h}`;
