@@ -212,7 +212,7 @@ export function Account({ user, onSignOut, access = {}, classicHref = '/?app2=0'
           <Icon name="clips" />
           Connect Favor Brain to Claude
         </a>
-        <button type="button" role="menuitem" className="h-sound" data-sound-switch aria-pressed="true">
+        <button type="button" role="menuitem" className="h-sound" data-sound-switch data-hs-open aria-pressed="true" title="Sounds: choose On, Subtle or Off and the volume">
           <Icon name="sound" className="h-i h-sound__on" />
           <Icon name="mute" className="h-i h-sound__off" />
           Sounds

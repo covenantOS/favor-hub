@@ -4,7 +4,7 @@ summary: What FavorOS is, how to get around it, and where to go when you need so
 topic: start
 order: 1
 related: [signing-in, today, search, guided-tour]
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 FavorOS at **dash.favorintl.org** is where Favor staff do their everyday work outside Blackbaud: asking for work, expense requests, receipts, foundation prospects, the KPI dashboard and Favor Brain. You sign in once with your Favor Google account and every tool is one press away.
@@ -23,8 +23,8 @@ The ? button in the top bar opens the help article for the page you are on, in a
 2. **The menu on the left** has an area for each kind of work: Partners, Gifts, Projects, Meetings, Chat, Mail, Favor Brain, Reporting and Staff. The areas for your job come first. **More** holds the others, and every page in them is open to you. A number on an area shows how much is waiting there for you.
 3. **The tabs under the page name** are the pages of the area you are in. Your job's pages come first; **More** at the end of the row holds the rest, with whose job each one is.
 4. **Search** is the magnifier at the top of every page. Press Ctrl and K together from any page (Command and K on a Mac), type a few letters, and press Enter. Press G and then a letter to jump to an area: G P for Partners, G G for Gifts, G J for Projects, G S for Staff.
-5. **Make a request** is at the top right of every page.
-6. Your name is at the bottom of the menu. Its menu has Blackbaud and Paycom, Data saver, sounds and Sign out.
+5. **Make a request** is in Projects.
+6. Your picture is at the top right. Its menu has Expenses, My learning, Evaluations, My clips, Blackbaud and Paycom, Data saver, Sounds and Sign out. Next to it, the **?** menu has help for the page, the tour, Feedback and the keyboard shortcuts. See [Search, shortcuts and sounds](/help/search/).
 
 ## On a phone
 

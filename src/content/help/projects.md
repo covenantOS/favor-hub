@@ -26,6 +26,25 @@ Projects shows **Synced with Asana** beside its title. Tasks in the projects Fav
 
 A project has a lead, members, sections, and tasks with an owner, dates, a priority and optional Blackbaud codes. Open a task to comment, @mention someone, add subtasks, set what it waits on and attach files. A task with no project is a personal task on My tasks.
 
+## Type a due date in words
+
+Open a task's due date and type the date the way you would say it. The day it means shows first, with how far away it is. Press Enter to take it.
+
+| You type | You get |
+| --- | --- |
+| tomorrow, tmrw | The next day |
+| fri, friday | The next Friday, today included |
+| next tue | Tuesday of next week |
+| in 2 weeks, in 3 days, in a month | That far from today |
+| oct 20, 20 oct, 10/20 | That date. A date that has passed this year means next year |
+| the 20th | The next 20th |
+| end of week, end of month, end of year | The last working day of the week, or the last day of the month or year |
+| next week, next month | Monday of next week, or the first of next month |
+
+## Right-click a task
+
+Right-click a task in a list or on the board to open it, mark it done, set the due date, assign it, change the priority, rename it or select it, without opening the task first. Press D with a task highlighted to set its due date, A to assign it and F2 to rename it. [Search, shortcuts and sounds](/help/search/) lists the rest.
+
 ## Plan a project from a sentence
 
 Press **Plan a project**, write what you are doing (for example, "Banquet in Houston on December 6"), and press **Draft plan**. FavorOS picks the closest template, counts dates back from the date in your sentence and gives each task to the person whose title fits. The templates are weekly newsletter, monthly appeal letter, banquet or hosted dinner, grant application, print order and church newsletter. They follow how the Marketing team ran those jobs in Asana. Change any title, owner, date or priority, add or remove tasks and sections, then press **Create project**. Nothing is saved before that. Each owner gets one notice for all of their tasks.
