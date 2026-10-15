@@ -23,16 +23,40 @@ export const WEB_OFF_COOKIE = 'hub_web_off';
 
 export type WebAudience = 'testers' | 'admin' | 'all';
 
-/** The routes an admin turned on: a comma list, or * for every built route. Unknown routes are dropped. */
-export function parseWebRoutes(value: string | null | undefined): string[] {
+export interface WebEntry {
+  route: string;
+  /** Who gets this route; empty means the web.audience setting. */
+  audience?: WebAudience;
+}
+
+const AUDIENCES: WebAudience[] = ['testers', 'admin', 'all'];
+
+/**
+ * The routes an admin turned on: a comma list, each route optionally followed by @testers, @admin or @all ("/projects/@all, /@admin"),
+ * or * for every built route. Unknown routes are dropped, and a route with its own switch is never turned on from here, not even by *.
+ */
+export function parseWebEntries(value: string | null | undefined): WebEntry[] {
   const v = String(value || '').trim();
   if (!v) return [];
-  // A route with its own switch is never turned on from web.routes, not even by *.
-  const all = WEB_ROUTES.filter((r) => !WEB_OWN_SWITCH[r]).map((r) => normalizeRoute(r));
-  if (v === '*') return all;
-  const asked = new Set(v.split(',').map((s) => normalizeRoute(s.trim())).filter(Boolean));
-  return all.filter((r) => asked.has(r));
+  const built = new Set(WEB_ROUTES.filter((r) => !WEB_OWN_SWITCH[r]).map((r) => normalizeRoute(r)));
+  if (v === '*') return [...built].map((route) => ({ route }));
+  const out = new Map<string, WebEntry>();
+  for (const part of v.split(',')) {
+    const [raw, aud] = part.trim().split('@');
+    if (!raw) continue;
+    const route = normalizeRoute(raw.trim());
+    if (!built.has(route)) continue;
+    const a = (aud || '').trim() as WebAudience;
+    out.set(route, AUDIENCES.includes(a) ? { route, audience: a } : { route });
+  }
+  return [...out.values()];
 }
+
+/** Just the routes, whoever they are for. */
+export const parseWebRoutes = (value: string | null | undefined): string[] => parseWebEntries(value).map((e) => e.route);
+
+/** Write the setting back from entries (scripts/web-routes.mjs does the same by hand). */
+export const formatWebEntries = (entries: WebEntry[]): string => entries.map((e) => e.route + (e.audience ? '@' + e.audience : '')).join(',');
 
 /** "/" matches only itself. Any other route owns the paths under it (/projects/ owns /projects/p/). */
 export function webServes(path: string, routes: readonly string[]): boolean {

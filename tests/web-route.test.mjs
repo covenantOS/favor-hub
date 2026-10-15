@@ -34,6 +34,16 @@ describe('who gets the web app', () => {
   it('nothing is served while web.routes is empty', async () => {
     assert.equal((await go(world(), R, will)).kind, 'pass');
   });
+  it('a route can carry its own audience (/x/@all) over the default', async () => {
+    const env = world({ 'web.routes': R + '@all' });
+    assert.equal((await go(env, R, staff)).kind, 'web');
+    const adm = world({ 'web.routes': R + '@admin', 'web.audience': 'all' });
+    assert.equal((await go(adm, R, staff)).kind, 'pass');
+    assert.equal((await go(adm, R, admin)).kind, 'web');
+    const { parseWebEntries, formatWebEntries } = await import('../shared/web.ts');
+    assert.deepEqual(parseWebEntries(R + '@all, /nope/@all'), [{ route: R, audience: 'all' }]);
+    assert.equal(formatWebEntries(parseWebEntries(R + '@admin')), R + '@admin');
+  });
   it('testers and Will get a turned-on route by default; other admins and staff do not', async () => {
     const env = world({ 'web.routes': R });
     assert.equal((await go(env, R, will)).kind, 'web');

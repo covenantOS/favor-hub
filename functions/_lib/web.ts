@@ -6,7 +6,7 @@
 //   4. the request is a page load (hub-swap.js reads classic pages with fetch and must keep getting them),
 //   5. the WEB binding exists (a preview without it keeps every Astro page).
 // Everyone else gets the Astro page, unchanged. See the plan: Obsidian Projects/FavorOS React migration plan.md.
-import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_OWN_SWITCH, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebRoutes, webServes, type WebAudience } from '../../shared/web';
+import { WEB_COOKIE, WEB_OFF_COOKIE, WEB_ONLY_ROUTES, WEB_OWN_SWITCH, WEB_SETTING_AUDIENCE, WEB_SETTING_ROUTES, parseWebEntries, webServes, type WebAudience, type WebEntry } from '../../shared/web';
 import { mayUseOther } from './other-gifts/access';
 import { isPageLoad } from './app2';
 import { hubSettings } from './admin/hubcache';
@@ -15,7 +15,7 @@ import type { Env } from './http';
 import type { HubUser } from './session';
 
 export interface WebSettings {
-  routes: string[];
+  routes: WebEntry[];
   audience: WebAudience;
 }
 
@@ -26,21 +26,30 @@ export async function readWebSettings(env: Env): Promise<WebSettings> {
   try {
     const by = await hubSettings(env);
     const a = by.get(WEB_SETTING_AUDIENCE)?.value;
-    return { routes: parseWebRoutes(by.get(WEB_SETTING_ROUTES)?.value), audience: a === 'all' || a === 'admin' ? a : 'testers' };
+    return { routes: parseWebEntries(by.get(WEB_SETTING_ROUTES)?.value), audience: a === 'all' || a === 'admin' ? a : 'testers' };
   } catch {
     return { routes: [], audience: 'testers' };
   }
 }
 
-export function inWebAudience(user: HubUser | null, s: WebSettings): boolean {
+export function inAudience(user: HubUser | null, audience: WebAudience): boolean {
   if (!user) return false;
   if (user.via !== 'google' && user.via !== 'password') return false;
   if (user.role === 'field') return false;
   const email = user.email.toLowerCase();
-  if (s.audience === 'all') return true;
-  if (s.audience === 'admin') return user.role === 'admin';
-  return isTester(email) || email === OWNER;
+  if (isTester(email) || email === OWNER) return true;
+  if (audience === 'all') return true;
+  if (audience === 'admin') return user.role === 'admin';
+  return false;
 }
+
+/** The listed routes this person gets: each route's own audience (/projects/@all), or the web.audience default. */
+export function routesFor(user: HubUser | null, s: WebSettings): string[] {
+  return s.routes.filter((e) => inAudience(user, e.audience || s.audience)).map((e) => e.route);
+}
+
+/** The default audience only (kept for callers that ask). */
+export const inWebAudience = (user: HubUser | null, s: WebSettings): boolean => inAudience(user, s.audience);
 
 export const optedOut = (request: Request): boolean => new RegExp(`(?:^|;\\s*)${WEB_OFF_COOKIE}=1`).test(request.headers.get('Cookie') || '');
 
@@ -64,11 +73,13 @@ export async function decideWeb(env: Env, request: Request, url: URL, user: HubU
   const own = user.role === 'field' ? [] : await ownRoutesFor(env, user);
   const s = await readWebSettings(env);
   // A page with no Astro twin cannot fall back, so it ignores the audience and the opt-out: it is on for every staff sign-in the moment an admin lists it.
-  const only = s.routes.length > 0 && webServes(url.pathname, WEB_ONLY_ROUTES) && webServes(url.pathname, s.routes) && user.role !== 'field' && (user.via === 'google' || user.via === 'password');
+  const listed = s.routes.map((e) => e.route);
+  const only = listed.length > 0 && webServes(url.pathname, WEB_ONLY_ROUTES) && webServes(url.pathname, listed) && user.role !== 'field' && (user.via === 'google' || user.via === 'password');
   if (only && url.searchParams.get('classic') !== '1' && isPageLoad(request)) return { kind: 'web' };
-  if (optedOut(request)) return { kind: 'pass', routes: [] };
-  const generic = s.routes.length && inWebAudience(user, s) ? s.routes : [];
-  const routes = [...generic, ...own.filter((r) => !generic.includes(r))];
+  const onlyMine = user.role === 'field' ? [] : listed.filter((r) => webServes(r, WEB_ONLY_ROUTES));
+  if (optedOut(request)) return { kind: 'pass', routes: onlyMine };
+  const generic = routesFor(user, s);
+  const routes = [...new Set([...generic, ...onlyMine, ...own])];
   if (!routes.length) return { kind: 'pass', routes: [] };
   if (url.searchParams.get('classic') === '1' || !isPageLoad(request) || !webServes(url.pathname, routes)) return { kind: 'pass', routes };
   return { kind: 'web' };
