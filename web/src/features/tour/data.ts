@@ -452,7 +452,7 @@ const SHARED: Record<string, StepDef> = {
     id: 'mail',
     page: '/mail/',
     via: 'mail',
-    at: ['.ml-compose', '.ml-side'],
+    at: ['.ml-compose', '.ml-pn[aria-label="New message"]', '.ml-side'],
     title: 'Mail',
     need: 'mail',
     body: () => 'Compose starts a new message in your Favor Gmail, right inside FavorOS.',

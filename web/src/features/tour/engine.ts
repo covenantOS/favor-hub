@@ -44,6 +44,21 @@ export async function findFirst(selectors: string[], ms = 4500): Promise<{ el: E
   }
 }
 
+/** Wait until the thing stops moving and growing (a list that is still drawing its rows), for at most `ms`. */
+export async function stable(el: Element, ms = 2200): Promise<void> {
+  const t0 = Date.now();
+  let last = '';
+  let same = 0;
+  while (Date.now() - t0 < ms) {
+    const r = el.getBoundingClientRect();
+    const k = `${Math.round(r.left)}|${Math.round(r.top + scrollY)}|${Math.round(r.width)}|${Math.round(r.height)}`;
+    same = k === last ? same + 1 : 0;
+    last = k;
+    if (same >= 3 && r.height >= 8) return;
+    await new Promise((res) => setTimeout(res, 110));
+  }
+}
+
 const norm = (p: string) => p.replace(/\/+$/, '') || '/';
 
 /** Pages whose address says which view shows: with no view in the address the page opens on its first view. */

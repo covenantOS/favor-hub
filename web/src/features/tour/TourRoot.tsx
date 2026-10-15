@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { RETURNS, comesBack, dayWord, etStamp, etToday, finish as markDone, isDone, mayOpen, place, skip as markSkipped, type Progress } from '@hub/scripts/tour-state';
 import { TOUR_IDS, TOUR_LABEL, pickTour, say, tourFor, tourFromAs, whoFromNav, type NavAnswer, type Step, type TourId, type Who } from './data';
 import { loadNews, newsCount, newsSteps, type News } from './news';
-import { busy, clearSpacer, clearTyping, deviceNow, findFirst, holeRect, isPhone, isTouch, linkTo, navLink, openMenuFor, placeAlone, pressEl, reduced, samePage, settle, sleep, visible, watchTyping, type Placement } from './engine';
+import { busy, clearSpacer, clearTyping, deviceNow, findFirst, stable, holeRect, isPhone, isTouch, linkTo, navLink, openMenuFor, placeAlone, pressEl, reduced, samePage, settle, sleep, visible, watchTyping, type Placement } from './engine';
 import { openStore, type ProgressStore } from './store';
 import './tour.css';
 
@@ -144,6 +144,8 @@ export function TourRoot(): ReactElement | null {
   const [card, setCard] = useState<{ title: string; body: string; busy: boolean; key: string } | null>(null);
   const gen = useRef(0);
   const travelling = useRef(false);
+  const lostAt = useRef(0);
+  const refinding = useRef(false);
   const gone = useRef<Set<string>>(new Set());
   const [, bump] = useState(0);
   const ovTok = useRef<unknown>(null);
@@ -363,6 +365,8 @@ export function TourRoot(): ReactElement | null {
         if (dir === 1) return finishRun();
         return void go(Math.max(0, live[0]?.k ?? 0), 1);
       }
+      await stable(found.el);
+      if (stale()) return;
       const at = await settle(found.el, step.side, size, stale);
       if (stale() || !at) return;
       if (el) el.dataset.size = `${size.w}x${size.h}`;
@@ -503,15 +507,32 @@ export function TourRoot(): ReactElement | null {
         if (again) { targetRef.current = again; t = again; }
       }
       const pl = placeRef.current;
-      if (!t || !t.isConnected || !pl) {
-        if (last !== 'none') { hole.classList.add('is-none'); last = 'none'; }
-        return;
-      }
-      const rect = holeRect(t, pl.clip);
+      const rect = t && t.isConnected && pl ? holeRect(t, pl.clip) : null;
       if (!rect) {
         if (last !== 'none') { hole.classList.add('is-none'); last = 'none'; }
+        // The target went away or shrank to nothing (the page drew itself again): after a moment look for it again.
+        const r0 = runRef.current;
+        if (pl && r0 && !travelling.current && r0.steps[r0.i]?.at.length && !refinding.current) {
+          lostAt.current = lostAt.current || Date.now();
+          if (Date.now() - lostAt.current > 700) {
+            refinding.current = true;
+            lostAt.current = 0;
+            const my = gen.current;
+            void (async () => {
+              const found = await findFirst(r0.steps[r0.i].at, 2500);
+              if (found && my === gen.current) {
+                await stable(found.el);
+                const c = cardRef.current;
+                const at = await settle(found.el, r0.steps[r0.i].side, { w: c?.offsetWidth || 380, h: c?.offsetHeight || 200, safeTop: 0 }, () => my !== gen.current);
+                if (at && my === gen.current) { targetSel.current = found.sel; targetRef.current = found.el; setPlace(at); last = ''; }
+              }
+              refinding.current = false;
+            })();
+          }
+        }
         return;
       }
+      lostAt.current = 0;
       const k = `${rect.x}|${rect.y}|${rect.w}|${rect.h}`;
       if (k === last) return;
       last = k;
