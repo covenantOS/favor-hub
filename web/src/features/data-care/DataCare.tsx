@@ -506,6 +506,7 @@ function MissingRows({ state, q, offset, setOffset }: { state: FlagState; q: str
           <div key={f.cid} className="dc-row">
             <b title={f.name}>
               <NavLink href={'/work/partner/' + f.cid}>{f.name || 'No name on file'}</NavLink>
+              {f.note ? <small className="dc-note">{f.note}</small> : null}
             </b>
             <span className="dc-amt">{money0(f.gave)}</span>
             <span>{when(f.lastGift)}</span>

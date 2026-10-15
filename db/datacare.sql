@@ -15,8 +15,10 @@ CREATE TABLE IF NOT EXISTS dc_flag (
   last_seen TEXT NOT NULL,
   fixed_at TEXT,
   fixed_how TEXT,
-  task_id TEXT                            -- the review task assigned to the reviewer
+  task_id TEXT,                           -- the review task assigned to the reviewer
+  note TEXT                               -- a person's note on the row; the scan never writes it (added 2026-10-15)
 );
+-- Existing databases: ALTER TABLE dc_flag ADD COLUMN note TEXT;
 CREATE INDEX IF NOT EXISTS idx_dc_flag_state ON dc_flag(state, kind);
 
 CREATE TABLE IF NOT EXISTS dc_pair (

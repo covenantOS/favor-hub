@@ -19,6 +19,7 @@ export interface Flag {
   state: string;
   fixedAt: string | null;
   fixedHow: string | null;
+  note?: string | null;
 }
 export interface PairRef {
   id: string;
