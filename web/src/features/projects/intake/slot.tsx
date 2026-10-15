@@ -88,7 +88,7 @@ function Slot({ requestId, task, ctx }: { requestId: string; task: Task; ctx: Ta
       {d.standing.triage && open ? <TriageBar item={it} open={panel} setOpen={setPanel} /> : null}
       {open && task.owner_email && task.owner_email.toLowerCase() === staff.me.toLowerCase() ? (
         <div className="ik-bar">
-          <button type="button" className="pj-btn" onClick={() => openFocus(requestId)}>
+          <button type="button" className="pj-btn" title="Put a busy block on your own calendar, with no guests, to work on this request" onClick={() => openFocus(requestId)}>
             Hold focus time
           </button>
         </div>
@@ -150,8 +150,9 @@ function Steps({ item }: { item: IntakeItem }) {
 
 function TriageBar({ item, open, setOpen }: { item: IntakeItem; open: Panel; setOpen: (p: Panel) => void }) {
   const inbox = item.status === 'inbox';
+  const TIPS: Record<string, string> = { accept: 'Put this request in a project with an owner and a due date', ask: 'Send a question to the person who asked. The card stays in Intake until they answer', decline: 'Close this request with a reason the person who asked will read' };
   const btn = (id: Exclude<Panel, null>, label: string, primary = false) => (
-    <button type="button" className={'pj-btn' + (primary ? ' pj-btn--primary' : '') + (open === id ? ' is-on' : '')} aria-expanded={open === id} onClick={() => setOpen(open === id ? null : id)}>
+    <button type="button" title={TIPS[id]} className={'pj-btn' + (primary ? ' pj-btn--primary' : '') + (open === id ? ' is-on' : '')} aria-expanded={open === id} onClick={() => setOpen(open === id ? null : id)}>
       {label}
     </button>
   );

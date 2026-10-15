@@ -56,6 +56,8 @@ On a task, **Record the brief** or **Record proof** opens the recorder and attac
 
 Press the bell, then **Project notices**. Choose one email per notice, a daily summary or no email, and whether tasks you own go on your Google Calendar on their due date. Google asks once for permission to add events to your calendar.
 
+Press **Request email** at the top of Projects to choose how you hear about requests: **Immediately**, **Daily summary** or **None**. See [Intake and My requests](/help/request-board/).
+
 ## Expense requests
 
 On a task, **Link one of mine** attaches one of your expense requests. The task shows when it is waiting for approval, approved and signed, or declined.

@@ -130,7 +130,7 @@ export function openEmailPrefs(): void {
 
 export function EmailPrefsButton() {
   return (
-    <button type="button" className="pj-btn" data-h="request-email" onClick={() => openEmailPrefs()}>
+    <button type="button" className="pj-btn" data-h="request-email" title="Choose how you hear about requests: Immediately, Daily summary or None" onClick={() => openEmailPrefs()}>
       Request email
     </button>
   );

@@ -6,7 +6,7 @@ order: 1
 related: [connect-your-ai, asking-well, text-favor-brain, access, feedback]
 tool: /brain/
 toolLabel: Open Favor Brain
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 Favor Brain answers questions about Favor in plain words. Ask "How many active partners do we have in North Carolina?" and the answer comes from Blackbaud, the KPI dashboard and Favor's manuals, counted with Favor's own definitions. **Brain** in the FavorOS menu opens it.
@@ -37,12 +37,40 @@ Under each answer:
 - **Follow-up buttons** under the newest answer ask the next question for you. You can also type a few words, such as "show me them", "what about Texas?" or "only major partners".
 - When a question could mean two things, you pick from buttons. **Something else** puts the cursor in the box.
 - **Copy the answer**, **Copy link to this chat** (only you can open it), **Pin to My dashboard** (the answer appears on Highlights, under My dashboard, and Refresh there asks it again), **Right**, **Not right**, **Ask again**.
-- **Send to email** puts the answer in a new email. Partner data goes only to people allowed to share it. You can also drag an answer into a Chat message, a task or an email.
+- **Send to email**, **Drag** and **Copy as formatted** move the answer somewhere else. See Use an answer somewhere else below.
 - **Copy the question** and **Edit the question** sit beside your own question. Editing and pressing Enter replaces everything after it.
 
 When the Brain cannot answer a question reliably, the card says **Let's take this one to Claude**. **Continue in Claude** opens Claude with your question and what the Brain found. **Rephrase** puts your question back in the box.
 
 Tables have **Copy**, **CSV** and **Open in Google Sheets**, a filter box, sortable columns, and **Open large** or **Open full table** to read all rows in a side panel. The first time you press Open in Google Sheets, Google asks once for permission. The sheet lands in your own Drive and only you can open it until you share it. It holds partner information, so keep it inside Favor.
+
+## Use an answer somewhere else
+
+Three buttons sit under every answer.
+
+- **Send to email** starts a new email with the answer in it: the question as a title, the main figure, the table and a **Source** line with the time the numbers are from. If you have drafts open, it asks which one gets the answer, with **New email** first.
+- **Drag** is a grip you hold. Let go over an open email, the **Drop here to start an email** box that shows while you drag, a Chat message, a task or any text box in FavorOS. The answer goes in as text.
+- **Copy as formatted** puts the same title, figure, table and source on your clipboard, ready to paste into Docs, Word or any other app.
+
+Answers that name partners go only to people whose Favor Brain access includes partners.
+
+### Is there an easier way?
+
+Instead of selecting a table, copying it and rebuilding the layout in an email or a document, press **Send to email** or **Copy as formatted**. The table keeps its shape.
+
+## Photos and videos
+
+Ask for pictures or footage in your own words, such as "Photos from the Uganda trip". The answer is a grid of pictures, or 16:9 tiles for video with the length and the moment that matched. Only files your own Google account can open show.
+
+- **Filters** sit above the grid: **Place**, **Year**, **Quality** (photos only: High quality or Medium or better), **Folder** and **Order** (Newest or Largest for photos, Newest for video). Pick one and the answer redraws. On a narrow screen the filters wrap to a second line.
+- **Show more** at the bottom loads the next set for the same question, with a count beside it.
+- Press a picture to open the large view with its size, quality and folder. Press a video tile to play it there.
+- **Download original** in the large view saves the full file from Drive.
+- **More like this** under a picture asks the Brain for more photos like it.
+
+### Is there an easier way?
+
+Instead of opening Drive folder after folder to find a photo, ask the Brain for what is in it, then narrow by place and year.
 
 ## What you can ask about
 

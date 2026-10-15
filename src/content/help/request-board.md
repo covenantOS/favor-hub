@@ -45,6 +45,10 @@ Press **Request email** at the top of Projects, or the link at the foot of any r
 
 The email that says a request you sent is done comes whichever you pick. The person who did something never gets an email about it.
 
+## Is there an easier way?
+
+Instead of copying a request into a task by hand, press **Accept** on its card. Accept makes the task in Projects (and in Asana when the project syncs), tells the person who asked and offers to hold focus time on your calendar.
+
 ## Done in either place
 
 Ticking the card closes the request and sends the done email. Moving the request to Done ticks the card. A task ticked in Asana closes the request on the next pass.

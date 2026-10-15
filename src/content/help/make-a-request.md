@@ -13,7 +13,7 @@ Use Make a request for anything you need from someone else: a change to the webs
 
 ## Steps
 
-1. Press **Make a request** at the top of Projects, or the Make a request button in the top bar of any page.
+1. Press **Make a request** at the top of Projects.
 2. In **What do you need?**, type it the way you would say it to a coworker. One or two sentences is enough. The example buttons under the empty box fill in common requests.
 3. Read the answers that appear under the box and change any that are wrong.
 4. Press **Send request**. Ctrl and Enter (Command and Enter on a Mac) sends it too.
@@ -39,6 +39,10 @@ The line at the bottom of the box says where your request lands and who reads it
 ## After you send it
 
 The box shows **Sent** with four stops: Sent, Approved, In progress and Done. **See it on My requests** opens your list. You get an email when the work is done. See [Intake and My requests](/help/request-board/) for what happens next.
+
+## Is there an easier way?
+
+Instead of the old Requests page and its board, press **Make a request** in Projects. The old Requests page sends you to Projects, and your earlier requests are under **My requests**.
 
 ## Good requests
 

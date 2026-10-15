@@ -6,7 +6,7 @@ order: 8
 related: [chat, today, inbox-and-hand-off, partner-page, work-center, whats-new]
 tool: /mail/
 toolLabel: Open Mail
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 Mail shows your own Gmail inside FavorOS. Nobody else sees your mail. To make the list fast, FavorOS saves for each conversation the sender, the subject, a one-line preview, the labels and the results of sorting it (its category and whether it waits on you). It never saves message bodies or attachments; those are read from Gmail when you open them, and a copy stays on your own device for seven days. Disconnecting Google or removing a mailbox deletes the saved rows for it. If Mail is turned on for you, it shows in the menu. Admin > Settings > Chat > Mail sets who has it: admins, all staff, chosen people and teams, or nobody.
@@ -135,18 +135,32 @@ Nothing goes to anyone until you press the button in the sheet. On a phone, More
 The window's buttons:
 
 - **Minimize** (or press the title), **Full screen** and **Close**. Close keeps the draft. On a reply under the conversation, **Pop out** moves it into a floating window (Shift and click **Reply** opens it popped out), and a popped window has **Dock at the bottom** to put it back.
-- **To**, with **Cc Bcc** to add those rows, and **Subject**. Type a name in To and pick from staff first, then your Google contacts. With more than one mailbox, **From** picks the one to send as.
-- The message box starts with your signature. On a reply, **Show the earlier message** shows the quoted text.
+- **To**, with **Cc Bcc** to add those rows, and **Subject**, at the top. Type a name in To and pick from staff first, then your Google contacts. With more than one mailbox, **From** picks the one to send as. The title line says whether this is a new email, a reply or a forward and what it is about.
+- On a computer, **Side by side with the page** opens an email you started from a page next to that page instead of over it, and **Dock at the bottom** puts it back. Minimized drafts stack in the corner.
+- The message box holds only what you write. Your signature sits under it as one small line, **Signature**. Press it to read the signature, and use the off switch in the open line to leave it off this message. On a reply, **Show the earlier message** shows the quoted text.
 
 The row under the message box, left to right:
 
 - **Send** and, beside it, **Send later**. The time list is **This afternoon**, **Tomorrow morning**, **Tomorrow afternoon**, **Monday morning**, or **Pick a date and time** and **Schedule**. A box asks FavorOS to remind you if nobody replies in 3 days. A message with files cannot wait. **Scheduled** in the mailbox list shows and cancels them.
 - **Bold**, **Italic**, **Underline**, **Link**, **Bulleted list**, **Numbered list**.
-- **Attach files** (or drop them on the window), up to 24 MB together. Three buttons add things without a download. **Link a Drive file** searches your Drive and puts a link in the message, **Link a clip** adds a link to one of your Clips, and **Photos from Drive** searches Favor's photo library by what is in them and puts the ones you pick in the message.
-- **Templates** lists your saved messages. Fields fill from the person on the To line: {first_name}, {name}, {last_gift}, {last_gift_date}, {total_giving} and {my_name}. Type a name under **Save this message as a template** and press **Save** to add one.
+- **Attach files** (or drop them on the window), up to 24 MB together. **Insert** holds the rest, without a download. **A Drive file** searches your Drive and puts a link in the message, **A clip** adds a link to one of your Clips, **Photos from Drive** searches Favor's photo library by what is in them and puts the ones you pick in the message, and **A template** opens your saved messages.
+- **Templates** (**A template** under **Insert**) lists your saved messages. Fields fill from the person on the To line: {first_name}, {name}, {last_gift}, {last_gift_date}, {total_giving} and {my_name}. Type a name under **Save this message as a template** and press **Save** to add one.
 - **Discard draft**.
 
 A draft saves a few seconds after you stop typing and shows under Drafts in Gmail too. Press Ctrl Enter to send. **Send** runs **Before this goes**, then holds the message for 15 seconds with **Undo**, and the hold carries on if you change pages.
+
+## Put something from FavorOS into an email
+
+You can move an item into an email from the page where you found it. Two ways work everywhere.
+
+- **Send to email** starts a new email with the item in it. If you already have drafts open, it asks which draft gets the item, with **New email** first.
+- **Drag** the item, or its **Drag** handle, onto an open email, onto the **Drop here to start an email** box that appears while you drag, or into any text box in FavorOS.
+
+Send to email is on a Favor Brain answer, a clip (in My clips), a task (in its menu) and meeting notes. A Favor Brain answer arrives as the question for a title, the main figure, the table and a Source line with the time the numbers are from. Meeting notes arrive as the summary, decisions and action items, with the meeting's people on the To line. Partner details in an answer go only to people who may share them.
+
+## Is there an easier way?
+
+Instead of copying a Favor Brain table or a task into a blank email by hand, press **Send to email** on it, or drag it in. The title, figure, table and source line arrive already laid out.
 
 ## Keys
 

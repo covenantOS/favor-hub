@@ -29,7 +29,7 @@ export function homeTabsExtra(staff: StaffDir): ExtraTab[] {
 
 function MakeRequest() {
   return (
-    <button type="button" className="pj-btn pj-btn--primary ik-make" data-tour="make-request" onClick={() => openComposer()}>
+    <button type="button" className="pj-btn pj-btn--primary ik-make" data-tour="make-request" title="Say what you need in your own words and send it to the right team" onClick={() => openComposer()}>
       Make a request
     </button>
   );
