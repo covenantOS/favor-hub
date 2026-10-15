@@ -127,3 +127,7 @@
 .fp-new.fp-new--strong { background: var(--h-brand); color: #fff; border-color: var(--h-brand); }
 .fp-new.fp-new--strong:hover { filter: brightness(1.08); }
 [data-bconvs].bc-root { display: block; padding: 2px 6px 12px; }
+/* The React dock's Favor Brain tab (app/src/features/brain/DockBrain.tsx). */
+.fp-flip { transform: scaleX(-1); }
+.fd-p__body--brain > .fp-conv { flex: 1; min-height: 0; }
+.fd-p__body--brain .fp-comp { flex: none; }

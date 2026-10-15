@@ -683,7 +683,9 @@ body.h-body[data-nav='brain'] .h-app.is-nav::after { z-index: 90; }
    gaps to fill), 16:9 video tiles with the length and the matched moment, filters, Show more, skeleton tiles of the final
    size while pictures load. A press opens the large view (.plb, below). */
 .h-body .bc-root .fcards--media { overflow: hidden; }
-.h-body .bc-root .mf { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--h-line); overflow-x: auto; scrollbar-width: none; }
+/* The filter row wraps onto a second line when it is wider than the card (it scrolled sideways and cut Folder off on desktop). */
+.h-body .bc-root .mf { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--h-line); }
+.h-body .bc-root .mf__s { max-width: 100%; min-width: 0; }
 .h-body .bc-root .mf::-webkit-scrollbar { display: none; }
 .h-body .bc-root .mf__s { position: relative; display: inline-flex; align-items: center; gap: 6px; flex: none; height: 32px; padding: 0 4px 0 11px; border: 1px solid var(--h-line); border-radius: 99px; background: #fff; font-size: 12.5px; color: var(--h-ink-3); }
 .h-body .bc-root .mf__s:focus-within { border-color: var(--h-ink-3); }

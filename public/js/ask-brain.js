@@ -138,7 +138,8 @@
       window.FavorDock.open({ tab: 'brain' });
       var n = 0;
       (function wait() {
-        var P = window.FavorDockPanel;
+        // The React dock (app/src/shell/Dock.tsx) says it draws the Brain tab itself; wait for that tab, not the classic panel.
+        var P = window.FavorDockBrainNative ? window.FavorDockNativeBrain : window.FavorDockPanel;
         if (P && P.askWith) { P.askWith(ctx); return; }
         if (++n < 60) setTimeout(wait, 80);
         else location.href = '/brain/?ctx=' + encodeURIComponent(ctx.text.slice(0, 600)) + '&from=' + encodeURIComponent(ctx.source);

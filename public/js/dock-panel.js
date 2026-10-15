@@ -420,6 +420,8 @@
     return { q: t.question, ref: t.ref, at: t.at, blocks: a.blocks || [], reading: Array.isArray(a.reading) ? a.reading : [], follow: a.follow || [], steps: a.steps || [], intent: a.intent, outcome: a.outcome, asked_as: a.asked_as || t.question, extras: [], stored: true };
   }
   function brainShow() {
+    // The React dock draws the Favor Brain tab itself (app/src/features/brain/DockBrain.tsx).
+    if (window.FavorDockNativeBrain) return;
     P.last = 'brain';
     body.innerHTML = '<div class="fp-wait"><i></i><i></i><i></i></div>';
     loadBrainCode().then(function () {
@@ -597,11 +599,12 @@
   var P = window.FavorDockPanel = { show: show, wired: false, last: null };
   // Ask Favor Brain from a selection: a new chat with the selection as its context and, for a short selection, its words in the box.
   P.askWith = function (ctx) {
+    if (window.FavorDockNativeBrain) { window.FavorDockNativeBrain.askWith(ctx); return; }
     if (!ctx || !ctx.text) return;
     D.save({ tab: 'brain', bc: null });
     brain.cur = null; brain.view = 'chat';
     brain.ctx = { text: String(ctx.text), source: ctx.source || 'this page', fill: window.FavorAskBrain ? window.FavorAskBrain.suggestion(ctx.text) : '' };
     if (S.tab === 'brain') brainRender(); else { S.tab = 'brain'; show(); }
   };
-  P.brainTurn = function (i) { return brain.cur ? brain.cur.turns[i] || null : null; };
+  P.brainTurn = function (i) { if (window.FavorDockNativeBrain) return window.FavorDockNativeBrain.brainTurn(i); return brain.cur ? brain.cur.turns[i] || null : null; };
 })();

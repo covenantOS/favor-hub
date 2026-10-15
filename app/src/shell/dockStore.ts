@@ -252,7 +252,7 @@ class DockStore {
   loadPanel(): Promise<void> {
     if (this.loaded) return this.loaded;
     loadStyle('/css/dock-panel.css?v=3');
-    this.loaded = loadScript('/js/dock-panel.js?v=4').catch((e) => {
+    this.loaded = loadScript('/js/dock-panel.js?v=5').catch((e) => {
       this.loaded = 0;
       throw e;
     });

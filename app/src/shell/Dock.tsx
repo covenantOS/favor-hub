@@ -3,6 +3,9 @@ import { dock, type DockToast } from './dockStore';
 
 // The Chat tab draws with native Chat's own message list and message box (features/chat), loaded the first time the tab opens.
 const DockChat = lazy(() => import('@/features/chat/DockChat'));
+// The Favor Brain tab is native too (features/brain/DockBrain): the same chat, answers and steps as the Brain page.
+const DockBrain = lazy(() => import('@/features/brain/DockBrain'));
+if (typeof window !== 'undefined') (window as unknown as { FavorDockBrainNative?: boolean }).FavorDockBrainNative = true;
 
 /** The floating dock for people who have Chat: a circle at the bottom right with a count, toasts with Reply, and a panel with Chat and Favor Brain tabs. */
 export function Dock({ chat, page }: { chat: boolean; page: string }) {
@@ -119,10 +122,15 @@ function Panel({ s }: { s: ReturnType<typeof dock.getSnapshot> }) {
   const [err, setErr] = useState('');
   const el = useRef<HTMLElement>(null);
   const [chatSeen, setChatSeen] = useState(false);
+  const [brainSeen, setBrainSeen] = useState(false);
   const chatOn = s.open && s.tab === 'chat';
+  const brainOn = s.open && s.tab === 'brain';
   useEffect(() => {
     if (chatOn) setChatSeen(true);
   }, [chatOn]);
+  useEffect(() => {
+    if (brainOn) setBrainSeen(true);
+  }, [brainOn]);
 
   // The Favor Brain tab belongs to public/js/dock-panel.js after first open: React renders the frame and leaves that body alone.
   useEffect(() => {
@@ -205,7 +213,23 @@ function Panel({ s }: { s: ReturnType<typeof dock.getSnapshot> }) {
           </svg>
         </button>
       </header>
-      <div className="fd-p__body" data-body ref={body} hidden={s.tab === 'chat'} />
+      {/* public/js/dock-panel.js still loads for the dock's helpers; it leaves the Brain to DockBrain (window.FavorDockNativeBrain). */}
+      <div className="fd-p__body" data-body ref={body} hidden />
+      {brainSeen && (
+        <div className="fd-p__body fd-p__body--brain" hidden={s.tab !== 'brain'}>
+          <Suspense
+            fallback={
+              <div className="fd-p__wait">
+                <i />
+                <i />
+                <i />
+              </div>
+            }
+          >
+            <DockBrain open={brainOn} />
+          </Suspense>
+        </div>
+      )}
       {chatSeen && (
         <div className="fd-p__body fd-p__body--chat" hidden={s.tab !== 'chat'}>
           <Suspense
