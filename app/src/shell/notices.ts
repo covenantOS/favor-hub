@@ -113,4 +113,5 @@ export function grouped(rows: NoticeRow[]): Array<[string, NoticeRow[]]> {
 }
 
 /** The badge: the number of things waiting across every source, 99+ past two digits. */
-export const badge = (total: number) => (total > 99 ? '99+' : total ? String(total) : '');
+// The bell's number caps at 9+, as the classic bell does (wc-bell.js), so the header never changes width between pages.
+export const badge = (total: number) => (total > 9 ? '9+' : total ? String(total) : '');
