@@ -30,6 +30,8 @@
     if (Date.now() - d.getTime() < 7 * DAY) return d.toLocaleDateString('en-US', { weekday: 'short' });
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+  // A title the Brain has not reworded yet is the question as typed: shown with a capital and without the question mark.
+  function title(t) { t = String(t || '').trim().replace(/[?]+$/, ''); return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'New chat'; }
   var ORDER = ['Pinned', 'Today', 'Yesterday', 'Previous 7 days', 'Older'];
   /** opt: { cur: open chat id, working: id being answered, q: search words, renaming: id, empty: text } */
   function html(list, opt) {
@@ -48,7 +50,7 @@
         return '<div class="cvr' + (on ? ' is-on' : '') + (c.pinned ? ' is-pin' : '') + '" role="listitem">' +
           '<button type="button" class="cvr__go" data-act="conv" data-id="' + esc(c.id) + '"' + (on ? ' aria-current="true"' : '') + '>' +
           '<span class="cvr__ic" aria-hidden="true">' + (work ? '<i class="cvr__work"></i>' : c.pinned ? I.pin : I.chat) + '</span>' +
-          '<span class="cvr__tx"><span class="cvr__top"><span class="cvr__t">' + esc(c.title || 'New chat') + '</span>' + (n ? '<span class="cvr__n" title="Asked ' + (n + 1) + ' times">' + (n + 1) + '&times;</span>' : '') + '<span class="cvr__tm">' + esc(when(c)) + '</span></span>' +
+          '<span class="cvr__tx"><span class="cvr__top"><span class="cvr__t">' + esc(title(c.title)) + '</span>' + (n ? '<span class="cvr__n" title="Asked ' + (n + 1) + ' times">' + (n + 1) + '&times;</span>' : '') + '<span class="cvr__tm">' + esc(when(c)) + '</span></span>' +
           '<span class="cvr__p">' + (work ? 'Answering...' : esc(c.preview || (c.turns > 1 ? c.turns + ' questions' : ''))) + '</span></span></button>' +
           '<span class="cvr__acts"><button type="button" class="cvr__a" data-act="cvact" data-v="pin" data-id="' + esc(c.id) + '" aria-label="' + (c.pinned ? 'Unpin' : 'Pin') + ' ' + esc(c.title) + '" title="' + (c.pinned ? 'Unpin' : 'Pin') + '"' + (c.pinned ? ' aria-pressed="true"' : '') + '>' + I.pin + '</button>' +
           '<button type="button" class="cvr__a" data-act="cvact" data-v="rename" data-id="' + esc(c.id) + '" aria-label="Rename ' + esc(c.title) + '" title="Rename">' + I.edit + '</button>' +

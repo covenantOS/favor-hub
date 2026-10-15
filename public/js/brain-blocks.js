@@ -270,7 +270,7 @@
   // A table's title said plainly: "How many lapsed (last gift over 24 months ago) partners (households) in Ohio" reads
   // "Lapsed partners in Ohio". The full wording stays in the title attribute and in the steps above the answer.
   function shortTitle(t) {
-    let s = String(t || '').replace(/^\s*(how many|list(?: of)?|a list of|show me|which)\s+/i, '').replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').replace(/[?.]+$/, '').trim();
+    let s = String(t || '').replace(/^\s*(how many|list(?: of)?|a list of|show me|which)\s+/i, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*$/, '').replace(/\s+/g, ' ').replace(/[?.,:;]+$/, '').trim();
     if (!s) return String(t || '');
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
@@ -696,7 +696,14 @@
     if (ti >= 0) {
       const tile = bs[ti].tiles[0];
       const shown = fmt(tile.value, tile.format || 'int');
-      const xi = bs.findIndex((b, k) => k > ti && k <= ti + 2 && b && b.type === 'text' && String(b.md || '').replace(/[*_]/g, '').length < 160 && String(b.md || '').replace(/[*_]/g, '').includes(shown));
+      // Only a short sentence whose one figure is this number ("121 partners (households).") is folded in; a sentence with
+      // more in it ("$4,291,689.40 so far, $5,000,000 goal") stays as written.
+      const esc_ = shown.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const xi = bs.findIndex((b, k) => {
+        if (k <= ti || k > ti + 2 || !b || b.type !== 'text') return false;
+        const t = String(b.md || '').replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
+        return t.length < 90 && new RegExp('(^|[^\\d.,])' + esc_ + '(?![\\d]|[.,]\\d)').test(t) && !/\d/.test(t.replace(shown, '')) && !/:\s*$/.test(t);
+      });
       if (xi >= 0) {
         const tb = bs.find((b) => b && b.type === 'table' && b.title);
         const said = String(bs[xi].md).replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
