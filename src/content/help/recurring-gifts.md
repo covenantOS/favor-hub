@@ -3,7 +3,7 @@ title: Recurring gifts
 summary: See every recurring gift schedule, find declined and late ones, change an amount, hold, skip or stop a schedule, and send the list to Google Sheets.
 topic: work
 order: 9
-for: [admin, rdd, pc, leader]
+for: [admin]
 related: [declines, partner-page, gift-entry]
 tool: /gifts/recurring/
 toolLabel: Open Recurring

@@ -3,7 +3,7 @@ title: All partners
 summary: Search every partner record in Blackbaud, filter and sort it, star and tag partners, save a view, and send the list to a spreadsheet.
 topic: partners
 order: 2
-for: [admin, rdd, pc, ce, grants, leader]
+for: [admin]
 related: [partner-page, data-care, my-partners-and-reminders]
 tool: /partners/
 toolLabel: Open All partners

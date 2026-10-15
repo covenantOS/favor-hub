@@ -3,7 +3,7 @@ title: Churches
 summary: Every church partner with its giving, pastor, last contact and the next call, for Church Engagement.
 topic: partners
 order: 3
-for: [ce, admin, leader]
+for: [admin]
 tool: /churches/
 toolLabel: Open Churches
 updated: 2026-10-15
@@ -23,4 +23,4 @@ Church Engagement thanks a church at once and calls every three months. The **Ne
 
 Press a church to see how many gifts are waiting for a thank-you, its city, who holds it, its giving by year, the pastors and staff linked to it, and its latest actions. **Open the record** takes you to the partner page, where you log a visit or thank a gift.
 
-Partner Care does not work with churches, so this page is for Church Engagement and admins.
+This page is in beta and open to admins and testers for now.
