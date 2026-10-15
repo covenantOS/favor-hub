@@ -224,6 +224,12 @@
     tabMenu.btn.setAttribute('aria-expanded', 'false');
     tabMenu = null;
   }
+  function placeTabMenu(btn, menu) {
+    const r = btn.getBoundingClientRect();
+    const w = menu.offsetWidth;
+    menu.style.top = Math.round(r.bottom + 4) + 'px';
+    menu.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + 'px';
+  }
   function openTabMenu(btn) {
     const nav = btn.closest('#h-tabs');
     const menu = nav && nav.querySelector(`[data-menu="${btn.dataset.menuFor}"]`);
@@ -231,10 +237,7 @@
     if (tabMenu && tabMenu.btn === btn) { closeTabMenu(); return; }
     closeTabMenu();
     menu.hidden = false;
-    const r = btn.getBoundingClientRect();
-    const w = menu.offsetWidth;
-    menu.style.top = Math.round(r.bottom + 4) + 'px';
-    menu.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + 'px';
+    placeTabMenu(btn, menu);
     btn.setAttribute('aria-expanded', 'true');
     tabMenu = { btn, menu };
     const first = menu.querySelector('a:not([hidden])');
@@ -261,7 +264,15 @@
     }
   }, true);
   window.addEventListener('resize', closeTabMenu);
-  window.addEventListener('scroll', (e) => { if (tabMenu && !(e.target instanceof Element && e.target.closest && e.target.closest('.h-tabmenu'))) closeTabMenu(); }, true);
+  // The page scrolling closes an open menu. The tab row scrolling (a tap on a More that sat half off the row's edge brings it
+  // into view a moment after the tap) moves the menu with its button instead.
+  window.addEventListener('scroll', (e) => {
+    if (!tabMenu) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && t.closest('.h-tabmenu')) return;
+    if (t && t.contains(tabMenu.btn)) { placeTabMenu(tabMenu.btn, tabMenu.menu); return; }
+    closeTabMenu();
+  }, true);
   document.addEventListener('hub-swapped', closeTabMenu);
 
   document.addEventListener('keydown', onKey);

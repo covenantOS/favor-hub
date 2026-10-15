@@ -1,8 +1,9 @@
 /* Gifts > Overview (public/js/gifts-home.js), and the frame of Gifts > Thank-you letters and Declines. Each box holds its final size
    while it loads, so nothing moves when the numbers arrive. */
 .gh { display: grid; gap: 16px; }
-.gh-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 0; overflow: hidden; min-height: 150px; }
-.gh-step { display: grid; align-content: start; gap: 4px; padding: 16px 18px; border-left: 1px solid var(--h-line); color: inherit; text-decoration: none; min-width: 0; }
+.gh-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 0; overflow: hidden; }
+/* Every step, waiting or drawn, holds a drawn step's height, so the cards under the steps never move when the numbers arrive. */
+.gh-step { display: grid; align-content: start; gap: 4px; padding: 16px 18px; border-left: 1px solid var(--h-line); color: inherit; text-decoration: none; min-width: 0; min-height: 154px; }
 .gh-step:first-child { border-left: 0; }
 a.gh-step:hover { background: var(--h-surface-2); }
 .gh-step.is-wait { background: linear-gradient(90deg, #fff, #f4f5f7, #fff); }
@@ -64,7 +65,7 @@ a.gh-li:hover b { text-decoration: underline; }
   .gh-step:nth-child(odd) { border-left: 0; }
   .gh-step:nth-child(4) { border-left: 1px solid var(--h-line); }
   .gh-step:nth-child(n + 3) { border-top: 1px solid var(--h-line); }
-  .gh-step { padding: 14px; }
+  .gh-step { padding: 14px; min-height: 144px; }
   .gh-step__v { font-size: 26px; }
   .gh-step__s { min-height: 0; }
   .gh-th { display: none; }

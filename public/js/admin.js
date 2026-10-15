@@ -14,8 +14,10 @@
     var finish = function () { if (done) return; done = true; root.dataset.settled = '1'; root.classList.remove('ad-settling'); };
     var check = function () { if (!open && seen) requestAnimationFrame(function () { requestAnimationFrame(function () { if (!open) finish(); }); }); };
     setTimeout(finish, 2500);
-    // A page with no reads at all shows at once.
-    setTimeout(function () { if (!seen) finish(); }, 400);
+    // A page with no reads at all shows at once. Counted from the moment every page script has run (DOMContentLoaded), so a first
+    // visit whose scripts arrive slowly does not show the page before its scripts asked for anything.
+    var idle = function () { setTimeout(function () { if (!seen) finish(); }, 150); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', idle); else idle();
     return { start: function () { if (done) return; seen = true; open++; }, end: function () { if (done) return; open = Math.max(0, open - 1); setTimeout(check, 0); } };
   })();
   A.api = function (path, body) {
