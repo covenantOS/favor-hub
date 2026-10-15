@@ -7,7 +7,10 @@ import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import '@hub/styles/q3-chat.css';
 import '@hub/styles/mail.css';
 
-const MailPage = lazy(() => import('@/features/mail/MailPage').then((m) => ({ default: m.MailPage })));
+// The page's code starts downloading the moment this file runs (in the browser), not after hydration has drawn the skeleton.
+const load = () => import('@/features/mail/MailPage').then((m) => ({ default: m.MailPage }));
+const early = typeof window !== 'undefined' ? load() : null;
+const MailPage = lazy(() => early ?? load());
 
 const WIDTHS = [44, 63, 38, 55, 70, 41, 58, 47];
 

@@ -16,6 +16,7 @@ import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as ClipsIndexRouteImport } from './routes/clips/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as EvaluationsIndexRouteImport } from './routes/evaluations/index'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses/index'
@@ -31,6 +32,7 @@ import { Route as ListsIndexRouteImport } from './routes/lists/index'
 import { Route as MIndexRouteImport } from './routes/m/index'
 import { Route as MailIndexRouteImport } from './routes/mail/index'
 import { Route as MeetIndexRouteImport } from './routes/meet/index'
+import { Route as MovesIndexRouteImport } from './routes/moves/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as OnlineGiftsIndexRouteImport } from './routes/online-gifts/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners/index'
@@ -45,6 +47,7 @@ import { Route as AdminAdoptionIndexRouteImport } from './routes/admin/adoption/
 import { Route as AdminAppealCodesIndexRouteImport } from './routes/admin/appeal-codes/index'
 import { Route as AdminAuditIndexRouteImport } from './routes/admin/audit/index'
 import { Route as AdminBlackbaudUsersIndexRouteImport } from './routes/admin/blackbaud-users/index'
+import { Route as AdminChatIndexRouteImport } from './routes/admin/chat/index'
 import { Route as AdminClipsIndexRouteImport } from './routes/admin/clips/index'
 import { Route as AdminExpensesIndexRouteImport } from './routes/admin/expenses/index'
 import { Route as AdminGiftsIndexRouteImport } from './routes/admin/gifts/index'
@@ -125,6 +128,11 @@ const ClipsIndexRoute = ClipsIndexRouteImport.update({
   path: '/clips/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DataCareIndexRoute = DataCareIndexRouteImport.update({
   id: '/data-care/',
   path: '/data-care/',
@@ -200,6 +208,11 @@ const MeetIndexRoute = MeetIndexRouteImport.update({
   path: '/meet/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MovesIndexRoute = MovesIndexRouteImport.update({
+  id: '/moves/',
+  path: '/moves/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
   id: '/onboarding/',
   path: '/onboarding/',
@@ -271,6 +284,11 @@ const AdminBlackbaudUsersIndexRoute =
     path: '/admin/blackbaud-users/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminChatIndexRoute = AdminChatIndexRouteImport.update({
+  id: '/admin/chat/',
+  path: '/admin/chat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminClipsIndexRoute = AdminClipsIndexRouteImport.update({
   id: '/admin/clips/',
   path: '/admin/clips/',
@@ -501,6 +519,7 @@ export interface FileRoutesByFullPath {
   '/chat/': typeof ChatIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/clips/': typeof ClipsIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/evaluations/': typeof EvaluationsIndexRoute
   '/expenses/': typeof ExpensesIndexRoute
@@ -515,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/m/': typeof MIndexRoute
   '/mail/': typeof MailIndexRoute
   '/meet/': typeof MeetIndexRoute
+  '/moves/': typeof MovesIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
@@ -530,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/admin/appeal-codes/': typeof AdminAppealCodesIndexRoute
   '/admin/audit/': typeof AdminAuditIndexRoute
   '/admin/blackbaud-users/': typeof AdminBlackbaudUsersIndexRoute
+  '/admin/chat/': typeof AdminChatIndexRoute
   '/admin/clips/': typeof AdminClipsIndexRoute
   '/admin/expenses/': typeof AdminExpensesIndexRoute
   '/admin/gifts/': typeof AdminGiftsIndexRoute
@@ -583,6 +604,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatIndexRoute
   '/churches': typeof ChurchesIndexRoute
   '/clips': typeof ClipsIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/data-care': typeof DataCareIndexRoute
   '/evaluations': typeof EvaluationsIndexRoute
   '/expenses': typeof ExpensesIndexRoute
@@ -597,6 +619,7 @@ export interface FileRoutesByTo {
   '/m': typeof MIndexRoute
   '/mail': typeof MailIndexRoute
   '/meet': typeof MeetIndexRoute
+  '/moves': typeof MovesIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/online-gifts': typeof OnlineGiftsIndexRoute
   '/partners': typeof PartnersIndexRoute
@@ -612,6 +635,7 @@ export interface FileRoutesByTo {
   '/admin/appeal-codes': typeof AdminAppealCodesIndexRoute
   '/admin/audit': typeof AdminAuditIndexRoute
   '/admin/blackbaud-users': typeof AdminBlackbaudUsersIndexRoute
+  '/admin/chat': typeof AdminChatIndexRoute
   '/admin/clips': typeof AdminClipsIndexRoute
   '/admin/expenses': typeof AdminExpensesIndexRoute
   '/admin/gifts': typeof AdminGiftsIndexRoute
@@ -666,6 +690,7 @@ export interface FileRoutesById {
   '/chat/': typeof ChatIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/clips/': typeof ClipsIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/evaluations/': typeof EvaluationsIndexRoute
   '/expenses/': typeof ExpensesIndexRoute
@@ -680,6 +705,7 @@ export interface FileRoutesById {
   '/m/': typeof MIndexRoute
   '/mail/': typeof MailIndexRoute
   '/meet/': typeof MeetIndexRoute
+  '/moves/': typeof MovesIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
@@ -695,6 +721,7 @@ export interface FileRoutesById {
   '/admin/appeal-codes/': typeof AdminAppealCodesIndexRoute
   '/admin/audit/': typeof AdminAuditIndexRoute
   '/admin/blackbaud-users/': typeof AdminBlackbaudUsersIndexRoute
+  '/admin/chat/': typeof AdminChatIndexRoute
   '/admin/clips/': typeof AdminClipsIndexRoute
   '/admin/expenses/': typeof AdminExpensesIndexRoute
   '/admin/gifts/': typeof AdminGiftsIndexRoute
@@ -750,6 +777,7 @@ export interface FileRouteTypes {
     | '/chat/'
     | '/churches/'
     | '/clips/'
+    | '/dashboard/'
     | '/data-care/'
     | '/evaluations/'
     | '/expenses/'
@@ -764,6 +792,7 @@ export interface FileRouteTypes {
     | '/m/'
     | '/mail/'
     | '/meet/'
+    | '/moves/'
     | '/onboarding/'
     | '/online-gifts/'
     | '/partners/'
@@ -779,6 +808,7 @@ export interface FileRouteTypes {
     | '/admin/appeal-codes/'
     | '/admin/audit/'
     | '/admin/blackbaud-users/'
+    | '/admin/chat/'
     | '/admin/clips/'
     | '/admin/expenses/'
     | '/admin/gifts/'
@@ -832,6 +862,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/churches'
     | '/clips'
+    | '/dashboard'
     | '/data-care'
     | '/evaluations'
     | '/expenses'
@@ -846,6 +877,7 @@ export interface FileRouteTypes {
     | '/m'
     | '/mail'
     | '/meet'
+    | '/moves'
     | '/onboarding'
     | '/online-gifts'
     | '/partners'
@@ -861,6 +893,7 @@ export interface FileRouteTypes {
     | '/admin/appeal-codes'
     | '/admin/audit'
     | '/admin/blackbaud-users'
+    | '/admin/chat'
     | '/admin/clips'
     | '/admin/expenses'
     | '/admin/gifts'
@@ -914,6 +947,7 @@ export interface FileRouteTypes {
     | '/chat/'
     | '/churches/'
     | '/clips/'
+    | '/dashboard/'
     | '/data-care/'
     | '/evaluations/'
     | '/expenses/'
@@ -928,6 +962,7 @@ export interface FileRouteTypes {
     | '/m/'
     | '/mail/'
     | '/meet/'
+    | '/moves/'
     | '/onboarding/'
     | '/online-gifts/'
     | '/partners/'
@@ -943,6 +978,7 @@ export interface FileRouteTypes {
     | '/admin/appeal-codes/'
     | '/admin/audit/'
     | '/admin/blackbaud-users/'
+    | '/admin/chat/'
     | '/admin/clips/'
     | '/admin/expenses/'
     | '/admin/gifts/'
@@ -997,6 +1033,7 @@ export interface RootRouteChildren {
   ChatIndexRoute: typeof ChatIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   ClipsIndexRoute: typeof ClipsIndexRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
   EvaluationsIndexRoute: typeof EvaluationsIndexRoute
   ExpensesIndexRoute: typeof ExpensesIndexRoute
@@ -1011,6 +1048,7 @@ export interface RootRouteChildren {
   MIndexRoute: typeof MIndexRoute
   MailIndexRoute: typeof MailIndexRoute
   MeetIndexRoute: typeof MeetIndexRoute
+  MovesIndexRoute: typeof MovesIndexRoute
   OnboardingIndexRoute: typeof OnboardingIndexRoute
   OnlineGiftsIndexRoute: typeof OnlineGiftsIndexRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
@@ -1026,6 +1064,7 @@ export interface RootRouteChildren {
   AdminAppealCodesIndexRoute: typeof AdminAppealCodesIndexRoute
   AdminAuditIndexRoute: typeof AdminAuditIndexRoute
   AdminBlackbaudUsersIndexRoute: typeof AdminBlackbaudUsersIndexRoute
+  AdminChatIndexRoute: typeof AdminChatIndexRoute
   AdminClipsIndexRoute: typeof AdminClipsIndexRoute
   AdminExpensesIndexRoute: typeof AdminExpensesIndexRoute
   AdminGiftsIndexRoute: typeof AdminGiftsIndexRoute
@@ -1120,6 +1159,13 @@ declare module '@tanstack/react-router' {
       path: '/clips'
       fullPath: '/clips/'
       preLoaderRoute: typeof ClipsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/data-care/': {
@@ -1227,6 +1273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MeetIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/moves/': {
+      id: '/moves/'
+      path: '/moves'
+      fullPath: '/moves/'
+      preLoaderRoute: typeof MovesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding/': {
       id: '/onboarding/'
       path: '/onboarding'
@@ -1323,6 +1376,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/blackbaud-users'
       fullPath: '/admin/blackbaud-users/'
       preLoaderRoute: typeof AdminBlackbaudUsersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/chat/': {
+      id: '/admin/chat/'
+      path: '/admin/chat'
+      fullPath: '/admin/chat/'
+      preLoaderRoute: typeof AdminChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/clips/': {
@@ -1645,6 +1705,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatIndexRoute: ChatIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
   ClipsIndexRoute: ClipsIndexRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
   EvaluationsIndexRoute: EvaluationsIndexRoute,
   ExpensesIndexRoute: ExpensesIndexRoute,
@@ -1659,6 +1720,7 @@ const rootRouteChildren: RootRouteChildren = {
   MIndexRoute: MIndexRoute,
   MailIndexRoute: MailIndexRoute,
   MeetIndexRoute: MeetIndexRoute,
+  MovesIndexRoute: MovesIndexRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,
   OnlineGiftsIndexRoute: OnlineGiftsIndexRoute,
   PartnersIndexRoute: PartnersIndexRoute,
@@ -1674,6 +1736,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAppealCodesIndexRoute: AdminAppealCodesIndexRoute,
   AdminAuditIndexRoute: AdminAuditIndexRoute,
   AdminBlackbaudUsersIndexRoute: AdminBlackbaudUsersIndexRoute,
+  AdminChatIndexRoute: AdminChatIndexRoute,
   AdminClipsIndexRoute: AdminClipsIndexRoute,
   AdminExpensesIndexRoute: AdminExpensesIndexRoute,
   AdminGiftsIndexRoute: AdminGiftsIndexRoute,

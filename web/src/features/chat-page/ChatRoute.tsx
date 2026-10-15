@@ -16,7 +16,10 @@ import '@/features/chat/chat-native.css';
 import '@/features/chat/live';
 import { CHAT_BOOT_HTML } from './bootHtml';
 
-const ChatPage = lazy(() => import('@/features/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
+// The page's code starts downloading the moment this file runs (in the browser), not after hydration has drawn the skeleton.
+const load = () => import('@/features/chat/ChatPage').then((m) => ({ default: m.ChatPage }));
+const early = typeof window !== 'undefined' ? load() : null;
+const ChatPage = lazy(() => early ?? load());
 
 /** The first paint at the screen's final size. */
 export function ChatSkeleton() {
