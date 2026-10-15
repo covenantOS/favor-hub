@@ -225,7 +225,7 @@ describe('setClose', () => {
 
 describe('the quick dates', () => {
   const run = () => {
-    const w = { WCTabs: { registerTab() {} }, FavorWG: null, PT: { on() {}, size: () => 50 } };
+    const w = { WCTabs: { registerTab() {} }, FavorWG: null, PT: { on() {}, size: () => 50 }, addEventListener() {} };
     const doc = { addEventListener() {}, querySelector() { return null; } };
     vm.runInNewContext(readFileSync(new URL('../public/js/work-asks.js', import.meta.url), 'utf8'), { window: w, document: doc, Date });
     return w.WCAsks;
