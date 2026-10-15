@@ -6,3 +6,4 @@ export * from './entity';
 export * from './notifications';
 export * from './recurring';
 export * from './other-gifts';
+export * from './goals';

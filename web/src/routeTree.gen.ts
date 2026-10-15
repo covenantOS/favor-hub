@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
+import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 
@@ -30,6 +31,11 @@ const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
   path: '/web-check/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminGoalsIndexRoute = AdminGoalsIndexRouteImport.update({
+  id: '/admin/goals/',
+  path: '/admin/goals/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GiftsOtherIndexRoute = GiftsOtherIndexRouteImport.update({
   id: '/gifts/other/',
   path: '/gifts/other/',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
+  '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
   '/web-check': typeof WebCheckIndexRoute
+  '/admin/goals': typeof AdminGoalsIndexRoute
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
+  '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
 }
@@ -69,6 +78,7 @@ export interface FileRouteTypes {
     | '/churches/'
     | '/data-care/'
     | '/web-check/'
+    | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
   fileRoutesByTo: FileRoutesByTo
@@ -76,6 +86,7 @@ export interface FileRouteTypes {
     | '/churches'
     | '/data-care'
     | '/web-check'
+    | '/admin/goals'
     | '/gifts/other'
     | '/gifts/recurring'
   id:
@@ -83,6 +94,7 @@ export interface FileRouteTypes {
     | '/churches/'
     | '/data-care/'
     | '/web-check/'
+    | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
   fileRoutesById: FileRoutesById
@@ -91,6 +103,7 @@ export interface RootRouteChildren {
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
+  AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
 }
@@ -118,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebCheckIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/goals/': {
+      id: '/admin/goals/'
+      path: '/admin/goals'
+      fullPath: '/admin/goals/'
+      preLoaderRoute: typeof AdminGoalsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gifts/other/': {
       id: '/gifts/other/'
       path: '/gifts/other'
@@ -139,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
+  AdminGoalsIndexRoute: AdminGoalsIndexRoute,
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
 }
