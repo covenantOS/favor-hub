@@ -26,6 +26,8 @@ export type Can = {
   learn: boolean;
   meetings: boolean;
   projects: boolean;
+  /** Projects shows in the rail (Marketing and Early access); requests stay open to all. */
+  projectsNav: boolean;
   kpi: boolean;
   hr: boolean;
   approver: boolean;
