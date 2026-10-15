@@ -164,7 +164,7 @@ export interface DayEvent {
   /** A dial-in number when the event is a phone call. */
   phone: string;
   provider: string;
-  /** What the meeting is held on, in words: Zoom, Google Meet, Microsoft Teams, Webex, Favor Meetings, Phone call or No link. */
+  /** What the meeting is held on, in words: Zoom, Google Meet, Microsoft Teams, Webex, FavorOS, Phone call, or empty for an event with no link. */
   source: string;
   people: string[];
   /** The FavorOS meeting id when this event already has a room; set by the Today route. */
@@ -196,6 +196,9 @@ const phoneOf = (e: any): string => {
   return m ? m[1].trim() : '';
 };
 
+/** The source label of a meeting held in FavorOS, wherever the row comes from. */
+export const FAVOR_SOURCE = 'FavorOS';
+
 /** Every event on the person's primary calendar today (Eastern), whatever the meeting is held on. */
 export async function todaysEvents(token: string): Promise<DayEvent[]> {
   const d = easternDay();
@@ -219,7 +222,8 @@ export async function todaysEvents(token: string): Promise<DayEvent[]> {
         meet: p.provider && p.provider !== 'favor' ? p.url : e.hangoutLink || '',
         phone,
         provider,
-        source: p.provider ? PROVIDER_LABEL[p.provider] : phone ? 'Phone call' : 'No link',
+        // A plain calendar event with no video link has nothing to name, so the source is empty.
+        source: p.provider === 'favor' ? FAVOR_SOURCE : p.provider ? PROVIDER_LABEL[p.provider] : phone ? 'Phone call' : '',
         people: (e.attendees || []).filter((a: any) => !a.self && !a.resource).map((a: any) => String(a.email || '').toLowerCase()),
         hub: p.provider === 'favor' ? p.url.match(/[?&]m=([A-Za-z0-9]+)/)?.[1] || '' : '',
         series: p.provider === 'favor' ? p.url.match(/\/meet\/s\/\?id=([0-9a-f]{24})/)?.[1] || '' : '',
@@ -250,17 +254,31 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
     .map((f: any) => ({ id: String(f.id || ''), name: f.name, link: f.webViewLink, modified: f.modifiedTime, by: f.lastModifyingUser?.displayName || '', icon: f.iconLink || '', mime: f.mimeType || '' }));
 }
 
-/** Unread inbox mail from the last three days, headers only. The card's count is the Inbox's whole unread number. */
+/** How many unread conversations Today lists. */
+export const TODAY_MAIL_ROWS = 6;
+
+/**
+ * The newest unread conversations in the Inbox, headers only, whatever their age, one row per conversation (the Inbox's unread
+ * number counts conversations, so a count of 2 comes with 2 rows). At most TODAY_MAIL_ROWS; a larger count is shown as the number.
+ */
 export async function unreadMail(token: string, f: typeof fetch = fetch): Promise<DayMail[]> {
   // A headers-only grant cannot search, so it lists the inbox's unread label instead.
-  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent('in:inbox is:unread newer_than:3d') + '&maxResults=15', f).catch(() => g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15', f));
-  const ids: string[] = (list.messages || []).map((m: any) => m.id);
-  const cutoff = Date.now() - 3 * 864e5;
+  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent('in:inbox is:unread') + '&maxResults=25', f).catch(() => g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=25', f));
+  // Newest first. Keep the first message of each conversation, then fetch only the rows that will show.
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const m of list.messages || []) {
+    const t = String(m.threadId || m.id);
+    if (seen.has(t)) continue;
+    seen.add(t);
+    ids.push(m.id);
+    if (ids.length >= TODAY_MAIL_ROWS) break;
+  }
   // One request per message, all at once (they ran one after another and took about 3 s).
   const msgs = await Promise.all(ids.map((id) => g(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, f).catch(() => null)));
   const out: DayMail[] = [];
   for (const m of msgs) {
-    if (!m || Number(m.internalDate) < cutoff) continue;
+    if (!m) continue;
     const h = (n: string) => (m.payload?.headers || []).find((x: any) => x.name === n)?.value || '';
     const from = h('From');
     const email = (from.match(/<([^>]+)>/)?.[1] || from).toLowerCase().trim();

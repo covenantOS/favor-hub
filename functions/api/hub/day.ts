@@ -1,7 +1,7 @@
 import { mirror } from '../../_lib/foundations/blackbaud';
 import { yourDayBlackbaud } from '../../_lib/hub/actions';
 import { mailUnreadCount } from '../../_lib/mail/route';
-import { accessToken, CAL_EVENTS, easternDay, hasScopes, recentFiles, todaysEvents, unreadMail, type DayEvent } from '../../_lib/hub/google';
+import { accessToken, CAL_EVENTS, FAVOR_SOURCE, easternDay, hasScopes, recentFiles, todaysEvents, unreadMail, type DayEvent } from '../../_lib/hub/google';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { isTester } from '../../_lib/testuser';
@@ -18,12 +18,15 @@ async function withRooms(env: Env, email: string, events: DayEvent[] | null): Pr
       const by = new Map((rows.results || []).map((r) => [r.calendar_event_id.replace(/^ext:/, ''), r.id]));
       for (const e of out) if (!e.hub && by.has(e.id)) e.hub = by.get(e.id) as string;
     }
+    // An event that already has a room is a FavorOS meeting, whatever video link its calendar notes still carry (a meeting moved
+    // for one day keeps its Google Meet link on the calendar). The list says so, the same as after a move made on this page.
+    for (const e of out) if (e.hub) { e.provider = 'favor'; e.source = FAVOR_SOURCE; }
     // A FavorOS series is one Google event: each occurrence carries the series link, and the room is the row at that start.
     for (const e of out) {
       if (e.hub || !e.series) continue;
       const r = await env.DB.prepare(`SELECT id FROM hub_meetings WHERE series_id = ? AND status != 'cancelled' AND (starts_at = ? OR orig_start = ?) LIMIT 1`)
         .bind(e.series, new Date(e.start).toISOString(), new Date(e.start).toISOString()).first<{ id: string }>().catch(() => null);
-      if (r) e.hub = r.id;
+      if (r) { e.hub = r.id; e.provider = 'favor'; e.source = FAVOR_SOURCE; }
     }
     // Rooms for today that are not on the calendar at all (booked without a calendar event, or a huddle) still belong in the day.
     const d = easternDay();
@@ -38,7 +41,7 @@ async function withRooms(env: Env, email: string, events: DayEvent[] | null): Pr
       if (have.has(r.id)) continue;
       let people: string[] = [];
       try { people = (JSON.parse(r.invitees || '[]') as Array<{ email?: string }>).map((i) => String(i.email || '').toLowerCase()).filter((x) => x && x !== email); } catch { people = []; }
-      out.push({ id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id, series: r.series_id || '', organizer: true, canEdit: false, declined: false });
+      out.push({ id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: FAVOR_SOURCE, people, hub: r.id, series: r.series_id || '', organizer: true, canEdit: false, declined: false });
     }
   } catch {
     // The hub's own list could not be read; the calendar still shows.
@@ -56,7 +59,7 @@ async function upcomingRooms(env: Env, email: string): Promise<DayEvent[]> {
   return (rows.results || []).map((r) => {
     let people: string[] = [];
     try { people = (JSON.parse(r.invitees || '[]') as Array<{ email?: string }>).map((i) => String(i.email || '').toLowerCase()).filter((x) => x && x !== email); } catch { people = []; }
-    return { id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id, series: r.series_id || '' } as unknown as DayEvent;
+    return { id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: FAVOR_SOURCE, people, hub: r.id, series: r.series_id || '' } as unknown as DayEvent;
   });
 }
 

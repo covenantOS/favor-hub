@@ -220,9 +220,9 @@
   }
 
   /* The nudge sheet: who, how, and the words (changeable) before it goes. */
-  function nudgeSheet(id) {
-    var c = cards.waiting; if (!c) return;
-    var it = c.items().filter(function (i) { return i.id === id; })[0]; if (!it || !it.nudge) return;
+  function nudgeSheet(id, given, onDone) {
+    var c = cards.waiting;
+    var it = given || (c && c.items().filter(function (i) { return i.id === id; })[0]); if (!it || !it.nudge) return;
     var first = String(it.who.name || '').split(' ')[0];
     // <@email> shows as @Name while editing and goes back to the token when sent, so the person is still named in Chat and tasks.
     var shownDraft = String(it.draft || '').replace(/<@([^>|]+)(\|[^>]*)?>/g, function (_, e) { return e.toLowerCase() === String(it.who.email).toLowerCase() ? '@' + it.who.name : '@' + e.split('@')[0]; });
@@ -247,7 +247,7 @@
       b.disabled = true;
       api('POST', '/api/today/waiting/nudge', { id: id, text: text }).then(function (d) {
         close();
-        it.nudged = d.at; c.save(); c.paint();
+        it.nudged = d.at; if (c) { c.save(); c.paint(); } if (onDone) onDone(it);
         toast('Nudged ' + first + (d.channel === 'email' ? ' by email.' : d.channel === 'mail' ? ' on the email.' : d.channel === 'chat' ? ' in Chat.' : ' on the ' + d.channel + '.'));
       }).catch(function (e2) { b.disabled = false; var p = el.querySelector('.fx-err'); p.textContent = e2.message; p.hidden = false; });
     });
@@ -377,7 +377,15 @@
   function refresh() {
     Object.keys(cards).forEach(function (n) { var c = cards[n]; if (c.slot.isConnected) c.load(); });
   }
-  window.FavorTodayInbox = { mount: mount, refresh: refresh };
+  // Today (today3.js) draws these items in its own merged list and calls the same actions: one way to clear, stop, nudge and pick up.
+  window.FavorTodayInbox = {
+    mount: mount, refresh: refresh, api: api, toast: toast, openHandoff: openHandoff,
+    nudge: function (it, onDone) { nudgeSheet(it.id, it, onDone); },
+    clear: function (id) { return api('POST', '/api/today/inbox/clear', { id: id }); },
+    unclear: function (id) { return api('POST', '/api/today/inbox/clear', { id: id, undo: true }); },
+    stop: function (id) { return api('POST', '/api/today/waiting/stop', { id: id }); },
+    unstop: function (id) { return api('POST', '/api/today/waiting/stop', { id: id, undo: true }); },
+  };
   document.addEventListener('favor-handoff', function () { refresh(); });
   mount(document);
 })();

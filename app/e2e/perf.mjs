@@ -23,7 +23,7 @@ for (const route of routes) {
   await page.goto(BASE + route, { waitUntil: 'commit' });
   let content = -1;
   try {
-    await page.waitForSelector('#h-content .r2t-tile, #h-content .r2t-needs > :not(.r2t-skel), #h-content .app-legacy > *', { state: 'attached', timeout: 30000 });
+    await page.waitForSelector('#h-content .td-row, #h-content .td-clear, #h-content .app-legacy > *', { state: 'attached', timeout: 30000 });
     content = Date.now() - t0;
   } catch (_) { /* never showed */ }
   await page.waitForTimeout(12000);

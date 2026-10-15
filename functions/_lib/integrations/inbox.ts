@@ -19,6 +19,7 @@ import { applyLabels } from '../mail/sync';
 import { forgetCount } from '../mail/route';
 import { isHiddenAccount } from '../testuser';
 import { pickUp } from './handoff';
+import { guards, isSelf } from './waitrules';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const clip = (s: unknown, n: number) => {
@@ -64,6 +65,8 @@ export async function fastItems(env: Env, request: Request, user: HubUser): Prom
   const me = lower(user.email);
   const access = await accessOf(env, request, user);
   const dir = await names(env);
+  // Chat and task lines from a blocked or departed account are left out; nobody there can act on them.
+  const { gone } = await guards(env, me, dir);
   const nameOf = (e: string) => dir.get(lower(e)) || (isHiddenAccount(e) ? (lower(e).startsWith('tester2') ? 'FavorOS Tester Two' : 'FavorOS Tester') : String(e || '').split('@')[0]);
   const out: InboxItem[] = [];
   const jobs: Array<Promise<void>> = [];
@@ -76,7 +79,7 @@ export async function fastItems(env: Env, request: Request, user: HubUser): Prom
         .then((r) => {
           for (const m of r.items) {
             // Favor Brain's answers and the meeting and gift notices are read in Chat itself; the Inbox holds what people wrote.
-            if (['brain', 'meetings', 'gifts'].includes(lower(m.from))) continue;
+            if (['brain', 'meetings', 'gifts'].includes(lower(m.from)) || gone.has(lower(m.from))) continue;
             const where = m.channel_kind === 'public' || m.channel_kind === 'private' ? '#' + m.channel_name : m.channel_kind === 'dm' ? 'a direct message' : 'a group message';
             const kind: InboxKind = m.kind === 'dm' ? 'dm' : m.kind === 'reply' ? 'reply' : 'mention';
             const ho = /\/h\/(ho_[a-z0-9]{6,20})/.exec(String(m.body || ''));
@@ -103,7 +106,7 @@ export async function fastItems(env: Env, request: Request, user: HubUser): Prom
     taskNotices(env, me, 40)
       .then((r) => {
         for (const n of r.notices) {
-          if (n.read_at || !['assigned', 'mentioned', 'comment', 'waiting', 'due_soon'].includes(n.kind)) continue;
+          if (n.read_at || !['assigned', 'mentioned', 'comment', 'waiting', 'due_soon'].includes(n.kind) || gone.has(lower(n.actor_email))) continue;
           const who = nameOf(n.actor_email);
           out.push({
             id: `tn:${n.id}`,
@@ -131,7 +134,7 @@ export async function fastItems(env: Env, request: Request, user: HubUser): Prom
         for (const n of r.items) {
           if (seen.has(n.request_id)) continue;
           seen.add(n.request_id);
-          if (n.status === 'declined' && !access.admin) continue;
+          if ((n.status === 'declined' && !access.admin) || gone.has(lower(n.actor_email))) continue;
           const who = n.actor_name || nameOf(n.actor_email);
           out.push({
             id: `rn:${n.request_id}`,
@@ -240,8 +243,11 @@ export async function mailItems(env: Env, user: HubUser, fetcher: typeof fetch =
   if (!box) return { items: [], connected: false };
   const scan = await scanInbox(box.ctx, box.gm, '', false);
   const out: InboxItem[] = [];
+  // Mail from a volunteer who left still shows, since it is real mail to this person. Mail from their own address or a mailbox they connected does not.
+  const { self } = await guards(env, lower(user.email), new Map());
   for (const r of scan.rows) {
     if (!r.ask && !r.starred) continue;
+    if (r.from && isSelf(r.from, self)) continue;
     const who = r.from?.name || r.from?.email || '';
     out.push({
       id: r.ask ? `mail:${r.id}` : `star:${r.id}`,

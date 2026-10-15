@@ -107,10 +107,10 @@ for (const [label, ctxOpts] of [
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
 
   await check(label + ': Today paints its cards, day and year', async () => {
-    await page.waitForSelector('.r2t-tile', { timeout: 15000 });
-    assert.equal(await page.locator('.r2t-tile').count(), 3);
-    await page.waitForSelector('.r2t-ev', { timeout: 15000 });
-    await page.waitForSelector('#t-year .r2t-hero', { timeout: 15000 });
+    await page.waitForSelector('.td-row', { timeout: 15000 });
+    assert.ok((await page.locator('.td-row').count()) >= 1);
+    await page.waitForSelector('.td-evr', { timeout: 15000 });
+    await page.waitForSelector('#t-year .td-hero', { timeout: 15000 });
     assert.match(await page.locator('#t-hello').innerText(), /^Good (morning|afternoon|evening), Test$/);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${SHOTS}/today-${label}.png`, fullPage: true });
@@ -156,8 +156,8 @@ for (const [label, ctxOpts] of [
   });
 
   await check(label + ': a chip opens an entity card', async () => {
-    await page.locator('.r2t-ev__a .fe-chip').first().hover().catch(() => undefined);
-    if (label === 'iphone') await page.locator('.r2t-ev__a .fe-chip').first().click();
+    await page.locator('.td-evr .fe-chip').first().hover().catch(() => undefined);
+    if (label === 'iphone') await page.locator('.td-evr .fe-chip').first().click();
     await page.waitForSelector('.fe-card', { timeout: 8000 });
     await page.waitForFunction(() => /Test Staff/.test(document.querySelector('.fe-card')?.textContent || ''), null, { timeout: 8000 });
     await page.screenshot({ path: `${SHOTS}/entity-${label}.png` });
@@ -209,10 +209,10 @@ for (const [label, ctxOpts] of [
   await mockApi(page, { navAnswer: staffNav, todayAnswer: { ...today, user: staffNav.user, access: staffNav.access }, dayAnswer: { ...day, blackbaud: { linked: false, actions: [], total: 0, overdue: 0 } } });
   await page.goto(BASE + '/');
   await check('staff: no Work Center, no Chat dock, no year card', async () => {
-    await page.waitForSelector('.r2t-tile');
+    await page.waitForSelector('.td-row');
     assert.equal(await page.locator('.h-area[data-area="work"] a[data-nav-id="work"]').count(), 0);
     assert.equal(await page.locator('#fd').count(), 0);
-    assert.equal(await page.locator('#t-year-wrap').count(), 0);
+    assert.equal(await page.locator('#t-year .td-hero').count(), 0);
     await page.screenshot({ path: `${SHOTS}/today-staff-desktop.png`, fullPage: true });
   });
   await ctx.close();
@@ -224,10 +224,10 @@ for (const [label, ctxOpts] of [
   await mockApi(p2, { fail: { '/api/hub/day': 'Your day failed on purpose.' } });
   await p2.goto(BASE + '/');
   await check('failure: a broken Your day shows its message and the other cards stay', async () => {
-    await p2.waitForSelector('.r2t-tile');
-    await p2.waitForSelector('#d-grid .r2t-clear', { timeout: 10000 });
-    assert.equal(await p2.locator('.r2t-tile').count(), 3);
-    assert.equal(await p2.locator('#t-year .r2t-hero').count(), 1);
+    await p2.waitForSelector('.td-row');
+    await p2.waitForSelector('#td-sched-list .td-empty', { timeout: 10000 });
+    assert.ok((await p2.locator('.td-row').count()) >= 1);
+    assert.equal(await p2.locator('#t-year .td-hero').count(), 1);
   });
   await ctx2.close();
 }
@@ -296,7 +296,7 @@ for (const [label, ctxOpts] of [
   const timing = async () => {
     const t0 = Date.now();
     await page.goto(BASE + '/', { waitUntil: 'commit' });
-    await page.waitForSelector('.r2t-tile:not(.r2t-skel)', { timeout: 20000 });
+    await page.waitForSelector('.td-row', { timeout: 20000 });
     return Date.now() - t0;
   };
   const cold = await timing();
@@ -311,7 +311,7 @@ for (const [label, ctxOpts] of [
   const oldTiming = async () => {
     const t0 = Date.now();
     await old.goto(BASE + '/__classic', { waitUntil: 'commit' });
-    await old.waitForSelector('.r2t-tile', { timeout: 20000 });
+    await old.waitForSelector('.td-row', { timeout: 20000 });
     return Date.now() - t0;
   };
   const oc = await oldTiming();
