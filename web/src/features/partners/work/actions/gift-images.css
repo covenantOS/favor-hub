@@ -1,0 +1,20 @@
+/* Gift images in React. pt-actions.css gives .wgi-row a five-column grid left over from another layout, which squeezes the amount into a
+   26 px column. In compact rows a gift is one line: amount and age, partner and method, why and state, then Check and Attach. */
+@media (min-width: 861px) {
+  html[data-density='compact'] body.h-body #wc-root .wg-list .wgi-row { grid-template-columns: 190px minmax(200px, 1fr) minmax(260px, 1.2fr) auto; align-items: center; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-row .wg-amt { display: flex; align-items: baseline; gap: 8px; font: 600 15px/1.2 var(--h-font); white-space: nowrap; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-row .wg-amt small { display: inline; margin: 0; font-size: 12px; white-space: nowrap; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-who .wg-name { flex: 0 1 auto; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-who .wg-sub { flex: 1 1 0; min-width: 0; margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-why { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: nowrap; overflow: hidden; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-why .wc-tag { height: 18px; padding: 0 7px; font-size: 11.5px; flex: none; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-why .wg-sub { flex: 1 1 0; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-row .wg-acts { gap: 4px; }
+  html[data-density='compact'] body.h-body #wc-root .wgi-row .wg-acts .h-btn { height: 26px; min-height: 26px; padding: 0 9px; font-size: 12.5px; }
+}
+
+/* The search box keeps enough width to read its prompt. */
+@media (min-width: 861px) {
+  #wc-root .wg-tools .wc-find { flex: 1 1 280px; min-width: 260px; }
+}

@@ -1,0 +1,19 @@
+/* Opportunities in React: the classic list was a grid of buttons (.ep-orow); the shared table draws the same columns, so these rules carry
+   over the parts the grid rows had. Every selector sits under #wc-root. */
+#wc-root .pt-table tbody tr.is-inactive td { color: var(--h-ink-3); }
+#wc-root .pt-table tbody tr[data-pt-row] { cursor: pointer; }
+#wc-root .pt-table td b { font-weight: 600; }
+#wc-root .pt-table td .ep-ostatus { white-space: nowrap; }
+
+/* Phone: each opportunity is a card row like the classic list. Name and purpose on the left, status on the right, partner underneath. */
+@media (max-width: 860px) {
+  #wc-root .ep-opps .pt-table thead { display: none; }
+  #wc-root .ep-opps .pt-table, #wc-root .ep-opps .pt-table tbody { display: block; width: 100%; }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'name status' 'partner partner'; gap: 2px 10px; padding: 10px 14px; border-bottom: 1px solid var(--h-line); }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] td { display: block; padding: 0; border: 0; min-width: 0; max-width: none; background: none; }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] td:nth-child(1) { grid-area: name; white-space: normal; }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] td:nth-child(1) small { display: block; margin: 0; }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] td:nth-child(2) { grid-area: partner; color: var(--h-ink-3); white-space: normal; }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] td:nth-child(3) { grid-area: status; align-self: start; }
+  #wc-root .ep-opps .pt-table tbody tr[data-pt-row] td.pt-nophone { display: none; }
+}
