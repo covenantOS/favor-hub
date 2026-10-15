@@ -342,7 +342,8 @@ body.h-body .td .td-team .dr-num.dr-num { min-width: 0; min-height: 0; padding: 
 .td-recent__c.td-feed { flex-grow: 2; }
 .td-recent__c + .td-recent__c { border-left: 1px solid var(--r-line); }
 .td-changes .wh-chg { padding: 0 var(--pad); }
-@media (max-width: 1100px) { .td .td-recent { flex-direction: column; } .td-recent__c + .td-recent__c { border-left: 0 !important; border-top: 1px solid var(--r-line); } }
+/* One column: each part is as tall as its content. With flex 1 1 0 in a column, Your recent changes and Shared with you were squeezed to 1 px and the Undo buttons could not be reached. */
+@media (max-width: 1100px) { .td .td-recent { flex-direction: column; } .td-recent__c, .td-recent__c.td-feed { flex: none; } .td-recent__c + .td-recent__c { border-left: 0 !important; border-top: 1px solid var(--r-line); } }
 .td-flist { border-top: 1px solid var(--r-line); padding-bottom: 6px; }
 .td-fg { padding: 12px var(--pad) 4px; font: 600 12px var(--h-font); color: var(--r-ink-3); }
 .td-fr > a, .td-fr > div, .td-fr > button { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 6px var(--pad); border: 0; background: none; text-align: left; font: 500 14px/1.35 var(--h-font); color: var(--r-ink); cursor: pointer; transition: background-color var(--m-fast) var(--m-out); }
