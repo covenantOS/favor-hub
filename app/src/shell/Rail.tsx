@@ -5,6 +5,7 @@ import { NavLink } from './NavLink';
 import { RelBadge } from './RelBadge';
 import { railCount, type AreaView, type NavView } from './model';
 import type { useRail } from './useRail';
+import { TOOL_LINKS } from '@hub/data/areas';
 
 type Rail = ReturnType<typeof useRail>;
 
@@ -51,8 +52,7 @@ function Area({ v, rail, tours }: { v: AreaView; rail: Rail; tours: number }) {
         }}
       >
         <Icon name={area.icon} />
-        <span className="h-area__label">{area.short || area.label}</span>
-        <RelBadge k={area.id} />
+        <span className="h-area__label">{area.short || area.label}</span>
         <span className={'h-nav__count h-area__sum' + (v.warn ? ' h-nav__count--warn' : '')} data-sum={area.id} hidden={!v.sum}>
           {railCount(v.sum)}
         </span>
@@ -131,7 +131,8 @@ function Avatar({ user }: { user: HubUser }) {
   );
 }
 
-function Account({ user, onSignOut }: { user: HubUser; onSignOut: () => void }) {
+/** The account button and menu. It sits at the right end of the top bar since the 2026-10-15 chrome cleanup (TopBar.tsx). */
+export function Account({ user, onSignOut, access = {}, classicHref = '/?app2=0' }: { user: HubUser; onSignOut: () => void; access?: Record<string, unknown>; classicHref?: string }) {
   const [open, setOpen] = useState(false);
   const [connect, setConnect] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
@@ -170,7 +171,7 @@ function Account({ user, onSignOut }: { user: HubUser; onSignOut: () => void }) 
 
   if (user.via !== 'google') return null;
   return (
-    <div className="h-side__foot" id="h-foot">
+    <div className="h-side__foot h-top__acct" id="h-foot">
       <button type="button" className="h-acct" id="h-acct" ref={btn} aria-haspopup="menu" aria-expanded={open} aria-controls="h-acctmenu" title="Your account" onClick={() => setOpen((v) => !v)}>
         <Avatar user={user} />
         <span className="h-who">
@@ -183,6 +184,22 @@ function Account({ user, onSignOut }: { user: HubUser; onSignOut: () => void }) 
         setOpen(false);
         if (rec) document.getElementById('clip-cam')?.click();
       }}>
+        <a role="menuitem" href="/expenses/">
+          <Icon name="receipt" />
+          Expenses
+        </a>
+        {!!access.learn && (
+          <a role="menuitem" href="/learn/">
+            <Icon name="book" />
+            My learning
+          </a>
+        )}
+        {!!access.hr && (
+          <a role="menuitem" href="/evaluations/">
+            <Icon name="badge" />
+            Evaluations
+          </a>
+        )}
         <a role="menuitem" href="/clips/">
           <Icon name="clips" />
           My clips
@@ -190,10 +207,6 @@ function Account({ user, onSignOut }: { user: HubUser; onSignOut: () => void }) 
         <button type="button" role="menuitem" data-clip-record>
           <Icon name="camera" />
           Record a clip
-        </button>
-        <button type="button" role="menuitem" data-feedback="hub">
-          <Icon name="chat" />
-          Feedback
         </button>
         <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden={!connect}>
           <Icon name="clips" />
@@ -204,7 +217,18 @@ function Account({ user, onSignOut }: { user: HubUser; onSignOut: () => void }) 
           <Icon name="mute" className="h-i h-sound__off" />
           Sounds
         </button>
-        <a role="menuitem" href="/?app2=0" data-fe-off="1">
+        {TOOL_LINKS.map((t) => (
+          <a key={t.id} role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer">
+            <Icon name="ext" />
+            {t.label}
+          </a>
+        ))}
+        <button type="button" role="menuitem" data-lite-open>
+          <Icon name="signal" />
+          Data saver
+          <RelBadge k="lite" />
+        </button>
+        <a role="menuitem" href={classicHref} data-fe-off="1">
           <Icon name="panel" />
           Use classic FavorOS
         </a>
@@ -279,7 +303,6 @@ export function Rail({ view, user, rail, tours, onSignOut }: Props) {
           <Icon name="chat" />
           Feedback
         </button>
-        <Account user={user} onSignOut={onSignOut} />
       </div>
     </aside>
   );

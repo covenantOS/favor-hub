@@ -16,15 +16,16 @@ test('jobs come from the Work Center team, the meetings roster and the access fl
   assert.deepEqual(jobsFrom('rdd', 'Grants', { admin: true }), ['admin']);
 });
 
-test('the rail: Partners and Gifts for the people who do that work, under More for everyone else', () => {
+test('the rail: Partners and Gifts for the people who do that work, Staff for leadership, HR and approvers, under More for everyone else', () => {
   const ids = (mine) => { const r = railAreas(AREAS, mine); return { rail: r.rail.map((a) => a.id), more: r.more.map((a) => a.id) }; };
   assert.deepEqual(ids(['giftdesk', 'hr']).more, ['partners']);
-  assert.deepEqual(ids(['rdd']).more, ['gifts']);
-  assert.deepEqual(ids([]).more, ['partners', 'gifts']);
-  assert.deepEqual(ids(['partner_care']).more, []);
+  assert.deepEqual(ids(['rdd']).more, ['gifts', 'staff']);
+  assert.deepEqual(ids([]).more, ['partners', 'gifts', 'staff']);
+  assert.deepEqual(ids(['partner_care']).more, ['staff']);
+  assert.deepEqual(ids(['exec']).more, ['gifts']);
   assert.deepEqual(ids(['admin']).more, []);
   assert.deepEqual(ids(null).more, [], 'before the menu answers, every area shows');
-  assert.deepEqual(ids([]).rail, ['today', 'projects', 'meet', 'chat', 'mail', 'ask', 'kpi', 'staff']);
+  assert.deepEqual(ids([]).rail, ['today', 'projects', 'meet', 'chat', 'mail', 'ask', 'kpi']);
 });
 
 test('jobs never gate: a job match is only an order', () => {

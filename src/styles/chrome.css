@@ -1,0 +1,14 @@
+/* The header after the 2026-10-15 chrome cleanup: search, bell, Record, the ? menu and the account, shared by the classic layout and the web app. */
+.h-qm { position: relative; display: inline-flex; }
+.h-qmenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; min-width: 230px; padding: 6px; border-radius: 14px; background: var(--h-ivory, #fffdf9); border: 1px solid var(--h-line); box-shadow: 0 18px 40px -14px rgba(42, 39, 34, .35); }
+.h-qmenu[hidden] { display: none; }
+.h-qmenu a, .h-qmenu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--h-ink); font: 500 14px var(--h-font); text-decoration: none; cursor: pointer; text-align: left; white-space: nowrap; }
+.h-qmenu a:hover, .h-qmenu button:hover, .h-qmenu a:focus-visible, .h-qmenu button:focus-visible { background: var(--h-leaf-soft); }
+.h-qmenu .h-i { width: 17px; height: 17px; color: var(--h-ink-3); flex: none; }
+.h-qmenu .h-nav__count { margin-left: auto; }
+/* The account sits at the right end of the top bar (it used to close the rail). The rail's foot rules are undone here. */
+body.h-body .h-top .h-top__acct { position: relative; display: inline-flex; flex-direction: row; align-items: center; gap: 0; margin: 0 0 0 4px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+body.h-body .h-top .h-top__acct[hidden] { display: none !important; }
+body.h-body .h-top .h-top__acct .h-who { display: none; }
+body.h-body .h-top .h-top__acct .h-acct { flex: none; justify-content: center; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; }
+body.h-body .h-top .h-top__acct .h-acctmenu { position: absolute; top: calc(100% + 6px); bottom: auto; left: auto; right: 0; width: 260px; z-index: 60; }

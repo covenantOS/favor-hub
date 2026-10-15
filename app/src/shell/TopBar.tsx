@@ -7,6 +7,8 @@ import { RelBadge } from './RelBadge';
 import type { NavView } from './model';
 import { resolveNav } from '@hub/data/areas';
 import { TabRow } from './TabRow';
+import { Account } from './Rail';
+import type { HubUser } from '@shared/schemas';
 
 interface Props {
   /** Markup a classic page put in the actions slot. */
@@ -20,6 +22,11 @@ interface Props {
   kpiTeams: string[];
   /** This person's jobs from /api/hub/nav: which tabs come first. */
   jobs?: readonly string[] | null;
+  /** The signed-in person, for the account button at the right end. */
+  user?: HubUser;
+  onSignOut?: () => void;
+  /** Where Use classic FavorOS goes: ?app2=0 in the app2 frame, ?web=0 in the web app. */
+  classicHref?: string;
   menuOpen: boolean;
   onMenu: () => void;
   onRemember: (areaId: string, pageId: string) => void;
@@ -27,7 +34,7 @@ interface Props {
 
 /** The top bar, the React twin of the header in src/layouts/App.astro: menu button (phone), the area's tile, the area as a breadcrumb over
  * the page's name and badge, the tab row, then search, bell, Clips, help, Feedback and Make a request. */
-export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, jobs = null, menuOpen, onMenu, onRemember }: Props) {
+export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, jobs = null, user, onSignOut, classicHref, menuOpen, onMenu, onRemember }: Props) {
   const found = resolveNav(navId);
   const area = found?.area;
   const sameAsArea = !!found && (found.page.label === found.area.label || found.page.label === found.area.short);
@@ -73,23 +80,11 @@ export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', ac
         </button>
         <span className="h-top__actions" id="h-actions" dangerouslySetInnerHTML={{ __html: actions }} />
         <Bell access={access} />
-        <a className="h-top__cam h-top__lib" id="clip-lib" href="/clips/" hidden={!access.clips} aria-label="My clips" title="My clips">
-          <Icon name="clips" />
-        </a>
         <button type="button" className="h-top__cam" id="clip-cam" hidden={!clipsRecord} aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip">
           <Icon name="camera" />
         </button>
         <HelpPanel navId={navId} />
-        <button type="button" className="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding">
-          <Icon name="chat" />
-          <span className="h-lbl">Feedback</span>
-        </button>
-        {navId !== 'new' && (
-          <a className="h-btn h-btn--primary" href="/requests/new" aria-label="Make a request">
-            <Icon name="plus" />
-            <span className="h-lbl">Make a request</span>
-          </a>
-        )}
+        {user && onSignOut && <Account user={user} onSignOut={onSignOut} access={access} classicHref={classicHref} />}
       </div>
     </header>
   );
