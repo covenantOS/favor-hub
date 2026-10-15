@@ -45,13 +45,19 @@ const WHERE: Record<string, Where> = {
 /** Most stops a What's new tour has. */
 export const MAX_NEWS = 5;
 
-/** The first sentence of a changelog entry, cut to a length a card can hold. */
+/**
+ * The start of a changelog entry, cut to what a card holds. It takes the first sentence, adds the next one when the first is a
+ * short heading ("Data care, under Partners."), and cuts a long one at its last comma or colon so it still reads whole.
+ */
 export function firstSentence(text: string, max = 150): string {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
-  const m = /^(.+?[.!?])(\s|$)/.exec(clean);
-  const one = m ? m[1] : clean;
-  if (one.length <= max) return one;
-  const cut = one.slice(0, max - 1);
+  const parts = clean.match(/[^.!?]+[.!?]+(?=\s|$)/g) || [clean];
+  let out = parts[0].trim();
+  if (out.length < 40 && parts[1] && (out + ' ' + parts[1].trim()).length <= max) out = `${out} ${parts[1].trim()}`;
+  if (out.length <= max) return out;
+  const cut = out.slice(0, max);
+  const mark = Math.max(cut.lastIndexOf(', '), cut.lastIndexOf('; '), cut.lastIndexOf(': '), cut.lastIndexOf(' and '), cut.lastIndexOf(' or '));
+  if (mark >= 60) return cut.slice(0, mark).replace(/[,;:\s]+$/, '') + '.';
   const at = cut.lastIndexOf(' ');
   return (at > 60 ? cut.slice(0, at) : cut).replace(/[,;:\s]+$/, '') + '.';
 }

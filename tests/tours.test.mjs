@@ -210,11 +210,15 @@ test("What's new: entries newer than the last visit, one stop per area, only for
   assert.ok(N.newsSteps(adm, { ...NEWS, entries: Array.from({ length: 12 }, (_, i) => ({ stamp: `2026-10-1${i % 9}T10:0${i % 10}`, area: ['today', 'brain', 'help', 'admin', 'gifts', 'mail', 'chat', 'learn', 'expenses', 'projects', 'foundations', 'lists'][i], type: 'new', text: 'Something changed.' })) }, '2026-09-01T00:00').length <= N.MAX_NEWS);
 });
 
-test('a changelog entry is cut to its first sentence, with a limit', () => {
-  assert.equal(N.firstSentence('Gifts has a Recurring page. It lists every schedule.'), 'Gifts has a Recurring page.');
+test('a changelog entry is cut to a sentence a card can hold, at a comma when it is long', () => {
+  assert.equal(N.firstSentence('Gifts has a Recurring page for every monthly schedule. It lists the payments and declined charges for the year.'), 'Gifts has a Recurring page for every monthly schedule.');
+  assert.equal(N.firstSentence('Data care, under Partners. It lists partners with no mailing address.'), 'Data care, under Partners. It lists partners with no mailing address.', 'a short heading takes the next sentence');
   assert.equal(N.firstSentence('One sentence with no stop'), 'One sentence with no stop');
-  const long = N.firstSentence('Soft credit, DAF, LYBUNT, Lapsed, Major partner, Household and the Other payment type have a dotted underline and point at one or tap it to read what it means for you today.');
+  const long = N.firstSentence('Soft credit, DAF, LYBUNT, Lapsed, Major partner, Household and the Other payment type have a dotted underline, so point at one or tap it to read what it means for you today.');
   assert.ok(long.length <= 151 && long.endsWith('.'), long);
+  assert.doesNotMatch(long, /(,|and|or|at|the)\.$/);
+  const ask = N.firstSentence('Ask for photos or videos and Favor Brain shows them as a grid: the real count (photos of finds over 1,400), the best and sharpest first, 24 at a time with a Show more button.');
+  assert.ok(ask.length <= 151 && ask.endsWith('.') && !/ at\.$/.test(ask), ask);
 });
 
 test('the changelog feeds the What\'s new file: the build reads src/content/changelog and writes news.json', () => {
