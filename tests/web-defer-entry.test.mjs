@@ -57,22 +57,23 @@ describe('deferEntry with a repeat visitor', () => {
   });
 });
 
-describe('head scripts move ahead of the stylesheets', () => {
-  const PAGE = '<!DOCTYPE html><html><head><meta charset="utf-8"/><link rel="stylesheet" href="/_w/a.css"/><title>T</title><script src="/_w/boot-1.js"></script><style>html{}</style><script>window.a=1</script></head><body><main>x</main>' + ENTRY + TAIL;
-  it('puts the plain head scripts, in order, before the first stylesheet and leaves the rest where it was', async () => {
+describe('the head keeps its order', () => {
+  // React 19 hydrates the head in the order the server wrote it. A version that moved the plain scripts ahead of the stylesheet links
+  // made /projects/ and /admin/goals/ report React error 418 on a direct load.
+  const PAGE = '<!DOCTYPE html><html><head><meta charset="utf-8"/><script src="/_w/boot-1.js"></script><script>window.a=1</script><link rel="stylesheet" href="/_w/a.css"/><link rel="modulepreload" href="/_w/index-1.js"/><title>T</title><style>html{}</style></head><body><main>x</main>' + ENTRY + TAIL;
+  const order = (h) => [...h.slice(0, h.indexOf('</head>')).matchAll(/<(meta|script|link|title|style)(?=[\s>/])([^>]*)>/g)].map((m) => m[1] + ':' + ((/(?:src|href)="([^"]*)"/.exec(m[2]) || [])[1] || ''));
+  it('leaves every head element where the server put it, for a first visit and for a repeat visitor', async () => {
     const enc = new TextEncoder();
-    const out = await new Response(deferEntry(new ReadableStream({ start(c) { c.enqueue(enc.encode(PAGE)); c.close(); } }))).text();
-    const head = out.slice(0, out.indexOf('</head>'));
-    assert.ok(head.indexOf('/_w/boot-1.js') < head.indexOf('<link rel="stylesheet"'));
-    assert.ok(head.indexOf('window.a=1') < head.indexOf('<link rel="stylesheet"'));
-    assert.ok(head.indexOf('/_w/boot-1.js') < head.indexOf('window.a=1'));
-    assert.ok(head.includes('<title>T</title><style>html{}</style></head>') || head.includes('<title>T</title><style>html{}</style>'));
-    assert.equal((out.match(/boot-1\.js/g) || []).length, 1);
-  });
-  it('also does it for a repeat visitor', async () => {
-    const enc = new TextEncoder();
-    const out = await new Response(deferEntry(new ReadableStream({ start(c) { c.enqueue(enc.encode(PAGE)); c.close(); } }), 'hub_w=index-1.js')).text();
-    assert.ok(out.indexOf('/_w/boot-1.js') < out.indexOf('<link rel="stylesheet"'));
-    assert.ok(out.includes('<script type="module" async="" src="/_w/index-1.js">'));
+    const mk = () => new ReadableStream({ start(c) { c.enqueue(enc.encode(PAGE)); c.close(); } });
+    const want = ['meta:', 'script:/_w/boot-1.js', 'script:', 'link:/_w/a.css', 'title:', 'style:'];
+    const first = await new Response(deferEntry(mk())).text();
+    const again = await new Response(deferEntry(mk(), 'hub_w=index-1.js')).text();
+    for (const out of [first, again]) {
+      const got = order(out).filter((x) => !x.startsWith('link:modulepreload'));
+      assert.ok(got.indexOf('script:/_w/boot-1.js') < got.indexOf('link:/_w/a.css'), 'the boot script stays ahead of the stylesheet, where it was');
+      assert.ok(got.indexOf('link:/_w/a.css') < got.indexOf('title:'), 'the stylesheet stays ahead of the title');
+      assert.ok(got.indexOf('title:') < got.indexOf('style:'), 'the style stays last');
+    }
+    assert.ok(want.length);
   });
 });
