@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { NavArea, NavPage } from '@hub/data/areas';
 import { TAB_CAP, jobMatch, jobWho } from '@hub/data/areas';
 import { NavLink } from './NavLink';
-import { RelBadge } from './RelBadge';
 import { pageVisible, type NavView } from './model';
 import { BodyPortal } from './BodyPortal';
 
@@ -127,7 +126,6 @@ export function TabRow({ area, navId, view, access, kpiTeams, jobs, onRemember }
       >
         <span className="h-tab__t">{p.label}</span>
         {p.jobs && <span className="h-tab__who">{jobWho(p.jobs)}</span>}
-        <RelBadge k={'page:' + p.id} areaId={area.id} skipSameAsArea className="h-rel--tab" />
         {p.count && (
           <span className="h-nav__count" data-count={p.count} hidden={!n}>
             {n.toLocaleString('en-US')}

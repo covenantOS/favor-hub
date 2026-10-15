@@ -1,10 +1,20 @@
 ---
-// The ? button in the header. It opens the help article for the page you are on, with its videos, in a side panel.
+// The ? menu in the header (2026-10-15 cleanup): help for this page, the help home, the tour and what is new, Feedback and the keyboard
+// shortcuts. Help for this page opens the help article for the page you are on, with its videos, in a side panel.
 // The page is read from body[data-nav] when pressed, so a page swapped in place opens its own article.
 // Pages with no article, or a help index that cannot load, get the help home.
 import { icon } from '../data/icons';
 ---
-<button type="button" class="h-top__cam lp-btn" id="lp-btn" aria-haspopup="dialog" aria-label="Help for this page" title="Help for this page"><Fragment set:html={icon('help')} /></button>
+<div class="h-qm" id="h-qm">
+  <button type="button" class="h-top__cam h-qm__btn" id="h-qm-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="h-qmenu" aria-label="Help and feedback" title="Help and feedback"><Fragment set:html={icon('help')} /></button>
+  <div class="h-qmenu" id="h-qmenu" role="menu" aria-label="Help and feedback" hidden>
+    <button type="button" role="menuitem" class="lp-btn" id="lp-btn" aria-haspopup="dialog"><Fragment set:html={icon('help')} />Help for this page</button>
+    <a role="menuitem" href="/help/"><Fragment set:html={icon('book')} />Help home</a>
+    <button type="button" role="menuitem" data-tour-start><Fragment set:html={icon('play')} />Tour and what is new<span class="h-nav__count" data-count="tours" hidden></span></button>
+    <button type="button" role="menuitem" data-feedback="hub"><Fragment set:html={icon('chat')} />Feedback</button>
+    <button type="button" role="menuitem" data-keys-open><Fragment set:html={icon('tools')} />Keyboard shortcuts</button>
+  </div>
+</div>
 <dialog class="lp" id="lp-dlg" aria-labelledby="lp-title">
   <div class="lp__in">
     <div class="lp__bar"><span>Help</span><button type="button" class="lp__x" data-lp-close aria-label="Close help">&times;</button></div>
@@ -45,6 +55,20 @@ import { icon } from '../data/icons';
   type Vid = { slug: string; title: string; length: string; src: string; poster: string; track: string };
   type Index = { articles: Record<string, { title: string; summary: string; href: string; videos: Vid[] }>; pages: Record<string, string> };
 
+  // The ? menu: opens under its button, closes on a pick, a press outside or Escape. Keyboard shortcuts open the ? sheet (hub-keys.js).
+  const qmBtn = document.getElementById('h-qm-btn');
+  const qm = document.getElementById('h-qmenu');
+  if (qmBtn && qm) {
+    const setQm = (on: boolean) => { qm.hidden = !on; qmBtn.setAttribute('aria-expanded', String(on)); if (on) qm.querySelector<HTMLElement>('[role=menuitem]')?.focus({ preventScroll: true }); };
+    qmBtn.addEventListener('click', (e) => { e.stopPropagation(); setQm(qm.hidden); });
+    qm.addEventListener('click', (e) => {
+      const t = e.target as Element;
+      if (t.closest('[data-keys-open]')) (window as any).hubKeys?.open?.();
+      if (t.closest('[role=menuitem]')) setQm(false);
+    });
+    document.addEventListener('click', (e) => { if (!qm.hidden && !(e.target as Element).closest('#h-qm')) setQm(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !qm.hidden) { setQm(false); qmBtn.focus(); } });
+  }
   const btn = document.getElementById('lp-btn') as HTMLButtonElement | null;
   const dlg = document.getElementById('lp-dlg') as HTMLDialogElement | null;
   const body = document.getElementById('lp-body');

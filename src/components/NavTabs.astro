@@ -6,13 +6,10 @@
 // the rest under More (src/data/areas.ts arrangeTabs, the same rule), so the row never shifts after load.
 import type { NavArea, NavPage } from '../data/areas';
 import { jobWho } from '../data/areas';
-import { badgeFor, pageBadge } from '../data/release';
-import Rel from './Rel.astro';
 interface Props { area: NavArea; nav: string; }
 const { area, nav } = Astro.props;
 const pages = area.pages.filter((p) => !p.ext && p.menu !== false);
 const allGated = pages.every((p) => p.need || p.team);
-const tabBadge = (id: string) => { const b = pageBadge(id, area.id); return b === badgeFor(area.id) ? null : b; };
 const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav) || area.pages.some((x) => x.id === nav && x.parent === p.id);
 // The row in registry order: a group is drawn once, where its first page sits.
 type Entry = { page: NavPage } | { group: string; pages: NavPage[] };
@@ -49,7 +46,6 @@ const CARET = '<svg class="h-tab__caret" viewBox="0 0 24 24" aria-hidden="true">
         >
           <span class="h-tab__t">{e.page.label}</span>
           {e.page.jobs && <span class="h-tab__who">{jobWho(e.page.jobs)}</span>}
-          <Rel k={`page:${e.page.id}`} b={tabBadge(e.page.id)} cls="h-rel--tab" />
           {e.page.count && <span class="h-nav__count" data-count={e.page.count} hidden></span>}
         </a>
       ))}
@@ -60,7 +56,6 @@ const CARET = '<svg class="h-tab__caret" viewBox="0 0 24 24" aria-hidden="true">
             {e.pages.map((p) => (
               <a class={`h-tab${activeId(p) ? ' is-on' : ''}`} role="menuitem" href={p.href} data-astro-prefetch="hover" data-nav-id={p.id} data-group={e.group} data-need={p.need || undefined} data-kpi-team={p.team || undefined} data-kpi-page={p.kpiPage} data-jobs={jobsOf(p)} hidden={p.need || p.team ? true : undefined} aria-current={activeId(p) ? 'page' : undefined}>
                 <span class="h-tab__t">{p.label}</span>
-                <Rel k={`page:${p.id}`} b={tabBadge(p.id)} cls="h-rel--tab" />
                 {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
               </a>
             ))}

@@ -229,6 +229,9 @@ export const AREAS: NavArea[] = [
     icon: 'badge',
     key: 's',
     barRank: 10,
+    // Leadership, HR and expense approvers keep Staff in the rail; everyone else reaches Expenses, My learning and Evaluations from the
+    // account menu in the header, and Staff sits under More (Will, 2026-10-14 chrome cleanup).
+    jobs: ['exec', 'hr', 'approver'],
     pages: [
       { id: 'expenses', label: 'Expenses', href: '/expenses/', desc: 'Your expense requests with their status and signed PDFs, a new request, and for approvers the log and the schedule', keywords: 'expense expenses request requests log approver approve sign signed pdf schedule travel purchase reimbursement', count: 'expensesWaiting', learn: 'expense-request', swap: true, was: 'Work > Expenses and Admin > Expense log' },
       { id: 'expense', label: 'New expense request', href: '/expenses/new/', desc: 'Expense request, signed online', keywords: 'new expense request travel pre-travel approval signature purchase', learn: 'expense-request', swap: true, menu: false, parent: 'expenses', was: 'Work > Expenses' },

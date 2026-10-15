@@ -55,9 +55,7 @@ export function HelpPanel({ navId }: { navId: string }) {
 
   return (
     <>
-      <button type="button" className="h-top__cam lp-btn" id="lp-btn" aria-haspopup="dialog" aria-label="Help for this page" title="Help for this page" onClick={open}>
-        <Icon name="help" />
-      </button>
+      <QuestionMenu onHelp={open} />
       {BodyPortal(
       <dialog
         className="lp"
@@ -121,5 +119,49 @@ export function HelpPanel({ navId }: { navId: string }) {
         </div>
       </dialog>)}
     </>
+  );
+}
+
+/** The ? menu (2026-10-15 chrome cleanup): help for this page, the help home, the tour and what is new, Feedback and the keyboard shortcuts. */
+function QuestionMenu({ onHelp }: { onHelp: () => void }) {
+  const [on, setOn] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!on) return;
+    const click = (e: MouseEvent) => { if (!(e.target as Element).closest('#h-qm')) setOn(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOn(false); btn.current?.focus(); } };
+    document.addEventListener('click', click);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('click', click); document.removeEventListener('keydown', key); };
+  }, [on]);
+  return (
+    <div className="h-qm" id="h-qm">
+      <button type="button" ref={btn} className="h-top__cam h-qm__btn" id="h-qm-btn" aria-haspopup="menu" aria-expanded={on} aria-controls="h-qmenu" aria-label="Help and feedback" title="Help and feedback" onClick={() => setOn((v) => !v)}>
+        <Icon name="help" />
+      </button>
+      <div className="h-qmenu" id="h-qmenu" role="menu" aria-label="Help and feedback" hidden={!on} onClick={(e) => { if ((e.target as Element).closest('[role=menuitem]')) setOn(false); }}>
+        <button type="button" role="menuitem" className="lp-btn" id="lp-btn" aria-haspopup="dialog" onClick={onHelp}>
+          <Icon name="help" />
+          Help for this page
+        </button>
+        <a role="menuitem" href="/help/">
+          <Icon name="book" />
+          Help home
+        </a>
+        <button type="button" role="menuitem" data-tour-start>
+          <Icon name="play" />
+          Tour and what is new
+          <span className="h-nav__count" data-count="tours" hidden />
+        </button>
+        <button type="button" role="menuitem" data-feedback="hub">
+          <Icon name="chat" />
+          Feedback
+        </button>
+        <button type="button" role="menuitem" data-keys-open onClick={() => (window as unknown as { hubKeys?: { open?: () => void } }).hubKeys?.open?.()}>
+          <Icon name="tools" />
+          Keyboard shortcuts
+        </button>
+      </div>
+    </div>
   );
 }

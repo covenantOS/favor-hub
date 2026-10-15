@@ -18,7 +18,6 @@ const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also
   <a class="h-nav__item h-area__link" href={area.pop ? '#' : first.href} data-area-link={area.id} data-default={first.href} data-astro-prefetch={area.pop ? undefined : 'hover'} aria-current={isCur ? 'true' : undefined} aria-haspopup={area.pop ? 'true' : undefined} title={area.label}>
     <Fragment set:html={icon(area.icon)} />
     <span class="h-area__label">{area.short || area.label}</span>
-    <Rel k={area.id} b={badgeFor(area.id)} />
     <span class="h-nav__count h-area__sum" data-sum={area.id} hidden></span>
   </a>
   <button type="button" class="h-area__tog" aria-expanded={isCur ? 'true' : 'false'} aria-label={`Show the ${area.label} pages`}><Fragment set:html={icon('chev')} /></button>

@@ -54,10 +54,10 @@ function RailPart({ rail, onSignOut }: { rail: RailState; onSignOut: () => void 
   return <Rail view={view} user={d.user ?? EMPTY_USER} rail={rail} tours={0} onSignOut={onSignOut} />;
 }
 
-function TopPart({ rail }: { rail: RailState }) {
+function TopPart({ rail, onSignOut }: { rail: RailState; onSignOut: () => void }) {
   const { d, access, kpiTeams, view, navId } = useView();
   const { title } = useMeta();
-  return <TopBar view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} jobs={d.jobs ?? null} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />;
+  return <TopBar view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} jobs={d.jobs ?? null} user={d.user ?? EMPTY_USER} onSignOut={onSignOut} classicHref="?web=0" menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />;
 }
 
 function BarPart({ rail }: { rail: RailState }) {
@@ -204,7 +204,7 @@ export function WebShell({ children }: { children: ReactNode }) {
                 </header>
               }
             >
-              <TopPart rail={rail} />
+              <TopPart rail={rail} onSignOut={signOut} />
             </Suspense>
           </ErrorBoundary>
           <main id="h-content" tabIndex={-1} className={layoutClass}>
