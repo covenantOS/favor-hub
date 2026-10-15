@@ -197,7 +197,7 @@ export function WebShell({ children }: { children: ReactNode }) {
           <ErrorBoundary label="The top bar could not load." className="h-top">
             <Suspense
               fallback={
-                <header className="h-top">
+                <header className="h-top h-top--wait">
                   <div className="h-top__head">
                     <div className="h-top__title">{title}</div>
                   </div>

@@ -40,6 +40,11 @@
 .td-status a:hover { text-decoration-color: currentColor; }
 .td-away { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 500 13px var(--h-font); color: var(--r-ink-2); }
 .td-away__l { color: var(--r-ink-3); margin-right: 2px; }
+/* The place "Since you were away" will take, held while the briefing is still being read: as tall as it was last time (the boot script
+   in the web app sets --td-away-h from what Today remembers), and not there at all when it was not shown last time. */
+.td-away--wait { display: none; }
+html.td-away-held .td-away--wait { display: block; flex: 1 0 100%; min-height: var(--td-away-h, 0px); }
+@media (max-width: 860px) { html.td-away-held .td-away--wait { flex: none; order: 1; } }
 .td-away a { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: #fff; border: 1px solid var(--r-line); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; transition: border-color var(--m-fast) var(--m-out), background-color var(--m-fast) var(--m-out); }
 .td-away a:hover { border-color: var(--r-line-2); background: var(--r-hover); }
 .td-head__r { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 0; margin-left: auto; }
@@ -88,7 +93,9 @@
 /* Needs you sets the row's height (never less than today's meetings need, --sched-min); the schedule fills it and its Coming up
    rows stop where the card ends (today3.js fitSched). */
 @media (min-width: 1101px) { .td-sched { height: 0; min-height: 100%; } .td-sched .td-evs { overflow: hidden; } }
-.td-main:has(> .td-doing[hidden]) { grid-template-rows: minmax(var(--sched-min, 0px), auto); grid-template-areas: 'needs sched'; }
+/* With How Favor is doing hidden the two cards share one row. Wider than 1,100 px only: below that the page is one column, and this
+   rule (it outranks the one-column rule) once left the schedule in a 2 px column beside Needs you whenever the card went hidden. */
+@media (min-width: 1101px) { .td-main:has(> .td-doing[hidden]) { grid-template-rows: minmax(var(--sched-min, 0px), auto); grid-template-areas: 'needs sched'; } }
 .td-needs { grid-area: needs; container: needs / inline-size; }
 .td-sched { grid-area: sched; container: sched / inline-size; }
 .td-doing { grid-area: doing; container: doing / inline-size; }

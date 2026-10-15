@@ -1,11 +1,12 @@
 // The Recent card: What changed (the last two weeks across FavorOS), Your recent changes (each with Undo for 24 hours) and Shared with you.
 import { Suspense, useState } from 'react';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { NavLink } from '@/shell/NavLink';
 import { ago, clock, dayKey, et, n0, type J } from './rank';
 import { dayQ, homeQ, todayQ } from './queries';
 import { Ic, helpers, useNow } from './ui';
+import { undoChange, useUndoing } from './undo';
 
 const FEED_FIRST = 6;
 const APPICON: Record<string, string> = { expenses: 'expense', receipts: 'mail', requests: 'request', meetings: 'meeting', projects: 'task', tasks: 'task', chat: 'chat', feedback: 'note', learn: 'learn' };
@@ -63,19 +64,20 @@ function Changes() {
   const now = useNow();
   const { data } = useSuspenseQuery(homeQ);
   const list: J[] = ((data && data.work && data.work.recent) || []).filter((b: J) => b.mine && Date.parse(b.undo_until) > now);
-  // Read in the browser only: the server has no window, and that throw was React error 419.
-  const undoing = typeof window === 'undefined' ? undefined : (window as unknown as { favorUndoing?: Set<string> }).favorUndoing;
+  const qc = useQueryClient();
+  // The ids pressed so far; empty while the server draws, so the first paint is the same on both sides.
+  const undoing = useUndoing();
   return (
     <div className="td-recent__c td-changes wh-card" id="wh-changes" hidden={!list.length}>
       <header className="td-ch"><h2 id="wh-changes-h">Your recent changes</h2><span className="td-ch__r td-ch__meta">Undo for 24 hours</span></header>
       <ul className="wh-list wh-list--changes td-flist" id="wh-changes-list" aria-labelledby="wh-changes-h">
         {list.map((b) => {
-          const off = !!b.undoing || !!(undoing && undoing.has(b.id));
+          const off = !!b.undoing || undoing.has(b.id);
           return (
             <li className="wh-chg" key={b.id}>
               <p>{b.label}{b.failed ? ` (${n0(b.failed)} not sent)` : ''}</p>
               <time dateTime={b.at}>{ago(b.at, now)}</time>
-              <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-wg-undo={b.id} disabled={off} aria-busy={off || undefined}>{off ? 'Undoing' : 'Undo'}</button>
+              <button type="button" className="h-btn h-btn--ghost h-btn--sm" disabled={off} aria-busy={off || undefined} onClick={() => void undoChange(b.id, qc)}>{off ? 'Undoing' : 'Undo'}</button>
             </li>
           );
         })}

@@ -1,7 +1,7 @@
 // The top of Today: the greeting and status line, the live meeting pill, the tour pill, the mission line, "Since you were away", and the
 // first-week card for new hires. The tour pill is shown and hidden by the tour script (src/scripts/tour.ts) through its id, so it is
 // rendered once, outside every read, and never given a `hidden` value again.
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { NavLink } from '@/shell/NavLink';
@@ -96,14 +96,34 @@ function LivePill() {
   );
 }
 
+// How tall "Since you were away" was on this browser, per phone or desktop width. The boot script in the web app's document reads it
+// before the first paint (--td-away-h), so the place is held while the briefing is read and nothing below it moves when it arrives.
+const AWAY_KEY = 'favor.hub.td.away.v1';
+function rememberAway(h: number) {
+  try {
+    const k = window.innerWidth < 861 ? 'p' : 'd';
+    const s = (JSON.parse(localStorage.getItem(AWAY_KEY) || '{}') || {}) as Record<string, number>;
+    if (s[k] === h) return;
+    s[k] = h;
+    localStorage.setItem(AWAY_KEY, JSON.stringify(s));
+  } catch {
+    // storage refused
+  }
+}
+
 function Away() {
   const { owner } = useShared();
   const { data } = useSuspenseQuery(briefQ(owner));
   const [gone, setGone] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
   const a = data && data.away;
   const show = !!a && !!a.parts && a.parts.length > 0 && !gone;
+  useEffect(() => {
+    const el = ref.current;
+    if (el) rememberAway(show ? Math.round(el.getBoundingClientRect().height) : 0);
+  }, [show]);
   return (
-    <p className="td-away" id="td-away" hidden={!show}>
+    <p className="td-away" id="td-away" ref={ref} hidden={!show}>
       {show ? (
         <>
           <span className="td-away__l">Since you were away</span>
@@ -115,7 +135,28 @@ function Away() {
   );
 }
 
+// The tour script turns the show-welcome class on <html> on or off once its reads answer, and the card follows it. This remembers which, so the
+// next load holds the card's place from the first frame (the boot script in the web app's document turns the key back into the class).
+const WELCOME_KEY = 'favor.hub.td.welcome.v1';
+function useRememberWelcome() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const note = () => {
+      try {
+        if (root.classList.contains('show-welcome')) localStorage.setItem(WELCOME_KEY, '1');
+        else localStorage.removeItem(WELCOME_KEY);
+      } catch {
+        // storage refused
+      }
+    };
+    const mo = new MutationObserver(note);
+    mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
+}
+
 export function Head() {
+  useRememberWelcome();
   return (
     <header className="td-head">
       <section className="td-hello h-hello">
@@ -148,7 +189,7 @@ export function Head() {
         <p className="td-mission"><b>615,780</b> people have come to Christ since Favor began</p>
       </div>
       <ErrorBoundary label="">
-        <Suspense fallback={<p className="td-away" id="td-away" hidden />}>
+        <Suspense fallback={<p className="td-away td-away--wait" id="td-away" aria-hidden="true" />}>
           <Away />
         </Suspense>
       </ErrorBoundary>

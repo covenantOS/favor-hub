@@ -4,6 +4,10 @@
 .has-kpi #t-year:empty { min-height: 280px; }
 .show-welcome #t-welcome[hidden] { display: grid !important; }
 @media (max-width: 860px) { .has-kpi #t-year:empty { min-height: 690px; } }
+/* The web app draws the top bar before the menu answer arrives. It is held as tall as it is once the search, bell and account are in
+   (77 px on a phone, 91 px wide), so the page under it does not move when they appear. */
+@media (max-width: 860px) { body.h-body .h-top.h-top--wait { min-height: 77px; } }
+@media (min-width: 861px) { body.h-body .h-top.h-top--wait { min-height: 91px; } }
 
 /* Moving between hub pages keeps the menu and top bar on screen; only the page area changes. */
 @view-transition { navigation: auto; }
