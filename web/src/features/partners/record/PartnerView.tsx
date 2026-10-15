@@ -2,6 +2,7 @@
 // the compact copy beside the Work Center's edit panel (mode 'compact'). Reads /api/work/partners/:id (the D1 copy of Blackbaud) and the
 // partner's notes. Writes go through /api/work/batches like the Work Center: saved, sent to Blackbaud, checked, and undone from the toast.
 import { HouseholdGiving } from './Household';
+import { CommBanner, CommPrefs } from './Prefs';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Boundary } from './Boundary';
@@ -430,6 +431,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
     return (
       <div className={'pp pp--compact' + ro} ref={root}>
         <Head c={ctx} />
+        <CommBanner p={p} />
         <OweCards c={ctx} />
         <Giving p={p} />
         <Comm id={p.id} canFlag={p.canEdit !== false} />
@@ -448,6 +450,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
   const top = (
     <>
       <Head c={ctx} />
+      <CommBanner p={p} />
       <InstrBox instr={instr} />
       <Acts c={ctx} onPrep={() => openPrep(p.id)} onCallMode={() => openCall(p.id)} />
       {tabs}
@@ -486,6 +489,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
           </div>
           <aside className="pp-colside">
             <Chart p={p} />
+            <CommPrefs p={p} as={as} goTab={act.setTab} />
             <Opps c={ctx} />
             <Details c={ctx} open />
           </aside>
@@ -508,6 +512,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
       <NotesSection c={ctx} list={notes} />
       <Timeline c={ctx} />
       <Chart p={p} />
+      <CommPrefs p={p} as={as} goTab={act.setTab} />
       <Opps c={ctx} />
       <Details c={ctx} />
       <div className="pp-pad" />

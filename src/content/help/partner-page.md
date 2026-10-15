@@ -43,6 +43,12 @@ Call mode puts the script, the giving and the last notes on one screen with a Lo
 
 The timeline mixes gifts, calls, emails, meetings, notes and events, newest first. Chat messages that name the partner, FavorOS meetings about them and your own clips appear in it too. All, Gifts, Contacts and Chat and meetings narrow it.
 
+## Communication preferences
+
+A partner with a do-not-contact mark shows a red strip under the name. It lists each channel that is off (Do not call, Do not email, Do not mail, Do not text) and the reason: a solicit code such as Do Not Call or Do Not Contact, the Requests no email or No valid address flag on the Record tab, a Do not mail mark on the preferred address, or a Do not call or Do not email mark on every phone or email. A narrower code, such as Do Not Solicit or Do Not Mail Thank You, shows as a line in plain words. Deceased shows alone. The same strip appears in Call mode, on Call prep, and inside Log a contact when you pick Phone call, Email or Mailing.
+
+The Communication preferences section lower on the page lists Call, Email, Mail and Text with the reason beside each. Admins and the Support Team have a switch on each row. Turning one on adds the matching solicit code (Do Not Call, Do Not Email, Do Not Mail or Do Not Text) with today's date; turning one off ends the codes that cause it. A row caused by a mark on a phone, email or address says Edit on Contact and opens the Contact tab. Every change saves to Blackbaud and shows Undo for 24 hours. Email codes reach GoHighLevel's Do Not Disturb at the next morning run, the same run that applies Blackbaud's Do Not Email codes.
+
 ## Further down
 
 Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom as a summary; Edit beside a phone, email or the address opens the Contact tab.

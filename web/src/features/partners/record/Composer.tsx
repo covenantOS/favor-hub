@@ -1,6 +1,7 @@
 // The forms above the timeline: Log a contact, Add a task, Add a note (port of composer() and noteComposer() in public/js/partner.js).
 import { useEffect, useRef, useState } from 'react';
 import { Ic } from './Ic';
+import { CommBanner } from './Prefs';
 import { holderOf, plusDays, todayEt, type Partner } from './lib';
 import type { SaveForm, ViewState } from './types';
 import { TOPICS } from './lib';
@@ -107,6 +108,7 @@ function ContactTaskForm({ kind, p, prefill, codes, onClose, onSave, first }: { 
           </button>
         ))}
       </div>
+      {kind === 'contact' ? <CommBanner p={p} kind={pick} /> : null}
       <label className="pp-lab">
         {kind === 'task' ? 'What to do' : 'What happened'}
         <input ref={first} type="text" name="what" maxLength={255} required defaultValue={pf ? pf.summary : ''} />

@@ -319,3 +319,18 @@ html.pp-locked, html.pp-locked body { overflow: hidden; }
 .pp-hh__t tfoot th, .pp-hh__t tfoot td { font-weight: 700; border-top: 2px solid var(--h-line); border-bottom: 0; }
 .pp-hh__adj th, .pp-hh__adj td { color: var(--h-ink-3); font-size: 13px; }
 @media (max-width: 720px) { .pp-hh__t th, .pp-hh__t td { padding: 8px 6px; font-size: 13px; } }
+
+/* Communication marks */
+.pp-comm { margin: 14px 28px 0; padding: 12px 16px; border-radius: 14px; background: var(--h-red-soft); border: 1px solid color-mix(in srgb, var(--h-red) 35%, transparent); display: grid; gap: 4px; }
+.pp-comm--inline { margin: 0 0 12px; }
+.pp-comm__k { font: 700 13px var(--h-font); letter-spacing: .14em; text-transform: uppercase; color: var(--h-red); }
+.pp-comm__row { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font: 600 15px/1.4 var(--h-font); color: #7a2a17; }
+.pp-comm__row.is-limited { font-weight: 500; }
+.pp-comm__row small { color: #8d4a3a; font-size: 13px; font-weight: 400; }
+.pp--compact .pp-comm { margin: 12px 0 0; }
+@media (max-width: 860px) { .pp-comm { margin-left: 18px; margin-right: 18px; } }
+.pp-prefs__list { display: grid; }
+.pp-prefs__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--h-line); }
+.pp-prefs__row b { display: block; font-weight: 600; }
+.pp-prefs__row small { color: var(--h-ink-3); font-size: 13px; }
+.pp-prefs__row.is-blocked small { color: var(--h-red); }

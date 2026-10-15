@@ -40,7 +40,9 @@ before(() => {
     CREATE TABLE constituents (id TEXT PRIMARY KEY UNIQUE, date_added DATETIME, date_modified DATETIME, constituent_lookup_id TEXT, constituent_type TEXT, gender TEXT, title TEXT,
       first_name TEXT, middle_name TEXT, last_name TEXT, suffix TEXT, preferred_name TEXT, organization_name TEXT, primary_address_id TEXT, primary_email_id TEXT, primary_phone_id TEXT,
       primary_online_presence_id TEXT, spouse_id TEXT, spouse_first_name TEXT, spouse_last_name TEXT, spouse_is_head_of_household INTEGER DEFAULT 0, inactive INTEGER DEFAULT 0,
-      deceased INTEGER DEFAULT 0, fundraiser_status TEXT, raw_json TEXT, synced_at DATETIME);
+      deceased INTEGER DEFAULT 0, fundraiser_status TEXT, requests_no_email INTEGER DEFAULT 0, no_valid_address INTEGER DEFAULT 0, raw_json TEXT, synced_at DATETIME);
+    CREATE TABLE solicit_codes (id TEXT PRIMARY KEY, constituent_record_id TEXT, solicit_code TEXT, synced_at DATETIME, solicit_start TEXT, solicit_end TEXT);
+    CREATE TABLE solicit_sync (constituent_record_id TEXT PRIMARY KEY, code_count INTEGER DEFAULT 0, synced_at DATETIME);
     CREATE TABLE gifts (id TEXT PRIMARY KEY UNIQUE, date_added DATETIME, date_modified DATETIME, gift_amount REAL, gift_date DATETIME, gift_type TEXT, gift_status TEXT, gift_constituency TEXT,
       gift_splits TEXT, constituent_record_id TEXT, soft_credits TEXT, fundraiser_credits TEXT, gift_payment_method TEXT, linked_gift_id TEXT, receipt_status TEXT, receipt_date DATETIME,
       receipt_amount REAL, receipt_number TEXT, acknowledgment_status TEXT, acknowledgment_date DATETIME, post_status TEXT, post_date DATETIME, gift_comments TEXT, raw_json TEXT, synced_at DATETIME);
@@ -126,6 +128,49 @@ describe('the partner view', () => {
     assert.deepEqual(p.household.map((h) => h.name), ['Ben Example']);
     assert.deepEqual(p.codes.sort(), ['Church', 'Partner']);
     assert.equal(p.synced, '2026-10-10T09:03:18Z');
+  });
+
+  it('reads communication preferences: open solicit codes block a channel, an ended code does not, and a limited code narrows one', async () => {
+    db.prepare("INSERT INTO solicit_codes (id, constituent_record_id, solicit_code, solicit_start, solicit_end) VALUES ('sc1','9001','Do Not Call','2025-01-01T00:00:00',NULL),('sc2','9001','Do Not Email','2024-01-01T00:00:00','2026-01-01T00:00:00'),('sc3','9001','Do Not Mail Solicitation','2025-02-01T00:00:00',NULL)").run();
+    db.prepare("INSERT INTO solicit_sync (constituent_record_id, code_count) VALUES ('9001', 3)").run();
+    try {
+      const p = await loadPartner(q, '9001', TODAY);
+      const by = Object.fromEntries(p.comm.channels.map((c) => [c.key, c]));
+      assert.equal(by.call.state, 'blocked');
+      assert.deepEqual(by.call.reasons.map((r) => r.code), ['Do Not Call']);
+      assert.notEqual(by.email.state, 'blocked', 'an ended Do Not Email does not block');
+      assert.equal(by.mail.state, 'limited');
+      assert.deepEqual(p.comm.codes.map((c) => c.id).sort(), ['sc1', 'sc3']);
+      assert.equal(p.comm.read, true);
+      assert.deepEqual(p.comm.banner.blocked, ['call']);
+      assert.ok(p.comm.banner.lines.includes('Do not call'));
+      assert.ok(p.comm.banner.lines.includes('No asking by mail'));
+    } finally {
+      db.prepare("DELETE FROM solicit_codes").run();
+      db.prepare("DELETE FROM solicit_sync").run();
+    }
+  });
+
+  it('a record with no solicit codes read says so and shows no marks', async () => {
+    const p = await loadPartner(q, '9002', TODAY);
+    assert.equal(p.comm.read, false);
+    assert.equal(p.comm.channels.filter((c) => c.state === 'blocked').length, 0);
+  });
+
+  it('household members: each person has their own figures and a gift credited to both counts once in the household', async () => {
+    db.prepare("INSERT INTO constituents (id, constituent_lookup_id, constituent_type, first_name, last_name, inactive, deceased) VALUES ('9050','7050','Organization','Test Fund',NULL,0,0)").run();
+    gift('hh1', '9050', 500, '2026-02-02', { soft: JSON.stringify([{ id: 'a', amount: { value: 500 }, constituent_id: '9001' }, { id: 'b', amount: { value: 500 }, constituent_id: '9002' }]) });
+    try {
+      const p = await loadPartner(q, '9001', TODAY);
+      assert.equal(p.giving.members.length, 2);
+      const sum = p.giving.members.reduce((t, m) => t + m.total, 0);
+      assert.equal(Math.round((sum - p.giving.total) * 100) / 100, p.giving.sharedOnce);
+      assert.ok(p.giving.sharedOnce >= 500, 'the shared $500 gift counts once for the household and in full for each person');
+      assert.deepEqual(p.giving.members.map((m) => m.relation), ['This partner', 'Spouse']);
+    } finally {
+      db.prepare("DELETE FROM gifts WHERE id = 'hh1'").run();
+      db.prepare("DELETE FROM constituents WHERE id = '9050'").run();
+    }
   });
 
   it('totals giving by year, finds the largest and last gift, and counts the year to date', async () => {

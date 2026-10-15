@@ -185,6 +185,19 @@ function Body({ id, say, onClose, onDone }: { id: string; say?: string; onClose:
           <Ic n="x" />
         </button>
       </div>
+      {b.comm && b.comm.banner.show ? (
+        <div className="pp-comm pp-comm--inline" role="status" data-comm-banner="call" style={{ margin: '0 20px 12px' }}>
+          <span className="pp-comm__k">Contact marks</span>
+          {b.comm.channels
+            .filter((x: any) => x.state !== 'ok')
+            .map((x: any) => (
+              <p key={x.key} className={'pp-comm__row is-' + x.state}>
+                <b>{x.state === 'blocked' ? 'Do not ' + x.label.toLowerCase() : x.label}</b>
+                <small>{x.reasons.map((r: any) => r.text).join(' · ')}</small>
+              </p>
+            ))}
+        </div>
+      ) : null}
       <div className="cm-bar">
         {b.call && !flagsDnc ? (
           <a className="cm-dial" href={'tel:' + digits(b.call.number)}>
