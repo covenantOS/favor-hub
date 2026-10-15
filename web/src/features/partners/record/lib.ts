@@ -122,6 +122,8 @@ export interface Partner {
   /** Whether this person may change solicit codes and record flags. */
   canCodes?: boolean;
   comm?: any;
+  /** Admins and the test accounts see the record pieces not yet open to staff. */
+  preview?: boolean;
   toThank?: ToThank[];
   dataCare?: any;
 }

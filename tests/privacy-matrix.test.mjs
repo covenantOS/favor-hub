@@ -716,7 +716,7 @@ describe('Work Center and HQTY gate: no team, no access (2026-10-15)', () => {
       const p = `${dir}/${f}`;
       return statSync(new URL('../' + p, import.meta.url)).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
     });
-    const norm = (p) => p.replace(/\?.*/, '').replace(/\/\d{3,}(?=\/|$)/g, '/[id]').replace(/\/prvcnry-1(?=\/|$)/, '/[id]');
+    const norm = (p) => p.replace(/\?.*/, '').replace(/\/\d{3,}(?=\/|$)/g, '/[id]').replace(/\/prvcnry-1(?=\/|$)/, '/[id]').replace(/\/pd_prvcnry01$/, '/[doc]');
     const covered = new Set(probes().filter((p) => p.who.includes('noteam')).map((p) => norm(p.path)));
     const missing = [];
     for (const f of walk('functions/api/work')) {

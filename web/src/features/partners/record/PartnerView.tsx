@@ -3,6 +3,7 @@
 // partner's notes. Writes go through /api/work/batches like the Work Center: saved, sent to Blackbaud, checked, and undone from the toast.
 import { HouseholdGiving } from './Household';
 import { CommBanner, CommPrefs } from './Prefs';
+import { Docs } from './Docs';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Boundary } from './Boundary';
@@ -489,6 +490,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
           </div>
           <aside className="pp-colside">
             <Chart p={p} />
+            {p.preview ? <Docs p={p} /> : null}
             <CommPrefs p={p} as={as} goTab={act.setTab} />
             <Opps c={ctx} />
             <Details c={ctx} open />
@@ -512,6 +514,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
       <NotesSection c={ctx} list={notes} />
       <Timeline c={ctx} />
       <Chart p={p} />
+      {p.preview ? <Docs p={p} /> : null}
       <CommPrefs p={p} as={as} goTab={act.setTab} />
       <Opps c={ctx} />
       <Details c={ctx} />

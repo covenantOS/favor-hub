@@ -22,7 +22,7 @@ The four figures below are lifetime giving, this year (with the last 12 months),
 
 - A gift sent through a donor-advised fund (DAF), a foundation or a business and soft-credited to the partner counts for the partner. A partner who gives only through National Christian Foundation shows every one of those gifts, and the line under the figures reads "All through National Christian Foundation (DAF)".
 - The DAF or foundation does not count those gifts as its own. Its page shows them as gifts it passed on for others.
-- A partner and the spouse linked to them in Blackbaud are one household, so either page shows the gifts of both, once. Household giving, under the figures, lists each person's lifetime, this year, last 12 months and last gift. When a gift is soft-credited to both spouses, the line "Credited to both, counted once" shows the amount taken off so the household total counts that gift one time. The table below it gives each year for each person and for the household.
+- A partner and the spouse linked to them in Blackbaud are one household, so either page shows the gifts of both, once.
 - Active means a gift in the last 12 months. LYBUNT means the last gift was 12 to 24 months ago. Lapsed means more than 24 months. A major partner has given one gift of $1,000 or more.
 
 A word with a dotted underline, such as Soft credit, DAF or LYBUNT, shows what it means when you point at it or tap it. In Giving by year, the shaded part of a bar is giving that came through a DAF, foundation or business.
@@ -42,12 +42,6 @@ The Giving pattern card at the top of the page shows how the partner gives, the 
 Call mode puts the script, the giving and the last notes on one screen with a Log it button. Press Speak it, or type, to say what happened. Write it up turns that into the summary line and notes, and a follow-up task if you said you would do something later. Press Log it to save a completed phone call on the partner. Undo stays for 24 hours.
 
 The timeline mixes gifts, calls, emails, meetings, notes and events, newest first. Chat messages that name the partner, FavorOS meetings about them and your own clips appear in it too. All, Gifts, Contacts and Chat and meetings narrow it.
-
-## Communication preferences
-
-A partner with a do-not-contact mark shows a red strip under the name. It lists each channel that is off (Do not call, Do not email, Do not mail, Do not text) and the reason: a solicit code such as Do Not Call or Do Not Contact, the Requests no email or No valid address flag on the Record tab, a Do not mail mark on the preferred address, or a Do not call or Do not email mark on every phone or email. A narrower code, such as Do Not Solicit or Do Not Mail Thank You, shows as a line in plain words. Deceased shows alone. The same strip appears in Call mode, on Call prep, and inside Log a contact when you pick Phone call, Email or Mailing.
-
-The Communication preferences section lower on the page lists Call, Email, Mail and Text with the reason beside each. Admins and the Support Team have a switch on each row. Turning one on adds the matching solicit code (Do Not Call, Do Not Email, Do Not Mail or Do Not Text) with today's date; turning one off ends the codes that cause it. A row caused by a mark on a phone, email or address says Edit on Contact and opens the Contact tab. Every change saves to Blackbaud and shows Undo for 24 hours. Email codes reach GoHighLevel's Do Not Disturb at the next morning run, the same run that applies Blackbaud's Do Not Email codes.
 
 ## Further down
 
