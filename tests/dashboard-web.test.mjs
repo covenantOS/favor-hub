@@ -52,6 +52,15 @@ describe('the freshness note', () => {
   });
 });
 
+describe('moving between pages inside the app', () => {
+  it('a tab of the dashboard is an in-app move once /dashboard/ is a served route, and a full load otherwise', async () => {
+    const { routeServed } = await import('../shared/app2.ts');
+    assert.equal(routeServed('/dashboard/?page=%2Frdds', ['/dashboard/']), true);
+    assert.equal(routeServed('/dashboard/', ['/projects/']), false);
+    assert.equal(routeServed('/meet/room/', ['/meet/room/', '/meet/']), false);
+  });
+});
+
 describe('the hand-off', () => {
   const will = { email: 'will@favorintl.org', name: 'w', picture: '', role: 'admin', via: 'google', kpi: true };
   function world(value) {
