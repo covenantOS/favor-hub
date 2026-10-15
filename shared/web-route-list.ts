@@ -25,4 +25,5 @@ export const WEB_ROUTE_LIST = [
   '/expenses/',
   '/receipts/',
   '/statements/',
+  '/gift-entry/',
 ] as const;
