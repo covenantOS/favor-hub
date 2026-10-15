@@ -81,15 +81,47 @@ describe('Drive file cards', () => {
     for (const v of ['12 pastors', 'Q4', 'n/a']) assert.doesNotMatch(cell(v), /class="fnum"/, v);
   });
 
-  it('shows a photo answer as pictures with size, grade, description, Download original and More like this', () => {
+  it('shows a photo answer as a justified grid of pictures that mark themselves loaded', () => {
     const html = render({ title: 't', files: [file({ id: 'abcdefghij12', kind: 'image', kind_label: 'Photo', hint: true, passages: [], description: 'A man at a radio microphone.', like: 'More photos like x [like:abcdefghij12]', image: { width: 4628, height: 6934, bytes: 22020096, grade: 'high' } })] });
-    assert.match(html, /<img class="ph__thumb" src="\/api\/brain\/drive\/thumb\?id=abcdefghij12&amp;s=400"/);
-    assert.match(html, /4628 \u00d7 6934, 21 MB/);
-    assert.match(html, /High quality/);
-    assert.match(html, /<p class="ph__d">A man at a radio microphone\.<\/p>/);
-    assert.match(html, /uc\?export=download&amp;id=abcdefghij12/);
-    assert.match(html, /data-act="ask" data-q="More photos like x \[like:abcdefghij12\]" data-intent="find_file">More like this/);
+    assert.match(html, /class="card fcards fcards--media"/);
+    assert.match(html, /<div class="mg" role="list" data-mgrid>/);
+    assert.match(html, /class="mg__t is-hq" role="listitem" data-act="media" data-mid="abcdefghij12" style="--r:0\.667"/);
+    assert.match(html, /aria-label="Quarterly Budget, High quality, 4628 × 6934, 21 MB\. Open large"/);
+    assert.match(html, /<img src="\/api\/brain\/drive\/thumb\?id=abcdefghij12&amp;s=400" alt="" loading="lazy" decoding="async" onload="this\.parentNode\.classList\.add\('is-ready'\)" onerror="this\.parentNode\.classList\.add\('is-broken'\)">/);
+    assert.match(html, /draggable="true"/);
     assert.doesNotMatch(html, /\$\d/);
+    // An old answer with no media data has no filters and no Show more.
+    assert.doesNotMatch(html, /class="mf"|data-act="mmore"/);
+  });
+
+  it('adds filters, the count and Show more when the answer carries its media query', () => {
+    const files = Array.from({ length: 24 }, (_, i) => file({ id: 'abcdefghij' + String(i).padStart(2, '0'), kind: 'image', image: { width: 1200, height: 800, bytes: 300000, grade: 'low' } }));
+    const media = { kind: 'image', total: 1423, exact: true, next: 24, query: { q: 'photos of Chad', kind: 'image', place: 'chad' }, facets: { place: [{ value: 'chad', label: 'Chad', n: 1423 }], year: [{ value: '2024', label: '2024', n: 900 }], grade: [], folder: [{ value: 'Baptisms', label: 'Baptisms', n: 210 }] } };
+    const html = render({ title: 'I found 1,423 photos', files, media });
+    assert.match(html, /<select data-mk="m\d+" data-key="place" onchange="window\.BrainBlocks&amp;&amp;window\.BrainBlocks\.mfilter\(this\)">|<select data-mk="m\d+" data-key="place" onchange="window\.BrainBlocks&&window\.BrainBlocks\.mfilter\(this\)">/);
+    assert.match(html, /<option value="chad" selected>Chad \(1,423\)<\/option>/);
+    assert.match(html, /data-key="grade"/);
+    assert.match(html, /data-act="mmore" data-mk="m\d+">Show more<\/button><span>Showing 24 of 1,423<\/span>/);
+    assert.equal((html.match(/class="mg__t/g) || []).length, 24);
+  });
+
+  it('shows a video with its thumbnail, length and the matched moment as one line, the raw text behind Details', () => {
+    const v = file({ id: 'videoid00001', title: 'Carole Ward - Session 2.mp4', kind: 'video', kind_label: 'Video', modified: '2022-03-08', passages: [{ text: 'The image shows a woman standing on a stage.', loc: '15:21-15:30' }], like: 'More videos like x [like:videoid00001]', video: { duration: 1834, at: 921, line: 'Carole standing on a stage with a microphone' } });
+    const html = render({ title: 'I found 1 video', files: [v] });
+    assert.match(html, /<div class="vg" role="list" data-mgrid>/);
+    assert.match(html, /aria-label="Play Carole Ward - Session 2\.mp4 from 15:21"/);
+    assert.match(html, /<span class="vg__dur">30:34<\/span>/);
+    assert.match(html, /Carole standing on a stage with a microphone, <time>15:21<\/time>/);
+    assert.match(html, /<details class="vg__d"><summary>Details<\/summary><p>The image shows a woman standing on a stage\.<\/p><\/details>/);
+    assert.match(html, /src="\/api\/brain\/drive\/thumb\?id=videoid00001&amp;s=400"/);
+    assert.match(html, /data-q="More videos like x \[like:videoid00001\]"/);
+  });
+
+  it('reads the time and a short line from a video answer stored before the grid', () => {
+    const v = file({ id: 'videoid00002', title: 'Old.mp4', kind: 'video', kind_label: 'Video', passages: [{ text: '[Scene at 15:21] The image shows a woman standing on a stage with a microphone in her hand. She is wearing a green sweater.', loc: '15:21-15:30' }] });
+    const html = render({ title: 'I found 1 video', files: [v] });
+    assert.match(html, /A woman standing on a stage with a microphone, <time>15:21<\/time>/);
+    assert.doesNotMatch(html, /\[Scene at/);
   });
 
   it('takes the type color from a fixed list, so an odd type cannot reach a class name', () => {
