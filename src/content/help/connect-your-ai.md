@@ -6,10 +6,10 @@ order: 2
 related: [ask-favor, asking-well]
 tool: /brain/
 toolLabel: Open Favor Brain
-updated: 2026-10-09
+updated: 2026-10-14
 ---
 
-Open **Favor Brain** in the menu and press **Copy** beside the address. The address is:
+Open **Brain** in the menu and press **Connect** on the banner at the top. You can also press **Connect Claude or ChatGPT** at the bottom of your chat list, choose it from the three dots menu, or press **Connect Favor Brain to Claude** in the menu under your initials. A panel opens with **Claude** and **ChatGPT** tabs, the steps, and the address with a **Copy** button. The address is:
 
 `https://mcp.favorintl.org/mcp`
 

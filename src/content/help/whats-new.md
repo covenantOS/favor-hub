@@ -7,7 +7,13 @@ related: [guided-tour, feedback]
 updated: 2026-10-13
 ---
 
-[What's new](/changelog/) lists every change to FavorOS by day, with the time it went live, a search and an area filter. The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **What's new and tour**, plays any of them again. Every change is listed here.
+[What's new](/changelog/) lists every change to FavorOS by day, with the time it went live, a search and an area filter. The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **Tours and what is new**, plays any of them again. Every change is listed here.
+
+## October 14, 2026
+
+- **Your day as lists in Favor Brain.** Ask about your meetings, unread mail, files or tasks and the answer is a list: meetings with a time and Join, mail with the sender and an unread dot, files with who changed them, tasks with the project and due date. Each has an Open link. See [Favor Brain](/help/ask-favor/).
+- **Favor Brain hands a hard question to Claude.** When it cannot answer reliably, the card says Let's take this one to Claude. Continue in Claude opens Claude with your question and what it found, and Rephrase puts your question back in the box. See [Favor Brain](/help/ask-favor/).
+- **Search help matches the screen.** [Search, shortcuts and sounds](/help/search/) lists every group Ctrl K returns, from Partners and Projects to Meetings, Clips, Favor Brain chats and Drive files.
 
 ## October 13, 2026
 

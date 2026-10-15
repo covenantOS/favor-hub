@@ -11,7 +11,7 @@ FavorOS at **dash.favorintl.org** is where Favor staff do their everyday work ou
 
 ## The fastest way to learn it
 
-The tour of FavorOS opens on your first page. It has 8 to 10 stops set up for your work, shows each one on the real screen, and takes about two minutes. Nothing gets sent or changed. To see it again, press **Help**, then **What's new and tour**.
+The tour of FavorOS opens on your first page. It has 8 to 10 stops set up for your work, shows each one on the real screen, and takes about two minutes. Nothing gets sent or changed. To see it again, press **Help**, then **Tours and what is new**.
 
 ## Help for the page you are on
 
