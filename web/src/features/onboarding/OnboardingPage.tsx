@@ -182,7 +182,12 @@ function ListView({ data }: { data: ListOk }) {
         {tabs.map((t) => (
           <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'is-on' : ''} onClick={() => pick(t.key)}>
             {t.label}
-            {t.count !== undefined ? <span>{t.count}</span> : null}
+            {t.count !== undefined ? (
+              <>
+                {' '}
+                <span>{t.count}</span>
+              </>
+            ) : null}
           </button>
         ))}
       </div>
