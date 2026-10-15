@@ -11,10 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
+import { Route as FoundationsIndexRouteImport } from './routes/foundations/index'
+import { Route as PartnersIndexRouteImport } from './routes/partners/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
+import { Route as WorkIndexRouteImport } from './routes/work/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
+import { Route as WorkPartnerIdRouteImport } from './routes/work/partner/$id'
 
 const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
   id: '/churches/',
@@ -26,9 +30,24 @@ const DataCareIndexRoute = DataCareIndexRouteImport.update({
   path: '/data-care/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FoundationsIndexRoute = FoundationsIndexRouteImport.update({
+  id: '/foundations/',
+  path: '/foundations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnersIndexRoute = PartnersIndexRouteImport.update({
+  id: '/partners/',
+  path: '/partners/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WebCheckIndexRoute = WebCheckIndexRouteImport.update({
   id: '/web-check/',
   path: '/web-check/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkIndexRoute = WorkIndexRouteImport.update({
+  id: '/work/',
+  path: '/work/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminGoalsIndexRoute = AdminGoalsIndexRouteImport.update({
@@ -46,11 +65,20 @@ const GiftsRecurringIndexRoute = GiftsRecurringIndexRouteImport.update({
   path: '/gifts/recurring/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkPartnerIdRoute = WorkPartnerIdRouteImport.update({
+  id: '/work/partner/$id',
+  path: '/work/partner/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/foundations/': typeof FoundationsIndexRoute
+  '/partners/': typeof PartnersIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
+  '/work/': typeof WorkIndexRoute
+  '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
@@ -58,7 +86,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
+  '/foundations': typeof FoundationsIndexRoute
+  '/partners': typeof PartnersIndexRoute
   '/web-check': typeof WebCheckIndexRoute
+  '/work': typeof WorkIndexRoute
+  '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals': typeof AdminGoalsIndexRoute
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
@@ -67,7 +99,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/foundations/': typeof FoundationsIndexRoute
+  '/partners/': typeof PartnersIndexRoute
   '/web-check/': typeof WebCheckIndexRoute
+  '/work/': typeof WorkIndexRoute
+  '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
@@ -77,7 +113,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/churches/'
     | '/data-care/'
+    | '/foundations/'
+    | '/partners/'
     | '/web-check/'
+    | '/work/'
+    | '/work/partner/$id'
     | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
@@ -85,7 +125,11 @@ export interface FileRouteTypes {
   to:
     | '/churches'
     | '/data-care'
+    | '/foundations'
+    | '/partners'
     | '/web-check'
+    | '/work'
+    | '/work/partner/$id'
     | '/admin/goals'
     | '/gifts/other'
     | '/gifts/recurring'
@@ -93,7 +137,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/churches/'
     | '/data-care/'
+    | '/foundations/'
+    | '/partners/'
     | '/web-check/'
+    | '/work/'
+    | '/work/partner/$id'
     | '/admin/goals/'
     | '/gifts/other/'
     | '/gifts/recurring/'
@@ -102,7 +150,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
+  FoundationsIndexRoute: typeof FoundationsIndexRoute
+  PartnersIndexRoute: typeof PartnersIndexRoute
   WebCheckIndexRoute: typeof WebCheckIndexRoute
+  WorkIndexRoute: typeof WorkIndexRoute
+  WorkPartnerIdRoute: typeof WorkPartnerIdRoute
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
@@ -124,11 +176,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataCareIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/foundations/': {
+      id: '/foundations/'
+      path: '/foundations'
+      fullPath: '/foundations/'
+      preLoaderRoute: typeof FoundationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partners/': {
+      id: '/partners/'
+      path: '/partners'
+      fullPath: '/partners/'
+      preLoaderRoute: typeof PartnersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/web-check/': {
       id: '/web-check/'
       path: '/web-check'
       fullPath: '/web-check/'
       preLoaderRoute: typeof WebCheckIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work/': {
+      id: '/work/'
+      path: '/work'
+      fullPath: '/work/'
+      preLoaderRoute: typeof WorkIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/goals/': {
@@ -152,13 +225,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GiftsRecurringIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/work/partner/$id': {
+      id: '/work/partner/$id'
+      path: '/work/partner/$id'
+      fullPath: '/work/partner/$id'
+      preLoaderRoute: typeof WorkPartnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
+  FoundationsIndexRoute: FoundationsIndexRoute,
+  PartnersIndexRoute: PartnersIndexRoute,
   WebCheckIndexRoute: WebCheckIndexRoute,
+  WorkIndexRoute: WorkIndexRoute,
+  WorkPartnerIdRoute: WorkPartnerIdRoute,
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
