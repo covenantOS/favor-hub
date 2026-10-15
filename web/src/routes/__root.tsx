@@ -17,6 +17,8 @@ import motionJs from '../../../public/js/hub-motion.js?raw';
 // app/index.html and the classic layout.
 const BOOT = `try{var np=JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1')||'{}');var nu=JSON.parse(localStorage.getItem('favor.hub.nav.v1')||'null');var pr=np[(nu&&nu.user&&nu.user.email)||'_']||np._||{};if(pr.wide&&matchMedia('(min-width: 1280px)').matches)document.documentElement.classList.add('nav-wide');}catch(e){}
 try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:50px;height:50px;overflow:scroll';document.documentElement.appendChild(d);document.documentElement.style.setProperty('--sbw',(d.offsetWidth-d.clientWidth)+'px');d.remove();}catch(e){}
+// A page from an earlier build whose script files are gone reloads once instead of breaking (Vite fires vite:preloadError).
+addEventListener('vite:preloadError',function(e){try{if(sessionStorage.getItem('favor.w.reload'))return;sessionStorage.setItem('favor.w.reload','1');e.preventDefault();location.reload();}catch(x){}});addEventListener('load',function(){setTimeout(function(){try{sessionStorage.removeItem('favor.w.reload')}catch(x){}},10000)});
 (function(){var r=document.documentElement;addEventListener('keydown',function(e){if(e.key==='Tab'||e.key.indexOf('Arrow')===0)r.classList.add('kbd');},true);addEventListener('pointerdown',function(){r.classList.remove('kbd');},true);})();`;
 
 // The web fonts are asked for early only outside Lite mode; in Lite the phone's own fonts are used and these never download (as on
