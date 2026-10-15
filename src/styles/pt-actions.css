@@ -204,3 +204,11 @@
 @media (min-width: 861px) {
   html[data-density='compact'] body.h-body #wc-root .wc-ig .wc-dc .wc-sub { display: none; }
 }
+
+@media (max-width: 860px) {
+  .wg-head { display: none; }
+  .wg-scroll { max-height: none; min-height: 0; overflow: visible; }
+}
+@media (min-width: 1600px) {
+  html[data-density='compact'] body.h-body #wc-root .wc-ig .wc-pickp button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 3px 8px; font-size: 12.5px; }
+}
