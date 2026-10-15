@@ -157,6 +157,7 @@ const plural = (k: number, one: string, many: string) => (k === 1 ? one : many);
 
 /* ---------------------------------------------------------------------------------------------- the stops */
 
+const TODAY_CHURCH = 'Today shows what is waiting on you: actions due today and gifts to thank.';
 const TODAY_PARTNERS = 'Today shows what is waiting on you: actions due today, gifts to thank and your week.';
 const TODAY_GENERAL = 'Today shows what is waiting on you, most urgent first.';
 
@@ -509,7 +510,7 @@ const SHARED_PREFER: Record<TourId, string[]> = {
 
 const TODAY_BODY: Record<TourId, string> = {
   rdd: TODAY_PARTNERS,
-  church: TODAY_PARTNERS,
+  church: TODAY_CHURCH,
   partner_care: TODAY_PARTNERS,
   grants: TODAY_GENERAL,
   support: TODAY_GENERAL,

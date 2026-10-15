@@ -1,12 +1,12 @@
 // The cards for a person's job: Your week (directors), Entry queue (admin and support), Cadence (Partner Care), Gift day (the gift desk) and
 // Team (admins). All of them read /api/hub/home and /api/gifts/overview, which answer 403 for people without the role; those cards hide quietly.
 import { useState, type ReactNode } from 'react';
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { NavLink } from '@/shell/NavLink';
 import { navQuery } from '../../lib/queries';
 import { money, n0, type J } from './rank';
-import { homeQ, overviewQ } from './queries';
+import { homeQ, overviewQ, soft } from './queries';
 import { helpers } from './ui';
 
 /* ---------------------------------------------------------------- a number that opens its definition and the rows behind it */
@@ -238,9 +238,16 @@ function TeamCard({ w }: { w: J }) {
 /* ---------------------------------------------------------------- the section */
 function Body() {
   const home = useSuspenseQuery(homeQ).data;
-  const nav = useQuery(navQuery).data;
-  const giftOff = !!nav && (nav.access as J)?.giftEntry === false;
-  const ov = useSuspenseQuery({ ...overviewQ, queryFn: giftOff ? async () => null : overviewQ.queryFn }).data;
+  const qc = useQueryClient();
+  // The gift day read is made only for people the menu says have gift entry. The menu answer is awaited first, so a person without it
+  // never sends a request the server refuses (a 403 in their console).
+  const ov = useSuspenseQuery({
+    ...overviewQ,
+    queryFn: async () => {
+      const nav = await qc.ensureQueryData(navQuery).catch(() => null);
+      return (nav?.access as J)?.giftEntry === true ? soft('/api/gifts/overview') : null;
+    },
+  }).data;
   const w = home && home.work;
   const week = w && w.week && w.week.kind !== 'plain' && w.week.kind !== 'director_plain';
   const team = w && w.team && w.team.people.length;

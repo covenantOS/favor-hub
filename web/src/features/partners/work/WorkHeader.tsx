@@ -151,13 +151,14 @@ function ViewChips({ view, as }: { view: ActionView; as?: string }) {
   // Data that streams in after the server draws is used only after mount, so the server HTML matches the first browser frame (React 418).
   const mounted = useMounted();
   const oppsQ = useQuery(oppsQuery(as));
-  const imgsQ = useQuery(giftImagesQuery(as));
+  const me = board.me;
+  // Gift images answers 403 for anyone but the admin desk and the Support Team, so the read is made only for them.
+  const imgsQ = useQuery({ ...giftImagesQuery(as), enabled: hasTab('giftimages', me) });
   const opps = mounted ? oppsQ.data : undefined;
   const imgs = mounted ? imgsQ.data : undefined;
   const ov = useWc((s) => s.ov);
   const gone = useWc((s) => s.gone);
   const f = useWc((s) => s.f);
-  const me = board.me;
   const w = makeWork(indexOf(board), { ov, gone, saving: {}, queued: {}, back: {} });
   const count = (k: ActionView): number | '' => {
     if (k === 'open') return w.acts.filter((a) => w.isOpenNow(a) && w.inScope(a, f)).length;
