@@ -40,6 +40,8 @@ import { Route as AdminReportsIndexRouteImport } from './routes/admin/reports/in
 import { Route as EvaluationsAdminIndexRouteImport } from './routes/evaluations/admin/index'
 import { Route as ExpensesNewIndexRouteImport } from './routes/expenses/new/index'
 import { Route as ExpensesReviewIndexRouteImport } from './routes/expenses/review/index'
+import { Route as GiftsDeclinesIndexRouteImport } from './routes/gifts/declines/index'
+import { Route as GiftsLettersIndexRouteImport } from './routes/gifts/letters/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 import { Route as LearnAdminIndexRouteImport } from './routes/learn/admin/index'
@@ -210,6 +212,16 @@ const ExpensesReviewIndexRoute = ExpensesReviewIndexRouteImport.update({
   path: '/expenses/review/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GiftsDeclinesIndexRoute = GiftsDeclinesIndexRouteImport.update({
+  id: '/gifts/declines/',
+  path: '/gifts/declines/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GiftsLettersIndexRoute = GiftsLettersIndexRouteImport.update({
+  id: '/gifts/letters/',
+  path: '/gifts/letters/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GiftsOtherIndexRoute = GiftsOtherIndexRouteImport.update({
   id: '/gifts/other/',
   path: '/gifts/other/',
@@ -314,6 +326,8 @@ export interface FileRoutesByFullPath {
   '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
   '/expenses/new/': typeof ExpensesNewIndexRoute
   '/expenses/review/': typeof ExpensesReviewIndexRoute
+  '/gifts/declines/': typeof GiftsDeclinesIndexRoute
+  '/gifts/letters/': typeof GiftsLettersIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
   '/learn/admin/': typeof LearnAdminIndexRoute
@@ -361,6 +375,8 @@ export interface FileRoutesByTo {
   '/evaluations/admin': typeof EvaluationsAdminIndexRoute
   '/expenses/new': typeof ExpensesNewIndexRoute
   '/expenses/review': typeof ExpensesReviewIndexRoute
+  '/gifts/declines': typeof GiftsDeclinesIndexRoute
+  '/gifts/letters': typeof GiftsLettersIndexRoute
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
   '/learn/admin': typeof LearnAdminIndexRoute
@@ -409,6 +425,8 @@ export interface FileRoutesById {
   '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
   '/expenses/new/': typeof ExpensesNewIndexRoute
   '/expenses/review/': typeof ExpensesReviewIndexRoute
+  '/gifts/declines/': typeof GiftsDeclinesIndexRoute
+  '/gifts/letters/': typeof GiftsLettersIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
   '/learn/admin/': typeof LearnAdminIndexRoute
@@ -458,6 +476,8 @@ export interface FileRouteTypes {
     | '/evaluations/admin/'
     | '/expenses/new/'
     | '/expenses/review/'
+    | '/gifts/declines/'
+    | '/gifts/letters/'
     | '/gifts/other/'
     | '/gifts/recurring/'
     | '/learn/admin/'
@@ -505,6 +525,8 @@ export interface FileRouteTypes {
     | '/evaluations/admin'
     | '/expenses/new'
     | '/expenses/review'
+    | '/gifts/declines'
+    | '/gifts/letters'
     | '/gifts/other'
     | '/gifts/recurring'
     | '/learn/admin'
@@ -552,6 +574,8 @@ export interface FileRouteTypes {
     | '/evaluations/admin/'
     | '/expenses/new/'
     | '/expenses/review/'
+    | '/gifts/declines/'
+    | '/gifts/letters/'
     | '/gifts/other/'
     | '/gifts/recurring/'
     | '/learn/admin/'
@@ -600,6 +624,8 @@ export interface RootRouteChildren {
   EvaluationsAdminIndexRoute: typeof EvaluationsAdminIndexRoute
   ExpensesNewIndexRoute: typeof ExpensesNewIndexRoute
   ExpensesReviewIndexRoute: typeof ExpensesReviewIndexRoute
+  GiftsDeclinesIndexRoute: typeof GiftsDeclinesIndexRoute
+  GiftsLettersIndexRoute: typeof GiftsLettersIndexRoute
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
   LearnAdminIndexRoute: typeof LearnAdminIndexRoute
@@ -834,6 +860,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpensesReviewIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gifts/declines/': {
+      id: '/gifts/declines/'
+      path: '/gifts/declines'
+      fullPath: '/gifts/declines/'
+      preLoaderRoute: typeof GiftsDeclinesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gifts/letters/': {
+      id: '/gifts/letters/'
+      path: '/gifts/letters'
+      fullPath: '/gifts/letters/'
+      preLoaderRoute: typeof GiftsLettersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gifts/other/': {
       id: '/gifts/other/'
       path: '/gifts/other'
@@ -968,6 +1008,8 @@ const rootRouteChildren: RootRouteChildren = {
   EvaluationsAdminIndexRoute: EvaluationsAdminIndexRoute,
   ExpensesNewIndexRoute: ExpensesNewIndexRoute,
   ExpensesReviewIndexRoute: ExpensesReviewIndexRoute,
+  GiftsDeclinesIndexRoute: GiftsDeclinesIndexRoute,
+  GiftsLettersIndexRoute: GiftsLettersIndexRoute,
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
   LearnAdminIndexRoute: LearnAdminIndexRoute,
