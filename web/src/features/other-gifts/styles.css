@@ -116,3 +116,5 @@ h4.og-sub { margin: 14px 0 6px; }
   .og-strip { grid-template-columns: 1fr; }
   .og-seg button { font-size: 12px; }
 }
+
+.og-tribute { font-size: 12px; color: var(--ink-2, #6b6358); margin-top: 2px; }

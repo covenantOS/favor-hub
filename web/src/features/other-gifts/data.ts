@@ -1,5 +1,6 @@
 // Other gifts: one hook per route, with the schema each answer must match. Writes go through send() and refresh the lists they change.
-import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 import { api, ApiError, send } from '@/lib/api';
 import { hubGet } from '../../lib/hub';
 import { ogBatchDetail, ogIndex, ogLastCoding, ogList, ogPartnerHits, ogRecommenders, type OgBatchDetail } from '@shared/schemas';
@@ -92,4 +93,24 @@ export function useOgActions() {
       onSuccess: (_r, v) => refresh(v.id),
     }),
   };
+}
+
+const tributeRows = z.object({ tributes: z.array(z.object({ giftId: z.string(), kind: z.string(), honoree: z.string() }).passthrough()).default([]) }).passthrough();
+export type GiftTribute = { kind: string; honoree: string };
+
+/** The tribute kept on each visible gift, one request for the whole page. Not suspended: the rows draw first and the line fills in. */
+export function useTributes(ids: string[]): Record<string, GiftTribute> {
+  const key = ids.filter(Boolean).slice(0, 200).join(',');
+  const q = useQuery({
+    queryKey: ['og', 'tributes', key],
+    enabled: key.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const r = tributeRows.parse(await hubGet(`/api/tributes?gift=${encodeURIComponent(key)}`));
+      const out: Record<string, GiftTribute> = {};
+      for (const t of r.tributes) out[t.giftId] = { kind: t.kind, honoree: t.honoree };
+      return out;
+    },
+  });
+  return q.data || {};
 }
