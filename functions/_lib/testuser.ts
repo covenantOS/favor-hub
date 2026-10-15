@@ -8,6 +8,7 @@ import { HttpError } from './http';
 // Real staff never see it: it is left out of the people lists, pickers and counts. Writes that reach Blackbaud, send email or
 // notify a person are refused with the "test user" message.
 import { timingSafeEqualStr, nowIso, type Env } from './http';
+import { TEST_PARTNER_IDS } from './testpartners.ts';
 
 export const TESTER_EMAIL = 'tester@favorintl.org';
 export const TESTER_NAME = 'FavorOS Tester';
@@ -78,7 +79,7 @@ export function agentKeyOk(env: Env, request: Request): boolean {
 }
 
 /** The partner records the test accounts may attach a gift to. Anything else is a real partner. */
-export const TEST_PARTNER_IDS = ['37974', '37975'];
+export { TEST_PARTNER_IDS };
 export const TEST_PARTNER_REFUSAL = 'The test user can only use a test partner record. Pick FavorOS Test Sponsor or FavorOS Test Recommender.';
 export const isTestPartnerId = (id: unknown) => TEST_PARTNER_IDS.includes(String(id ?? '').trim()) || /^TEST/i.test(String(id ?? '').trim());
 /** Throws when a test account names a partner that is not a test record. Empty ids pass. */

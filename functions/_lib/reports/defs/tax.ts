@@ -24,6 +24,7 @@ import { compare, noTie } from '../tieout';
 import type { MailFile, ReportContext, ReportDef, Row, Tile, TieOut } from '../types';
 import { stateName, moneyText, splitAddress, savedTie } from '../mailfile';
 import { byText } from '../mailfile';
+import { notTestPartnerSql } from '../../testpartners.ts';
 
 const MIN_TOTAL = 250;
 const EXCLUDED_CONSTITUENCIES = ['Church', 'Foundation', 'Donor Advised Fund', 'DAF Provider'];
@@ -161,12 +162,12 @@ const def: ReportDef = {
                 (SELECT COUNT(*) FROM constituent_codes k WHERE k.constituent_record_id = g.constituent_record_id
                    AND json_extract(k.raw_json, '$.description') IN (${placeholders})) AS excluded
          FROM gifts g
-         WHERE g.gift_date >= ? AND g.gift_date < ? AND g.gift_type <> 'RecurringGift' AND g.gift_amount > 0
+         WHERE g.gift_date >= ? AND g.gift_date < ? AND g.gift_type <> 'RecurringGift' AND g.gift_amount > 0 AND ${notTestPartnerSql('g.constituent_record_id')}
          GROUP BY g.constituent_record_id
        )
        SELECT t.cid AS cid, c.constituent_lookup_id AS lookup, c.organization_name AS org, c.first_name AS first, c.last_name AS last,
               c.spouse_first_name AS spouse_first, c.spouse_last_name AS spouse_last, t.total AS total, t.excluded AS excluded,
-              c.primary_addressee AS pa_name, COALESCE(c.no_valid_address, 0) AS nva, (SELECT COUNT(*) FROM constituents WHERE no_valid_address = 1) AS nva_read, a.address_lines AS raw_lines, a.address_lines AS line, a.address_city AS city, a.address_state AS state, a.address_postal_code AS zip, a.address_country AS country, a.do_not_mail AS dnm,
+              c.primary_addressee AS pa_name, COALESCE(c.no_valid_address, 0) AS nva, (SELECT COUNT(*) FROM constituents WHERE no_valid_address = 1 AND ${notTestPartnerSql('id')}) AS nva_read, a.address_lines AS raw_lines, a.address_lines AS line, a.address_city AS city, a.address_state AS state, a.address_postal_code AS zip, a.address_country AS country, a.do_not_mail AS dnm,
               (SELECT COUNT(*) FROM solicit_codes s WHERE s.constituent_record_id = t.cid AND s.solicit_code = 'Email Annual Tax Receipts' AND (s.solicit_end IS NULL OR s.solicit_end > date('now'))) AS etr,
               (SELECT e.email_address FROM emails e WHERE e.constituent_record_id = t.cid AND e.is_inactive = 0 AND COALESCE(e.email_address, '') <> ''
                ORDER BY e.is_primary DESC, e.id LIMIT 1) AS email

@@ -3,6 +3,7 @@
 // Reads only, through ctx.sql. Every name and figure in the tests is made up; the staff names below are the roles the
 // browser script already holds (regional directors and the people the post shortens to a first name).
 import type { ReportContext } from '../types';
+import { isTestPartnerRecord, notTestPartnerSql } from '../../testpartners.ts';
 
 /* ------------------------------------------------------------------ text */
 
@@ -165,15 +166,16 @@ const COUNTRY: Record<string, string> = { 'United States': 'US', Australia: 'AU'
  * nothing in the mirror reads as a new partner.
  */
 export async function loadGrid(ctx: ReportContext, from: string, to: string, limit = 5000, given?: RawGift[]): Promise<GridGift[]> {
-  const gifts = given
+  const gifts0 = given
     ? given.filter((g) => num(g.amount) > 0)
     : await ctx.sql<RawGift>(
         `SELECT id AS id, json_extract(raw_json, '$.lookup_id') AS lid, constituent_record_id AS cid, gift_amount AS amount, substr(gift_date, 1, 10) AS d, gift_type AS gtype, gift_payment_method AS pm,
                 gift_splits AS splits, soft_credits AS soft
-           FROM gifts WHERE substr(gift_date, 1, 10) >= ?1 AND substr(gift_date, 1, 10) <= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift'
+           FROM gifts WHERE substr(gift_date, 1, 10) >= ?1 AND substr(gift_date, 1, 10) <= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift' AND ${notTestPartnerSql('constituent_record_id')}
           ORDER BY gift_date, id LIMIT ${limit}`,
         [from, to]
       );
+  const gifts = gifts0.filter((g) => !isTestPartnerRecord(g.cid));
   if (!gifts.length) return [];
   const people = new Set<string>();
   const appeals = new Set<string>();

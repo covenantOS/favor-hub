@@ -20,6 +20,8 @@
 // idx_actions_action_completed_date and narrows 85,780 rows to about 1,600 before the JSON
 // checks run on them.
 
+import { notTestPartnerSql } from '../testpartners.ts';
+
 /** The window the Your day card looks ahead, in days. */
 export const DAY_WINDOW_DAYS = 7;
 
@@ -46,7 +48,7 @@ export function yourDayActionsSql(limit = 60): string {
                 COUNT(*) OVER () AS total,
                 COALESCE(SUM(substr(a.action_date_due, 1, 10) < ?1) OVER (), 0) AS overdue_n
            FROM actions a JOIN constituents c ON c.id = a.constituent_record_id
-          WHERE ${openActionSql('a')}
+          WHERE ${openActionSql('a')} AND ${notTestPartnerSql('a.constituent_record_id')}
             AND substr(a.action_date_due, 1, 10) <= date(?1, '+${DAY_WINDOW_DAYS} day')
             AND EXISTS (SELECT 1 FROM json_each(a.raw_json, '$.fundraisers') j WHERE j.value = ?2)
           ORDER BY a.action_date_due LIMIT ${Math.floor(limit)}`;

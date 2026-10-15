@@ -4,6 +4,7 @@
 // Mirror rules that shape the SQL: the endpoint refuses any statement whose text contains insert, update, replace, upsert, delete,
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
 import { readOnly } from '../work/repo';
+import { notTestPartnerSql } from '../testpartners.ts';
 import type { Q } from '../work/partner';
 import { addDays } from '../actions/completion';
 import { FACTS_SQL } from '../work/cadence';
@@ -15,7 +16,7 @@ export const EDITABLE_FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'ANNUALLY', 'WEEKLY
 export const SCHEDULES_SQL = readOnly(`SELECT r.gift_id AS id, r.constituent_record_id AS cid, r.gift_status AS status, r.amount AS amount, r.frequency AS freq,
        substr(r.start_date, 1, 10) AS start, substr(r.end_date, 1, 10) AS ends, substr(r.next_transaction_date, 1, 10) AS nxt,
        substr(r.status_date, 1, 10) AS sdate, r.synced_at AS synced, g.gift_payment_method AS pm, g.gift_splits AS splits
-  FROM recurring_schedules r LEFT JOIN gifts g ON g.id = r.gift_id`);
+  FROM recurring_schedules r LEFT JOIN gifts g ON g.id = r.gift_id WHERE ${notTestPartnerSql('r.constituent_record_id')}`);
 
 /** Paid payments by schedule and month for the last twelve months, with the last paid day in that month. */
 export const MONTHLY_SQL = readOnly(`SELECT linked_gift_id AS sched, substr(gift_date, 1, 7) AS m, COUNT(*) AS n, SUM(gift_amount) AS total, MAX(substr(gift_date, 1, 10)) AS last_ok
@@ -210,7 +211,7 @@ export function shape(o: {
 /** Payments in the last 30 days: schedules and dollars. A separate read, because the monthly rollup cannot split a month. */
 export const PAID30_SQL = readOnly(`SELECT COUNT(DISTINCT linked_gift_id) AS schedules, COALESCE(SUM(gift_amount), 0) AS total, COUNT(*) AS n
   FROM gifts WHERE gift_type = 'RecurringGiftPayment' AND gift_amount > 0 AND gift_date >= ?1
-   AND linked_gift_id IN (SELECT gift_id FROM recurring_schedules WHERE gift_status = 'Active')`);
+   AND linked_gift_id IN (SELECT gift_id FROM recurring_schedules WHERE gift_status = 'Active' AND ${notTestPartnerSql('constituent_record_id')})`);
 
 export interface Loaded { rows: ScheduleRow[]; stats: RecurringStats }
 

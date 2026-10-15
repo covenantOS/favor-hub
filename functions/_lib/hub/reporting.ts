@@ -8,6 +8,7 @@
 // One copy of the data is kept for fifteen minutes for everyone (the same pattern as kpiSummary). A person's own access
 // decides which team sections they may open; the totals on Executive are open to every KPI user.
 import { HttpError, type Env } from '../http';
+import { isTestPartnerRecord } from '../testpartners.ts';
 import { kpiGet, SUMMARY_READER } from './kpi';
 import { applyFavorosGoals } from '../goals/apply';
 import {
@@ -123,14 +124,17 @@ async function brainSlice(env: BrainEnv, slice: string, label: string, month: st
     if (!res.ok) return null;
     const d = (await res.json()) as { ok?: boolean; rows?: Array<Record<string, unknown>>; total?: number; count?: number };
     if (d.ok === false) return null;
-    const rows: GiftRow[] = (d.rows || []).map((r) => ({
+    const kept = (d.rows || []).filter((r) => !isTestPartnerRecord(r.record_id));
+    const dropped = (d.rows || []).filter((r) => isTestPartnerRecord(r.record_id));
+    const rows: GiftRow[] = kept.map((r) => ({
       date: String(r.date || '').slice(0, 10),
       partner: String(r.partner || ''),
       cid: r.record_id != null && String(r.record_id) ? String(r.record_id) : null,
       amount: Number(r.amount) || 0,
       gift_amount: Number(r.gift_amount) || 0,
     }));
-    return { slice, label, month, rows, total: Number(d.total) || 0, count: Number(d.count) || rows.length };
+    const droppedTotal = dropped.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+    return { slice, label, month, rows, total: (Number(d.total) || 0) - droppedTotal, count: (Number(d.count) || d.rows?.length || 0) - dropped.length };
   } catch {
     return null;
   }

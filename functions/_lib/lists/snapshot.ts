@@ -1,6 +1,7 @@
 // Builds the lr_* snapshot in the hub database from the Blackbaud mirror. The mirror read goes through the sync worker and takes
 // seconds; the Lists page then counts against these tables in milliseconds. A table is emptied and refilled inside one batch, so a
 // reader never sees half a copy.
+import { notTestPartnerSql } from '../testpartners.ts';
 import { giftRowsSnapshotSql, householdsSnapshotSql } from './layer.ts';
 
 type Row = Record<string, any>;
@@ -97,8 +98,8 @@ export async function buildSnapshot(io: SnapshotIO, asOf: string): Promise<Snaps
       `SELECT constituent_record_id AS cid, MAX(DATE(COALESCE(action_completed_date, action_date_due))) AS d FROM actions
         WHERE json_extract(raw_json, '$.completed') = 1 AND action_category IN ('Phone call', 'Email', 'Meeting') GROUP BY constituent_record_id`
     ),
-    io.read(`SELECT id AS cid, spouse_id AS sid FROM constituents WHERE spouse_id IS NOT NULL`),
-    io.read(`SELECT id AS cid FROM constituents WHERE COALESCE(no_valid_address, 0) = 1`),
+    io.read(`SELECT id AS cid, spouse_id AS sid FROM constituents WHERE spouse_id IS NOT NULL AND ${notTestPartnerSql('id')} AND ${notTestPartnerSql('spouse_id')}`),
+    io.read(`SELECT id AS cid FROM constituents WHERE COALESCE(no_valid_address, 0) = 1 AND ${notTestPartnerSql('id')}`),
   ]);
 
   // Every record id to its household. A spouse that never gave maps through the household's other member.

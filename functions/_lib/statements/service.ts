@@ -8,6 +8,7 @@ import { compare, kpiFigures, noTie, round2 } from '../reports/tieout';
 import type { ReportContext, Row, TieOut } from '../reports/types';
 import { fill, type StatementCopy } from './copy';
 import { loadGifts, loadPartners, type Sql } from './data';
+import { notTestPartnerSql } from '../testpartners.ts';
 import { buildPdf } from './pdf';
 import { composeStatement, dollars, LEFT_TEXT, periodLabel, rangeOf, type Statement } from './rules';
 import {
@@ -244,7 +245,7 @@ export async function yearEndPlan(env: Env, sql: Sql, user: { email: string; nam
 
   // Independent read of the year's giving: the same gifts, summed without the lists.
   const direct = await sql<{ s: number; c: number }>(
-    `SELECT ROUND(COALESCE(SUM(gift_amount), 0), 2) AS s, COUNT(*) AS c FROM gifts WHERE substr(gift_date, 1, 10) >= ?1 AND substr(gift_date, 1, 10) <= ?2 AND gift_type <> 'RecurringGift' AND gift_amount > 0`,
+    `SELECT ROUND(COALESCE(SUM(gift_amount), 0), 2) AS s, COUNT(*) AS c FROM gifts WHERE substr(gift_date, 1, 10) >= ?1 AND substr(gift_date, 1, 10) <= ?2 AND gift_type <> 'RecurringGift' AND gift_amount > 0 AND ${notTestPartnerSql('constituent_record_id')}`,
     [`${year}-01-01`, `${year}-12-31`]
   );
   const ties: Tie[] = [];

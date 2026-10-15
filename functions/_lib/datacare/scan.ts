@@ -7,6 +7,7 @@
 import { mirror } from '../foundations/blackbaud';
 import { newId, nowIso, type Env } from '../http';
 import { MIN_SCORE, pairId, scorePair } from './score';
+import { notTestPartnerSql } from '../testpartners.ts';
 
 const REFUSES = /insert|update|replace|upsert|delete|drop|alter|create/i;
 const ro = (sql: string): string => {
@@ -34,7 +35,7 @@ export const FLAGGED_SQL = ro(`SELECT c.id AS cid, c.constituent_lookup_id AS lo
        (SELECT group_concat(DISTINCT CASE WHEN COALESCE(a.do_not_mail, 0) = 1 AND COALESCE(a.is_inactive, 0) = 0 AND COALESCE(a.address_lines, '') <> '' THEN 'dnm'
                                           WHEN COALESCE(a.is_inactive, 0) = 1 THEN 'inactive' ELSE 'no_street' END) FROM addresses a WHERE a.constituent_record_id = c.id) AS kinds
   FROM constituents c JOIN gifts g ON g.constituent_record_id = c.id
- WHERE c.no_valid_address = 1 AND COALESCE(c.deceased, 0) = 0 AND g.gift_amount > 0 AND g.gift_date >= ?1
+ WHERE c.no_valid_address = 1 AND COALESCE(c.deceased, 0) = 0 AND g.gift_amount > 0 AND g.gift_date >= ?1 AND ${notTestPartnerSql('c.id')}
  GROUP BY c.id ORDER BY gave DESC`);
 
 export const GOOD_NOW_SQL = ro(`SELECT c.id AS cid, COALESCE(c.deceased, 0) AS dead,
@@ -42,7 +43,7 @@ export const GOOD_NOW_SQL = ro(`SELECT c.id AS cid, COALESCE(c.deceased, 0) AS d
   FROM constituents c WHERE c.id IN (SELECT value FROM json_each(?1)) AND (${GOOD_ADDRESS} OR COALESCE(c.deceased, 0) = 1)`);
 
 export const SHARED_EMAIL_SQL = ro(`SELECT lower(trim(email_address)) AS e, group_concat(DISTINCT constituent_record_id) AS ids
-  FROM emails WHERE COALESCE(is_inactive, 0) = 0 AND email_address LIKE '%@%' AND email_address NOT LIKE '%@favorintl.org' GROUP BY 1 HAVING COUNT(DISTINCT constituent_record_id) > 1`);
+  FROM emails WHERE COALESCE(is_inactive, 0) = 0 AND email_address LIKE '%@%' AND email_address NOT LIKE '%@favorintl.org' AND ${notTestPartnerSql('constituent_record_id')} GROUP BY 1 HAVING COUNT(DISTINCT constituent_record_id) > 1`);
 
 export const PEOPLE_SQL = ro(`SELECT c.id AS id, c.constituent_lookup_id AS lookup, c.constituent_type AS type, COALESCE(c.first_name, '') AS first, COALESCE(c.last_name, '') AS last,
        c.spouse_id AS spouse, COALESCE(c.deceased, 0) AS dead, COALESCE(c.inactive, 0) AS inactive,

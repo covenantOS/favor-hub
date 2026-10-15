@@ -16,6 +16,7 @@ import { hubValue } from '../admin/hubcache';
 import type { Q } from './partner';
 import { addDays } from '../actions/completion';
 import { givingForMany, type MirrorQ, type PartnerGiving } from '../gifts/partner-giving';
+import { notTestPartnerSql } from '../testpartners.ts';
 
 export type Rule = 'first' | 'monthly' | 'quarterly' | 'semi' | 'annual';
 export type StepKey = 'call' | 'text' | 'email' | 'card';
@@ -269,7 +270,7 @@ const SOFT_IDS = `SELECT json_extract(s.value, '$.constituent_id') FROM gifts g,
    WHERE g.gift_date >= ?2 AND g.gift_amount > 0 AND g.gift_type <> 'RecurringGift' AND g.soft_credits LIKE '%constituent_id%' AND json_valid(g.soft_credits)`;
 const HARD_IDS = `SELECT constituent_record_id FROM gifts WHERE gift_date >= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift'`;
 export const GIVERS_SQL = readOnly(`SELECT c.id AS cid FROM constituents c
- WHERE c.id IN (${PC_SET})
+ WHERE c.id IN (${PC_SET}) AND ${notTestPartnerSql('c.id')}
    AND (c.id IN (${HARD_IDS}) OR c.id IN (${SOFT_IDS}) OR (c.spouse_id IS NOT NULL AND (c.spouse_id IN (${HARD_IDS}) OR c.spouse_id IN (${SOFT_IDS}))))`);
 
 export const HOLDS_SQL = readOnly(`SELECT constituent_record_id AS cid, assignment_fundraiser_id AS fid FROM assignments

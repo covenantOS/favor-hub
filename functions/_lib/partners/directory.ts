@@ -9,6 +9,7 @@
 // rebuilt just before this copy, so a partner's lifetime reads the same in the directory, in Lists and in the Brain. Both spouses'
 // rows carry their household's figures. Active, LYBUNT and Lapsed use the household's last gift with the KPI windows.
 import { bulkInsert, type SnapshotIO, type Stmt } from '../lists/snapshot.ts';
+import { notTestPartnerSql } from '../testpartners.ts';
 
 type Row = Record<string, any>;
 
@@ -71,7 +72,7 @@ async function readConstituents(io: SnapshotIO): Promise<Row[]> {
       `SELECT id, constituent_lookup_id AS lookup, constituent_type AS ctype, first_name AS first, last_name AS last, preferred_name AS pref,
               organization_name AS org, json_extract(raw_json, '$.name') AS rname, deceased AS dec, inactive AS ina, gives_anonymously AS anon,
               requests_no_email AS rne, no_valid_address AS nva, substr(date_added, 1, 10) AS added, spouse_id AS sid
-         FROM constituents WHERE id > ?1 ORDER BY id LIMIT ${CHUNK}`,
+         FROM constituents WHERE id > ?1 AND ${notTestPartnerSql('id')} ORDER BY id LIMIT ${CHUNK}`,
       [after]
     );
     out.push(...rows);
