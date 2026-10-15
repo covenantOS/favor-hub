@@ -2,6 +2,7 @@
 title: Mail
 summary: Your own Gmail inside FavorOS. Every view, button, window and setting, with reply, labels, snooze, search, drafts, send later and links to tasks, Chat, partners and Blackbaud.
 topic: work
+for: [admin]
 order: 8
 related: [chat, today, inbox-and-hand-off, partner-page, work-center, whats-new]
 tool: /mail/

@@ -2,6 +2,7 @@
 title: Make a request
 summary: Ask for anything you need from someone else, in your own words. Your words sort themselves into answers you can change.
 topic: work
+for: [admin]
 order: 1
 related: [request-board, expense-request, projects]
 tool: /projects/?compose=1
