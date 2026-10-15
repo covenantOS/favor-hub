@@ -735,3 +735,56 @@ html.plb-on { overflow: hidden; }
   .plb__nav--n { right: 14px; }
   .plb__x { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 2; }
 }
+
+/* ---- The steps behind an answer (2026-10-14, brain-trace.js), after shadcn's Trace (MIT) in FavorOS's own type, colours and
+   motion tokens. A row: icon, title, a quiet count or time. The step at work shimmers; finished steps close to one line. */
+.h-body .bc-root .m-think--trace { align-items: start; }
+.h-body .bc-root .m-think__tr { padding-top: 4px; min-width: 0; }
+.h-body .bc-root .btr { font: 400 14px/1.4 var(--h-font); color: var(--h-ink-3); min-width: 0; }
+.h-body .bc-root .btr-list { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* Four rows from the first frame: the list never grows while the answer is made. */
+.h-body .bc-root .btr--live .btr-list { min-height: calc(4 * 20px + 3 * 8px); }
+.h-body .bc-root .btr-row { min-width: 0; }
+.h-body .bc-root .btr-line { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; width: fit-content; transition: color var(--m-fast) var(--m-out), opacity var(--m-base) var(--m-out); }
+.h-body .bc-root .btr-line[data-status='pending'] { opacity: .45; }
+.h-body .bc-root .btr-line[data-status='withheld'] { color: var(--h-red, #a33a2a); }
+.h-body .bc-root .btr-ic { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
+.h-body .bc-root .btr-ic svg { width: 16px; height: 16px; }
+.h-body .bc-root .btr-line[data-status='running'] .btr-ic { color: var(--h-brand, #4f7a3a); }
+.h-body .bc-root .btr-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-body .bc-root .btr-d { flex: none; color: color-mix(in srgb, var(--h-ink-3) 70%, transparent); font-variant-numeric: tabular-nums; font-size: 13px; }
+.h-body .bc-root .btr-chev { margin-left: -2px; transition: transform var(--m-base) var(--m-std); }
+.h-body .bc-root .btr-chev svg { width: 14px; height: 14px; }
+/* The shimmer on the step at work: a light band crossing the words. */
+.h-body .bc-root .btr-line[data-status='running'] .btr-t {
+  color: transparent; background: linear-gradient(90deg, var(--h-ink-3) 0%, var(--h-ink-3) 40%, var(--h-ink) 50%, var(--h-ink-3) 60%, var(--h-ink-3) 100%) 0 0 / 250% 100%;
+  -webkit-background-clip: text; background-clip: text; animation: btr-shim 1.6s linear infinite;
+}
+@keyframes btr-shim { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+.h-body .bc-root .btr-spin { animation: btr-rot .9s linear infinite; }
+@keyframes btr-rot { to { transform: rotate(360deg); } }
+/* A row that just changed state settles in place (opacity only). */
+.h-body .bc-root .btr-row.is-turn .btr-line { animation: m-arrive var(--m-base) var(--m-out); }
+/* Opening a row: a button over the line, the body easing open on a grid row. */
+.h-body .bc-root .btr-trig { all: unset; display: flex; max-width: 100%; min-width: 0; cursor: pointer; border-radius: 6px; }
+.h-body .bc-root .btr-trig:hover .btr-line { color: var(--h-ink); }
+.h-body .bc-root .btr-trig:focus-visible { outline: 2px solid color-mix(in srgb, var(--h-brand) 50%, transparent); outline-offset: 2px; }
+.h-body .bc-root .btr-trig[aria-expanded='true'] > .btr-line .btr-chev { transform: rotate(90deg); }
+.h-body .bc-root .btr-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--m-base) var(--m-out); }
+.h-body .bc-root .btr-trig[aria-expanded='true'] + .btr-body { grid-template-rows: 1fr; }
+.h-body .bc-root .btr-in { overflow: hidden; min-height: 0; margin-left: 7px; padding-left: 16px; border-left: 1px solid var(--h-line); }
+.h-body .bc-root .btr-in > p { margin: 6px 0 2px; font-size: 13.5px; line-height: 1.5; color: var(--h-ink-2); text-wrap: pretty; }
+.h-body .bc-root .btr-in.btr-list > :first-child { margin-top: 10px; }
+.h-body .bc-root .btr-in.btr-list > :last-child { margin-bottom: 2px; }
+.h-body .bc-root .btr--done { margin-bottom: 14px; }
+.h-body .bc-root .btr--done .btr-sum .btr-t { white-space: normal; }
+@media (max-width: 860px) {
+  .h-body .bc-root .btr { font-size: 14px; }
+  .h-body .bc-root .btr-trig { padding: 2px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .h-body .bc-root .btr-line[data-status='running'] .btr-t { animation: none; color: var(--h-ink-2); background: none; }
+  .h-body .bc-root .btr-spin { animation: none; }
+  .h-body .bc-root .btr-body, .h-body .bc-root .btr-chev, .h-body .bc-root .btr-line { transition: none; }
+  .h-body .bc-root .btr-row.is-turn .btr-line { animation: none; }
+}

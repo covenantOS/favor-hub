@@ -398,11 +398,11 @@
     if (brain.ready) return brain.ready;
     var code = new Promise(function (ok, bad) {
       if (window.BrainBlocks) { ok(); return; }
-      var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=13'; s.onload = ok; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
+      var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=13'; s.onload = function () { if (window.BrainTrace) return ok(); var tr = document.createElement('script'); tr.src = '/js/brain-trace.js?v=1'; tr.onload = ok; tr.onerror = ok; document.head.appendChild(tr); }; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
     });
     // The Brain tab draws once its stylesheet is in, so its answers never show unstyled for a moment.
     var css = new Promise(function (ok) {
-      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/dock-brain.css?v=1';
+      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/dock-brain.css?v=2';
       l.onload = ok; l.onerror = ok; setTimeout(ok, 4000); document.head.appendChild(l);
     });
     brain.ready = Promise.all([code, css]);
@@ -410,12 +410,12 @@
   }
   var DAY = 864e5;
   var newId = function () { return 'c_' + Array.from(crypto.getRandomValues(new Uint8Array(5)), function (b) { return b.toString(36).padStart(2, '0'); }).join('').slice(0, 8); };
-  function fromReply(q, d) { return { q: q, ref: d.ref, at: new Date().toISOString(), blocks: d.blocks || [], reading: Array.isArray(d.reading) ? d.reading : [], follow: d.follow || [], markdown: d.markdown || d.text || '', intent: d.intent, outcome: d.outcome, asked_as: d.asked_as || q, extras: [] }; }
+  function fromReply(q, d) { return { q: q, ref: d.ref, at: new Date().toISOString(), blocks: d.blocks || [], reading: Array.isArray(d.reading) ? d.reading : [], follow: d.follow || [], markdown: d.markdown || d.text || '', steps: d.steps || [], intent: d.intent, outcome: d.outcome, asked_as: d.asked_as || q, extras: [] }; }
   function fromStored(t) {
     var a = t.answer || {};
     if (a.pending) return { q: t.question, at: t.at, blocks: null, pending: true, extras: [], reading: [], follow: [], stored: true };
     if (a.error) return { q: t.question, ref: t.ref, at: t.at, blocks: null, error: a.error, extras: [], reading: [], follow: [], stored: true };
-    return { q: t.question, ref: t.ref, at: t.at, blocks: a.blocks || [], reading: Array.isArray(a.reading) ? a.reading : [], follow: a.follow || [], intent: a.intent, outcome: a.outcome, asked_as: a.asked_as || t.question, extras: [], stored: true };
+    return { q: t.question, ref: t.ref, at: t.at, blocks: a.blocks || [], reading: Array.isArray(a.reading) ? a.reading : [], follow: a.follow || [], steps: a.steps || [], intent: a.intent, outcome: a.outcome, asked_as: a.asked_as || t.question, extras: [], stored: true };
   }
   function brainShow() {
     P.last = 'brain';
@@ -471,13 +471,14 @@
     host.innerHTML = h;
     var B = window.BrainBlocks; if (B) { try { B.drawCharts(host); B.countUp(host, true); } catch (e) { /* a chart that will not draw */ } }
   }
-  function thinking(st) { return '<div class="fp-think"><span class="fbr" data-state="thinking" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span><span id="fp-think-st">' + esc(st) + '</span></div>'; }
+  // The answer's steps fill in while it is made (brain-trace.js, loaded with brain-blocks.js).
+  function thinking() { return '<div class="fp-think fp-think--trace" id="fp-think"><span class="fbr" data-state="thinking" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span>' + '<div class="bc-root">' + (window.BrainTrace ? window.BrainTrace.live(brain.busy && brain.busy.steps) : '') + '</div></div>'; }
   function answerHtml(t, ti, last) {
     var B = window.BrainBlocks, expired = t.stored && Date.now() - new Date(t.at).getTime() >= DAY, h = '';
     if (t.error) h += '<div class="blk-text"><p class="bc-err">' + esc(t.error) + '</p></div>';
     else if (t.stopped) h += '<div class="blk-text"><p>Stopped. Ask again when you are ready.</p></div>';
     else if (!t.blocks || !t.blocks.length) h += B.fallback(t.markdown || 'No answer was kept for this one. Ask again.');
-    else h += t.blocks.map(function (b, bi) { return B.render(b, { ti: ti, bi: bi, canSheets: false, canRequest: function () { return false; }, expired: expired }); }).join('');
+    else h += (t.steps && t.steps.length && window.BrainTrace ? window.BrainTrace.done(t.steps) : '') + t.blocks.map(function (b, bi) { return B.render(b, { ti: ti, bi: bi, canSheets: false, canRequest: function () { return false; }, expired: expired }); }).join('');
     (t.extras || []).forEach(function (x) { h += B.render(x, { ti: ti, bi: -1, canSheets: false }); });
     h += B.reading(t.reading, ti);
     if (last && t.follow && t.follow.length && !t.error) h += '<div class="blk-follow" aria-label="Follow-up questions">' + t.follow.map(function (q) { return '<button type="button" class="fu" data-act="ask" data-q="' + esc(q) + '">' + B.ic('arrow') + esc(q) + '</button>'; }).join('') + '</div>';
@@ -549,7 +550,7 @@
     var prev = ''; for (var i = (replacing ? opt.at : conv.turns.length - 1) - 1; i >= 0; i--) { var x = conv.turns[i]; if (x.blocks && x.outcome === 'ok') { prev = x.asked_as || x.q; break; } }
     if (prev) req.previous = prev;
     if (opt.intent) req.intent = opt.intent;
-    bapi('ask', { body: req, signal: mine.ctl.signal, keepalive: true }).then(function (d) {
+    (window.BrainTrace ? window.BrainTrace.ask(req, { signal: mine.ctl.signal, onSteps: function (st) { mine.steps = st; if (brain.busy === mine) window.BrainTrace.update($('#fp-think'), st); } }) : bapi('ask', { body: req, signal: mine.ctl.signal, keepalive: true })).then(function (d) {
       if (!d.ref) d.ref = '';
       Object.assign(turn, fromReply(turn.q || q, d), { q: turn.q || q });
     }).catch(function (err) { if (err.name === 'AbortError') turn.stopped = true; else { turn.error = err.message; turn.ref = err.ref; } }).then(function () {

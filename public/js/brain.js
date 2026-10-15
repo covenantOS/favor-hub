@@ -87,7 +87,7 @@
   function fromReply(q, d) {
     return {
       q, ref: d.ref, at: new Date().toISOString(), blocks: d.blocks || [], reading: Array.isArray(d.reading) ? d.reading : [], follow: d.follow || [], lists: d.lists || [],
-      markdown: d.markdown || d.text || '', intent: d.intent, outcome: d.outcome, asked_as: d.asked_as || q, hint: d.hint === 'connect', extras: [], rated: null,
+      markdown: d.markdown || d.text || '', steps: Array.isArray(d.steps) ? d.steps : [], intent: d.intent, outcome: d.outcome, asked_as: d.asked_as || q, hint: d.hint === 'connect', extras: [], rated: null,
     };
   }
   /** A turn from a stored thread (answer_json is the Brain's StoredAnswer). */
@@ -95,7 +95,7 @@
     const a = t.answer || {};
     if (a.pending) return { q: t.question, ref: null, at: t.at, blocks: null, reading: [], follow: [], lists: [], markdown: '', pending: true, extras: [], rated: null, stored: true };
     if (a.error) return { q: t.question, ref: t.ref, at: t.at, blocks: null, error: a.error, reading: [], follow: [], lists: [], markdown: '', extras: [], rated: null, stored: true };
-    return { q: t.question, ref: t.ref, at: t.at, blocks: a.blocks || [], reading: Array.isArray(a.reading) ? a.reading : [], follow: a.follow || [], lists: a.lists || [], markdown: '', intent: a.intent, outcome: a.outcome, asked_as: a.asked_as || t.question, hint: false, extras: [], rated: null, stored: true };
+    return { q: t.question, ref: t.ref, at: t.at, blocks: a.blocks || [], reading: Array.isArray(a.reading) ? a.reading : [], follow: a.follow || [], lists: a.lists || [], markdown: '', steps: Array.isArray(a.steps) ? a.steps : [], intent: a.intent, outcome: a.outcome, asked_as: a.asked_as || t.question, hint: false, extras: [], rated: null, stored: true };
   }
   const fresh = (t) => !t.stored || Date.now() - new Date(t.at).getTime() < DAY;
   const lastGood = () => {
@@ -114,7 +114,7 @@
     else if (t.stopped) h += '<div class="blk-text"><p>Stopped. Ask again when you are ready.</p></div>';
     else if (!t.blocks || !t.blocks.length) h += B.fallback(t.markdown || 'No answer was kept for this one. Ask again.');
     else
-      h += t.blocks.map((b, bi) => B.render(b, { ti, bi, canSheets: canSheets(), canRequest: (k) => canRequest(k) && !pending(k), expired: ok })).join('');
+      h += (t.steps && t.steps.length ? window.BrainTrace.done(t.steps) : '') + t.blocks.map((b, bi) => B.render(b, { ti, bi, canSheets: canSheets(), canRequest: (k) => canRequest(k) && !pending(k), expired: ok })).join('');
     for (const x of t.extras || []) h += B.render(x, { ti, bi: -1, canSheets: canSheets() });
     h += B.reading(t.reading, ti);
     if (latest && t.follow && t.follow.length && !t.error) h += `<div class="blk-follow" aria-label="Follow-up questions">${t.follow.map((q) => `<button type="button" class="fu" data-act="ask" data-q="${esc(q)}">${ic('arrow')}${esc(q)}</button>`).join('')}</div>`;
@@ -141,7 +141,8 @@
   }
   // Favor Brain's mark, the ring of light (styles in src/styles/round2.css, .fbr; same markup as src/data/icons.ts brainMark).
   const mark = (state) => `<span class="fbr" data-state="${state}" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span>`;
-  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div><div class="m-think__st"><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
+  // While an answer is being made, its steps fill in (brain-trace.js); the four rows hold their height from the first frame.
+  const thinkHTML = () => `<div class="m-think m-think--trace" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div class="m-think__tr">${window.BrainTrace.live(busy && busy.steps)}</div></div>`;
 
   const STARTERS = () => {
     const s = [];
@@ -300,7 +301,7 @@
     if (opt.intent) body.intent = opt.intent;
     if (opt.rerun) body.rerun = opt.rerun;
     try {
-      const d = await api('ask', { body, signal: mine.ctl.signal, keepalive: true });
+      const d = await window.BrainTrace.ask(body, { signal: mine.ctl.signal, onSteps: (st) => { mine.steps = st; if (busy === mine && cur === conv) window.BrainTrace.update($('bc-think'), st); } });
       if (!d.ref) d.ref = '';
       const t = fromReply(q || turn.q, d);
       Object.assign(turn, t, { q: turn.q || q });

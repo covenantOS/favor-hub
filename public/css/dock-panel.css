@@ -117,3 +117,6 @@
 .fp-card__k { font: 700 10.5px var(--h-font); letter-spacing: .04em; text-transform: uppercase; color: var(--h-brand-ink); }
 .fp-card__t { font: 600 13.5px/1.35 var(--h-font); overflow-wrap: anywhere; }
 .fp-card__m { font: 400 12px var(--h-font); color: var(--h-ink-3); }
+/* The answer's steps in the dock (brain-trace.js; row styles come with dock-brain.css). */
+.fp-think--trace { align-items: flex-start; }
+.fp-think--trace .btr--live { padding-top: 4px; }
