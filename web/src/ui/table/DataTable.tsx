@@ -41,6 +41,8 @@ export interface Selection {
   drag?: boolean;
   /** A row that cannot be selected right now (its change is still being sent): its checkbox is off and presses skip it. */
   disabled?: (id: string) => boolean;
+  /** Extra class on the checkbox cells (th and td). */
+  cellClassName?: string;
 }
 
 export interface DataTableProps<T> {
@@ -95,8 +97,9 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const cols = useMemo(() => p.columns.filter((c) => c.fixed || !hidden.has(c.key)), [p.columns, hidden]);
   const body = useRef<HTMLTableSectionElement>(null);
   const ids = p.rows.map(p.rowKey);
-  const allOn = !!p.select && ids.length > 0 && ids.every((i) => p.select!.selected.has(i));
-  const someOn = !!p.select && !allOn && ids.some((i) => p.select!.selected.has(i));
+  const pickable = p.select?.disabled ? ids.filter((i) => !p.select!.disabled!(i)) : ids;
+  const allOn = !!p.select && pickable.length > 0 && pickable.every((i) => p.select!.selected.has(i));
+  const someOn = !!p.select && !allOn && pickable.some((i) => p.select!.selected.has(i));
   const allRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (allRef.current) allRef.current.indeterminate = someOn;
@@ -176,7 +179,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
         <thead>
           <tr>
             {p.select ? (
-              <th className="pt-cb">
+              <th className={'pt-cb' + (p.select.cellClassName ? ' ' + p.select.cellClassName : '')}>
                 <input ref={allRef} type="checkbox" checked={allOn} onChange={(e) => p.select!.onPage(e.target.checked)} aria-label="Select every row on this page" />
               </th>
             ) : null}
@@ -220,7 +223,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                   return (
                     <tr key={id} data-pt-row="" data-id={id} tabIndex={-1} className={cls || undefined} title={p.rowTitle ? p.rowTitle(row) : undefined} onClick={(e) => rowClick(e, row)} onKeyDown={(e) => onKey(e, row, id)} onMouseDown={p.select?.drag ? (e) => { if (e.shiftKey) e.preventDefault(); } : undefined}>
                       {p.select ? (
-                        <td className="pt-cb" style={p.select.drag ? { touchAction: 'none' } : undefined} onPointerDown={p.select.drag ? (e) => cbDown(e, id, picked) : undefined}>
+                        <td className={'pt-cb' + (p.select.cellClassName ? ' ' + p.select.cellClassName : '')} style={p.select.drag ? { touchAction: 'none' } : undefined} onPointerDown={p.select.drag ? (e) => cbDown(e, id, picked) : undefined}>
                           <input
                             type="checkbox"
                             tabIndex={-1}
