@@ -1,14 +1,11 @@
 ---
-// Help docs home: search across every article and video caption, the tour, what's new, topics and
-// the newest videos. Articles live in src/content/help; videos in src/data/videos.json.
+// Help docs home: search across every article, the tour, what's new and topics. Articles live in src/content/help.
 import { getCollection } from 'astro:content';
 import App from '../../layouts/App.astro';
-import { TOPICS, mins } from '../../data/help-topics';
-import videos from '../../data/videos.json';
+import { TOPICS } from '../../data/help-topics';
 import '../../styles/crit-reportadmin.css';
 
 const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
-const newest = [...videos].sort((a, b) => b.added.localeCompare(a.added)).slice(0, 4);
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const ICON: Record<string, string> = {
   start: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
@@ -24,13 +21,13 @@ import '../../styles/lint-fix.css';
 // Worst-case data fixes (scripts/break-ui).
 import '../../styles/break-ui.css';
 ---
-<App title="Help docs" crumb="Learn" nav="docs" description="How FavorOS works: every tool, Favor Brain, the KPI dashboard, and training videos.">
+<App title="Help docs" crumb="Learn" nav="docs" description="How FavorOS works: every tool, Favor Brain, the KPI dashboard.">
   <div class="hd-home">
     <section class="hd-hero">
       <h1 class="sr-only">Help docs</h1>
       <div class="hd-search" role="search">
         <svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="hd-q" type="search" placeholder="Search articles and videos" autocomplete="off" aria-label="Search the help docs" aria-controls="hd-results" />
+        <input id="hd-q" type="search" placeholder="Search articles" autocomplete="off" aria-label="Search the help docs" aria-controls="hd-results" />
         <kbd>/</kbd>
       </div>
       <div class="hd-results" id="hd-results" role="region" aria-live="polite" hidden></div>
@@ -38,7 +35,6 @@ import '../../styles/break-ui.css';
         <button type="button" class="h-btn h-btn--primary" data-tour-start>
           <Fragment set:html={I('<path d="M5 3.5 19 12l-6.5 1.4L10 20z"/>')} />Tours and what is new
         </button>
-        <a class="h-btn h-btn--ghost" href="/help/videos/"><Fragment set:html={I('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>')} />Training videos</a>
         <button type="button" class="h-btn h-btn--ghost" data-feedback="help" data-title="What's missing from the help docs?">
           <Fragment set:html={I('<path d="M4 5h16v11H9l-5 4z"/>')} />Can't find it? Tell us
         </button>
@@ -73,16 +69,6 @@ import '../../styles/break-ui.css';
       ))}
     </div>
 
-    <div class="h-section"><h2>Newest videos</h2><p><a class="h-link" href="/help/videos/">All {videos.length} {videos.length === 1 ? 'video' : 'videos'}</a></p></div>
-    <div class="hd-vids">
-      {newest.map((v) => (
-        <a class="h-card hd-vid" href={`/help/videos/${v.slug}/`}>
-          <span class="hd-vid__poster"><img src={`/api/videos/${v.slug}.jpg${v.cut ? `?v=${v.cut}` : ''}`} alt="" loading="lazy" /><em>{mins(v.seconds)}</em><i aria-hidden="true"></i></span>
-          <b>{v.title}</b>
-          <span>{v.summary}</span>
-        </a>
-      ))}
-    </div>
   </div>
   <script is:inline src="/js/help.js?v=3" defer></script>
 </App>

@@ -1,9 +1,8 @@
 // The help search index, built with the site: every article's title, summary, headings and text,
-// and every video's title, summary and spoken words. help.js loads it the first time someone types.
+//. help.js loads it the first time someone types.
 import { getCollection } from 'astro:content';
 import type { APIRoute } from 'astro';
-import { TOPICS, VIDEO_TOPICS } from '../../data/help-topics';
-import videos from '../../data/videos.json';
+import { TOPICS } from '../../data/help-topics';
 
 const plain = (md: string) =>
   md
@@ -28,16 +27,6 @@ export const GET: APIRoute = async () => {
       for: d.data.for,
       heads: (d.body || '').match(/^##+ .+$/gm)?.map((h) => h.replace(/^#+ /, '')) || [],
       text: plain(d.body || ''),
-    })),
-    ...videos.map((v) => ({
-      kind: 'video',
-      url: `/help/videos/${v.slug}/`,
-      title: v.title,
-      summary: v.summary,
-      topic: `Video · ${VIDEO_TOPICS[v.topic] || v.topic}`,
-      for: v.roles,
-      heads: [] as string[],
-      text: v.transcript,
     })),
   ];
   return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });

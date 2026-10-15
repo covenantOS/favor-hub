@@ -3,7 +3,6 @@ title: Connect Claude or ChatGPT
 summary: A one-time setup in Claude (any plan) or ChatGPT (Business or Pro), then sign in with your Favor Google account.
 topic: ask
 order: 2
-videos: [connect-the-brain]
 related: [ask-favor, asking-well]
 tool: /brain/
 toolLabel: Open Favor Brain

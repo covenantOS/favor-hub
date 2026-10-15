@@ -12,7 +12,7 @@ import videos from '../../../src/data/videos.json' with { type: 'json' };
 
 export type LearnMode = AccessMode;
 export type LessonKind = 'video' | 'article' | 'doc' | 'page' | 'clip' | 'link' | 'quiz';
-export const LESSON_KINDS: LessonKind[] = ['video', 'article', 'doc', 'page', 'clip', 'link', 'quiz'];
+export const LESSON_KINDS: LessonKind[] = ['article', 'doc', 'page', 'clip', 'link', 'quiz'];
 export const COLORS = ['leaf', 'teal', 'sky', 'sun', 'dusk', 'terra', 'slate'];
 export const STATUSES = ['draft', 'published', 'archived'] as const;
 export const ET = 'America/New_York';

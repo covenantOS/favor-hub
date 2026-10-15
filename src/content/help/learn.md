@@ -1,6 +1,6 @@
 ---
 title: Learn
-summary: Courses and learning paths with videos, articles, documents, quizzes and a certificate, assigned by due date and shown on Today.
+summary: Courses and learning paths with articles, documents, quizzes and a certificate, assigned by due date and shown on Today.
 topic: start
 order: 6
 for: [all]
@@ -20,11 +20,10 @@ The **Catalog** lists every published course and path. Search by a word in the t
 
 ## Taking a course
 
-Press a course to see its lessons in order. **Start** opens the first lesson, and **Continue** opens the lesson where you left off. A video resumes at the second where you stopped, even on another computer or your phone.
+Press a course to see its lessons in order. **Start** opens the first lesson, and **Continue** opens the lesson where you left off. A clip resumes at the second where you stopped, even on another computer or your phone.
 
 A lesson is one of these:
 
-- **Video**: a training video with captions. It counts as done when it ends, or press **Mark complete**.
 - **Article**: a help article read right in the lesson.
 - **Document**: a Google Doc, Sheet, Slides file or PDF shown in the lesson, with **Open in Google Drive** under it.
 - **Reading**: a page written for the course.

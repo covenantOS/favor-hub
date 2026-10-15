@@ -28,8 +28,4 @@ const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.
         ))}
     </div>
   ))}
-  <div class="hd-side__group">
-    <div class="hd-side__label">Videos</div>
-    <a href="/help/videos/" class={current === 'videos' ? 'is-on' : undefined}>Training videos</a>
-  </div>
 </nav>

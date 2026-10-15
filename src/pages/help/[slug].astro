@@ -1,11 +1,10 @@
 ---
-// One help article: the topic list on the left, the article with its videos, and "Was this helpful?"
+// One help article: the topic list on the left, the article, and "Was this helpful?"
 import { getCollection, render } from 'astro:content';
 import App from '../../layouts/App.astro';
 import HelpSide from '../../components/HelpSide.astro';
-import { TOPICS, mins } from '../../data/help-topics';
+import { TOPICS } from '../../data/help-topics';
 import { AREAS } from '../../data/areas';
-import videos from '../../data/videos.json';
 
 export async function getStaticPaths() {
   const docs = await getCollection('help');
@@ -16,7 +15,6 @@ const { doc } = Astro.props;
 const { Content, headings } = await render(doc);
 const all = await getCollection('help');
 const topic = TOPICS.find((t) => t.id === doc.data.topic);
-const vids = doc.data.videos.map((s) => videos.find((v) => v.slug === s)).filter(Boolean) as typeof videos;
 const related = doc.data.related.map((r) => all.find((d) => d.id === r)).filter(Boolean) as typeof all;
 const toc = headings.filter((h) => h.depth === 2);
 import '../../styles/q3-desk.css';
@@ -37,24 +35,6 @@ import { helpBadge } from '../../data/release';
       {doc.data.tool && (
         <a class="h-btn h-btn--ghost h-btn--sm hd-tool" href={doc.data.tool}>{doc.data.toolLabel || 'Open it'}
           <svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
-      )}
-      {vids.map((v) => (
-        <figure class="hd-video">
-          <video controls preload="none" playsinline poster={`/api/videos/${v.slug}.jpg${v.cut ? `?v=${v.cut}` : ''}`} data-video={v.slug}>
-            <source src={`/api/videos/${v.slug}.mp4${v.cut ? `?v=${v.cut}` : ''}`} type="video/mp4" />
-            <track kind="captions" src={`/api/videos/${v.slug}.vtt${v.cut ? `?v=${v.cut}` : ''}`} srclang="en" label="English" default />
-          </video>
-          <figcaption><b>{v.title}</b><span>{mins(v.seconds)}</span><a href={`/help/videos/${v.slug}/`}>Captions and transcript</a></figcaption>
-        </figure>
-      ))}
-      <div class="hd-body">
-        <Content />
-      </div>
-      {related.length > 0 && (
-        <aside class="hd-related">
-          <b>Related</b>
-          <div>{related.map((r) => <a href={`/help/${r.id}/`}>{r.data.title}<span>{r.data.summary}</span></a>)}</div>
-        </aside>
       )}
       <div class="hd-rate" data-rate={doc.id}>
         <span>Was this helpful?</span>

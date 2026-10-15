@@ -4,7 +4,6 @@ summary: Print a receipt for every gift Blackbaud has not thanked yet, then mark
 topic: partners
 order: 1
 for: [marketing, pc, admin, leader]
-videos: [thank-you-receipts]
 related: [whats-new]
 tool: /receipts/
 toolLabel: Open Receipts

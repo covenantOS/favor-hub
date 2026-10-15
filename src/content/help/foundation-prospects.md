@@ -4,7 +4,6 @@ summary: Check a foundation before you call, see who already talked to them, and
 topic: partners
 order: 2
 for: [grants, rdd, admin, leader]
-videos: [foundation-prospects]
 tool: /foundations/
 toolLabel: Open Foundation prospects
 updated: 2026-10-09

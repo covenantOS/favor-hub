@@ -3,7 +3,6 @@ title: Start here
 summary: What FavorOS is, how to get around it, and where to go when you need something.
 topic: start
 order: 1
-videos: [favoros-walk-through]
 related: [signing-in, today, search, guided-tour]
 updated: 2026-10-14
 ---
@@ -16,7 +15,7 @@ The tour of FavorOS opens on your first page. It has 8 to 10 stops set up for yo
 
 ## Help for the page you are on
 
-The ? button in the top bar opens the help article for the page you are on, with its training videos, in a panel on the right. Press Read the full article to open the whole article. A page with no article opens the help home.
+The ? button in the top bar opens the help article for the page you are on, in a panel on the right. Press Read the full article to open the whole article. A page with no article opens the help home.
 
 ## Getting around
 
@@ -46,4 +45,4 @@ Work was one area until October 2026. Its pages moved to the area for each job, 
 | Your evaluation, your courses, a new hire's checklist | Staff |
 | See how the year is going | Reporting |
 | Ask a question about partners, giving or the manuals | Favor Brain |
-| Learn how something works | Help docs and Training videos |
+| Learn how something works | Help docs |

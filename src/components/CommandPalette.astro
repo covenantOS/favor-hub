@@ -1,14 +1,12 @@
 ---
 import { getCollection } from 'astro:content';
-import videos from '../data/videos.json';
 import { buildPaletteItems } from '../data/palette';
 import { MOVED_UNTIL as WAS_UNTIL } from '../data/areas';
 
-// Help articles and videos only show once someone types, so the opening list stays short.
+// Help articles only show once someone types, so the opening list stays short.
 const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
 const items = buildPaletteItems(
-  docs.map((d) => ({ title: d.data.title, summary: d.data.summary, id: d.id, topic: d.data.topic, body: d.body || '' })),
-  videos
+  docs.map((d) => ({ title: d.data.title, summary: d.data.summary, id: d.id, topic: d.data.topic, body: d.body || '' }))
 );
 ---
 <div class="cmdk" id="cmdk" hidden role="dialog" aria-modal="true" aria-label="FavorOS search">

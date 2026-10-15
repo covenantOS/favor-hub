@@ -3,7 +3,6 @@ title: What Favor Brain is
 summary: Ask about partners, giving, team numbers, grants and Favor's manuals in plain words, on the Favor Brain page or from Claude or ChatGPT. It is in beta.
 topic: ask
 order: 1
-videos: [meet-the-brain]
 related: [connect-your-ai, asking-well, access, feedback]
 tool: /brain/
 toolLabel: Open Favor Brain

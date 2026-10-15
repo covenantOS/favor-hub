@@ -423,7 +423,7 @@
   }
   function lessonsHtml() {
     const ls = E.course.lessons;
-    if (!ls.length) return '<p class="ln-sum" style="padding:16px;margin:0">No lessons yet. Add a video, an article, a Google Doc, a clip, a written page or a quiz.</p>';
+    if (!ls.length) return '<p class="ln-sum" style="padding:16px;margin:0">No lessons yet. Add an article, a Google Doc, a clip, a written page or a quiz.</p>';
     return ls.map((l, i) => `<div class="la-l" draggable="true" data-i="${i}" data-id="${esc(l.id)}"><span class="la-grip" aria-hidden="true">${svg('grip')}</span>
       <span class="ln-tile ln-tile--sm" style="background:var(--r-sunk);color:var(--r-ink-2)">${svg(l.kind)}</span>
       <span class="la-l__t"><b>${esc(l.title)}</b><span>${esc(lessonMeta(l))}</span></span><span class="la-l__m">${l.minutes ? mins(l.minutes) : ''}</span>
@@ -556,7 +556,7 @@
       const ha = help.filter((h) => h.kind === 'article' && (!q || h.hay.includes(q))).slice(0, q ? 12 : 8);
       if (hv.length) parts.push(`<h3>Help videos</h3>${hv.map(hit).join('')}`);
       if (ha.length) parts.push(`<h3>Help articles</h3>${ha.map(hit).join('')}`);
-      res.innerHTML = parts.join('') || '<p class="ln-sum">No help video or article matches.</p>';
+      res.innerHTML = parts.join('') || '<p class="ln-sum">No help article matches.</p>';
       const mine = [api('/api/learn/admin/clips?q=' + encodeURIComponent(q)).then((d) => d.clips || []).catch(() => [])];
       if (q.length >= 2) mine.push(api('/api/learn/admin/drive?q=' + encodeURIComponent(q)).then((d) => d.files || []).catch(() => []));
       const [clips, files] = await Promise.all(mine);

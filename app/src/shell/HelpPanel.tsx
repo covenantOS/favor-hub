@@ -5,13 +5,12 @@ import { z } from 'zod';
 import { Icon } from './Icon';
 import { hubOv } from '@/lib/hubOv';
 
-const vid = z.object({ slug: z.string(), title: z.string(), length: z.string(), src: z.string(), poster: z.string(), track: z.string() });
 const learnIndex = z.object({
-  articles: z.record(z.string(), z.object({ title: z.string(), summary: z.string(), href: z.string(), videos: z.array(vid) })),
+  articles: z.record(z.string(), z.object({ title: z.string(), summary: z.string(), href: z.string(), videos: z.array(z.never()).optional() })),
   pages: z.record(z.string(), z.string()),
 });
 
-/** The ? button and its side panel: the help article for the page you are on, with its videos. Port of src/components/LearnPanel.astro. */
+/** The ? button and its side panel: the help article for the page you are on. Port of src/components/LearnPanel.astro. */
 export function HelpPanel({ navId }: { navId: string }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [asked, setAsked] = useState(false);
@@ -86,17 +85,6 @@ export function HelpPanel({ navId }: { navId: string }) {
               <>
                 <h2 id="lp-title">{a.title}</h2>
                 <p>{a.summary}</p>
-                {a.videos.map((v) => (
-                  <figure key={v.slug}>
-                    <video controls preload="none" playsInline poster={v.poster} data-video={v.slug}>
-                      <source src={v.src} type="video/mp4" />
-                      <track kind="captions" src={v.track} srcLang="en" label="English" default />
-                    </video>
-                    <figcaption>
-                      {v.title} <span>{v.length}</span>
-                    </figcaption>
-                  </figure>
-                ))}
                 <a className="lp__go" href={a.href}>
                   Read the full article
                 </a>
@@ -108,9 +96,6 @@ export function HelpPanel({ navId }: { navId: string }) {
                 <div className="lp__more">
                   <a className="lp__go" href="/help/">
                     Open the help home
-                  </a>
-                  <a className="lp__go" href="/help/videos/">
-                    Training videos
                   </a>
                 </div>
               </>

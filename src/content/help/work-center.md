@@ -5,7 +5,6 @@ topic: work
 order: 4
 for: [admin, rdd, pc, ce, grants, leader]
 related: [today, getting-started]
-videos: [work-center]
 tool: /work/
 toolLabel: Open Partners
 updated: 2026-10-14

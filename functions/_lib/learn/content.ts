@@ -27,7 +27,7 @@ export async function pathByRef(env: Env, ref: string): Promise<PathRow | null> 
 }
 
 export async function lessonsOf(env: Env, courseId: string): Promise<LessonRow[]> {
-  return ((await env.DB.prepare(`SELECT ${LESSON_COLS} FROM learn_lessons WHERE course_id = ? ORDER BY sort, created_at, id`).bind(courseId).all<LessonRow>()).results || []) as LessonRow[];
+  return ((await env.DB.prepare(`SELECT ${LESSON_COLS} FROM learn_lessons WHERE course_id = ? AND kind <> 'video' AND NOT (kind = 'article' AND ref = 'blackbaud-videos') ORDER BY sort, created_at, id`).bind(courseId).all<LessonRow>()).results || []) as LessonRow[];
 }
 
 export async function lessonById(env: Env, lessonId: string): Promise<LessonRow | null> {

@@ -46,7 +46,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Everyone',
     color: 'sky',
     lessons: [
-      video('favoros-walk-through'),
       article('getting-started', 'Start here'),
       article('signing-in', 'Signing in and connecting Google'),
       article('today', 'Your Today page'),
@@ -205,8 +204,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Everyone who uses Blackbaud',
     color: 'sun',
     lessons: [
-      video('first-week-in-blackbaud'),
-      article('blackbaud-videos', 'Blackbaud training on video'),
       page(
         'Three rules for your first week',
         [
@@ -236,7 +233,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'RDDs, Partner Care, Church Engagement, Grants, Marketing',
     color: 'sun',
     lessons: [
-      video('queries-in-raisers-edge'),
       quiz('Check what you learned', [
         { text: 'Which list names the four parts of every query?', options: ['Query type, criteria, output, sort', 'Name, category, owner, date', 'Filter, group, total, chart', 'Source, target, schedule, format'], answer: 0, explain: 'The type is what you list, the criteria decide which records make it, the output is the columns, and the sort is the order.' },
         { text: 'You add another line joined with AND. What happens to the list?', options: ['It stays the same or gets smaller', 'It gets bigger', 'It resets', 'It becomes static'], answer: 0, explain: 'Every line joined with and has to be true, so each one you add keeps the list the same or shrinks it.' },
@@ -277,7 +273,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'RDDs',
     color: 'terra',
     lessons: [
-      video('entering-an-rdd-action'),
       article('foundation-prospects', 'Foundation prospects'),
       quiz('Check what you learned', [
         { text: 'Which action type counts in the weekly report?', options: ['RDD Action', 'Phone call', 'Task', 'Grants Action'], answer: 0, explain: 'Only RDD actions show up in the weekly report.' },
@@ -298,7 +293,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Partner Care, Admin desk',
     color: 'teal',
     lessons: [
-      video('taking-a-gift-by-phone'),
       article('thank-you-receipts', 'Receipts'),
       quiz('Check what you learned', [
         { text: 'Where do you enter a card gift a partner gives by phone?', options: ['On the partner’s record, under Giving History, with Add Gift', 'On the request board', 'In a batch with the checks', 'In Paycom'], answer: 0, explain: 'You do not need an email.' },
@@ -318,8 +312,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Grants',
     color: 'dusk',
     lessons: [
-      video('logging-a-grants-action'),
-      video('recording-a-grant-award'),
       quiz('Check what you learned', [
         { text: 'Which three things must an award have for the dashboard to count it?', options: ['Purpose Grant Request, a status that starts with Awarded, and an Expected amount', 'A gift, a pledge and a receipt', 'A PDF, a date and a fund', 'A letter, a contact and a campaign'], answer: 0, explain: 'If one of those is missing, the award does not show up.' },
         { text: 'A foundation says yes and the money is still coming. Which status?', options: ['Awarded - Active', 'Awarded - Closed', 'Pending', 'Solicited'], answer: 0, explain: 'Switch to Awarded - Closed when the last payment comes in.' },
@@ -359,7 +351,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Admin desk',
     color: 'slate',
     lessons: [
-      video('taking-a-gift-by-phone'),
       page(
         'Gifts at the front desk',
         [

@@ -3,12 +3,10 @@
 import { paletteItems, AREAS } from './areas';
 
 export interface PaletteHelp { title: string; summary: string; id: string; topic: string; body: string }
-export interface PaletteVideo { title: string; summary: string; slug: string; topic: string }
 
-export function buildPaletteItems(docs: PaletteHelp[], videos: PaletteVideo[]) {
+export function buildPaletteItems(docs: PaletteHelp[]) {
   const helpItems = [
     ...docs.map((d) => ({ title: d.title, desc: d.summary, href: `/help/${d.id}/`, tags: `help how ${d.topic} ${(d.body || '').match(/^##+ .+$/gm)?.join(' ') || ''}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
-    ...videos.map((v) => ({ title: `Video: ${v.title}`, desc: v.summary, href: `/help/videos/${v.slug}/`, tags: `video training ${v.topic} ${v.summary}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
   ];
   const slash = (h: string) => h.replace(/\/$/, '') || '/';
   const hubHrefs = new Set(AREAS.flatMap((a) => a.pages.filter((x) => !x.ext).map((x) => slash(x.href))));
@@ -27,7 +25,6 @@ export function buildPaletteItems(docs: PaletteHelp[], videos: PaletteVideo[]) {
   const manual = [
     { title: 'Help docs', desc: 'How every tool works, with search', href: '/help/', tags: 'help guide how docs documentation article manual faq', external: false, group: 'Tools' },
     { title: "Take the tour", desc: "A guided tour of FavorOS, set up for your work, and what's new", href: '/?tour=1', tags: 'tour help new welcome show me around walkthrough guide whats new', external: false, group: 'Tools' },
-    { title: 'Training videos', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', href: '/help/videos/', tags: 'video videos training tutorial learn blackbaud raisers edge', external: false, group: 'Tools' },
     { title: 'Feedback', desc: "Your notes and Will's answers", href: '/feedback/', tags: 'feedback note bug wrong idea suggestion problem report', external: false, group: 'Tools' },
     { title: 'Favor Brain (beta)', desc: 'Ask about partners, giving and the manuals, or connect Claude or ChatGPT', href: '/brain/', tags: 'brain ask favor ai claude chatgpt mcp connector question query beta', external: false, group: 'Tools' },
     { title: 'Request board', desc: 'Inbox, approved, in motion, done', href: '/requests', tags: 'website portal dashboard app request kanban board review approve', external: false, group: 'Tools' },

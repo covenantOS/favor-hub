@@ -1,6 +1,6 @@
 ---
 title: Search, shortcuts and sounds
-summary: Find any tool, help topic or video in a few keystrokes, and turn FavorOS's sounds on or off.
+summary: Find any tool, help topic in a few keystrokes, and turn FavorOS's sounds on or off.
 topic: start
 order: 4
 related: [getting-started, guided-tour]
@@ -11,7 +11,7 @@ updated: 2026-10-09
 
 Press **Ctrl** and **K** together on any page (**Command** and **K** on a Mac), or press **Search** at the top of the menu. Type a few letters: "receipts", "mileage", "LYBUNT", "connect Claude". Use the arrow keys to move and Enter to open. Esc closes it.
 
-Search covers every FavorOS tool, the outside tools (Blackbaud and Paycom), every help topic and every training video.
+Search covers every FavorOS tool, the outside tools (Blackbaud and Paycom), and every help topic.
 
 ## Cards on every name
 
@@ -19,7 +19,7 @@ Point at a colleague, a partner, a task code like SB-0003 or a request and a car
 
 ## Searching the help docs
 
-The search box at the top of **Help docs** searches the full text of every article and every video's captions, so a word spoken in a video finds that video.
+The search box at the top of **Help docs** searches the full text of every article.
 
 ## Keys during the tour
 

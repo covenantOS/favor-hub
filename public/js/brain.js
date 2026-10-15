@@ -839,13 +839,12 @@
   const soundOn = () => { try { return localStorage.getItem('favor.hub.sound') !== 'off'; } catch { return true; } };
   $('bc-menu').addEventListener('click', (e) => {
     const n = Number((window.FAVOR_HUB && window.FAVOR_HUB.counts && window.FAVOR_HUB.counts.brainRequests) || 0);
-    const items = `${me && me.admin ? `<button type="button" role="menuitem" data-v="admin">${ic('gear')}Brain admin${n ? `<span class="badge">${n}</span>` : ''}</button>` : ''}<button type="button" role="menuitem" data-v="access">${ic('shield')}What you can ask about</button><button type="button" role="menuitem" data-v="connect">${ic('link')}Connect Claude or ChatGPT</button><button type="button" role="menuitem" data-v="intro">${ic('play')}Watch the one-minute intro</button><button type="button" role="menuitem" data-v="help">${ic('book')}Help: asking well</button><button type="button" role="menuitem" data-v="keys">${ic('list')}Keyboard shortcuts</button><hr><button type="button" role="menuitem" data-v="sound">${ic(soundOn() ? 'volume' : 'mute')}Sounds ${soundOn() ? 'on' : 'off'}</button>`;
+    const items = `${me && me.admin ? `<button type="button" role="menuitem" data-v="admin">${ic('gear')}Brain admin${n ? `<span class="badge">${n}</span>` : ''}</button>` : ''}<button type="button" role="menuitem" data-v="access">${ic('shield')}What you can ask about</button><button type="button" role="menuitem" data-v="connect">${ic('link')}Connect Claude or ChatGPT</button><button type="button" role="menuitem" data-v="help">${ic('book')}Help: asking well</button><button type="button" role="menuitem" data-v="keys">${ic('list')}Keyboard shortcuts</button><hr><button type="button" role="menuitem" data-v="sound">${ic(soundOn() ? 'volume' : 'mute')}Sounds ${soundOn() ? 'on' : 'off'}</button>`;
     pop(e.currentTarget, items, (v) => {
       if (v === 'access') openPanel('access');
       else if (v === 'connect') openPanel('connect');
       else if (v === 'sound') { const sw = document.querySelector('[data-sound-switch]'); if (sw) sw.click(); toast(soundOn() ? 'Sounds on' : 'Sounds off'); }
       else if (v === 'admin') location.href = '/brain/admin/';
-      else if (v === 'intro') location.href = '/help/videos/meet-the-brain/';
       else if (v === 'help') location.href = '/help/asking-well/';
       else if (v === 'keys') dlg(`<h2 id="bc-dlg-h">Keyboard shortcuts</h2><p><span class="kbd">Enter</span> sends. <span class="kbd">Shift Enter</span> adds a line. <span class="kbd">Esc</span> stops an answer or closes what is open. <span class="kbd">Ctrl Shift O</span> starts a new chat. <span class="kbd">/</span> jumps to the question box.</p><div class="acts"><button type="button" class="h-btn h-btn--primary" data-act="dlg-x">Done</button></div>`);
     });

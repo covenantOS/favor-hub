@@ -81,15 +81,10 @@ import { icon } from '../data/icons';
   };
 
   const home = () =>
-    `<h2 id="lp-title">Help</h2><p>No article for this page yet.</p><div class="lp__more"><a class="lp__go" href="/help/">Open the help home</a><a class="lp__go" href="/help/videos/">Training videos</a></div>`;
+    `<h2 id="lp-title">Help</h2><p>No article for this page yet.</p><div class="lp__more"><a class="lp__go" href="/help/">Open the help home</a></div>`;
 
   const article = (a: Index['articles'][string]) => {
-    const vids = a.videos
-      .map(
-        (v) => `<figure><video controls preload="none" playsinline poster="${esc(v.poster)}" data-video="${esc(v.slug)}"><source src="${esc(v.src)}" type="video/mp4"><track kind="captions" src="${esc(v.track)}" srclang="en" label="English" default></video><figcaption>${esc(v.title)} <span>${esc(v.length)}</span></figcaption></figure>`
-      )
-      .join('');
-    return `<h2 id="lp-title">${esc(a.title)}</h2><p>${esc(a.summary)}</p>${vids}<a class="lp__go" href="${esc(a.href)}">Read the full article</a>`;
+    return `<h2 id="lp-title">${esc(a.title)}</h2><p>${esc(a.summary)}</p><a class="lp__go" href="${esc(a.href)}">Read the full article</a>`;
   };
 
   let loaded: Index | null | undefined;
