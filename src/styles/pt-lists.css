@@ -34,8 +34,13 @@
   [data-density='compact'] .ptl-table .pt-icon { width: 24px; height: 24px; }
   [data-density='compact'] .ptl-mine .wm-addtask { height: 20px; }
   [data-density='compact'] .ptl-table tbody td { padding-top: 4px; padding-bottom: 4px; }
-  [data-density='comfortable'] .ptl-who { flex-direction: column; align-items: flex-start; gap: 1px; }
-  [data-density='comfortable'] .ptl-who .ptl-place { max-width: 100%; }
+  [data-density='comfortable'] .ptl-who { flex-wrap: wrap; align-items: baseline; gap: 1px 8px; }
+  [data-density='comfortable'] .ptl-who::after { content: ''; flex-basis: 100%; order: 2; height: 0; }
+  [data-density='comfortable'] .ptl-who .pt-name { order: 1; }
+  [data-density='comfortable'] .ptl-who .wm-hchip { order: 2; }
+  [data-density='comfortable'] .ptl-who .ptl-place { order: 3; flex: 0 1 auto; max-width: 45%; }
+  [data-density='comfortable'] .ptl-who .wm-nba { order: 4; flex: 1 1 0; }
+  [data-density='comfortable'] .ptl-table tbody td { padding-top: 8px; padding-bottom: 8px; }
 }
 
 .ptl-clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 20px; vertical-align: middle; }
@@ -168,7 +173,7 @@ html body.h-body #wc-root .wm-health .wm-plango { height: 28px; min-height: 28px
   .ptl-mine td.c-quiet { grid-area: quiet; }
   .ptl-mine td.c-next { grid-area: next; }
   .ptl-mine td.c-acts { grid-area: acts; }
-  .ptl-mine td.c-gift, .ptl-mine td.c-life { display: none; }
+  .ptl-table.ptl-mine tbody tr.ptl-row > td.c-gift, .ptl-table.ptl-mine tbody tr.ptl-row > td.c-life { display: none; }
 
   .ptl-cadence tbody tr.ptl-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'who due' 'rule last' 'steps steps' 'acts acts'; }
   .ptl-cadence td.c-who { grid-area: who; }
@@ -177,7 +182,7 @@ html body.h-body #wc-root .wm-health .wm-plango { height: 28px; min-height: 28px
   .ptl-cadence td.c-last { grid-area: last; text-align: right; }
   .ptl-cadence td.c-steps { grid-area: steps; }
   .ptl-cadence td.c-acts { grid-area: acts; }
-  .ptl-cadence td.c-holder, .ptl-cadence td.c-found { display: none; }
+  .ptl-table.ptl-cadence tbody tr.ptl-row > td.c-holder, .ptl-table.ptl-cadence tbody tr.ptl-row > td.c-found { display: none; }
 
   .ptl-grants tbody tr.ptl-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'who kind' 'sum sum' 'award award' 'date by' 'acts acts'; }
   .ptl-grants td.c-who { grid-area: who; }
