@@ -228,7 +228,7 @@ export async function cancel(env: Env, actor: Actor, id: string): Promise<void> 
 
 // ---- the daily automatic run (desktop morning job, agent key) ----
 // Rule proposals from the scan are approved by the system once apply and auto are on. Only current-month changes go through: a change to a closed
-// month stays waiting for a person, because past numbers do not change on their own (Will, 2026-10-09). A proposal the mirror shows is already in
+// month stays waiting for a person, because past numbers do not change on their own (Will, 2026-10-09). Removals also wait for a person. A proposal the mirror shows is already in
 // place is cancelled instead of applied. A person's or an agent's proposal always waits for a second person.
 const AUTO_ACTOR: Actor = { email: 'credit-auto@favorintl.org', admin: true, team: 'admin', named: [] };
 export interface AutoResult {
@@ -254,7 +254,8 @@ export async function autoRun(env: Env, mirror: Q, today: string, ops?: Paramete
   const waiting = (await env.DB.prepare(`SELECT id, kind, gift_id, fundraiser_id, change, proposed_by FROM lr_credit_change WHERE state = 'proposed' ORDER BY proposed_at LIMIT 300`).all<Row>()).results || [];
   for (const c of waiting) {
     const ch = JSON.parse(c.change || '{}');
-    if (c.proposed_by !== 'scan' || c.kind !== 'credit') {
+    // Only an added credit goes through unattended. A removal takes numbers away from someone, so a person decides it.
+    if (c.proposed_by !== 'scan' || c.kind !== 'credit' || ch.op !== 'add') {
       res.heldForPerson++;
       continue;
     }

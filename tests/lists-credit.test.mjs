@@ -257,6 +257,16 @@ describe('the daily automatic run', () => {
     assert.equal(third.heldClosedMonth, 1);
   });
 
+  it('a proposal the mirror shows already in place is cancelled, not applied', async () => {
+    const id = await propose(e, qOf(m), { email: 'rita@favorintl.org' }, { kind: 'credit', giftId: '900', fundraiserId: '5002', op: 'add', reason: 'y' }, TODAY);
+    await e.DB.prepare(`UPDATE lr_credit_change SET proposed_by = 'scan' WHERE id = ?1`).bind(id).run();
+    m.exec(`UPDATE gifts SET fundraiser_credits = '[{"amount":{"value":80},"constituent_id":"5002"}]' WHERE id = '900'`);
+    const r = await autoRun(e, qOf(m), TODAY, noOps);
+    assert.equal(r.alreadyDone, 1);
+    assert.equal((await listChanges(e, ['cancelled'])).some((x) => x.id === id), true);
+    m.exec(`UPDATE gifts SET fundraiser_credits = NULL WHERE id = '900'`);
+  });
+
   it('a persons proposal waits for a second person even with automatic apply on', async () => {
     const id = await propose(e, qOf(m), { email: 'rita@favorintl.org' }, { kind: 'credit', giftId: '900', fundraiserId: '5002', op: 'add', reason: 'x' }, TODAY);
     const r = await autoRun(e, qOf(m), TODAY, noOps);
