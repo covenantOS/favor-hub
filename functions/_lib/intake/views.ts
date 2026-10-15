@@ -106,7 +106,8 @@ export type TeamOut = IntakeTeam;
  * yet). The rail badge, the Intake tab and the phone bar all add these two numbers.
  */
 async function waitingIn(env: Env, actor: Actor, team: PipelineTeam, projectId: string): Promise<{ intake: number; triage: number; questions: number; open: number }> {
-  const test = isTester(actor.email) ? '' : ` AND lower(COALESCE(q.submitter_email, '')) NOT IN (${TEST_LIST})`;
+  // A test account counts what is on its own board, the test pipeline: test requests only. Everyone else counts real requests only.
+  const test = isTester(actor.email) ? ` AND lower(COALESCE(q.submitter_email, '')) IN (${TEST_LIST})` : ` AND lower(COALESCE(q.submitter_email, '')) NOT IN (${TEST_LIST})`;
   const c = await env.DB.prepare(
     `SELECT SUM(CASE WHEN q.status = 'inbox' THEN 1 ELSE 0 END) AS intake,
             SUM(CASE WHEN q.status = 'inbox' AND i.question_open = 1 THEN 1 ELSE 0 END) AS questions,

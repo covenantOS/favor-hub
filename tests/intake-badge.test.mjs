@@ -87,4 +87,7 @@ test('test accounts are counted against the test pipeline only', async () => {
   await send(w, TESTER, 'Add a test banner to the website');
   assert.equal((await T.navCounts(w.env, admin(WILL), access({ admin: true }))).projectsMine, 0, 'a real admin is not counted for a test request');
   assert.equal((await T.navCounts(w.env, admin(TESTER), access({ admin: true }))).projectsMine, 1, 'the test account is');
+  await send(w, VIDEO, 'Fix the careers page on the website');
+  assert.equal((await T.navCounts(w.env, admin(TESTER), access({ admin: true }))).projectsMine, 1, 'and a real request does not add to the test account's number, which matches its own board');
+  assert.equal((await T.navCounts(w.env, admin(WILL), access({ admin: true }))).projectsMine, 1, 'while the real admin counts the real one');
 });
