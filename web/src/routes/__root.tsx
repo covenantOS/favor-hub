@@ -57,7 +57,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function Document({ children }: { children: ReactNode }) {
   // The page's area colors (body[data-area]) are on the server copy too, so the first paint is already in its accent.
-  const navId = useMatches({ select: (m) => m.map((x) => x.staticData?.nav).filter(Boolean).at(-1) }) || '';
+  const navId = useMatches({ select: (m) => (m.at(-1)?.loaderData as { shell?: { nav: string } } | undefined)?.shell?.nav || m.map((x) => x.staticData?.nav).filter(Boolean).at(-1) }) || '';
   const area = navId ? resolveNav(navId)?.area.id : undefined;
   return (
     // The boot script sets classes and --sbw on <html> before React hydrates; those are expected to differ from the server copy.

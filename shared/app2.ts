@@ -29,7 +29,7 @@ export const MIGRATED_ROUTES = [
 ] as const;
 
 /** Pages that keep a full load: they hold global state (the Work Center, the dashboard, the Brain) or draw their own full-screen frame. */
-export const FULL_LOAD = ['/dashboard/', '/meet/room/', '/meet/g/', '/clips/rec/', '/login/'];
+export const FULL_LOAD = ['/dashboard/', '/meet/room/', '/meet/g/', '/clips/rec/', '/login/', '/help/videos/'];
 
 export type MigratedRoute = (typeof MIGRATED_ROUTES)[number];
 

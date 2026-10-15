@@ -1,7 +1,7 @@
 // The routes the FavorOS web app (web/, TanStack Start on the favoros-web Worker) has built, in one place. The Pages middleware
 // (functions/_lib/web.ts), the classic swap script and the web app's links all read it. A route reaches people only when an admin
 // lists it in the hub setting web.routes AND the person is in web.audience. Everything else keeps its Astro page.
-import { normalizeRoute } from './app2';
+import { FULL_LOAD, normalizeRoute } from './app2';
 import { WEB_ROUTE_LIST } from './web-route-list';
 
 // The list itself lives in shared/web-route-list.ts (one route a line, merged by union), so parallel route ports never conflict here.
@@ -69,6 +69,8 @@ export const formatWebEntries = (entries: WebEntry[]): string => entries.map((e)
 /** "/" matches only itself. Any other route owns the paths under it (/projects/ owns /projects/p/). */
 export function webServes(path: string, routes: readonly string[]): boolean {
   const p = normalizeRoute(path);
+  // A path that always loads whole from Astro (the help videos under /help/) never goes to the web app, whatever route owns the paths above it.
+  if (FULL_LOAD.some((f) => p === f || p.startsWith(f))) return false;
   return routes.some((r) => (r === '/' || (WEB_EXACT_ROUTES as readonly string[]).includes(r) ? p === r : p === r || p.startsWith(r)));
 }
 

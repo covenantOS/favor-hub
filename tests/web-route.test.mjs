@@ -95,6 +95,16 @@ describe('the route list', () => {
   });
 });
 
+describe('Help owns the paths under /help/ except the videos', () => {
+  it('serves the articles, the changelog, feedback and welcome, and leaves /help/videos/ on Astro', async () => {
+    const env = world({ 'web.routes': '/help/@all,/changelog/@all,/feedback/@all,/welcome/@all' });
+    for (const p of ['/help/', '/help/getting-started/', '/changelog/', '/feedback/', '/welcome/']) assert.equal((await go(env, p, staff)).kind, 'web', p);
+    for (const p of ['/help/videos/', '/help/videos/favoros-walk-through/']) assert.equal((await go(env, p, staff)).kind, 'pass', p);
+    assert.equal(webServes('/help/videos/', ['/help/']), false);
+    assert.equal(webServes('/help/connect-your-ai/', ['/help/']), true);
+  });
+});
+
 describe('the classic pages cooperate', () => {
   it('hub-swap.js loads a web route whole and the service worker keeps /_w/ files', () => {
     const swap = readFileSync(new URL('../public/js/hub-swap.js', import.meta.url), 'utf8');

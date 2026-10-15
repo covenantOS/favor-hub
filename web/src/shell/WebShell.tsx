@@ -36,7 +36,9 @@ function useMeta() {
   const meta = useMatches({ select: (m) => m.map((x) => x.staticData).filter(Boolean).at(-1) }) ?? {};
   const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
   // A page whose tabs live in its address names the menu entry and title for the tab shown.
-  const by = meta.navOf ? meta.navOf(search) : null;
+  // A page whose title comes from its data (a help article) hands the menu entry and title back from its loader as `shell`.
+  const own = useMatches({ select: (m) => (m.at(-1)?.loaderData as { shell?: { nav: string; title: string } } | undefined)?.shell });
+  const by = own || (meta.navOf ? meta.navOf(search) : null);
   return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || 'FavorOS', layout: meta.layout };
 }
 

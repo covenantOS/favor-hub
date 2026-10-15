@@ -17,4 +17,8 @@ export const WEB_ROUTE_LIST = [
   '/online-gifts/',
   '/learn/',
   '/learn/admin/',
+  '/help/',
+  '/changelog/',
+  '/feedback/',
+  '/welcome/',
 ] as const;
