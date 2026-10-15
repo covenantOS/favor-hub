@@ -4,6 +4,7 @@
 import handler from '@tanstack/react-start/server-entry';
 import { env } from 'cloudflare:workers';
 import { HUB_ORIGIN } from './lib/hub';
+import { deferEntry } from './lib/defer-entry';
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -27,8 +28,10 @@ export default {
     // Only the middleware calls this Worker, and it always names the person. Anything else is refused.
     if (!request.headers.get('X-Hub-Email')) return new Response('Not found', { status: 404 });
     const res = await handler.fetch(request);
-    const out = new Response(res.body, res);
-    if ((out.headers.get('content-type') || '').includes('text/html')) {
+    const html = (res.headers.get('content-type') || '').includes('text/html') && !!res.body;
+    // A page's scripts start once its stylesheets have arrived (lib/defer-entry.ts), so the two do not share a slow link.
+    const out = new Response(html ? deferEntry(res.body!, request.headers.get('cookie') || '') : res.body, res);
+    if (html) {
       out.headers.set('Cache-Control', 'private, no-cache');
       out.headers.set('X-Hub-Front', 'web');
     }

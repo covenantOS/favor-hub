@@ -2,7 +2,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { RunPage } from '../../../features/onboarding/RunPage';
 import { runQuery, staffQuery } from '../../../features/onboarding/queries';
-import { runIdOf } from '../../../features/onboarding/logic';
+import { runIdOf } from '../../../lib/route-search';
 
 export const Route = createFileRoute('/onboarding/run/')({
   staticData: { nav: 'onboarding-run', title: 'Onboarding', layout: 'page' },

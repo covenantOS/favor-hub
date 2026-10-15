@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { BodyPortal } from './BodyPortal';
 import { useQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 import { Icon } from './Icon';
 import { hubOv } from '@/lib/hubOv';
 
-const learnIndex = z.object({
-  articles: z.record(z.string(), z.object({ title: z.string(), summary: z.string(), href: z.string(), videos: z.array(z.never()).optional() })),
-  pages: z.record(z.string(), z.string()),
-});
+interface LearnIndex {
+  articles: Record<string, { title: string; summary: string; href: string }>;
+  pages: Record<string, string>;
+}
+/** /help/learn.json is built with the site, so a light shape check is enough (the panel stays free of the schema library). */
+function learnIndex(j: unknown): LearnIndex {
+  const o = j as Partial<LearnIndex> | null;
+  if (!o || typeof o.articles !== 'object' || !o.articles || typeof o.pages !== 'object' || !o.pages) throw new Error('The help index was not what the panel expects.');
+  return o as LearnIndex;
+}
 
 /** The ? button and its side panel: the help article for the page you are on. Port of src/components/LearnPanel.astro. */
 export function HelpPanel({ navId }: { navId: string }) {
@@ -18,7 +23,7 @@ export function HelpPanel({ navId }: { navId: string }) {
     queryKey: ['help-index'],
     enabled: asked,
     staleTime: 60 * 60_000,
-    queryFn: async () => learnIndex.parse(await (await fetch('/help/learn.json', { credentials: 'same-origin' })).json()),
+    queryFn: async () => learnIndex(await (await fetch('/help/learn.json', { credentials: 'same-origin' })).json()),
   });
 
   // The index loads while the page is idle, so the panel opens with its answer already in it.

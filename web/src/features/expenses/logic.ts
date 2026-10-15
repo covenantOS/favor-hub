@@ -32,6 +32,9 @@ export interface ExpenseRequest {
   decline_note?: string | null;
   requester_signature?: string | null;
   approver_signature?: string | null;
+  /** The log's list leaves the pictures out and says whether each exists; Detail fetches one when the row opens. */
+  requester_signed?: boolean;
+  approver_signed?: boolean;
   pdf?: string | null;
   can_review?: boolean;
   events?: ExpenseEvent[];
@@ -168,12 +171,7 @@ export function filterRows(rows: ExpenseRequest[], f: LogFilter): ExpenseRequest
 
 export const filterCount = (rows: ExpenseRequest[], status: LogFilter['status']): number => rows.filter((r) => status === 'all' || r.status === status).length;
 
-/** What the email link carries: the page needs a token or an id. A token wins. */
-export function reviewTarget(search: Record<string, unknown>): { token: string; id: string } {
-  const token = typeof search.token === 'string' ? search.token : '';
-  const id = token ? '' : typeof search.id === 'string' ? search.id : '';
-  return { token, id };
-}
+export { reviewTarget } from '../../lib/route-search';
 
 export interface EventPayload {
   to?: string[];

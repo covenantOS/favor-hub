@@ -6,6 +6,9 @@ import { AREA_LABEL, AREA_SHOT, TYPE_LABEL, dayLabel, timeLabel } from '@hub/dat
 import '@hub/styles/changelog.css';
 
 const KEY = 'favor.changelog.seen';
+// The page sends and hydrates the newest days first; the older days (most of the page's 330 KB of markup) are drawn once the page is idle,
+// or at once when a search or filter is active.
+const FIRST_DAYS = 2;
 
 interface Row {
   e: ChangeEntry;
@@ -91,6 +94,7 @@ export function Changelog({ initialQ, initialArea }: { initialQ: string; initial
   const [type, setType] = useState('');
   const [seen, setSeen] = useState('');
   const [lite, setLite] = useState(false);
+  const [older, setOlder] = useState(false);
   const timer = useRef(0);
 
   // Changes since the last visit get a small mark; this visit then counts as seen. Lite mode keeps the pictures as buttons.
@@ -111,6 +115,15 @@ export function Changelog({ initialQ, initialArea }: { initialQ: string; initial
     setLite(!!(window as unknown as { FavorLite?: { on?: boolean } }).FavorLite?.on);
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    const w = window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (n: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setOlder(true), { timeout: 3000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(() => setOlder(true), 1500);
+    return () => clearTimeout(id);
+  }, []);
 
   const ws = useMemo(() => term.toLowerCase().trim().split(/\s+/).filter(Boolean), [term]);
   const filtering = !!(ws.length || area || type);
@@ -165,7 +178,7 @@ export function Changelog({ initialQ, initialArea }: { initialQ: string; initial
         </p>
       </header>
 
-      {built.map((d) => {
+      {(older || filtering ? built : built.slice(0, FIRST_DAYS)).map((d) => {
         const anyShown = !filtering || d.rows.some(match);
         return (
           <section className="cl-day" data-day={d.date} key={d.date} hidden={!anyShown}>

@@ -2,7 +2,8 @@
 // or all at once, and the Blackbaud batches still waiting for Approve in Blackbaud. ?days= (1, 3, 7, 14), ?gift=ID and ?test=1 work as on the classic page.
 import { createFileRoute } from '@tanstack/react-router';
 import { OnlineGiftsError, OnlineGiftsPage } from '../../features/gifts/OnlineGifts';
-import { ogSearch, onlineQuery } from '../../features/gifts/online';
+import { onlineQuery } from '../../features/gifts/online';
+import { ogSearch } from '../../lib/route-search';
 
 export const Route = createFileRoute('/online-gifts/')({
   staticData: { nav: 'online-gifts', title: 'Online gifts', layout: 'full' },

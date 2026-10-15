@@ -1,6 +1,6 @@
 // The Work Center page: one component per tab. Each tab owns its file in this folder and its reads. Stylesheets in the order the
 // classic page (src/pages/work/index.astro) imported them.
-import { Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import '@hub/styles/work.css';
@@ -29,18 +29,25 @@ import '@hub/styles/pt-asks.css';
 import '@hub/styles/pt-lists.css';
 import type { WorkSearch } from './search';
 import { ActionsView, prefetchActions } from './Actions';
-import { GiftsToThankView, prefetchGiftsToThank } from './GiftsToThank';
-import { MyPartnersView, prefetchMyPartners } from './MyPartners';
-import { AsksView, prefetchAsks } from './Asks';
-import { CadenceView, prefetchCadence } from './Cadence';
-import { MyWeekView, prefetchMyWeek } from './MyWeek';
-import { EntryView, prefetchEntry } from './Entry';
-import { GrantsView, prefetchGrants } from './Grants';
+// The other tabs load as their own files; their stylesheets stay with the page, in the order the tabs used to bring them, so the server
+// links them in the page's head and nothing draws unstyled before a tab's file arrives.
+import '@hub/styles/pt-react-lists.css';
+import './actions/entry/entry.css';
 import { WorkHeader } from './WorkHeader';
 import { contextQuery } from './lists/core';
 import { asOf } from './actions/useWork';
 import { hasTab } from './actions/tabs';
 import type { Me } from './actions/types';
+
+// Actions is the page people land on, so it ships with the page. Each other tab is its own file, fetched when that tab opens (together they
+// were 60 KB gzipped on every visit to Actions).
+const GiftsToThankView = lazy(() => import('./GiftsToThank').then((m) => ({ default: m.GiftsToThankView })));
+const MyPartnersView = lazy(() => import('./MyPartners').then((m) => ({ default: m.MyPartnersView })));
+const AsksView = lazy(() => import('./Asks').then((m) => ({ default: m.AsksView })));
+const CadenceView = lazy(() => import('./Cadence').then((m) => ({ default: m.CadenceView })));
+const MyWeekView = lazy(() => import('./MyWeek').then((m) => ({ default: m.MyWeekView })));
+const EntryView = lazy(() => import('./Entry').then((m) => ({ default: m.EntryView })));
+const GrantsView = lazy(() => import('./Grants').then((m) => ({ default: m.GrantsView })));
 
 const LIST_TABS = ['gifts', 'mine', 'asks', 'cadence', 'week', 'intake', 'grants'];
 
@@ -48,13 +55,14 @@ export function prefetchWork(qc: QueryClient, s: WorkSearch): void {
   const v = s.view || 'open';
   // Who is asking decides whether a list tab is theirs (TabGate below).
   if (LIST_TABS.includes(v)) void qc.prefetchQuery(contextQuery(asOf(s)));
-  if (v === 'gifts') prefetchGiftsToThank(qc, s);
-  else if (v === 'mine') prefetchMyPartners(qc, s);
-  else if (v === 'asks') prefetchAsks(qc, s);
-  else if (v === 'cadence') prefetchCadence(qc, s);
-  else if (v === 'week') prefetchMyWeek(qc, s);
-  else if (v === 'intake') prefetchEntry(qc, s);
-  else if (v === 'grants') prefetchGrants(qc, s);
+  // A tab's reads start as its file arrives (the same file the page is about to draw it from).
+  if (v === 'gifts') void import('./GiftsToThank').then((m) => m.prefetchGiftsToThank(qc, s));
+  else if (v === 'mine') void import('./MyPartners').then((m) => m.prefetchMyPartners(qc, s));
+  else if (v === 'asks') void import('./Asks').then((m) => m.prefetchAsks(qc, s));
+  else if (v === 'cadence') void import('./Cadence').then((m) => m.prefetchCadence(qc, s));
+  else if (v === 'week') void import('./MyWeek').then((m) => m.prefetchMyWeek(qc, s));
+  else if (v === 'intake') void import('./Entry').then((m) => m.prefetchEntry(qc, s));
+  else if (v === 'grants') void import('./Grants').then((m) => m.prefetchGrants(qc, s));
   else prefetchActions(qc, s);
 }
 
@@ -77,13 +85,13 @@ export function WorkPage({ search }: { search: WorkSearch }) {
         <Suspense fallback={null}>
           <TabGate search={search} v={v}>
             {ownHeader ? null : <WorkHeader search={search} />}
-            {view}
+            <Suspense fallback={null}>{view}</Suspense>
           </TabGate>
         </Suspense>
       ) : (
         <>
           {ownHeader ? null : <WorkHeader search={search} />}
-          {view}
+          <Suspense fallback={null}>{view}</Suspense>
         </>
       )}
     </div>

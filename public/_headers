@@ -21,6 +21,13 @@
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
 
+# Fonts and logos change rarely. The service worker keeps them for repeat visits; this lets a browser without it do the same.
+/fonts/*
+  Cache-Control: public, max-age=2592000, immutable
+
+/images/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
 /js/*
   Cache-Control: no-cache
 

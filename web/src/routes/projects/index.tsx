@@ -1,6 +1,5 @@
 // Projects: the home (My tasks, All projects, Team workload and the request tabs). Served by the FavorOS web app.
 import { createFileRoute } from '@tanstack/react-router';
-import '../../features/projects/css';
 import { HomeError, HomePage } from '../../features/projects/home/HomePage';
 import { asanaMeQuery, mineTasksQuery, projectsQuery } from '../../features/projects/lib/queries';
 import { staffQuery } from '../../features/projects/lib/staff';

@@ -1,5 +1,7 @@
 // The Projects home: My tasks (grouped by when they are due), the list of projects, and Team workload. Ported from
 // public/js/projects/home.js. The Intake and My requests tabs are added by the Requests fold (../intake).
+// The Projects stylesheets load with this page's chunk, not with the entry that every web page downloads.
+import '../css';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { NavLink } from '@/shell/NavLink';

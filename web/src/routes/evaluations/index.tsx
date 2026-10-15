@@ -1,7 +1,7 @@
 // Work > Evaluations: my evaluation, the feedback I owe, my team's reviews and one evaluation (?c=ID&v=tab). Served by the FavorOS web app.
 import { createFileRoute } from '@tanstack/react-router';
 import { EvaluationsPage } from '../../features/evaluations/EvaluationsPage';
-import { validateEvalSearch, type EvalSearch } from '../../features/evaluations/logic';
+import { validateEvalSearch, type EvalSearch } from '../../lib/route-search';
 
 export const Route = createFileRoute('/evaluations/')({
   validateSearch: (raw: Record<string, unknown>): EvalSearch => validateEvalSearch(raw),

@@ -1,7 +1,7 @@
 // Learn > Certificate: ?c=course, &email= for a supervisor, HR or an admin. A certificate address without ?c= goes to My learning.
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { CertificatePage } from '../../../features/learn/CertificatePage';
-import { slugOf } from '../../../features/learn/logic';
+import { slugOf } from '../../../lib/route-search';
 import { certQuery } from '../../../features/learn/queries';
 
 export const Route = createFileRoute('/learn/certificate/')({

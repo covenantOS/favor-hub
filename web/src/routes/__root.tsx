@@ -13,6 +13,10 @@ import hubOwn from '../../../public/js/hub-own.js?raw';
 import liteJs from '../../../public/js/lite.js?raw';
 import motionJs from '../../../public/js/hub-motion.js?raw';
 
+// The three scripts are sent in the page's head by the server. The browser already ran them by the time React hydrates and never reads
+// their text again, so the browser build carries empty strings: the tree shaker then drops the three ?raw files (about 14 KB gzipped).
+const INLINE_HEAD: readonly [string, string, string] = import.meta.env.SSR ? [hubOwn, liteJs, motionJs] : ['', '', ''];
+
 // Before the first frame: the menu opens the way this person left it, the scrollbar width, and keyboard focus rings. Same as
 // app/index.html and the classic layout.
 // React reveals a streamed part (its inline $RC script) after one animation frame, unless $RT is already a number, and then after a timer.
@@ -53,7 +57,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // A solo route (the Clips recorder window) draws without the frame, so it loads none of the frame's stylesheet and brings its own.
     links: [
       ...(matches.some((m) => m.staticData?.solo) ? [] : [{ rel: 'stylesheet', href: css }]),
-      { rel: 'icon', type: 'image/png', href: '/images/favor-icon.png' },
+      { rel: 'icon', type: 'image/png', href: '/images/favor-icon-64.png' },
       { rel: 'apple-touch-icon', href: '/images/apple-touch-icon.png' },
       { rel: 'manifest', href: '/manifest.webmanifest' },
     ],
@@ -93,9 +97,9 @@ function Document({ children }: { children: ReactNode }) {
         <HeadContent />
         <style>{'html,body{background:#f4efe0}'}</style>
         {__HUB_BUILD__ ? <meta name="hub-build" content={__HUB_BUILD__} /> : null}
-        <script dangerouslySetInnerHTML={{ __html: hubOwn }} />
-        <script dangerouslySetInnerHTML={{ __html: liteJs }} />
-        <script dangerouslySetInnerHTML={{ __html: motionJs }} />
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: INLINE_HEAD[0] }} />
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: INLINE_HEAD[1] }} />
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: INLINE_HEAD[2] }} />
         <script dangerouslySetInnerHTML={{ __html: FONTS }} />
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>

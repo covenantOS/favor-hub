@@ -5,7 +5,7 @@ import { gzipSync } from 'node:zlib';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const CAP_KB = 140;
+const CAP_KB = 100;
 const dir = fileURLToPath(new URL('../dist/client/_w', import.meta.url));
 const entry = readdirSync(dir).filter((f) => /^index-.*\.js$/.test(f));
 let worst = 0;

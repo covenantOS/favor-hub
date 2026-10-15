@@ -69,7 +69,10 @@
   .dc-row > :nth-child(n + 3) { display: none; }
   .dc-row.dc-head > :nth-child(n + 3) { display: none; }
 }
+/* The totals' space while they load: as tall as the three totals are (one row wide, stacked on a phone), so the lists under do not move. */
+.dc-stats--wait { min-height: 109px; }
 @media (max-width: 640px) {
+  .dc-stats--wait { min-height: 325px; }
   .dc-stats { grid-template-columns: minmax(0, 1fr); }
   .dc-stat { border-left: 0; border-top: 1px solid var(--r-line); }
   .dc-stat:first-child { border-top: 0; }

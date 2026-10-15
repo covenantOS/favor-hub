@@ -192,6 +192,19 @@ function LogTable({ rows, none }: { rows: ExpenseRequest[]; none: string }) {
   );
 }
 
+/** One signature picture, read from the server when its row opens (the list leaves them out: they were 2 MB of the answer). */
+function Sig({ r, who, alt }: { r: ExpenseRequest; who: 'requester' | 'approver'; alt: string }) {
+  const have = who === 'approver' ? r.approver_signature : r.requester_signature;
+  const q = useQuery({
+    queryKey: ['expenses', 'signature', r.id, who],
+    enabled: !have,
+    staleTime: 10 * 60_000,
+    queryFn: async () => String(((await (await fetch('/api/expenses/signature?id=' + encodeURIComponent(r.id) + '&who=' + who, { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } })).json()) as { signature?: string }).signature || ''),
+  });
+  const src = have || q.data || '';
+  return src ? <img src={src} alt={alt} /> : <span className="exp-sig-wait" style={{ display: 'inline-block', minHeight: 56 }} />;
+}
+
 function Detail({ r }: { r: ExpenseRequest }) {
   const [shownEmail, setShownEmail] = useState<Record<number, boolean>>({});
   const events = r.events || [];
@@ -236,17 +249,17 @@ function Detail({ r }: { r: ExpenseRequest }) {
           </tr>
         </tbody>
       </table>
-      {r.requester_signature || r.approver_signature ? (
+      {r.requester_signature || r.approver_signature || r.requester_signed || r.approver_signed ? (
         <div className="exp-detail-sigs">
-          {r.requester_signature ? (
+          {r.requester_signature || r.requester_signed ? (
             <div>
-              <img src={r.requester_signature} alt="Requester signature" />
+              <Sig r={r} who="requester" alt="Requester signature" />
               <span>{r.requester_name} · requester</span>
             </div>
           ) : null}
-          {r.approver_signature ? (
+          {r.approver_signature || r.approver_signed ? (
             <div>
-              <img src={r.approver_signature} alt="Approver signature" />
+              <Sig r={r} who="approver" alt="Approver signature" />
               <span>{r.approver_name} · approver</span>
             </div>
           ) : null}

@@ -16,6 +16,9 @@ export interface ExpenseRow {
   approver_email: string;
   requester_signature: string;
   approver_signature: string | null;
+  /** Set by the log's lite list, which leaves the pictures out. */
+  requester_signed?: number;
+  approver_signed?: number;
   review_token_hash: string;
   decline_note: string | null;
   requester_ip: string | null;
@@ -70,6 +73,12 @@ export interface ApproverOverrideRow {
 const COLS = `id, doc_number, status, requester_name, requester_email, travel_dates, travel_city, reason, total_cents,
   approver_name, approver_email, requester_signature, approver_signature, review_token_hash, decline_note,
   requester_ip, approver_ip, pdf_r2_key, submitted_at, decided_at, created_at, updated_at`;
+
+/** The log's list: the same columns with the two signature pictures (up to 400 KB of base64 each) left out; a flag says one exists. */
+const COLS_LITE = `id, doc_number, status, requester_name, requester_email, travel_dates, travel_city, reason, total_cents,
+  approver_name, approver_email, '' AS requester_signature, NULL AS approver_signature,
+  (requester_signature IS NOT NULL AND requester_signature != '') AS requester_signed, (approver_signature IS NOT NULL AND approver_signature != '') AS approver_signed,
+  review_token_hash, decline_note, requester_ip, approver_ip, pdf_r2_key, submitted_at, decided_at, created_at, updated_at`;
 
 const FALLBACK_APPROVER = { name: 'Michael Hinton and Rachel Cox', email: 'michael@favorintl.org, rachel@favorintl.org' };
 
@@ -279,9 +288,16 @@ export async function getExpenseByTokenHash(env: Env, hash: string): Promise<Exp
   return env.DB.prepare(`SELECT ${COLS} FROM expense_requests WHERE review_token_hash = ?`).bind(hash).first<ExpenseRow>();
 }
 
-export async function listExpenses(env: Env): Promise<ExpenseRow[]> {
-  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM expense_requests ORDER BY created_at DESC`).all<ExpenseRow>();
+export async function listExpenses(env: Env, opts: { signatures?: boolean } = {}): Promise<ExpenseRow[]> {
+  const { results } = await env.DB.prepare(`SELECT ${opts.signatures === false ? COLS_LITE : COLS} FROM expense_requests ORDER BY created_at DESC`).all<ExpenseRow>();
   return results;
+}
+
+/** One signature picture, read when a log row is opened. */
+export async function getSignature(env: Env, id: string, who: 'requester' | 'approver'): Promise<string | null> {
+  const col = who === 'approver' ? 'approver_signature' : 'requester_signature';
+  const row = await env.DB.prepare(`SELECT ${col} AS sig FROM expense_requests WHERE id = ?`).bind(id).first<{ sig: string | null }>();
+  return row && row.sig ? row.sig : null;
 }
 
 /** Every request's lines and events in two reads (the log used to read them one request at a time: 100 round trips for 50 requests). */
@@ -368,6 +384,8 @@ export function expenseShape(row: ExpenseRow, items: ExpenseItemRow[], opts: { s
     decided_at: row.decided_at,
     requester_signature: opts.signatures ? row.requester_signature : undefined,
     approver_signature: opts.signatures ? row.approver_signature : undefined,
+    requester_signed: Boolean(row.requester_signature) || row.requester_signed === 1,
+    approver_signed: Boolean(row.approver_signature) || row.approver_signed === 1,
     pdf: opts.admin ? `/api/expenses/${row.id}/pdf` : undefined,
     items: items.map((it) => ({ description: it.description, item: it.item, amount_cents: it.amount_cents })),
   };

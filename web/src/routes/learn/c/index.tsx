@@ -1,7 +1,7 @@
 // Learn > Course: ?c=slug, and &l=lessonId for the lesson player. A course address without ?c= goes to the catalog.
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { CoursePage } from '../../../features/learn/CoursePage';
-import { slugOf } from '../../../features/learn/logic';
+import { slugOf } from '../../../lib/route-search';
 import { courseQuery } from '../../../features/learn/queries';
 
 export const Route = createFileRoute('/learn/c/')({

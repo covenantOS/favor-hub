@@ -50,18 +50,12 @@ export interface OgOverview {
   blackbaud: string;
 }
 
-export interface OgSearch {
-  days: string;
-  test: boolean;
-  gift: string;
-}
+export type { OgSearch } from '../../lib/route-search';
+import type { OgSearch } from '../../lib/route-search';
 
 export const DAYS: Record<string, string> = { '1': 'Today', '3': 'Last 3 days', '7': 'Last 7 days', '14': 'Last 14 days' };
 
-/** The page's search, as the classic page read it from the address: days (default 3), test=1 and a gift ID. */
-export function ogSearch(s: Record<string, unknown>): OgSearch {
-  return { days: typeof s.days === 'string' || typeof s.days === 'number' ? String(s.days) : '3', test: String(s.test ?? '') === '1', gift: /^\d+$/.test(String(s.gift ?? '')) ? String(s.gift) : '' };
-}
+export { ogSearch } from '../../lib/route-search';
 
 /** A read that fails (a person without Gift entry access gets a 403) comes back as a message the page prints, as the classic page did. */
 export interface OgFailed {

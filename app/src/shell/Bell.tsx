@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { BodyPortal } from './BodyPortal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, send } from '@/lib/api';
 import { hubOv } from '@/lib/hubOv';
 import { useIdleReady } from '@/lib/idle';
 import { count as fmtCount } from '@/lib/format';
-import { hubNotifications, chatInboxResponse, projectNoticesResponse, remindersResponse, requestNoticesResponse, type Access } from '@shared/schemas';
+import type { Access } from '@shared/schemas';
 import { Icon } from './Icon';
 import { NavLink } from './NavLink';
-import { QuietHours } from './QuietHours';
+// The schemas load when the bell first reads (the page is idle by then); QuietHours loads when its panel opens.
+type Schemas = typeof import('@shared/schemas');
+const readWith = async <T,>(path: string, pick: (m: Schemas) => import('zod').ZodType<T>): Promise<T> => api(path, pick(await import('@shared/schemas')));
+const QuietHours = lazy(() => import('./QuietHours').then((m) => ({ default: m.QuietHours })));
 import { badge, fromChat, fromHub, fromProjects, fromReminders, fromRequests, grouped, type NoticeRow } from './notices';
 
 type A = Partial<Access> & Record<string, unknown>;
@@ -20,11 +23,11 @@ const opts = { staleTime: 30_000, refetchInterval: POLL, retry: false } as const
 export function useNotices(access: A) {
   const idle = useIdleReady();
   const on = !!access.bell && idle;
-  const hub = useQuery({ queryKey: ['notices', 'hub'], queryFn: () => api('/api/hub/notifications', hubNotifications), enabled: on, ...opts });
-  const rem = useQuery({ queryKey: ['notices', 'reminders'], queryFn: () => api('/api/work/reminders', remindersResponse), enabled: on && !!access.workCenter, ...opts });
-  const req = useQuery({ queryKey: ['notices', 'requests'], queryFn: () => api('/api/requests/notices', requestNoticesResponse), enabled: on && !!access.tasks, ...opts });
-  const prj = useQuery({ queryKey: ['notices', 'projects'], queryFn: () => api('/api/tasks/links/bell', projectNoticesResponse), enabled: on && !!access.projects, ...opts });
-  const chat = useQuery({ queryKey: ['notices', 'chat'], queryFn: () => api('/api/chat/inbox', chatInboxResponse), enabled: on && !!access.chat, ...opts });
+  const hub = useQuery({ queryKey: ['notices', 'hub'], queryFn: () => readWith('/api/hub/notifications', (m) => m.hubNotifications), enabled: on, ...opts });
+  const rem = useQuery({ queryKey: ['notices', 'reminders'], queryFn: () => readWith('/api/work/reminders', (m) => m.remindersResponse), enabled: on && !!access.workCenter, ...opts });
+  const req = useQuery({ queryKey: ['notices', 'requests'], queryFn: () => readWith('/api/requests/notices', (m) => m.requestNoticesResponse), enabled: on && !!access.tasks, ...opts });
+  const prj = useQuery({ queryKey: ['notices', 'projects'], queryFn: () => readWith('/api/tasks/links/bell', (m) => m.projectNoticesResponse), enabled: on && !!access.projects, ...opts });
+  const chat = useQuery({ queryKey: ['notices', 'chat'], queryFn: () => readWith('/api/chat/inbox', (m) => m.chatInboxResponse), enabled: on && !!access.chat, ...opts });
   const rows = useMemo<NoticeRow[]>(
     () => [
       ...fromHub(hub.data?.items || []),
@@ -218,7 +221,11 @@ export function Bell({ access }: { access: A }) {
               ))}
             </div>
             {err && <p className="wm-note" role="alert">{err}</p>}
-            {quiet && <QuietHours />}
+            {quiet && (
+              <Suspense fallback={null}>
+                <QuietHours />
+              </Suspense>
+            )}
             <div className="wm-foot">
               {readable.length ? (
                 <button type="button" onClick={readAll}>
