@@ -1,7 +1,8 @@
 // Partners > All partners (/partners/): every Blackbaud record, givers or not, with search, filters, saved views, stars, tags and export.
 import { createFileRoute } from '@tanstack/react-router';
 import { Directory } from '../../features/partners/directory/Directory';
-import { dirQuery, menusQuery, recentQuery, validateDirSearch, type DirSearch } from '../../features/partners/api';
+import { dirQuery, menusQuery, recentQuery } from '../../features/partners/api';
+import { validateDirSearch, type DirSearch } from '../../lib/route-search';
 
 export const Route = createFileRoute('/partners/')({
   validateSearch: (raw: Record<string, unknown>): DirSearch => validateDirSearch(raw),

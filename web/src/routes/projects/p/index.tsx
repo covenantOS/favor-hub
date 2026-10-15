@@ -1,6 +1,5 @@
 // Projects: one project, ?p=KEY&view=list|board|calendar|timeline|workload&t=CODE. Served by the FavorOS web app.
 import { createFileRoute } from '@tanstack/react-router';
-import '../../../features/projects/css';
 import { ProjectNotFound, ProjectPage } from '../../../features/projects/project/ProjectPage';
 import { asanaMeQuery, projectQuery, projectTasksQuery } from '../../../features/projects/lib/queries';
 import { staffQuery } from '../../../features/projects/lib/staff';

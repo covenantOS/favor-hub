@@ -1,6 +1,7 @@
 // One project: ?p=KEY&view=list|board|calendar|timeline|workload, &t=CODE opens a task, &section=ID scrolls to a section. The header,
 // view tabs, filter bar and stage are here; the views are in ListView, BoardView and ../views. Ported from mountProject in
 // public/js/projects/app.js.
+import '../css';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { NavLink } from '@/shell/NavLink';

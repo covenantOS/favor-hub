@@ -3,7 +3,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { ReviewPage } from '../../../features/expenses/ReviewPage';
 import { reviewQuery } from '../../../features/expenses/queries';
-import { reviewTarget } from '../../../features/expenses/logic';
+import { reviewTarget } from '../../../lib/route-search';
 
 export const Route = createFileRoute('/expenses/review/')({
   staticData: { nav: 'expenses', title: 'Review and sign', layout: 'page' },

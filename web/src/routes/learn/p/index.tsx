@@ -1,7 +1,7 @@
 // Learn > Learning path: ?p=slug. A path address without ?p= goes to the catalog.
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { PathPage } from '../../../features/learn/PathPage';
-import { slugOf } from '../../../features/learn/logic';
+import { slugOf } from '../../../lib/route-search';
 import { pathQuery } from '../../../features/learn/queries';
 
 export const Route = createFileRoute('/learn/p/')({

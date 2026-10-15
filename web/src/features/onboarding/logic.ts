@@ -370,8 +370,7 @@ export function failureWord(status: number, message: string, scope: 'list' | 'ru
 
 export const moveWord = (m: { tasks: number; requests: number; reports: number }, to: string): string => `Moved ${m.tasks} tasks, ${m.requests} request cards, ${m.reports} reports to ${to}`;
 
-/** The run id a link names: ?id=. */
-export const runIdOf = (search: Record<string, unknown>): string => (typeof search.id === 'string' ? search.id : '');
+export { runIdOf } from '../../lib/route-search';
 
 /** The ?start= link from Admin > People: the kind to open the sheet for and the person to fill in. */
 export function startRequest(search: Record<string, unknown>): { kind: Kind; email: string; name: string } | null {

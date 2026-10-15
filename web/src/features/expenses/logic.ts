@@ -168,12 +168,7 @@ export function filterRows(rows: ExpenseRequest[], f: LogFilter): ExpenseRequest
 
 export const filterCount = (rows: ExpenseRequest[], status: LogFilter['status']): number => rows.filter((r) => status === 'all' || r.status === status).length;
 
-/** What the email link carries: the page needs a token or an id. A token wins. */
-export function reviewTarget(search: Record<string, unknown>): { token: string; id: string } {
-  const token = typeof search.token === 'string' ? search.token : '';
-  const id = token ? '' : typeof search.id === 'string' ? search.id : '';
-  return { token, id };
-}
+export { reviewTarget } from '../../lib/route-search';
 
 export interface EventPayload {
   to?: string[];

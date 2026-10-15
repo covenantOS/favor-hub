@@ -407,29 +407,8 @@ export const plural = (n: number, one: string, many: string): string => (n === 1
 
 /* ---------------------------------------------------------------------------------------------------------- address */
 
-export interface EvalSearch {
-  c?: string;
-  v?: string;
-  s?: number;
-}
-
-/** The address: ?c= the case, ?v= the tab. ?s= was read by the old page and never used. Anything else is dropped. */
-export function validateEvalSearch(raw: Record<string, unknown>): EvalSearch {
-  const out: EvalSearch = {};
-  if (typeof raw.c === 'string' && raw.c) out.c = raw.c;
-  if (typeof raw.v === 'string' && raw.v) out.v = raw.v;
-  const s = Number(raw.s);
-  if (s) out.s = s;
-  return out;
-}
-
-export interface AdminSearch {
-  t?: string;
-}
-
-export function validateAdminSearch(raw: Record<string, unknown>): AdminSearch {
-  return typeof raw.t === 'string' && raw.t ? { t: raw.t } : {};
-}
+export { validateEvalSearch, validateAdminSearch, type EvalSearch, type AdminSearch } from '../../lib/route-search';
+import type { EvalSearch } from '../../lib/route-search';
 
 /** A case address as the old page wrote it: /evaluations/?c=ID&v=tab. */
 export function caseHref(id: string, v = ''): string {

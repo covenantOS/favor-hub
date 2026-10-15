@@ -112,8 +112,7 @@ export const courseHref = (slug: string, lessonId?: string): string => `/learn/c
 export const pathHref = (slug: string): string => `/learn/p/?p=${encodeURIComponent(slug)}`;
 export const certHref = (slug: string): string => `/learn/certificate/?c=${encodeURIComponent(slug)}`;
 
-/** A search value from the address as a plain string. */
-export const slugOf = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+export { slugOf } from '../../lib/route-search';
 
 /* ------------------------------------------------------------------ cards */
 export function dueChip(a: { due_date: string | null; overdue: boolean; days_left: number | null }): { cls: string; text: string } | null {

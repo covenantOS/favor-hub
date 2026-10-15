@@ -6,7 +6,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { queryOptions, useSuspenseQuery } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { hubGet } from '../../lib/hub';
-import './churches.css';
+// The stylesheet is linked from this route's head only; imported for its side effect it would ride in the entry that every page loads.
+import churchesCss from './churches.css?url';
 
 type Region = 'Southeast' | 'South' | 'Midwest' | 'West' | 'Northeast' | 'Other';
 interface Row {
@@ -64,6 +65,7 @@ const detailQuery = (cid: string) =>
 
 export const Route = createFileRoute('/churches/')({
   staticData: { nav: 'partners-churches', title: 'Churches', layout: 'page' },
+  head: () => ({ links: [{ rel: 'stylesheet', href: churchesCss }] }),
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(listQuery);
   },
