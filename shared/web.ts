@@ -3,7 +3,10 @@
 // lists it in the hub setting web.routes AND the person is in web.audience. Everything else keeps its Astro page.
 import { normalizeRoute } from './app2';
 
-export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/'] as const;
+export const WEB_ROUTES = ['/web-check/', '/gifts/recurring/', '/churches/'] as const;
+
+/** Routes that have no Astro page. Anyone signed in who may use the hub gets them once an admin lists them in web.routes, whatever the audience. */
+export const WEB_ONLY_ROUTES = ['/churches/'] as const;
 
 export const WEB_SETTING_ROUTES = 'web.routes';
 export const WEB_SETTING_AUDIENCE = 'web.audience';

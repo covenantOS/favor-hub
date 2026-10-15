@@ -103,3 +103,19 @@ describe('the web app reads /api on the Pages address', () => {
     assert.equal(webServerRead({}, ...req('/api/hub/nav').slice(1)), false);
   });
 });
+
+describe('a page with no Astro twin (Churches)', () => {
+  const C = '/churches/';
+  it('goes to every staff sign-in once it is turned on, whatever the audience or opt-out', async () => {
+    const env = world({ 'web.routes': C });
+    assert.equal((await go(env, C, staff)).kind, 'web');
+    assert.equal((await go(env, C, staff, { cookie: 'hub_web_off=1' })).kind, 'web');
+    assert.equal((await go(env, C, admin)).kind, 'web');
+  });
+  it('stays off until an admin lists it, never reaches field staff, and ignores script reads', async () => {
+    assert.equal((await go(world(), C, staff)).kind, 'pass');
+    assert.equal((await go(world({ 'web.routes': '/web-check/' }), C, staff)).kind, 'pass');
+    assert.equal((await go(world({ 'web.routes': C }), C, field)).kind, 'pass');
+    assert.equal((await go(world({ 'web.routes': C }), C, staff, { dest: 'empty' })).kind, 'pass');
+  });
+});
