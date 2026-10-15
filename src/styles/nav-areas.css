@@ -136,3 +136,9 @@ body.h-body[data-area='help'] .wl { max-width: 1280px; margin-inline: auto; }
 
 /* The scrollbar's room is kept on pages that scroll, so a page growing past the window never shifts a centered column sideways. */
 html:has(body.h-body:is([data-area='today'], [data-area='partners'], [data-area='gifts'], [data-area='projects'], [data-area='staff'], [data-area='kpi'], [data-area='admin'], [data-area='help'])) { scrollbar-gutter: stable; }
+
+/* First visit with no saved menu: the rail's areas and the phone bar stay unseen until the menu's first answer (App.astro). */
+html.nav-pending #h-side .h-areas, html.nav-pending #h-bar, html.nav-pending #h-tabs { visibility: hidden; }
+/* The area's tab row keeps its room while it waits (App.astro shows it unseen), so the page under it does not drop when the tabs arrive. */
+html.nav-pending #h-tabs { min-height: 44px; }
+@media (max-width: 860px) { html.nav-pending #h-tabs { min-height: 42px; } }

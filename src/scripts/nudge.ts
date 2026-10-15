@@ -120,18 +120,23 @@ function place(link: HTMLElement): void {
   if (anchor) {
     if (anchor.previousElementSibling === link) return;
     anchor.before(link);
+    // The room held for the link (html.meet-ask, set by the Meetings page before its first frame) is handed to the link itself.
+    document.documentElement.classList.add('meet-ask-on');
     return;
   }
   // Until the page has drawn a card the link waits off screen: placed in the header first, it squeezed the title and tabs for
   // half a second and then jumped into the page. The observer below places it when the first card arrives.
 }
 
+function dropAskRoom(): void {
+  document.documentElement.classList.remove('meet-ask', 'meet-ask-on');
+}
 function askLink() {
-  if (!hasNotifications() || Notification.permission !== 'default') return;
+  if (!hasNotifications() || Notification.permission !== 'default') { dropAskRoom(); return; }
   const path = location.pathname;
   // Only on the Meetings day page. On Book and Notes it sat above work it has nothing to do with.
-  if (path !== '/meet/' && path !== '/meet') return;
-  if (localStorage.getItem(ASKED)) return;
+  if (path !== '/meet/' && path !== '/meet') { dropAskRoom(); return; }
+  if (localStorage.getItem(ASKED)) { dropAskRoom(); return; }
   if (document.getElementById('nudge-ask')) return;
   const p = document.createElement('p');
   p.id = 'nudge-ask';
@@ -142,6 +147,7 @@ function askLink() {
   b.addEventListener('click', () => {
     store(() => localStorage.setItem(ASKED, '1'));
     p.remove();
+    dropAskRoom();
     obs?.disconnect();
     Notification.requestPermission().catch(() => undefined);
   });
@@ -155,8 +161,8 @@ function askLink() {
     // A microtask runs before the next paint, so the link never appears a frame after the card it sits above.
     queueMicrotask(() => {
       queued = false;
-      // The page changed in place to one outside Meetings: the link goes with it.
-      if (!location.pathname.startsWith('/meet')) { p.remove(); obs?.disconnect(); return; }
+      // The page changed in place away from the Meetings day page: the link goes with it.
+      if (location.pathname !== '/meet/' && location.pathname !== '/meet') { p.remove(); dropAskRoom(); obs?.disconnect(); return; }
       if (!document.body.contains(p) || (anchorOf() ? anchorOf()!.previousElementSibling !== p : p.parentElement?.id !== 'h-content')) place(p);
     });
   });
@@ -175,4 +181,6 @@ export function initNudge(): void {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh().then(check); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', askLink);
   else askLink();
+  // Meetings pages change in place: the day page arriving that way asks again (and gives back the room it held when it should not).
+  document.addEventListener('hub-swapped', askLink);
 }
