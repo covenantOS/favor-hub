@@ -1,5 +1,6 @@
 // Reads for giving statements, from the Blackbaud copy (the mirror). SELECT only. The functions take the reader as an
 // argument so a test can hand them an in-memory database with invented rows.
+import { notTestPartnerSql } from '../testpartners.ts';
 import { cents, type Names, type PartnerInfo, type RawGift, type RawSplit } from './rules';
 
 export type Sql = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
@@ -63,7 +64,7 @@ export async function findPartners(sql: Sql, query: string): Promise<PartnerHit[
             (SELECT a.address_city || ', ' || a.address_state FROM addresses a WHERE a.id = c.primary_address_id) AS place,
             (SELECT COUNT(*) FROM gifts g WHERE g.constituent_record_id = c.id AND g.gift_amount > 0 AND g.gift_type <> 'RecurringGift') AS gifts,
             (SELECT MAX(substr(g.gift_date, 1, 10)) FROM gifts g WHERE g.constituent_record_id = c.id AND g.gift_amount > 0 AND g.gift_type <> 'RecurringGift') AS lastgift
-       FROM constituents c WHERE ${where}
+       FROM constituents c WHERE (${where}) AND ${notTestPartnerSql('c.id')}
       ORDER BY gifts DESC, lower(COALESCE(c.last_name, c.organization_name, '')) LIMIT 15`,
     params
   );

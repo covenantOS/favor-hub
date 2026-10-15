@@ -1,3 +1,4 @@
+import { isTestPartnerName } from '../testpartners.ts';
 // Who gets a thank-you receipt.
 //
 // These rules come from the Database View mail task this page replaces
@@ -107,6 +108,7 @@ export function isAmendment(type: string): boolean {
 
 /** Query rows to gifts. A gift with two solicit codes or two funds comes back as several rows. */
 export function giftsFromRows(rows: Record<string, string>[]): Gift[] {
+  rows = rows.filter((r) => !isTestPartnerName(r['Name'], r['Primary Addressee'], r['Sort Name']));
   const byId = new Map<string, Gift>();
   for (const r of rows) {
     const id = (r['QRECID'] || '').trim();

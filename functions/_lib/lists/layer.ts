@@ -10,6 +10,8 @@
 // snapshot stores. The counting rule is untouched; tests/lists-layer.test.mjs runs the Brain's own text and this one on one fixture
 // and compares the counts.
 
+import { notTestPartnerSql } from '../testpartners.ts';
+
 export class Sql {
   params: unknown[] = [];
   v(value: unknown): string {
@@ -33,7 +35,7 @@ hh AS MATERIALIZED (
     FROM (SELECT c.id AS cid, c.spouse_id AS sid, COALESCE(c.spouse_is_head_of_household, 0) AS spouse_head,
                  CASE WHEN c.spouse_id IS NOT NULL AND EXISTS (SELECT 1 FROM constituents s WHERE s.id = c.spouse_id) THEN 1 ELSE 0 END AS sp_ok,
                  CASE WHEN COALESCE(c.deceased, 0) = 0 AND COALESCE(c.inactive, 0) = 0 THEN 1 ELSE 0 END AS alive
-            FROM constituents c)),
+            FROM constituents c WHERE ${notTestPartnerSql('c.id')})),
 head AS MATERIALIZED (
   SELECT hid,
          COALESCE(MAX(CASE WHEN spouse_head = 1 AND sp_ok = 1 THEN sid END), hid) AS pid,
@@ -46,7 +48,8 @@ raw AS (
          COALESCE(json_extract(sc.value, '$.amount.value'), g.gift_amount) AS camt
     FROM gifts g
     LEFT JOIN json_each(${SOFT}) sc
-   WHERE g.gift_amount > 0 AND g.gift_type <> 'RecurringGift' AND g.gift_date IS NOT NULL AND DATE(g.gift_date) <= ${a}),
+   WHERE g.gift_amount > 0 AND g.gift_type <> 'RecurringGift' AND g.gift_date IS NOT NULL AND DATE(g.gift_date) <= ${a}
+     AND ${notTestPartnerSql('g.constituent_record_id')} AND ${notTestPartnerSql("COALESCE(json_extract(sc.value, '$.constituent_id'), g.constituent_record_id)")}),
 credit AS MATERIALIZED (
   SELECT r.gid, r.d, COALESCE(h.hid, CAST(r.cid AS TEXT)) AS hid, MIN(MAX(r.amt), SUM(r.camt)) AS a
     FROM raw r LEFT JOIN hh h ON h.cid = CAST(r.cid AS TEXT)

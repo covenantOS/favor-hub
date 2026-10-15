@@ -5,6 +5,7 @@
 // every three months, so the next call is the last contact (or the last gift, when nobody has spoken to them) plus 90 days.
 import { openActionSql } from '../hub/actions';
 import type { Q } from './partner';
+import { notTestPartnerSql } from '../testpartners.ts';
 
 export const CALL_EVERY_DAYS = 90;
 export const SOON_DAYS = 21;
@@ -55,8 +56,8 @@ const num = (v: unknown): number => {
 const addDays = (ymd: string, n: number) => new Date(Date.parse(`${ymd}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
 
-const CHURCH_CODE = `SELECT constituent_record_id FROM constituent_codes WHERE code_description = 'Church' AND COALESCE(is_inactive, 0) = 0`;
-const CHURCH_GIFT = `gift_constituency = 'Church' AND gift_type <> 'RecurringGift' AND gift_amount > 0`;
+const CHURCH_CODE = `SELECT constituent_record_id FROM constituent_codes WHERE code_description = 'Church' AND COALESCE(is_inactive, 0) = 0 AND ${notTestPartnerSql('constituent_record_id')}`;
+const CHURCH_GIFT = `gift_constituency = 'Church' AND gift_type <> 'RecurringGift' AND gift_amount > 0 AND ${notTestPartnerSql('constituent_record_id')}`;
 const CONTACT = `action_category IN ('Email', 'Phone call', 'Meeting')
   AND (action_completed_date IS NOT NULL OR COALESCE(json_extract(raw_json, '$.completed'), 0) IN (1, 'true'))`;
 

@@ -11,6 +11,7 @@ import { addDays } from '../actions/completion';
 import { clockOf, type Clock } from './thank-clock';
 import { givingForMany, type MirrorQ } from '../gifts/partner-giving';
 import { softOf } from '../../../shared/giving';
+import { notTestPartnerSql } from '../testpartners.ts';
 
 /** The gift types that count as money received. A RecurringGift row is the pledge; its payments are the gifts. */
 export const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
@@ -274,12 +275,12 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
 
 const GIFTS_SINCE_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS giver, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS gdate, g.date_added AS added,
        g.gift_type AS gtype, g.gift_payment_method AS pm, g.gift_splits AS splits, g.soft_credits AS soft, g.linked_gift_id AS link, g.gift_comments AS comment
-  FROM gifts g WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
+  FROM gifts g WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active' AND ${notTestPartnerSql('g.constituent_record_id')}
  ORDER BY g.gift_date, g.id LIMIT 2500`);
 
 const GIFTS_PARTNER_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS giver, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS gdate, g.date_added AS added,
        g.gift_type AS gtype, g.gift_payment_method AS pm, g.gift_splits AS splits, g.soft_credits AS soft, g.linked_gift_id AS link, g.gift_comments AS comment
-  FROM gifts g WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
+  FROM gifts g WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active' AND ${notTestPartnerSql('g.constituent_record_id')}
    AND (g.constituent_record_id = ?2 OR g.soft_credits LIKE ?3) ORDER BY g.gift_date, g.id LIMIT 200`);
 
 const HOLDS_SQL = readOnly(`SELECT constituent_record_id AS cid, assignment_fundraiser_id AS fid, assignment_type AS type FROM assignments

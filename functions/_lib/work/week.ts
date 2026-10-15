@@ -14,6 +14,7 @@
 // An action is dated by its completed date, else its due date. Weeks run Monday to Sunday, Eastern. Giving to goal is the year's
 // portfolio credit the KPI RDD tab shows (fundraiser_totals) against annual_goal, prorated for part-year directors the way that tab does.
 import { openActionSql } from '../hub/actions';
+import { notTestPartnerSql } from '../testpartners.ts';
 import { heldIds, type PortfolioRow } from './portfolio';
 import type { Q } from './partner';
 import { givingForMany, type MirrorQ, type PartnerGiving } from '../gifts/partner-giving';
@@ -141,14 +142,14 @@ const ACTION_SQL = `SELECT a.id AS id, a.constituent_record_id AS cid, a.action_
        COALESCE(t.presented, 0) AS pres, COALESCE(t.scheduling, 0) AS sched, COALESCE(t.stewardship, 0) AS stew, COALESCE(t.texted, 0) AS txt, COALESCE(t.thanked, 0) AS thx,
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name
   FROM actions a JOIN constituents c ON c.id = a.constituent_record_id LEFT JOIN action_tags t ON t.id = a.id
- WHERE a.action_fundraiser_id LIKE ?1 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) BETWEEN ?2 AND ?3
+ WHERE a.action_fundraiser_id LIKE ?1 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) BETWEEN ?2 AND ?3 AND ${notTestPartnerSql('a.constituent_record_id')}
    AND COALESCE(json_extract(a.raw_json, '$.status'), '') <> 'Canceled' AND COALESCE(json_extract(a.raw_json, '$.computed_status'), '') <> 'Canceled'
  ORDER BY 5 DESC, a.id DESC LIMIT 1500`;
 
 const OPEN_SQL = `SELECT a.id AS id, a.action_category AS cat, substr(a.action_date_due, 1, 10) AS d, a.action_summary AS summary,
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name
   FROM actions a JOIN constituents c ON c.id = a.constituent_record_id
- WHERE a.action_fundraiser_id LIKE ?1 AND substr(a.action_date_due, 1, 10) BETWEEN ?2 AND ?3 AND ${openActionSql('a')} AND COALESCE(a.action_type, '') NOT LIKE 'RESERVED%'
+ WHERE a.action_fundraiser_id LIKE ?1 AND substr(a.action_date_due, 1, 10) BETWEEN ?2 AND ?3 AND ${openActionSql('a')} AND COALESCE(a.action_type, '') NOT LIKE 'RESERVED%' AND ${notTestPartnerSql('a.constituent_record_id')}
  ORDER BY a.action_date_due, a.id LIMIT 40`;
 
 const TOTALS_SQL = `SELECT SUM(CAST(json_extract(td.value, '$.portfolio_amount') AS REAL)) AS amount
@@ -258,7 +259,7 @@ export async function loadWeek(
     `SELECT a.constituent_record_id AS cid, t.action_ask_amount AS amt, substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) AS d,
             COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name
        FROM actions a JOIN action_tags t ON t.id = a.id JOIN constituents c ON c.id = a.constituent_record_id
-      WHERE a.action_fundraiser_id LIKE ?1 AND t.action_ask_amount > 0 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) BETWEEN ?2 AND ?3
+      WHERE a.action_fundraiser_id LIKE ?1 AND t.action_ask_amount > 0 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) BETWEEN ?2 AND ?3 AND ${notTestPartnerSql('a.constituent_record_id')}
         AND COALESCE(json_extract(a.raw_json, '$.status'), '') <> 'Canceled'
       ORDER BY t.action_ask_amount DESC LIMIT 200`,
     [like, addDays(today, -60), today]
