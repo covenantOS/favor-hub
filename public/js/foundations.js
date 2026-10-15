@@ -16,7 +16,7 @@
   const panel = $('fnd-panel');
   const toastEl = $('fnd-toast');
 
-  const state = { list: [], meta: null, filter: 'all', sort: 'contacts', tab: 'list', openId: null, detail: null, bb: null, cleanup: null };
+  const state = { list: [], meta: null, filter: 'all', sort: { col: 'contacts', dir: 'desc' }, page: 1, tab: 'list', activity: null, pg: {}, openId: null, detail: null, bb: null, cleanup: null };
 
   const esc = (s) =>
     String(s == null ? '' : s)
@@ -150,8 +150,7 @@
 
   function render() {
     renderTabs();
-    renderFilters();
-    renderRows();
+    renderList();
   }
 
   function renderTabs() {
@@ -173,6 +172,10 @@
     const b = e.target.closest('[data-tab]');
     if (!b) return;
     state.tab = b.dataset.tab;
+    if (qEl.value) {
+      qEl.value = '';
+      onSearch();
+    }
     renderTabs();
     if (state.tab === 'cleanup') loadCleanup();
     if (state.tab === 'activity') loadActivity();
@@ -187,65 +190,105 @@
     ['dead', 'Dead ends'],
   ];
 
-  function renderFilters() {
-    const count = (k) => (k === 'all' ? state.list.length : state.list.filter((f) => statusOf(f)[0] === k).length);
-    $('fnd-filters').innerHTML =
-      FILTERS.map((f) => `<button type="button" data-filter="${f[0]}" class="${state.filter === f[0] ? 'on' : ''}">${f[1]}<small>${count(f[0]).toLocaleString('en-US')}</small></button>`).join('') +
-      `<select id="fnd-sort" aria-label="Sort">
-        <option value="contacts"${state.sort === 'contacts' ? ' selected' : ''}>Most contacts first</option>
-        <option value="recent"${state.sort === 'recent' ? ' selected' : ''}>Latest contact first</option>
-        <option value="name"${state.sort === 'name' ? ' selected' : ''}>By name</option>
-      </select>`;
-    $('fnd-sort').addEventListener('change', (e) => {
-      state.sort = e.target.value;
-      shown = PAGE;
-      renderRows();
+  const BADGE = { dead: '', in: ' pt-badge--good', new: '', two: ' pt-badge--warn', work: ' pt-badge--gold', once: '' };
+  const badge = (f) => {
+    const st = statusOf(f);
+    return `<span class="pt-badge${BADGE[st[0]] || ''}">${st[1]}</span>`;
+  };
+  // Columns the person can hide. Foundation always shows.
+  const PCOLS = [{ k: 'who', l: 'Foundation', fixed: true }, { k: 'contacts', l: 'Contacts' }, { k: 'last', l: 'Last contact' }, { k: 'rdds', l: 'Fundraiser' }, { k: 'status', l: 'Status' }];
+  const SHEET_BTN = '<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="foundations"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M6 2.5h8.5L19 7v13.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#0f9d58" stroke="none"/><path d="M14.5 2.5V7H19" fill="#87ceac" stroke="none"/><rect x="8" y="10.5" width="8" height="7" rx=".5" fill="#fff" stroke="none"/><path d="M8 13h8M8 15.3h8M11 10.5v7" stroke="#0f9d58" stroke-width=".9" fill="none"/></svg>Open in Google Sheets</button>';
+  const SORT = {
+    name: (f) => String(f.name || '').replace(/^the /i, '').toLowerCase(),
+    contacts: (f) => Number(f.contacts) || 0,
+    last: (f) => String(f.last_contact || ''),
+    rdds: (f) => firstNames(f.rdds).toLowerCase(),
+    status: (f) => statusOf(f)[1],
+  };
+
+  function visibleRows() {
+    const rows = state.list.filter((f) => state.filter === 'all' || statusOf(f)[0] === state.filter);
+    const key = SORT[state.sort.col];
+    if (!key) return rows;
+    const sgn = state.sort.dir === 'asc' ? 1 : -1;
+    return rows.slice().sort((a, b) => {
+      const x = key(a), y = key(b);
+      return (x < y ? -1 : x > y ? 1 : 0) * sgn;
     });
   }
 
-  $('fnd-filters').addEventListener('click', (e) => {
+  const pageSize = (key, fallback) => (window.PT ? window.PT.size(key, fallback || 50) : fallback || 50);
+  const pageOf = (key) => state.pg[key] || 1;
+  const pagerFor = (key, total, noun, fallback) => (window.PT ? window.PT.pager(key, { total, page: pageOf(key), size: pageSize(key, fallback), noun }) : '');
+  const pageRows = (key, list, fallback) => {
+    if (!window.PT) return list;
+    state.pg[key] = window.PT.clampPage(pageOf(key), list.length, pageSize(key, fallback));
+    return window.PT.slice(list, state.pg[key], pageSize(key, fallback));
+  };
+  const thFor = (key, col, label, cls) => (window.PT ? window.PT.th(key, col, label, key === 'fnd-prospects' ? state.sort : null, cls) : esc(label));
+
+  function renderList() {
+    const host = $('fnd-view-list');
+    const PT = window.PT;
+    const all = visibleRows();
+    state.pg['fnd-prospects'] = state.page;
+    const rows = pageRows('fnd-prospects', all);
+    state.page = pageOf('fnd-prospects');
+    const hide = PT ? PT.hidden('fnd-prospects') : new Set();
+    const count = (k) => (k === 'all' ? state.list.length : state.list.filter((f) => statusOf(f)[0] === k).length);
+    const nCols = PCOLS.filter((c) => c.fixed || !hide.has(c.k)).length;
+    host.innerHTML = `<div class="pt-bar">
+        <div class="pt-seg" role="group" aria-label="Show">${FILTERS.map((f) => `<button type="button" data-filter="${f[0]}" class="${state.filter === f[0] ? 'is-on' : ''}" aria-pressed="${state.filter === f[0]}">${f[1]}<span>${count(f[0]).toLocaleString('en-US')}</span></button>`).join('')}</div>
+        <span class="pt-spacer"></span>${PT ? PT.colsHTML('fnd-prospects', PCOLS) : ''}${PT ? PT.densityHTML() : ''}${SHEET_BTN}</div>
+      <div class="ptl-wrap">
+        <table class="pt-table ptl-table ptl-fnd">
+          <thead><tr><th>${thFor('fnd-prospects', 'name', 'Foundation')}</th>${hide.has('contacts') ? '' : `<th class="is-num">${thFor('fnd-prospects', 'contacts', 'Contacts', 'is-num')}</th>`}${hide.has('last') ? '' : `<th>${thFor('fnd-prospects', 'last', 'Last contact')}</th>`}${hide.has('rdds') ? '' : `<th>${thFor('fnd-prospects', 'rdds', 'Fundraiser')}</th>`}${hide.has('status') ? '' : `<th>${thFor('fnd-prospects', 'status', 'Status')}</th>`}</tr></thead>
+          <tbody data-pt-list="fnd-prospects">${
+            rows.length
+              ? rows
+                  .map(
+                    (f) => `<tr class="ptl-row" data-id="${esc(f.id)}" data-pt-row tabindex="-1">
+              <td class="c-who"><div class="ptl-who"><span class="pt-name fnd-name" data-pt-open title="${esc(f.name)}">${esc(f.name)}</span>${f.location ? `<span class="pt-sub ptl-place" title="${esc(f.location)}">${esc(f.location)}</span>` : ''}</div></td>
+              ${hide.has('contacts') ? '' : `<td class="c-contacts is-num${Number(f.contacts) === 1 ? ' is-one' : ''}">${(Number(f.contacts) || 0).toLocaleString('en-US')}</td>`}
+              ${hide.has('last') ? '' : `<td class="c-last${firstNames(f.rdds) ? '' : ' pt-mute'}">${day(f.last_contact) || 'None yet'}</td>`}
+              ${hide.has('rdds') ? '' : `<td class="c-rdds" title="${esc(f.rdds || '')}">${esc(firstNames(f.rdds)) || ''}</td>`}
+              ${hide.has('status') ? '' : `<td class="c-status">${badge(f)}${Number(f.waiting) ? `<span class="fnd-flag">${Number(f.waiting).toLocaleString('en-US')} waiting</span>` : ''}</td>`}
+            </tr>`
+                  )
+                  .join('')
+              : `<tr><td colspan="${nCols}"><div class="pt-empty">Nothing here yet.</div></td></tr>`
+          }</tbody>
+        </table>
+      </div>
+      ${pagerFor('fnd-prospects', all.length, 'foundations')}`;
+  }
+
+  $('fnd-view-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-filter]');
-    if (!b) return;
-    state.filter = b.dataset.filter;
-    shown = PAGE;
-    renderFilters();
-    renderRows();
+    if (b) {
+      state.filter = b.dataset.filter;
+      state.page = 1;
+      renderList();
+    }
   });
 
-  function visibleRows() {
-    let rows = state.list.filter((f) => state.filter === 'all' || statusOf(f)[0] === state.filter);
-    if (state.sort === 'recent') rows = rows.slice().sort((a, b) => String(b.last_contact || '').localeCompare(String(a.last_contact || '')));
-    else if (state.sort === 'name') rows = rows.slice().sort((a, b) => a.name.replace(/^the /i, '').localeCompare(b.name.replace(/^the /i, '')));
-    return rows;
+  if (window.PT) {
+    window.PT.on('fnd-prospects', {
+      page(p) {
+        state.page = p;
+        renderList();
+      },
+      sort(col, dir) {
+        if (col === 'name' || col === 'rdds' || col === 'status') dir = state.sort.col === col ? dir : 'asc';
+        state.sort = { col, dir };
+        state.page = 1;
+        renderList();
+      },
+      cols() {
+        renderList();
+      },
+    });
   }
-
-  const PAGE = 50;
-  let shown = PAGE;
-  function renderRows() {
-    const all = visibleRows();
-    const rows = all.slice(0, shown);
-    $('fnd-rows').innerHTML = rows.length
-      ? rows
-          .map(
-            (f) => `<tr class="exp-admin-row" data-id="${esc(f.id)}" tabindex="0">
-              <td><span class="fnd-name">${esc(f.name)}</span>${f.location ? `<span class="fnd-sub">${esc(f.location)}</span>` : ''}</td>
-              <td class="r mono${Number(f.contacts) === 1 ? ' is-one' : ''}">${(Number(f.contacts) || 0).toLocaleString('en-US')}</td>
-              <td class="mono${firstNames(f.rdds) ? '' : ' is-end'}">${day(f.last_contact) || 'None yet'}</td>
-              <td>${esc(firstNames(f.rdds)) || ''}</td>
-              <td>${pill(f)}${Number(f.waiting) ? `<span class="fnd-flag">${Number(f.waiting).toLocaleString('en-US')} waiting</span>` : ''}</td>
-            </tr>`
-          )
-          .join('') + (all.length > rows.length
-            ? `<tr class="fnd-morerow"><td colspan="5"><button type="button" class="h-more" id="fnd-more">Show ${Math.min(PAGE, all.length - rows.length)} more <span>${(all.length - rows.length).toLocaleString('en-US')} left of ${all.length.toLocaleString('en-US')}</span></button></td></tr>`
-            : '')
-      : `<tr><td colspan="5" class="fnd-empty">Nothing here yet.</td></tr>`;
-  }
-  $('fnd-rows').addEventListener('click', (e) => {
-    if (!e.target.closest('#fnd-more')) return;
-    e.stopPropagation();
-    shown += PAGE;
-    renderRows();
-  }, true);
 
   // Open in Google Sheets: the rows the list shows now, in the order shown.
   if (window.FavorSheets) {
@@ -264,16 +307,11 @@
     });
   }
 
-  $('fnd-rows').addEventListener('click', (e) => {
-    const tr = e.target.closest('tr[data-id]');
+  // A prospect row opens its foundation. Enter on a focused row presses its name (ptable.js).
+  $('fnd-view-list').addEventListener('click', (e) => {
+    if (e.target.closest('a, button, input, select, label, details')) return;
+    const tr = e.target.closest('tbody tr[data-id]');
     if (tr) openFoundation(tr.dataset.id);
-  });
-  $('fnd-rows').addEventListener('keydown', (e) => {
-    const tr = e.target.closest('tr[data-id]');
-    if (tr && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault();
-      openFoundation(tr.dataset.id);
-    }
   });
 
   /* ------------------------------------------------------------ search */
@@ -779,49 +817,93 @@
       view.innerHTML = `<div class="make-sheet fnd-sheet"><p class="req-msg">${esc(err.message)}</p></div>`;
       return;
     }
-    const M = state.cleanup.misplaced;
+    state.pg['fnd-moves'] = 1;
+    state.pg['fnd-thin'] = 1;
+    renderCleanup();
+  }
+
+  function cleanupGroups() {
     const groups = [];
-    M.forEach((r) => {
+    state.cleanup.misplaced.forEach((r) => {
       let g = groups.find((x) => x.id === r.id);
       if (!g) groups.push((g = { id: r.id, name: r.name, lookup: r.bb_lookup_id, bbName: r.bb_name, why: r.bb_match_reason, rows: [] }));
       g.rows.push(r);
     });
+    return groups;
+  }
+
+  function drawMoves() {
+    const host = $('fnd-moves-host');
+    if (!host) return;
+    const groups = cleanupGroups();
+    const rows = pageRows('fnd-moves', groups, 25);
+    host.innerHTML = groups.length
+      ? `<div class="ptl-wrap"><table class="pt-table ptl-table ptl-moves"><thead><tr><th>Foundation</th><th>Its Blackbaud record</th><th>Contacts to move</th></tr></thead><tbody data-pt-list="fnd-moves">${rows
+          .map((g) => {
+            const moves = g.rows.map((r) => `${r.category} · ${r.rdd_name} ${day(r.contact_date)}`);
+            return `<tr class="ptl-row" data-id="${esc(g.id)}" data-pt-row tabindex="-1"><td class="c-who"><span class="pt-name fnd-name" data-pt-open title="${esc(g.name)}">${esc(g.name)}</span></td>
+              <td class="c-record"><b>#${esc(g.lookup)}</b> <span class="pt-sub">${esc(g.why || '')}</span></td>
+              <td class="c-moves is-clip" title="${esc(moves.join('\n'))}"><span class="pt-badge">${g.rows.length.toLocaleString('en-US')}</span> <span class="pt-sub">${esc(moves.join('; '))}</span></td></tr>`;
+          })
+          .join('')}</tbody></table></div>${pagerFor('fnd-moves', groups.length, 'foundations', 25)}`
+      : '';
+  }
+
+  function drawThin() {
+    const host = $('fnd-thin-host');
+    if (!host) return;
+    const T = state.cleanup.thin;
+    const rows = pageRows('fnd-thin', T, 25);
+    host.innerHTML = T.length
+      ? `<div class="ptl-wrap"><table class="pt-table ptl-table ptl-thin"><thead><tr><th>Record</th><th>Made</th><th class="is-num">Contacts</th><th>Last contact</th></tr></thead><tbody>${rows
+          .map(
+            (t) => `<tr class="ptl-row"><td class="c-who"><div class="ptl-who"><span class="pt-name fnd-name" title="${esc(t.name)}">${esc(t.name)}</span><span class="pt-sub ptl-place">#${esc(t.lookup_id)}</span></div></td><td class="c-last">${day(t.made)}</td><td class="is-num">${t.contacts}</td><td class="c-last">${day(t.last)}</td></tr>`
+          )
+          .join('')}</tbody></table></div>${pagerFor('fnd-thin', T.length, 'records', 25)}`
+      : '';
+  }
+
+  function renderCleanup() {
+    const view = $('fnd-view-cleanup');
+    const M = state.cleanup.misplaced;
+    const groups = cleanupGroups();
     const T = state.cleanup.thin;
     view.innerHTML = `
-      <div class="make-sheet fnd-sheet">
+      <div class="make-sheet fnd-sheet ptl-panel">
         <h2>Contacts on the wrong record</h2>
         <p class="fnd-note">${
           groups.length
             ? `${plural(groups.length, 'foundation')} on this list ${groups.length === 1 ? 'has its' : 'have their'} own Blackbaud record, and ${plural(M.length, 'contact')} that belong${M.length === 1 ? 's' : ''} there still ${M.length === 1 ? 'sits' : 'sit'} on Unsolicited Foundations. Moving them is not switched on yet. New contacts for these foundations already post to the right record.`
             : 'Every contact sits on the right record.'
         }</p>
-        ${
-          groups.length
-            ? `<table class="exp-admin-table fnd-clean sc-table"><thead><tr><th>Foundation</th><th>Its Blackbaud record</th><th>Contacts to move</th></tr></thead><tbody>${groups
-                .map(
-                  (g) => `<tr class="exp-admin-row" data-id="${esc(g.id)}"><td><span class="fnd-name">${esc(g.name)}</span></td>
-                    <td>#${esc(g.lookup)}<span class="fnd-sub">${esc(g.why || '')}</span></td>
-                    <td>${g.rows.map((r) => `<span class="fnd-move">${esc(r.category)} · ${esc(r.rdd_name)} <span>${day(r.contact_date)}</span></span>`).join('')}</td></tr>`
-                )
-                .join('')}</tbody></table>`
-            : ''
-        }
+        <div id="fnd-moves-host"></div>
       </div>
-      <div class="make-sheet fnd-sheet">
+      <div class="make-sheet fnd-sheet ptl-panel">
         <h2>Records made at a first call</h2>
         <p class="fnd-note">${
           state.cleanup.offline
             ? 'Blackbaud could not be reached for this list. Try again in a minute.'
             : `${plural(T.length, 'foundation record')} created in Blackbaud since March hold${T.length === 1 ? 's' : ''} nothing but contacts from RDDs and grant writers: no gift, no grant request, no opportunity. ${T.filter((t) => t.contacts <= 2).length} of them have one or two contacts.`
         }</p>
-        ${
-          T.length
-            ? `<table class="exp-admin-table fnd-clean sc-table"><thead><tr><th>Record</th><th>Made</th><th class="r">Contacts</th><th>Last contact</th></tr></thead><tbody>${T.map(
-                (t) => `<tr><td><span class="fnd-name">${esc(t.name)}</span><span class="fnd-sub">#${esc(t.lookup_id)}</span></td><td class="mono">${day(t.made)}</td><td class="r mono">${t.contacts}</td><td class="mono">${day(t.last)}</td></tr>`
-              ).join('')}</tbody></table>`
-            : ''
-        }
+        <div id="fnd-thin-host"></div>
       </div>`;
+    drawMoves();
+    drawThin();
+  }
+
+  if (window.PT) {
+    window.PT.on('fnd-moves', {
+      page(p) {
+        state.pg['fnd-moves'] = p;
+        drawMoves();
+      },
+    });
+    window.PT.on('fnd-thin', {
+      page(p) {
+        state.pg['fnd-thin'] = p;
+        drawThin();
+      },
+    });
   }
 
   $('fnd-view-cleanup').addEventListener('click', (e) => {
@@ -856,36 +938,72 @@
       view.innerHTML = `<div class="make-sheet fnd-sheet"><p class="req-msg">${esc(err.message)}</p></div>`;
       return;
     }
+    state.activity = data;
+    state.pg['fnd-waiting'] = 1;
+    state.pg['fnd-log'] = 1;
     const on = state.meta.settings.posting === 'on';
-    view.innerHTML = `<div class="make-sheet fnd-sheet">
+    view.innerHTML = `<div class="make-sheet fnd-sheet ptl-panel">
       <h2>Sent to Blackbaud</h2>
       <div class="fnd-state ${on ? '' : 'is-off'}"><span class="dot"></span><span>${on ? 'Posting is on. Each contact logged here goes to Blackbaud right away.' : 'Posting is off. Contacts are saved here and wait.'}</span><button type="button" class="fnd-textbtn is-quiet" id="fnd-switch">${on ? 'Switch off' : 'Switch on'}</button></div>
       <div id="fnd-switch-slot"></div>
       <p class="fnd-check__hint" id="fnd-health" style="margin:-8px 0 14px 2px">Checking the Blackbaud connection</p>
-      ${
-        data.waiting.length
-          ? `<span class="exp-legend">Waiting to post</span><ul class="exp-timeline">${data.waiting
-              .map(
-                (w) => `<li><div class="exp-tl-row"><b>${esc(w.foundation)}</b><span>${esc(w.how)} · ${esc(w.rdd_name)} · ${day(w.contact_date)}</span></div><div class="exp-tl-meta">${esc(w.bb_state === 'posted' ? 'Posted. Its tags are waiting.' : w.bb_error || 'Waiting')}</div></li>`
-              )
-              .join('')}</ul><p style="margin:12px 0 4px"><button type="button" class="req-admin-btn" id="fnd-retry">Try them again now</button></p>`
-          : ''
-      }
+      <div id="fnd-wait-host"></div>
       <span class="exp-legend">Everything this page has done</span>
-      <ul class="exp-timeline">${
-        data.log.length
-          ? data.log
-              .map((l) => {
-                const k = KIND[l.kind];
-                const label = Array.isArray(k) ? (l.ok ? k[0] : k[1]) : k || l.kind;
-                return `<li><div class="exp-tl-row"><b>${l.method ? `<span class="fnd-verb ${l.ok ? 'ok' : 'no'}">${esc(l.method)}</span>` : ''}${esc(label)}</b><span>${esc(l.actor || 'staff')} · ${stamp(l.created_at)}</span></div>
-                  <div class="exp-tl-meta">${esc([l.foundation, l.detail].filter(Boolean).join(' · '))}</div></li>`;
-              })
-              .join('')
-          : '<li><div class="exp-tl-meta">Nothing yet. The first contact logged here shows up in this list.</div></li>'
-      }</ul>
+      <div id="fnd-log-host"></div>
     </div>`;
+    drawWaiting();
+    drawLog();
     loadHealth();
+  }
+
+  function drawWaiting() {
+    const host = $('fnd-wait-host');
+    if (!host) return;
+    const W = state.activity.waiting;
+    if (!W.length) {
+      host.innerHTML = '';
+      return;
+    }
+    const rows = pageRows('fnd-waiting', W, 25);
+    host.innerHTML = `<span class="exp-legend">Waiting to post</span><div class="ptl-wrap"><table class="pt-table ptl-table ptl-wait"><thead><tr><th>Foundation</th><th>How</th><th>Fundraiser</th><th>Date</th><th>State</th></tr></thead><tbody>${rows
+      .map(
+        (w) => `<tr class="ptl-row"><td class="c-who"><span class="pt-name fnd-name" title="${esc(w.foundation)}">${esc(w.foundation)}</span></td><td>${esc(w.how)}</td><td>${esc(w.rdd_name)}</td><td class="c-last">${day(w.contact_date)}</td><td class="is-clip" title="${esc(w.bb_state === 'posted' ? 'Posted. Its tags are waiting.' : w.bb_error || 'Waiting')}"><span class="pt-sub">${esc(w.bb_state === 'posted' ? 'Posted. Its tags are waiting.' : w.bb_error || 'Waiting')}</span></td></tr>`
+      )
+      .join('')}</tbody></table></div>${pagerFor('fnd-waiting', W.length, 'contacts', 25)}<p style="margin:12px 0 14px"><button type="button" class="req-admin-btn" id="fnd-retry">Try them again now</button></p>`;
+  }
+
+  function drawLog() {
+    const host = $('fnd-log-host');
+    if (!host) return;
+    const L = state.activity.log;
+    if (!L.length) {
+      host.innerHTML = '<div class="pt-empty">Nothing yet. The first contact logged here shows up in this list.</div>';
+      return;
+    }
+    const rows = pageRows('fnd-log', L, 50);
+    host.innerHTML = `<div class="ptl-wrap"><table class="pt-table ptl-table ptl-log"><thead><tr><th>When</th><th>What happened</th><th>Foundation and detail</th><th>By</th></tr></thead><tbody>${rows
+      .map((l) => {
+        const k = KIND[l.kind];
+        const label = Array.isArray(k) ? (l.ok ? k[0] : k[1]) : k || l.kind;
+        const more = [l.foundation, l.detail].filter(Boolean).join(' · ');
+        return `<tr class="ptl-row"><td class="c-last">${stamp(l.created_at)}</td><td class="c-what">${l.method ? `<span class="fnd-verb ${l.ok ? 'ok' : 'no'}">${esc(l.method)}</span> ` : ''}<b>${esc(label)}</b></td><td class="c-more is-clip" title="${esc(more)}"><span class="pt-sub">${esc(more)}</span></td><td class="c-by">${esc(l.actor || 'staff')}</td></tr>`;
+      })
+      .join('')}</tbody></table></div>${pagerFor('fnd-log', L.length, 'entries', 50)}`;
+  }
+
+  if (window.PT) {
+    window.PT.on('fnd-waiting', {
+      page(p) {
+        state.pg['fnd-waiting'] = p;
+        drawWaiting();
+      },
+    });
+    window.PT.on('fnd-log', {
+      page(p) {
+        state.pg['fnd-log'] = p;
+        drawLog();
+      },
+    });
   }
 
   function loadHealth() {

@@ -1,6 +1,5 @@
 ---
 import App from '../../layouts/App.astro';
-import SheetsButton from '../../components/SheetsButton.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/foundations.css';
@@ -55,30 +54,20 @@ import '../../styles/pt-lists.css';
       </form>
 
       <div id="fnd-app" hidden>
-        <section class="fnd-check" aria-label="Check a foundation">
-          <label class="fnd-check__box" for="fnd-q">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="fnd-q" type="search" placeholder="Check a foundation before you call" autocomplete="off" autocapitalize="none" autocorrect="off" enterkeyhint="search" spellcheck="false" />
-            <button type="button" class="fnd-check__clear" id="fnd-q-clear" hidden>Clear</button>
-          </label>
-          <div class="fnd-results" id="fnd-results" hidden></div>
-        </section>
+        <div class="fnd-top">
+          <div class="fnd-tabs" id="fnd-tabs" role="tablist"></div>
+          <section class="fnd-check" aria-label="Check a foundation">
+            <label class="fnd-check__box" for="fnd-q">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="fnd-q" data-pt-search type="search" placeholder="Check a foundation before you call" autocomplete="off" autocapitalize="none" autocorrect="off" enterkeyhint="search" spellcheck="false" />
+              <button type="button" class="fnd-check__clear" id="fnd-q-clear" hidden>Clear</button>
+            </label>
+          </section>
+        </div>
+        <div class="fnd-results" id="fnd-results" hidden></div>
 
         <div id="fnd-body">
-          <div class="fnd-tabs" id="fnd-tabs" role="tablist"></div>
-
-          <section class="make-sheet fnd-sheet" id="fnd-view-list">
-            <div class="fnd-sheetbar"><SheetsButton name="foundations" /></div>
-            <div class="fnd-filters" id="fnd-filters"></div>
-            <div class="fnd-table-wrap">
-              <table class="exp-admin-table fnd-table sc-table">
-                <thead>
-                  <tr><th>Foundation</th><th class="r">Contacts</th><th>Last contact</th><th>Fundraiser</th><th>Status</th></tr>
-                </thead>
-                <tbody id="fnd-rows"></tbody>
-              </table>
-            </div>
-          </section>
+          <section class="make-sheet fnd-sheet ptl-sheet" id="fnd-view-list"></section>
 
           <section id="fnd-view-cleanup" hidden></section>
           <section id="fnd-view-activity" hidden></section>
@@ -94,5 +83,5 @@ import '../../styles/pt-lists.css';
 
   <div class="fnd-toast" id="fnd-toast" role="status" aria-live="polite"></div>
   <script is:inline src="/js/ptable.js?v=1"></script>
-  <script is:inline src="/js/foundations.js?v=7"></script>
+  <script is:inline src="/js/foundations.js?v=8"></script>
 </App>

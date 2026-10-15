@@ -10,7 +10,7 @@ const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const C = { data: null, loading: false, error: '', started: false, owner: '', q: '', quick: '', shown: 100, local: {}, leftNow: {}, weekAdd: 0, sheetOn: false, cm: new Set() };
+const C = { data: null, loading: false, error: '', started: false, owner: '', q: '', quick: '', page: 1, sort: '', dir: 'desc', local: {}, leftNow: {}, weekAdd: 0, sheetOn: false, cm: new Set() };
 const WORD = { call: 'Called', text: 'Texted', email: 'Emailed', card: 'Card' };
 const ICON = { call: 'phone', text: 'text', email: 'mail', card: 'card' };
 const QUICK = { due: 'Due now', first: 'First-time partners', repeat: 'Monthly, twice a year, annual', quarterly: 'Quarterly gifts to thank' };
@@ -20,7 +20,7 @@ async function load(owner) {
   C.loading = true; C.error = '';
   try {
     const d = await W().api('/api/work/cadence' + (owner !== undefined && owner !== null ? '?owner=' + encodeURIComponent(owner) : ''));
-    C.data = d; C.owner = d.owner || ''; C.local = {}; C.leftNow = {}; C.weekAdd = 0; C.shown = 100;
+    C.data = d; C.owner = d.owner || ''; C.local = {}; C.leftNow = {}; C.weekAdd = 0; C.page = 1;
   } catch (e) { C.error = e.message; }
   C.loading = false;
 }
@@ -70,21 +70,51 @@ function stepBtn(r, s, nextK) {
   return `<button type="button" class="wcd-seq${next ? ' is-next' : ''}" ${s.off ? 'disabled' : ''} data-wcd-step="${esc(r.cid)}" data-k="${s.k}" title="${esc(title)}">${f.ic(ICON[s.k])}${esc(s.label)}</button>`;
 }
 
-function rowHTML(r) {
+// Columns the person can hide. Partner, Due, the step buttons and the row buttons always show.
+const COLS = [{ k: 'who', l: 'Partner', fixed: true }, { k: 'rule', l: 'Frequency' }, { k: 'due', l: 'Due', fixed: true }, { k: 'steps', l: 'Steps', fixed: true }, { k: 'last', l: 'Last contact' }, { k: 'holder', l: 'Held by' }, { k: 'found', l: 'Came in through' }];
+const HIDE_DEFAULT = ['found'];
+const hiddenCols = () => (window.PT ? window.PT.hidden('cadence', HIDE_DEFAULT) : new Set(HIDE_DEFAULT));
+const colCount = (hide) => 1 + COLS.filter((c) => c.fixed || !hide.has(c.k)).length;
+const pageSize = () => (window.PT ? window.PT.size('cadence', 50) : 50);
+const SEARCH_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const sortState = () => ({ col: C.sort, dir: C.dir });
+const th = (col, label) => (window.PT ? window.PT.th('cadence', col, label, sortState()) : esc(label));
+const SORTS = {
+  name: (r) => String(r.name || '').toLowerCase(),
+  rule: (r) => String(r.ruleLabel || '').toLowerCase(),
+  over: (r) => (typeof r.over === 'number' ? r.over : -1e9),
+  last: (r) => (r.last && r.last.date ? r.last.date : ''),
+};
+function ordered(list) {
+  const key = SORTS[C.sort];
+  if (!key) return list;
+  const sgn = C.dir === 'asc' ? 1 : -1;
+  return list.slice().sort((a, b) => { const x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * sgn; });
+}
+
+function rowHTML(r, hide, n) {
   const f = F();
   const steps = stepsOf(r);
   const nextK = (steps.find((s) => !s.off) || {}).k;
   const left = C.leftNow[r.cid];
-  const call = r.phone ? `<a class="wg-icon" href="${tel(r.phone)}" title="Call ${esc(r.phone)}" aria-label="Call ${esc(r.name)}">${f.ic('phone')}</a>` : `<span class="wg-icon is-off" title="No phone to call">${f.ic('phone')}</span>`;
-  const last = r.last ? `Last contact ${esc(f.fd(r.last.date))} (${esc(r.last.what.toLowerCase())})` : 'No contact on record';
-  const who = C.data.owners.length > 1 && !C.owner ? r.holderNames.join(', ') : '';
-  return `<div class="wg-row wcd-row" data-cid="${esc(r.cid)}">
-    <div class="wcd-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wg-sub">${r.place ? esc(r.place) + ' · ' : ''}${esc(r.pattern)}</span>${r.found ? `<span class="wg-sub wcd-found" title="${esc(r.found.code)}">Came in through ${esc(r.found.label)}</span>` : ''}</div>
-    <div class="wcd-why"><span class="wc-tag${r.rule === 'first' ? ' wc-tag--done' : ''}">${esc(r.ruleLabel)}</span>${left ? `<span class="wc-tag wc-tag--queued">Left a message today</span>` : ''}<span class="wg-sub">${esc(r.line)}</span><span class="wg-sub">${last}</span></div>
-    <div class="wcd-due">${dueLabel(r)}<span class="wg-sub">${esc(lateLine(r))}</span><span class="wg-sub">${esc(who)}</span></div>
-    <div class="wcd-steps">${steps.map((s) => stepBtn(r, s, nextK)).join('')}</div>
-    <div class="wg-acts">${call}</div>
-    <div class="wcd-cmrow" style="grid-column:1/-1"><button type="button" class="wcd-comm" data-wcd-comm="${esc(r.cid)}" aria-expanded="${C.cm.has(r.cid)}">Communication${C.data.noText && C.data.noText[r.cid] ? ' · No texts' : ''}</button></div>${C.cm.has(r.cid) ? `<div class="cm-expand" data-wcd-cm="${esc(r.cid)}"></div>` : ''}</div>`;
+  const call = r.phone ? `<a class="pt-icon" href="${tel(r.phone)}" title="Call ${esc(r.phone)}" aria-label="Call ${esc(r.name)}">${f.ic('phone')}</a>` : `<span class="pt-icon is-off" title="No phone to call">${f.ic('phone')}</span>`;
+  const lastTxt = r.last ? `${f.fd(r.last.date)} · ${r.last.what.toLowerCase()}` : 'No contact on record';
+  const holders = (r.holderNames || []).join(', ');
+  const late = lateLine(r);
+  const lateN = late ? late.split(' · ').length : 0;
+  const where = [r.place, r.pattern].filter(Boolean).join(' · ');
+  const open = C.cm.has(r.cid);
+  const comm = `<button type="button" class="wcd-comm ptl-comm${open ? ' is-open' : ''}" data-wcd-comm="${esc(r.cid)}" aria-expanded="${open}" title="Communication history and preferences">Communication${C.data.noText && C.data.noText[r.cid] ? ' <span class="pt-badge pt-badge--warn">No texts</span>' : ''}</button>`;
+  const main = `<tr class="ptl-row${open ? ' is-open' : ''}" data-cid="${esc(r.cid)}" data-pt-row tabindex="-1">
+    <td class="c-who"><div class="ptl-who"><a class="pt-name wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}" data-pt-open title="${esc(r.name)}">${esc(r.name)}</a><span class="pt-sub ptl-place" title="${esc(where + (r.found ? ' · Came in through ' + r.found.label : ''))}">${esc(where)}</span></div></td>
+    ${hide.has('rule') ? '' : `<td class="c-rule" title="${esc(r.line || '')}"><span class="pt-badge${r.rule === 'first' ? ' pt-badge--good' : ''}">${esc(r.ruleLabel)}</span></td>`}
+    <td class="c-due">${dueLabel(r)}${lateN ? ` <span class="pt-badge pt-badge--warn" title="${esc(late)}">+${lateN} late</span>` : ''}${left ? ' <span class="pt-badge pt-badge--gold">Left a message today</span>' : ''}</td>
+    <td class="c-steps"><div class="ptl-steps">${steps.map((s) => stepBtn(r, s, nextK)).join('')}</div></td>
+    ${hide.has('last') ? '' : `<td class="c-last" title="${esc(lastTxt)}"><span class="pt-sub">${esc(lastTxt)}</span></td>`}
+    ${hide.has('holder') ? '' : `<td class="c-holder" title="${esc(holders)}"><span class="pt-sub">${esc(holders)}</span></td>`}
+    ${hide.has('found') ? '' : `<td class="c-found" title="${r.found ? esc(r.found.code) : ''}"><span class="pt-sub">${r.found ? esc(r.found.label) : ''}</span></td>`}
+    <td class="c-acts"><div class="pt-acts">${call}${comm}</div></td></tr>`;
+  return main + (open ? `<tr class="ptl-expand"><td colspan="${n}"><div class="cm-expand" data-wcd-cm="${esc(r.cid)}"></div></td></tr>` : '');
 }
 
 function view() {
@@ -92,21 +122,33 @@ function view() {
   if (!el) return;
   if (!C.data && !C.error) { el.innerHTML = window.WCSkel(5); if (!C.loading) start(); return; }
   if (C.error && !C.data) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wg-empty"><b>The list did not load</b>${esc(C.error)}<p><button type="button" class="h-btn h-btn--primary" data-wcd-reload>Try again</button></p></div></section>`; return; }
+  const PT = window.PT;
   const d = C.data; const all = rows(); const due = all.filter(isDue);
-  const stats = [['due', 'Due now', due.length, 1], ['first', 'First-time partners', due.filter((r) => r.rule === 'first').length], ['repeat', QUICK.repeat, due.filter((r) => ['monthly', 'semi', 'annual'].includes(r.rule)).length], ['quarterly', QUICK.quarterly, due.filter((r) => r.rule === 'quarterly').length], ['', 'Done this week', d.stats.week + C.weekAdd]];
-  const list = visible();
+  const quick = [['', 'All', all.length, 'Every partner in the queue'], ['due', 'Due now', due.length, QUICK.due], ['first', 'First-time', due.filter((r) => r.rule === 'first').length, QUICK.first], ['repeat', 'Monthly to annual', due.filter((r) => ['monthly', 'semi', 'annual'].includes(r.rule)).length, QUICK.repeat], ['quarterly', 'Quarterly', due.filter((r) => r.rule === 'quarterly').length, QUICK.quarterly]];
+  const list = ordered(visible());
+  const hide = hiddenCols(); const n = colCount(hide);
+  if (PT) C.page = PT.clampPage(C.page, list.length, pageSize());
+  const pageList = PT ? PT.slice(list, C.page, pageSize()) : list;
   const chips = d.owners.length > 1 && d.owners.some((o) => o.n !== d.everyone);
   const mine = d.me && d.owners.some((o) => o.id === d.me) ? d.me : '';
-  const seg = chips ? `<div class="pp-seg" role="group" aria-label="Whose list">${mine ? `<button type="button" class="${C.owner === mine ? 'is-on' : ''}" data-wcd-owner="${esc(mine)}">Mine</button>` : ''}<button type="button" class="${!C.owner ? 'is-on' : ''}" data-wcd-owner="all">All of Partner Care</button></div>` : '';
+  const seg = chips ? `<div class="pt-seg" role="group" aria-label="Whose list">${mine ? `<button type="button" class="${C.owner === mine ? 'is-on' : ''}" data-wcd-owner="${esc(mine)}">Mine</button>` : ''}<button type="button" class="${!C.owner ? 'is-on' : ''}" data-wcd-owner="all">All of Partner Care</button></div>` : '';
   el.innerHTML = `
-    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn]) => `<button type="button" class="wc-stat${k && C.quick === k ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}" ${k ? `data-wcd-quick="${k}"` : 'data-wcd-noop'}><b>${n}</b><span>${esc(l)}</span></button>`).join('')}</div>
-    <section class="h-card wc-sheet" aria-label="Cadence">
-      <div class="wg-tools">${seg}<label class="wc-find">${f.ic('search')}<input type="search" id="wcd-q" placeholder="Find a partner" value="${esc(C.q)}" autocomplete="off" /></label>${C.quick ? `<button type="button" class="wcd-chip" data-wcd-quick="">${f.ic('x')}${esc(QUICK[C.quick])}</button>` : ''}<span class="wg-spacer"></span>
+    <section class="h-card wc-sheet ptl-sheet" aria-label="Cadence">
+      <div class="pt-bar">${seg}<label class="pt-search">${SEARCH_SVG}<span class="sr-only">Find a partner</span><input type="search" id="wcd-q" data-pt-search placeholder="Find a partner" value="${esc(C.q)}" autocomplete="off" /></label>
+        <div class="pt-seg" role="group" aria-label="Show">${quick.map(([k, l, c, tip]) => `<button type="button" class="${C.quick === k ? 'is-on' : ''}" data-wcd-quick="${k}" aria-pressed="${C.quick === k}" title="${esc(tip)}">${esc(l)}<span>${c.toLocaleString('en-US')}</span></button>`).join('')}</div>
+        <span class="pt-spacer"></span>
+        ${PT ? PT.colsHTML('cadence', COLS, HIDE_DEFAULT) : ''}
+        ${PT ? PT.densityHTML() : ''}
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wcd-print>${f.ic('print')}Print the three lists</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence">${f.ic('sheet')}Open in Google Sheets</button></div>
-      <div class="wg-list">${list.slice(0, C.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>${all.length ? 'Nothing matches' : 'Queue clear'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New partners come due after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>`}
-        ${list.length > C.shown ? `<div class="wg-group"><span>${list.length - C.shown} more</span><button type="button" data-wcd-more>Show ${Math.min(100, list.length - C.shown)} more</button></div>` : ''}</div>
-      <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'partner' : 'partners'}. Each step you press logs an action on the partner.${d.unreachable ? ` ${d.unreachable.toLocaleString('en-US')} more ${d.unreachable === 1 ? 'partner is' : 'partners are'} due with no phone, email or mailing address for the step they need.` : ''}</span></div>
+      <div class="ptl-wrap">
+        <table class="pt-table ptl-table ptl-cadence">
+          <thead><tr><th>${th('name', 'Partner')}</th>${hide.has('rule') ? '' : `<th>${th('rule', 'Frequency')}</th>`}<th>${th('over', 'Due')}</th><th>Steps</th>${hide.has('last') ? '' : `<th>${th('last', 'Last contact')}</th>`}${hide.has('holder') ? '' : '<th>Held by</th>'}${hide.has('found') ? '' : '<th>Came in through</th>'}<th><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody data-pt-list="cadence">${pageList.map((r) => rowHTML(r, hide, n)).join('') || `<tr><td colspan="${n}"><div class="pt-empty"><b>${all.length ? 'Nothing matches' : 'Queue clear'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New partners come due after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div></td></tr>`}</tbody>
+        </table>
+      </div>
+      ${PT ? PT.pager('cadence', { total: list.length, page: C.page, noun: 'partners' }) : ''}
+      <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'partner' : 'partners'}. ${(d.stats.week + C.weekAdd).toLocaleString('en-US')} done this week. Each step you press logs an action on the partner.${d.unreachable ? ` ${d.unreachable.toLocaleString('en-US')} more ${d.unreachable === 1 ? 'partner is' : 'partners are'} due with no phone, email or mailing address for the step they need.` : ''}</span></div>
     </section>`;
   registerSheet();
   mountComm();
@@ -218,7 +260,7 @@ async function save(r, k, reach, line) {
   else {
     (C.local[r.cid] || (C.local[r.cid] = new Set())).add(k);
     const done = finished(r);
-    if (done) { C.weekAdd++; const el = $(`.wcd-row[data-cid="${CSS.escape(r.cid)}"]`); if (el) el.classList.add('is-leaving'); }
+    if (done) { C.weekAdd++; const el = $(`.ptl-row[data-cid="${CSS.escape(r.cid)}"]`); if (el) el.classList.add('is-leaving'); }
     setTimeout(() => { if (W().S.view === 'cadence') view(); W().render(); }, done ? 380 : 0);
   }
   if (left) view();
@@ -248,9 +290,8 @@ document.addEventListener('click', async (e) => {
   if (!b) return;
   const d = b.dataset;
   if (d.wcdComm) { if (C.cm.has(d.wcdComm)) C.cm.delete(d.wcdComm); else C.cm.add(d.wcdComm); view(); return; }
-  if (d.wcdQuick !== undefined) { C.quick = C.quick === d.wcdQuick ? '' : d.wcdQuick; C.shown = 100; view(); return; }
+  if (d.wcdQuick !== undefined) { C.quick = C.quick === d.wcdQuick ? '' : d.wcdQuick; C.page = 1; view(); return; }
   if (b.hasAttribute('data-wcd-reload')) { C.data = null; C.error = ''; C.loading = false; C.started = false; view(); return; }
-  if (b.hasAttribute('data-wcd-more')) { C.shown += 100; view(); return; }
   if (b.hasAttribute('data-wcd-print')) { printDialog(); return; }
   if (d.wcdOwner !== undefined) { C.data = null; view(); await load(d.wcdOwner); view(); W().render(); return; }
   if (d.wcdStep) {
@@ -265,10 +306,19 @@ document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id !== 'wcd-q') return;
   clearTimeout(qT);
-  qT = setTimeout(() => { C.q = t.value; C.shown = 100; view(); const i = $('#wcd-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
+  qT = setTimeout(() => { C.q = t.value; C.page = 1; view(); const i = $('#wcd-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
 });
 // An undo of a step (the toast's Undo is shared with Gifts to thank) puts the row back.
 document.addEventListener('favor:thanked-undone', async () => { if (!C.started) return; await load(C.owner || 'all'); W().render(); });
+
+// Pager, sortable headers and the Columns menu (public/js/ptable.js).
+if (window.PT) {
+  window.PT.on('cadence', {
+    page(p) { C.page = p; view(); },
+    sort(col, dir) { if (col === 'name' || col === 'rule') dir = C.sort === col ? dir : 'asc'; C.sort = col; C.dir = dir; C.page = 1; view(); },
+    cols() { view(); },
+  });
+}
 
 if (window.WCTabs) {
   window.WCTabs.registerTab({ id: 'cadence', label: 'Cadence', roles: ['partner_care'], after: 'open', count: () => count(), dot: () => dot(), mount: () => view(), warm: () => start() });

@@ -10,12 +10,12 @@ const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const G = { data: null, loading: false, error: '', started: false, kind: '', q: '', done: false, shown: 100, sheetOn: false };
+const G = { data: null, loading: false, error: '', started: false, kind: '', q: '', done: false, page: 1, sort: '', dir: 'desc', sheetOn: false };
 const KIND_TABS = { request: 'Requests', loi: 'LOIs', report: 'Reports', conversation: 'Conversations', other: 'Tasks and cultivation' };
 
 async function load() {
   G.loading = true; G.error = '';
-  try { G.data = await W().api('/api/work/grants'); G.shown = 100; } catch (e) { G.error = e.message; }
+  try { G.data = await W().api('/api/work/grants'); G.page = 1; } catch (e) { G.error = e.message; }
   G.loading = false;
 }
 async function start() {
@@ -29,17 +29,40 @@ const inKind = (r, k) => !k || (k === 'other' ? r.kind === 'task' || r.kind === 
 const visible = () => rows().filter((r) => (G.done ? !r.open : r.open) && inKind(r, G.kind) && (!G.q || (r.foundation + ' ' + r.summary).toLowerCase().includes(G.q.toLowerCase())));
 const count = () => (G.data ? G.data.stats.open : '');
 
-function rowHTML(r) {
+// Columns the person can hide. Foundation and the row buttons always show.
+const COLS = [{ k: 'who', l: 'Foundation', fixed: true }, { k: 'kind', l: 'Kind' }, { k: 'sum', l: 'Entry' }, { k: 'award', l: 'Award and file' }, { k: 'date', l: 'Date' }, { k: 'by', l: 'Fundraiser' }];
+const pageSize = () => (window.PT ? window.PT.size('grants', 50) : 50);
+const SEARCH_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const th = (col, label) => (window.PT ? window.PT.th('grants', col, label, { col: G.sort, dir: G.dir }) : esc(label));
+const SORTS = {
+  name: (r) => String(r.foundation || '').toLowerCase(),
+  kind: (r) => String(r.kindLabel || '').toLowerCase(),
+  date: (r) => r.date || '',
+  by: (r) => (r.who || []).join(', ').toLowerCase(),
+};
+function ordered(list) {
+  const key = SORTS[G.sort];
+  if (!key) return list;
+  const sgn = G.dir === 'asc' ? 1 : -1;
+  return list.slice().sort((a, b) => { const x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * sgn; });
+}
+
+function rowHTML(r, hide) {
   const f = F();
-  const file = r.file ? `<span class="wc-tag wc-tag--done">${esc(r.file)}</span>` : '';
-  const local = r.local ? '<span class="wc-tag wc-tag--queued">Just logged</span>' : '';
-  const open = r.local && String(r.id).startsWith('local-') ? '' : `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-open="${esc(r.id)}">${f.ic('expand')}Open</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-attach="${esc(r.id)}">${f.ic('plus')}File</button>`;
-  return `<div class="wg-row wgr-row" data-id="${esc(r.id)}">
-    <div class="wgr-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.foundation)}</a><span class="wg-sub">${esc(r.place)}</span></div>
-    <div class="wgr-what"><span class="wc-tag">${esc(r.kindLabel)}</span>${local}${file}<span class="wgr-sum">${esc(r.summary)}</span>${r.description ? `<span class="wg-sub">${esc(r.description.slice(0, 160))}</span>` : ''}${r.award ? `<a class="wgr-award" href="/work/partner/${esc(r.cid)}?opp=${esc(r.award.id)}">Award: ${esc(r.award.name)}${r.award.amount ? ' · ' + f.money(r.award.amount) : ''}</a>` : r.kind === 'report' ? '<span class="wg-sub">No award on record</span>' : ''}</div>
-    <div class="wgr-date"><b>${r.date ? esc(f.fd(r.date)) : ''}</b><span class="wg-sub">${r.open ? 'Due' : esc(r.category)}</span></div>
-    <div class="wgr-by"><span class="wg-sub">${esc(r.who.join(', '))}</span></div>
-    <div class="wg-acts">${open}</div></div>`;
+  const local = r.local ? ' <span class="pt-badge pt-badge--gold">Just logged</span>' : '';
+  const acts = r.local && String(r.id).startsWith('local-') ? '' : `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-open="${esc(r.id)}" data-pt-open>${f.ic('expand')}Open</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-attach="${esc(r.id)}">${f.ic('plus')}File</button>`;
+  const award = r.award ? `<a class="wgr-award" href="/work/partner/${esc(r.cid)}?opp=${esc(r.award.id)}" title="Award: ${esc(r.award.name)}${r.award.amount ? ' · ' + esc(f.money(r.award.amount)) : ''}">Award: ${esc(r.award.name)}${r.award.amount ? ' · ' + f.money(r.award.amount) : ''}</a>` : r.kind === 'report' ? '<span class="pt-sub">No award on record</span>' : '';
+  const file = r.file ? `<span class="pt-badge pt-badge--good" title="${esc(r.file)}">${esc(r.file)}</span> ` : '';
+  const by = (r.who || []).join(', ');
+  const full = [r.summary, r.description].filter(Boolean).join(' · ');
+  return `<tr class="ptl-row" data-id="${esc(r.id)}" data-pt-row tabindex="-1">
+    <td class="c-who"><div class="ptl-who"><a class="pt-name wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}" title="${esc(r.foundation)}">${esc(r.foundation)}</a><span class="pt-sub ptl-place" title="${esc(r.place)}">${esc(r.place)}</span></div></td>
+    ${hide.has('kind') ? '' : `<td class="c-kind"><span class="pt-badge">${esc(r.kindLabel)}</span>${local}</td>`}
+    ${hide.has('sum') ? '' : `<td class="c-sum is-clip" title="${esc(full)}"><span class="wgr-sum">${esc(r.summary)}</span></td>`}
+    ${hide.has('award') ? '' : `<td class="c-award is-clip">${file}${award}</td>`}
+    ${hide.has('date') ? '' : `<td class="c-date"><b>${r.date ? esc(f.fd(r.date)) : ''}</b> <span class="pt-sub">${r.open ? 'Due' : esc(r.category)}</span></td>`}
+    ${hide.has('by') ? '' : `<td class="c-by" title="${esc(by)}"><span class="pt-sub">${esc(by)}</span></td>`}
+    <td class="c-acts"><div class="pt-acts">${acts}</div></td></tr>`;
 }
 
 function view() {
@@ -47,17 +70,31 @@ function view() {
   if (!el) return;
   if (!G.data && !G.error) { el.innerHTML = window.WCSkel(5); if (!G.loading) start(); return; }
   if (G.error && !G.data) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wg-empty"><b>The list did not load</b>${esc(G.error)}<p><button type="button" class="h-btn h-btn--primary" data-wgr-reload>Try again</button></p></div></section>`; return; }
-  const s = G.data.stats; const list = visible();
-  const stats = [['', 'Open tasks', s.open], ['request', 'Requests this month', s.requestsMonth], ['loi', 'LOIs this month', s.loisMonth], ['report', 'Reports this month', s.reportsMonth]];
+  const PT = window.PT;
+  const s = G.data.stats; const list = ordered(visible());
+  const hide = PT ? PT.hidden('grants') : new Set();
+  const n = 1 + COLS.filter((c) => c.fixed || !hide.has(c.k)).length;
+  if (PT) G.page = PT.clampPage(G.page, list.length, pageSize());
+  const pageList = PT ? PT.slice(list, G.page, pageSize()) : list;
+  const kinds = [['request', 'Requests'], ['loi', 'LOIs'], ['report', 'Reports'], ['conversation', 'Conversations'], ['other', 'Tasks and cultivation']];
   el.innerHTML = `
-    <div class="h-card wc-band wg-band" style="--n:4">${stats.map(([k, l, n]) => `<button type="button" class="wc-stat${k && G.kind === k ? ' is-on' : ''}" ${k ? `data-wgr-kind="${k}"` : 'data-wgr-noop'}><b>${n}</b><span>${esc(l)}</span></button>`).join('')}</div>
-    <section class="h-card wc-sheet" aria-label="Grants">
-      <div class="wg-tools"><div class="pp-seg" role="group" aria-label="Which list"><button type="button" class="${!G.done ? 'is-on' : ''}" data-wgr-done="0">Open</button><button type="button" class="${G.done ? 'is-on' : ''}" data-wgr-done="1">Done</button></div>
-        <label class="wc-find">${f.ic('search')}<input type="search" id="wgr-q" placeholder="Find a foundation" value="${esc(G.q)}" autocomplete="off" /></label>${G.kind ? `<button type="button" class="wcd-chip" data-wgr-kind="">${f.ic('x')}${esc(KIND_TABS[G.kind] || G.kind)}</button>` : ''}<span class="wg-spacer"></span>
+    <section class="h-card wc-sheet ptl-sheet" aria-label="Grants">
+      <div class="pt-bar"><div class="pt-seg" role="group" aria-label="Which list"><button type="button" class="${!G.done ? 'is-on' : ''}" data-wgr-done="0">Open<span>${Number(s.open).toLocaleString('en-US')}</span></button><button type="button" class="${G.done ? 'is-on' : ''}" data-wgr-done="1">Done</button></div>
+        <label class="pt-search">${SEARCH_SVG}<span class="sr-only">Find a foundation</span><input type="search" id="wgr-q" data-pt-search placeholder="Find a foundation" value="${esc(G.q)}" autocomplete="off" /></label>
+        <select class="pt-sel${G.kind ? ' is-set' : ''}" data-wgr-kindsel aria-label="Kind"><option value="">All kinds</option>${kinds.map(([k, l]) => `<option value="${k}"${G.kind === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
+        <span class="ptl-done" title="Entries logged this month">This month <b>${s.requestsMonth}</b> requests, <b>${s.loisMonth}</b> LOIs, <b>${s.reportsMonth}</b> reports</span>
+        <span class="pt-spacer"></span>
+        ${PT ? PT.colsHTML('grants', COLS) : ''}
+        ${PT ? PT.densityHTML() : ''}
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="grants">${f.ic('sheet')}Open in Google Sheets</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-talk>Conversation</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgr-log>${f.ic('plus')}Log</button></div>
-      <div class="wg-list">${list.slice(0, G.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>${G.done ? 'Nothing logged yet' : 'No open grant tasks'}</b>${G.done ? 'Requests, LOIs and reports you log show here.' : 'A to-do you log with a due date shows here until it is done.'}</div>`}
-        ${list.length > G.shown ? `<div class="wg-group"><span>${list.length - G.shown} more</span><button type="button" data-wgr-more>Show ${Math.min(100, list.length - G.shown)} more</button></div>` : ''}</div>
+      <div class="ptl-wrap">
+        <table class="pt-table ptl-table ptl-grants">
+          <thead><tr><th>${th('name', 'Foundation')}</th>${hide.has('kind') ? '' : `<th>${th('kind', 'Kind')}</th>`}${hide.has('sum') ? '' : '<th>Entry</th>'}${hide.has('award') ? '' : '<th>Award and file</th>'}${hide.has('date') ? '' : `<th>${th('date', 'Date')}</th>`}${hide.has('by') ? '' : `<th>${th('by', 'Fundraiser')}</th>`}<th><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody data-pt-list="grants">${pageList.map((r) => rowHTML(r, hide)).join('') || `<tr><td colspan="${n}"><div class="pt-empty"><b>${G.done ? 'Nothing logged yet' : 'No open grant tasks'}</b>${G.done ? 'Requests, LOIs and reports you log show here.' : 'A to-do you log with a due date shows here until it is done.'}</div></td></tr>`}</tbody>
+        </table>
+      </div>
+      ${PT ? PT.pager('grants', { total: list.length, page: G.page, noun: 'entries' }) : ''}
       <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'entry' : 'entries'} from the last 24 months. Log adds one action on the foundation and attaches the file you pick.</span></div>
     </section>`;
   registerSheet();
@@ -192,10 +229,9 @@ document.addEventListener('click', (e) => {
   const b = t.closest('button');
   if (!b) return;
   const d = b.dataset;
-  if (d.wgrKind !== undefined) { G.kind = G.kind === d.wgrKind ? '' : d.wgrKind; G.shown = 100; view(); return; }
-  if (d.wgrDone !== undefined) { G.done = d.wgrDone === '1'; G.shown = 100; view(); return; }
+  if (d.wgrKind !== undefined) { G.kind = G.kind === d.wgrKind ? '' : d.wgrKind; G.page = 1; view(); return; }
+  if (d.wgrDone !== undefined) { G.done = d.wgrDone === '1'; G.page = 1; view(); return; }
   if (b.hasAttribute('data-wgr-reload')) { G.data = null; G.error = ''; G.loading = false; G.started = false; view(); return; }
-  if (b.hasAttribute('data-wgr-more')) { G.shown += 100; view(); return; }
   if (b.hasAttribute('data-wgr-log')) { logDialog(); return; }
   if (b.hasAttribute('data-wgr-talk')) { logDialog({ kind: 'conversation' }); return; }
   if (d.wgrOpen) { if (window.WCEdit && window.WCEdit.panel) window.WCEdit.panel(d.wgrOpen); return; }
@@ -206,8 +242,21 @@ document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id !== 'wgr-q') return;
   clearTimeout(qT);
-  qT = setTimeout(() => { G.q = t.value; G.shown = 100; view(); const i = $('#wgr-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
+  qT = setTimeout(() => { G.q = t.value; G.page = 1; view(); const i = $('#wgr-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
 });
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t.matches || !t.matches('[data-wgr-kindsel]') || !t.closest('#wc-root')) return;
+  G.kind = t.value; G.page = 1; view();
+});
+// Pager, sortable headers and the Columns menu (public/js/ptable.js).
+if (window.PT) {
+  window.PT.on('grants', {
+    page(p) { G.page = p; view(); },
+    sort(col, dir) { if (col === 'name' || col === 'kind' || col === 'by') dir = G.sort === col ? dir : 'asc'; G.sort = col; G.dir = dir; G.page = 1; view(); },
+    cols() { view(); },
+  });
+}
 document.addEventListener('favor:thanked-undone', async () => { if (!G.started) return; await load(); W().render(); });
 
 if (window.WCTabs) {
