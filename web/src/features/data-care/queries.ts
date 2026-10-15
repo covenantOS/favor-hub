@@ -30,7 +30,6 @@ export const pairQuery = (id: string) =>
     queryKey: dcKeys.pair(id),
     queryFn: async () => (await hubGet('/api/datacare/pair?id=' + encodeURIComponent(id))) as { pair: Pair; compare: Compare | null },
     staleTime: 15_000,
-    enabled: !!id,
   });
 
 export const flagsQuery = (state: string, q: string, offset: number) =>
@@ -38,5 +37,4 @@ export const flagsQuery = (state: string, q: string, offset: number) =>
     queryKey: dcKeys.flags(state, q, offset),
     queryFn: async () => (await hubGet(`/api/datacare/flags?state=${state}&q=${encodeURIComponent(q)}&offset=${offset}&limit=${FLAG_PAGE}`)) as { rows: Flag[]; total: number },
     staleTime: 15_000,
-    placeholderData: (prev) => prev,
   });

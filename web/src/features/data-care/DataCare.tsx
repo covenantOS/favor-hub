@@ -1,6 +1,7 @@
 import '../../styles/data-care.css';
-import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Suspense, startTransition, useEffect, useState } from 'react';
+import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { send } from '@/lib/api';
 import { count, money0, dayShort } from '@/lib/format';
 import { NavLink } from '@/shell/NavLink';
@@ -11,40 +12,84 @@ const PAGE = 9;
 const scoreClass = (n: number) => (n >= 60 ? '' : n >= 50 ? ' is-mid' : ' is-low');
 const when = (iso: string | null) => (iso ? dayShort(iso.slice(0, 10)) : '');
 
+const Skel = ({ h, n = 1, cls = 'dc-pair' }: { h?: number; n?: number; cls?: string }) => (
+  <>
+    {Array.from({ length: n }, (_, i) => (
+      <div key={i} className={cls + ' r2t-skel'} style={h ? { height: h } : undefined} aria-hidden="true" />
+    ))}
+  </>
+);
+
+// Every part that draws from a read sits in Suspense, so the server sends finished HTML and the browser hydrates the same markup.
 export function DataCare() {
-  const sum = useQuery(summaryQuery);
-  const s = sum.data?.summary;
-  const admin = !!sum.data?.me.admin;
   return (
     <div className="dc">
-      <section className="h-card dc-stats" aria-label="Data care totals">
-        <div className="dc-stat">
-          <small>Possible duplicates</small>
-          <b>{s ? count(s.pairs.review) : ' '}</b>
-          <span>{s ? `${count(s.pairs.merged)} merged, ${count(s.pairs.notSame)} marked not the same` : ' '}</span>
-        </div>
-        <div className="dc-stat">
-          <small>Gave this year, no mailing address</small>
-          <b>{s ? count(s.noAddress.open) : ' '}</b>
-          <span>{s ? `${money0(s.noAddress.gave)} in the last 12 months` : ' '}</span>
-        </div>
-        <div className="dc-stat">
-          <small>Fixed since the list started</small>
-          <b>{s ? count(s.noAddress.fixed) : ' '}</b>
-          <span>{s?.sheet ? <a href={s.sheet} target="_blank" rel="noreferrer">Open the Google Sheet</a> : s?.scannedAt ? `Checked ${when(s.scannedAt)}` : ' '}</span>
-        </div>
-      </section>
-      {s && admin ? <AssignBar s={s} /> : null}
+      <ErrorBoundary label="The Data care totals could not load." className="h-card">
+        <Suspense fallback={<section className="h-card dc-stats" style={{ minHeight: 112 }} aria-hidden="true" />}>
+          <Head />
+        </Suspense>
+      </ErrorBoundary>
       <div className="dc-grid">
-        <Duplicates />
-        <Compared />
+        <ErrorBoundary label="The duplicates could not load." className="h-card">
+          <Duplicates />
+        </ErrorBoundary>
+        <ErrorBoundary label="The comparison could not load." className="h-card">
+          <Suspense
+            fallback={
+              <section className="h-card dc-compare">
+                <Skel h={420} cls="dc-ch" />
+              </section>
+            }
+          >
+            <Compared />
+          </Suspense>
+        </ErrorBoundary>
       </div>
-      <Missing />
+      <ErrorBoundary label="The list could not load." className="h-card">
+        <Missing />
+      </ErrorBoundary>
     </div>
   );
 }
 
-function AssignBar({ s }: { s: NonNullable<ReturnType<typeof useQuery<{ summary: import('./types').Summary; me: { email: string; admin: boolean } }>>['data']>['summary'] }) {
+function Head() {
+  const { data } = useSuspenseQuery(summaryQuery);
+  const s = data.summary;
+  return (
+    <>
+      <section className="h-card dc-stats" aria-label="Data care totals">
+        <div className="dc-stat">
+          <small>Possible duplicates</small>
+          <b>{count(s.pairs.review)}</b>
+          <span>{`${count(s.pairs.merged)} merged, ${count(s.pairs.notSame)} marked not the same`}</span>
+        </div>
+        <div className="dc-stat">
+          <small>Gave this year, no mailing address</small>
+          <b>{count(s.noAddress.open)}</b>
+          <span>{`${money0(s.noAddress.gave)} in the last 12 months`}</span>
+        </div>
+        <div className="dc-stat">
+          <small>Fixed since the list started</small>
+          <b>{count(s.noAddress.fixed)}</b>
+          <span>
+            {s.sheet ? (
+              <a href={s.sheet} target="_blank" rel="noreferrer">
+                Open the Google Sheet
+              </a>
+            ) : s.scannedAt ? (
+              `Checked ${when(s.scannedAt)}`
+            ) : (
+              ' '
+            )}
+          </span>
+        </div>
+      </section>
+      {data.me.admin ? <AssignBar s={s} /> : null}
+    </>
+  );
+}
+
+function AssignBar({ s }: { s: import('./types').Summary }) {
   const qc = useQueryClient();
   const [sure, setSure] = useState(false);
   const m = useMutation({
@@ -87,38 +132,55 @@ function AssignBar({ s }: { s: NonNullable<ReturnType<typeof useQuery<{ summary:
 
 /* ----------------------------------------------------------------------------------------------- duplicates */
 
+type Tab = 'review' | 'not_same' | 'done';
+
 function Duplicates() {
-  const [tab, setTab] = useState<'review' | 'not_same' | 'done'>('review');
+  const [tab, setTab] = useState<Tab>('review');
   const [page, setPage] = useState(0);
-  const sum = useQuery(summaryQuery).data?.summary;
-  const list = useQuery(pairsQuery(tab));
-  const pairs = list.data ?? [];
-  const [params, setParams] = useSelected();
-  const picked = params || pairs[0]?.id || '';
-  const pages = Math.max(1, Math.ceil(pairs.length / PAGE));
-  const slice = pairs.slice(page * PAGE, page * PAGE + PAGE);
-  useEffect(() => setPage(0), [tab]);
-  const tabs: [typeof tab, string, number | undefined][] = [
-    ['review', 'To review', sum?.pairs.review],
-    ['not_same', 'Not the same', sum?.pairs.notSame],
-    ['done', 'Merged', sum ? sum.pairs.merged + sum.pairs.queued + sum.pairs.failed : undefined],
-  ];
   return (
     <section className="h-card dc-listcard" aria-label="Possible duplicates">
       <div className="dc-h">
         <h2>Possible duplicates</h2>
       </div>
+      <Suspense fallback={<Skel n={6} />}>
+        <PairBody
+          tab={tab}
+          page={page}
+          setTab={(t) =>
+            startTransition(() => {
+              setTab(t);
+              setPage(0);
+            })
+          }
+          setPage={(n) => startTransition(() => setPage(n))}
+        />
+      </Suspense>
+    </section>
+  );
+}
+
+function PairBody({ tab, page, setTab, setPage }: { tab: Tab; page: number; setTab: (t: Tab) => void; setPage: (n: number) => void }) {
+  const sum = useSuspenseQuery(summaryQuery).data.summary;
+  const pairs = useSuspenseQuery(pairsQuery(tab)).data;
+  const [params, setParams] = useSelected();
+  const picked = params || pairs[0]?.id || '';
+  const pages = Math.max(1, Math.ceil(pairs.length / PAGE));
+  const slice = pairs.slice(page * PAGE, page * PAGE + PAGE);
+  const tabs: [Tab, string, number][] = [
+    ['review', 'To review', sum.pairs.review],
+    ['not_same', 'Not the same', sum.pairs.notSame],
+    ['done', 'Merged', sum.pairs.merged + sum.pairs.queued + sum.pairs.failed],
+  ];
+  return (
+    <>
       <div className="dc-tabs" role="group" aria-label="Show">
         {tabs.map(([k, label, n]) => (
           <button key={k} type="button" className="dc-tab" aria-pressed={tab === k} onClick={() => setTab(k)}>
-            {label}
-            {n !== undefined ? ` ${count(n)}` : ''}
+            {label} {count(n)}
           </button>
         ))}
       </div>
-      {list.isPending ? (
-        Array.from({ length: 5 }, (_, i) => <div key={i} className="dc-pair r2t-skel" aria-hidden="true" />)
-      ) : slice.length === 0 ? (
+      {slice.length === 0 ? (
         <p className="dc-empty">{tab === 'review' ? 'No pairs waiting. The list rebuilds every hour from the Blackbaud copy.' : 'Nothing here yet.'}</p>
       ) : (
         slice.map((p) => (
@@ -144,7 +206,7 @@ function Duplicates() {
           </button>
         </div>
       </div>
-    </section>
+    </>
   );
 }
 
@@ -167,21 +229,17 @@ function useSelected(): [string, (id: string) => void] {
       const u = new URL(location.href);
       u.searchParams.set('pair', next);
       history.replaceState(null, '', u.pathname + u.search);
-      window.dispatchEvent(new Event('dc-pair'));
+      startTransition(() => {
+        window.dispatchEvent(new Event('dc-pair'));
+      });
     },
   ];
 }
 
 function Compared() {
   const [selected, setSelected] = useSelected();
-  const first = useQuery(pairsQuery('review')).data?.[0]?.id || '';
-  const done = useQuery(pairsQuery('done')).data;
-  const notSame = useQuery(pairsQuery('not_same')).data;
-  const id = selected || first;
-  const q = useQuery(pairQuery(id));
-  const reviewIds = (useQuery(pairsQuery('review')).data ?? []).map((p) => p.id);
-  void done;
-  void notSame;
+  const reviewIds = useSuspenseQuery(pairsQuery('review')).data.map((p) => p.id);
+  const id = selected || reviewIds[0] || '';
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
@@ -194,10 +252,19 @@ function Compared() {
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   });
-  if (!id) return <section className="h-card dc-compare"><p className="dc-empty">Pick a pair on the left to line the two records up.</p></section>;
-  if (q.isPending) return <section className="h-card dc-compare"><div className="dc-ch r2t-skel" style={{ height: 420 }} aria-hidden="true" /></section>;
-  if (q.isError || !q.data) return <section className="h-card dc-compare"><p className="dc-bad">{(q.error as Error | null)?.message || 'That pair did not load.'}</p></section>;
-  return <Card key={id} pair={q.data.pair} compare={q.data.compare} nextId={reviewIds.find((x) => x !== id) || ''} onNext={setSelected} />;
+  if (!id) {
+    return (
+      <section className="h-card dc-compare">
+        <p className="dc-empty">Pick a pair on the left to line the two records up.</p>
+      </section>
+    );
+  }
+  return <ComparedPair key={id} id={id} nextId={reviewIds.find((x) => x !== id) || ''} onNext={setSelected} />;
+}
+
+function ComparedPair({ id, nextId, onNext }: { id: string; nextId: string; onNext: (id: string) => void }) {
+  const { pair, compare } = useSuspenseQuery(pairQuery(id)).data;
+  return <Card pair={pair} compare={compare} nextId={nextId} onNext={onNext} />;
 }
 
 type Pick = 'keep' | 'other';
@@ -343,36 +410,45 @@ function Card({ pair, compare, nextId, onNext }: { pair: Pair; compare: Compare 
 
 /* ----------------------------------------------------------------------------------------------- missing addresses */
 
+type FlagState = 'open' | 'fixed';
+
 function Missing() {
-  const [state, setState] = useState<'open' | 'fixed'>('open');
+  const [state, setState] = useState<FlagState>('open');
   const [term, setTerm] = useState('');
   const [q, setQ] = useState('');
   const [offset, setOffset] = useState(0);
   useEffect(() => {
     const t = setTimeout(() => {
-      setQ(term.trim());
-      setOffset(0);
+      startTransition(() => {
+        setQ(term.trim());
+        setOffset(0);
+      });
     }, 250);
     return () => clearTimeout(t);
   }, [term]);
-  const sum = useQuery(summaryQuery).data?.summary;
-  const r = useQuery(flagsQuery(state, q, offset));
-  const total = r.data?.total ?? 0;
-  const rows = r.data?.rows ?? [];
-  const note = useMemo(() => (sum ? `${count(sum.noAddress.open)} partners, ${money0(sum.noAddress.gave)} in 12 months` : ''), [sum]);
   return (
     <section className="h-card dc-miss" aria-label="Gave this year, no mailing address">
-      <div className="dc-h">
-        <h2>Gave this year, no mailing address</h2>
-        <span>{note}</span>
-      </div>
+      <Suspense
+        fallback={
+          <div className="dc-h">
+            <h2>Gave this year, no mailing address</h2>
+          </div>
+        }
+      >
+        <MissingHead />
+      </Suspense>
       <div className="dc-tabs">
-        <button type="button" className="dc-tab" aria-pressed={state === 'open'} onClick={() => { setState('open'); setOffset(0); }}>
-          Waiting {sum ? count(sum.noAddress.open) : ''}
-        </button>
-        <button type="button" className="dc-tab" aria-pressed={state === 'fixed'} onClick={() => { setState('fixed'); setOffset(0); }}>
-          Fixed {sum ? count(sum.noAddress.fixed) : ''}
-        </button>
+        <Suspense fallback={<span style={{ minHeight: 34 }} aria-hidden="true" />}>
+          <MissingTabs
+            state={state}
+            setState={(v) =>
+              startTransition(() => {
+                setState(v);
+                setOffset(0);
+              })
+            }
+          />
+        </Suspense>
         <input className="dc-search" type="search" placeholder="Find a partner" value={term} onChange={(e) => setTerm(e.target.value)} aria-label="Find a partner in this list" />
       </div>
       <div className="dc-row dc-head" role="row">
@@ -383,9 +459,42 @@ function Missing() {
         <span>{state === 'fixed' ? 'Fixed' : 'Why'}</span>
         <span />
       </div>
-      {r.isPending ? (
-        Array.from({ length: 6 }, (_, i) => <div key={i} className="dc-row r2t-skel" aria-hidden="true" />)
-      ) : rows.length === 0 ? (
+      <Suspense fallback={<Skel n={6} cls="dc-row" />}>
+        <MissingRows state={state} q={q} offset={offset} setOffset={(n) => startTransition(() => setOffset(n))} />
+      </Suspense>
+    </section>
+  );
+}
+
+function MissingHead() {
+  const sum = useSuspenseQuery(summaryQuery).data.summary;
+  return (
+    <div className="dc-h">
+      <h2>Gave this year, no mailing address</h2>
+      <span>{`${count(sum.noAddress.open)} partners, ${money0(sum.noAddress.gave)} in 12 months`}</span>
+    </div>
+  );
+}
+
+function MissingTabs({ state, setState }: { state: FlagState; setState: (v: FlagState) => void }) {
+  const sum = useSuspenseQuery(summaryQuery).data.summary;
+  return (
+    <>
+      <button type="button" className="dc-tab" aria-pressed={state === 'open'} onClick={() => setState('open')}>
+        Waiting {count(sum.noAddress.open)}
+      </button>
+      <button type="button" className="dc-tab" aria-pressed={state === 'fixed'} onClick={() => setState('fixed')}>
+        Fixed {count(sum.noAddress.fixed)}
+      </button>
+    </>
+  );
+}
+
+function MissingRows({ state, q, offset, setOffset }: { state: FlagState; q: string; offset: number; setOffset: (n: number) => void }) {
+  const { rows, total } = useSuspenseQuery(flagsQuery(state, q, offset)).data;
+  return (
+    <>
+      {rows.length === 0 ? (
         <p className="dc-empty">{q ? 'No partner on this list matches that.' : state === 'fixed' ? 'No partner has been fixed yet. A partner moves here when an address appears in Blackbaud.' : 'Every partner who gave this year has a mailing address.'}</p>
       ) : (
         rows.map((f) => (
@@ -416,6 +525,6 @@ function Missing() {
           </button>
         </div>
       </div>
-    </section>
+    </>
   );
 }
