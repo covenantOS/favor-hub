@@ -7,7 +7,7 @@ import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import type { WorkSearch } from './search';
 import { WorkHeader } from './WorkHeader';
-import { boardQuery, codesQuery, gateQuery, recentQuery, startQuery, viewsQuery } from './actions/queries';
+import { boardQuery, codesQuery, gateQuery, giftImagesQuery, oppsQuery, recentQuery, startQuery, viewsQuery } from './actions/queries';
 import { asOf, useBoard, useGate, useWork } from './actions/useWork';
 import { bindClient, toast } from './actions/engine';
 import { EMPTY_FILTERS } from './actions/types';
@@ -33,6 +33,8 @@ export function prefetchActions(qc: QueryClient, s: WorkSearch): void {
   void qc.prefetchQuery(startQuery(as));
   void qc.prefetchQuery(codesQuery(as));
   void qc.prefetchQuery(viewsQuery(as));
+  if (s.view === 'opps') void qc.prefetchQuery(oppsQuery(as));
+  if (s.view === 'giftimages') void qc.prefetchQuery(giftImagesQuery(as));
 }
 
 function GateScreen({ reason }: { reason?: string }) {
