@@ -14,8 +14,11 @@ import { Route as BrainIndexRouteImport } from './routes/brain/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
+import { Route as EvaluationsIndexRouteImport } from './routes/evaluations/index'
+import { Route as ExpensesIndexRouteImport } from './routes/expenses/index'
 import { Route as FeedbackIndexRouteImport } from './routes/feedback/index'
 import { Route as FoundationsIndexRouteImport } from './routes/foundations/index'
+import { Route as GiftEntryIndexRouteImport } from './routes/gift-entry/index'
 import { Route as GiftsIndexRouteImport } from './routes/gifts/index'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpSlugRouteImport } from './routes/help/$slug'
@@ -29,6 +32,9 @@ import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
 import { Route as WelcomeIndexRouteImport } from './routes/welcome/index'
 import { Route as WorkIndexRouteImport } from './routes/work/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
+import { Route as EvaluationsAdminIndexRouteImport } from './routes/evaluations/admin/index'
+import { Route as ExpensesNewIndexRouteImport } from './routes/expenses/new/index'
+import { Route as ExpensesReviewIndexRouteImport } from './routes/expenses/review/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 import { Route as LearnAdminIndexRouteImport } from './routes/learn/admin/index'
@@ -66,6 +72,16 @@ const DataCareIndexRoute = DataCareIndexRouteImport.update({
   path: '/data-care/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvaluationsIndexRoute = EvaluationsIndexRouteImport.update({
+  id: '/evaluations/',
+  path: '/evaluations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesIndexRoute = ExpensesIndexRouteImport.update({
+  id: '/expenses/',
+  path: '/expenses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeedbackIndexRoute = FeedbackIndexRouteImport.update({
   id: '/feedback/',
   path: '/feedback/',
@@ -74,6 +90,11 @@ const FeedbackIndexRoute = FeedbackIndexRouteImport.update({
 const FoundationsIndexRoute = FoundationsIndexRouteImport.update({
   id: '/foundations/',
   path: '/foundations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GiftEntryIndexRoute = GiftEntryIndexRouteImport.update({
+  id: '/gift-entry/',
+  path: '/gift-entry/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GiftsIndexRoute = GiftsIndexRouteImport.update({
@@ -141,6 +162,21 @@ const AdminGoalsIndexRoute = AdminGoalsIndexRouteImport.update({
   path: '/admin/goals/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvaluationsAdminIndexRoute = EvaluationsAdminIndexRouteImport.update({
+  id: '/evaluations/admin/',
+  path: '/evaluations/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesNewIndexRoute = ExpensesNewIndexRouteImport.update({
+  id: '/expenses/new/',
+  path: '/expenses/new/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesReviewIndexRoute = ExpensesReviewIndexRouteImport.update({
+  id: '/expenses/review/',
+  path: '/expenses/review/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GiftsOtherIndexRoute = GiftsOtherIndexRouteImport.update({
   id: '/gifts/other/',
   path: '/gifts/other/',
@@ -204,8 +240,11 @@ export interface FileRoutesByFullPath {
   '/changelog/': typeof ChangelogIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/evaluations/': typeof EvaluationsIndexRoute
+  '/expenses/': typeof ExpensesIndexRoute
   '/feedback/': typeof FeedbackIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
+  '/gift-entry/': typeof GiftEntryIndexRoute
   '/gifts/': typeof GiftsIndexRoute
   '/help/': typeof HelpIndexRoute
   '/learn/': typeof LearnIndexRoute
@@ -219,6 +258,9 @@ export interface FileRoutesByFullPath {
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
+  '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
+  '/expenses/new/': typeof ExpensesNewIndexRoute
+  '/expenses/review/': typeof ExpensesReviewIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
   '/learn/admin/': typeof LearnAdminIndexRoute
@@ -237,8 +279,11 @@ export interface FileRoutesByTo {
   '/changelog': typeof ChangelogIndexRoute
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
+  '/evaluations': typeof EvaluationsIndexRoute
+  '/expenses': typeof ExpensesIndexRoute
   '/feedback': typeof FeedbackIndexRoute
   '/foundations': typeof FoundationsIndexRoute
+  '/gift-entry': typeof GiftEntryIndexRoute
   '/gifts': typeof GiftsIndexRoute
   '/help': typeof HelpIndexRoute
   '/learn': typeof LearnIndexRoute
@@ -252,6 +297,9 @@ export interface FileRoutesByTo {
   '/work': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals': typeof AdminGoalsIndexRoute
+  '/evaluations/admin': typeof EvaluationsAdminIndexRoute
+  '/expenses/new': typeof ExpensesNewIndexRoute
+  '/expenses/review': typeof ExpensesReviewIndexRoute
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
   '/learn/admin': typeof LearnAdminIndexRoute
@@ -271,8 +319,11 @@ export interface FileRoutesById {
   '/changelog/': typeof ChangelogIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
+  '/evaluations/': typeof EvaluationsIndexRoute
+  '/expenses/': typeof ExpensesIndexRoute
   '/feedback/': typeof FeedbackIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
+  '/gift-entry/': typeof GiftEntryIndexRoute
   '/gifts/': typeof GiftsIndexRoute
   '/help/': typeof HelpIndexRoute
   '/learn/': typeof LearnIndexRoute
@@ -286,6 +337,9 @@ export interface FileRoutesById {
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
+  '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
+  '/expenses/new/': typeof ExpensesNewIndexRoute
+  '/expenses/review/': typeof ExpensesReviewIndexRoute
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
   '/learn/admin/': typeof LearnAdminIndexRoute
@@ -306,8 +360,11 @@ export interface FileRouteTypes {
     | '/changelog/'
     | '/churches/'
     | '/data-care/'
+    | '/evaluations/'
+    | '/expenses/'
     | '/feedback/'
     | '/foundations/'
+    | '/gift-entry/'
     | '/gifts/'
     | '/help/'
     | '/learn/'
@@ -321,6 +378,9 @@ export interface FileRouteTypes {
     | '/work/'
     | '/work/partner/$id'
     | '/admin/goals/'
+    | '/evaluations/admin/'
+    | '/expenses/new/'
+    | '/expenses/review/'
     | '/gifts/other/'
     | '/gifts/recurring/'
     | '/learn/admin/'
@@ -339,8 +399,11 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/churches'
     | '/data-care'
+    | '/evaluations'
+    | '/expenses'
     | '/feedback'
     | '/foundations'
+    | '/gift-entry'
     | '/gifts'
     | '/help'
     | '/learn'
@@ -354,6 +417,9 @@ export interface FileRouteTypes {
     | '/work'
     | '/work/partner/$id'
     | '/admin/goals'
+    | '/evaluations/admin'
+    | '/expenses/new'
+    | '/expenses/review'
     | '/gifts/other'
     | '/gifts/recurring'
     | '/learn/admin'
@@ -372,8 +438,11 @@ export interface FileRouteTypes {
     | '/changelog/'
     | '/churches/'
     | '/data-care/'
+    | '/evaluations/'
+    | '/expenses/'
     | '/feedback/'
     | '/foundations/'
+    | '/gift-entry/'
     | '/gifts/'
     | '/help/'
     | '/learn/'
@@ -387,6 +456,9 @@ export interface FileRouteTypes {
     | '/work/'
     | '/work/partner/$id'
     | '/admin/goals/'
+    | '/evaluations/admin/'
+    | '/expenses/new/'
+    | '/expenses/review/'
     | '/gifts/other/'
     | '/gifts/recurring/'
     | '/learn/admin/'
@@ -406,8 +478,11 @@ export interface RootRouteChildren {
   ChangelogIndexRoute: typeof ChangelogIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
+  EvaluationsIndexRoute: typeof EvaluationsIndexRoute
+  ExpensesIndexRoute: typeof ExpensesIndexRoute
   FeedbackIndexRoute: typeof FeedbackIndexRoute
   FoundationsIndexRoute: typeof FoundationsIndexRoute
+  GiftEntryIndexRoute: typeof GiftEntryIndexRoute
   GiftsIndexRoute: typeof GiftsIndexRoute
   HelpIndexRoute: typeof HelpIndexRoute
   LearnIndexRoute: typeof LearnIndexRoute
@@ -421,6 +496,9 @@ export interface RootRouteChildren {
   WorkIndexRoute: typeof WorkIndexRoute
   WorkPartnerIdRoute: typeof WorkPartnerIdRoute
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
+  EvaluationsAdminIndexRoute: typeof EvaluationsAdminIndexRoute
+  ExpensesNewIndexRoute: typeof ExpensesNewIndexRoute
+  ExpensesReviewIndexRoute: typeof ExpensesReviewIndexRoute
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
   LearnAdminIndexRoute: typeof LearnAdminIndexRoute
@@ -470,6 +548,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataCareIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evaluations/': {
+      id: '/evaluations/'
+      path: '/evaluations'
+      fullPath: '/evaluations/'
+      preLoaderRoute: typeof EvaluationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses/': {
+      id: '/expenses/'
+      path: '/expenses'
+      fullPath: '/expenses/'
+      preLoaderRoute: typeof ExpensesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/feedback/': {
       id: '/feedback/'
       path: '/feedback'
@@ -482,6 +574,13 @@ declare module '@tanstack/react-router' {
       path: '/foundations'
       fullPath: '/foundations/'
       preLoaderRoute: typeof FoundationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gift-entry/': {
+      id: '/gift-entry/'
+      path: '/gift-entry'
+      fullPath: '/gift-entry/'
+      preLoaderRoute: typeof GiftEntryIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gifts/': {
@@ -575,6 +674,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminGoalsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evaluations/admin/': {
+      id: '/evaluations/admin/'
+      path: '/evaluations/admin'
+      fullPath: '/evaluations/admin/'
+      preLoaderRoute: typeof EvaluationsAdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses/new/': {
+      id: '/expenses/new/'
+      path: '/expenses/new'
+      fullPath: '/expenses/new/'
+      preLoaderRoute: typeof ExpensesNewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses/review/': {
+      id: '/expenses/review/'
+      path: '/expenses/review'
+      fullPath: '/expenses/review/'
+      preLoaderRoute: typeof ExpensesReviewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gifts/other/': {
       id: '/gifts/other/'
       path: '/gifts/other'
@@ -662,8 +782,11 @@ const rootRouteChildren: RootRouteChildren = {
   ChangelogIndexRoute: ChangelogIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
+  EvaluationsIndexRoute: EvaluationsIndexRoute,
+  ExpensesIndexRoute: ExpensesIndexRoute,
   FeedbackIndexRoute: FeedbackIndexRoute,
   FoundationsIndexRoute: FoundationsIndexRoute,
+  GiftEntryIndexRoute: GiftEntryIndexRoute,
   GiftsIndexRoute: GiftsIndexRoute,
   HelpIndexRoute: HelpIndexRoute,
   LearnIndexRoute: LearnIndexRoute,
@@ -677,6 +800,9 @@ const rootRouteChildren: RootRouteChildren = {
   WorkIndexRoute: WorkIndexRoute,
   WorkPartnerIdRoute: WorkPartnerIdRoute,
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
+  EvaluationsAdminIndexRoute: EvaluationsAdminIndexRoute,
+  ExpensesNewIndexRoute: ExpensesNewIndexRoute,
+  ExpensesReviewIndexRoute: ExpensesReviewIndexRoute,
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
   LearnAdminIndexRoute: LearnAdminIndexRoute,
