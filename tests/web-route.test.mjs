@@ -196,6 +196,20 @@ describe('the hub_web cookie a web page carries', () => {
   });
 });
 
+describe('a test account set to staff', () => {
+  const cookieRoutes = (d) => decodeURIComponent(webCookie(d.routes).split(';')[0].slice('hub_web='.length)).split('~');
+  it('gets the routes held to testers and all, and the classic page on a route held to admins', async () => {
+    const tester2staff = user('tester2@favorintl.org', 'staff');
+    const env = world({ 'web.routes': '/brain/@testers,/projects/@all,/partners/@admin' });
+    const d = await go(env, '/projects/', tester2staff);
+    assert.equal(d.kind, 'web');
+    assert.ok(cookieRoutes(d).includes('/brain/') && cookieRoutes(d).includes('/projects/'));
+    assert.ok(!cookieRoutes(d).includes('/partners/'), 'a route held to admins is not in the cookie of a test account set to staff');
+    assert.equal((await go(env, '/partners/', tester2staff)).kind, 'pass');
+    assert.equal((await go(env, '/partners/', user('tester2@favorintl.org', 'admin'))).kind, 'web');
+  });
+});
+
 describe('live-front.mjs judges a check by web.routes as it stands', () => {
   it('keeps its copies of the full-load, exact and own-switch lists the same as shared/', async () => {
     const { FULL_LOAD } = await import('../shared/app2.ts');
