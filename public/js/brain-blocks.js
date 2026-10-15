@@ -220,7 +220,7 @@
     const n = tb.count || tb.rows.length;
     const shown = Math.min(tb.preview, tableRows(tb).length);
     return `<div class="card blk-table" data-tbwrap="${id}">
-      <div class="card__h"><div><div class="card__t" title="${esc(b.title)}">${esc(shortTitle(b.title))}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
+      <div class="card__h"><div><div class="card__t" title="${esc(b.title)}">${esc(shortTitle(b.title, nounOf(b)))}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
         <div class="card__acts">${ctx && ctx.expired ? '' : toolsHTML(tb, false, tb.canSheets)}</div></div>
       ${chipsHTML(tb)}
       ${miniHTML(tb, n)}
@@ -269,9 +269,16 @@
   const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(Number(d.pct) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 }))}%</span>` : '');
   // A table's title said plainly: "How many lapsed (last gift over 24 months ago) partners (households) in Ohio" reads
   // "Lapsed partners in Ohio". The full wording stays in the title attribute and in the steps above the answer.
-  function shortTitle(t) {
+  // A title cut short by the Brain ("Lapsed, major (a single gift of $1,000 or more") gets its noun back from the table:
+  // "Lapsed major partners". Commas between single describing words go ("lapsed, major" reads "lapsed major").
+  const NOUNS = /\b(partners?|households?|gifts?|actions?|visits?|events?|records?|churches|foundations|individuals|organizations|grants?|opportunities|people|staff|codes?|appeals?|campaigns?|funds?|months?|years?|states?|teams?|rows?)\b/i;
+  // The table's noun, else its first column read as a plural ("Partner" gives "partners").
+  const nounOf = (b) => b.noun || (b.cols && b.cols[0] && /^[A-Za-z ]+$/.test(b.cols[0].label || '') ? String(b.cols[0].label).toLowerCase().replace(/y$/, 'ie').replace(/s?$/, 's') : '');
+  function shortTitle(t, noun) {
     let s = String(t || '').replace(/^\s*(how many|list(?: of)?|a list of|show me|which)\s+/i, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*$/, '').replace(/\s+/g, ' ').replace(/[?.,:;]+$/, '').trim();
     if (!s) return String(t || '');
+    s = s.replace(/^[A-Za-z]+(?:, [A-Za-z]+)+(?= |$)/, (m) => m.replace(/,/g, ''));
+    if (!NOUNS.test(s) && noun) s += ' ' + String(noun).toLowerCase();
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
   B.shortTitle = shortTitle;
@@ -282,7 +289,7 @@
     if (!rows.length || !tb.cols.length) return '';
     const name = tb.cols[0];
     const key = tb.cols.slice(1).find((c) => !c.panel_only && ['money', 'date', 'int'].includes(c.type)) || tb.cols.slice(1).find((c) => !c.panel_only);
-    return `<ul class="tbl__mini" aria-label="${esc(shortTitle(tb.title))}, first ${rows.length}">${rows.map((x) => `<li><span class="mn">${cell(name, x)}</span>${key ? `<span class="mk">${cell(key, x)}</span>` : ''}</li>`).join('')}</ul>
+    return `<ul class="tbl__mini" aria-label="${esc(shortTitle(tb.title, nounOf(tb)))}, first ${rows.length}">${rows.map((x) => `<li><span class="mn">${cell(name, x)}</span>${key ? `<span class="mk">${cell(key, x)}</span>` : ''}</li>`).join('')}</ul>
       <div class="tbl__minifoot"><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="topen" data-tb="${tb.id}">Open full table${n > rows.length ? ` (${int(n)})` : ''} ${ic('arrow')}</button></div>`;
   }
   function spark(v) {
@@ -716,7 +723,7 @@
       if (xi >= 0) {
         const tb = bs.find((b) => b && b.type === 'table' && b.title);
         const said = String(bs[xi].md).replace(/[*_]/g, '').replace(/\s*\([^)]*\)/g, '').trim();
-        const rest = tb ? shortTitle(tb.title).replace(/^\w/, (c) => c.toLowerCase()) : said.replace(tok, '').replace(/^[\s:,-]+/, '').replace(/[\s:,.-]+$/, '');
+        const rest = tb ? shortTitle(tb.title, nounOf(tb)).replace(/^\w/, (c) => c.toLowerCase()) : said.replace(tok, '').replace(/^[\s:,-]+/, '').replace(/[\s:,.-]+$/, '');
         head = `<div class="blk-head"><b data-count="${tile.value}" data-f="${esc(tile.format || 'int')}">${esc(shown)}</b> <span>${esc(rest || tile.label)}</span></div>`;
         bs.splice(xi, 1);
         bs.splice(ti, 1);
