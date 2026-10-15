@@ -32,15 +32,24 @@ interface Props {
   onRemember: (areaId: string, pageId: string) => void;
 }
 
+/** What the top bar's head says for a nav id: the area, the page and the title shown. Shared with the frame drawn before the menu answers. */
+export function topHead(navId: string, title: string, crumb = 'FavorOS') {
+  const found = resolveNav(navId);
+  const sameAsArea = !!found && (found.page.label === found.area.label || found.page.label === found.area.short);
+  return {
+    found,
+    area: found?.area,
+    sameAsArea,
+    headTitle: found ? (sameAsArea ? found.area.label : found.page.label) : title,
+    headKey: found ? (sameAsArea ? found.area.id : 'page:' + found.page.id) : '',
+    crumbHref: found ? (found.area.pages.find((p) => p.menu !== false) || found.area.pages[0]).href : '',
+  };
+}
+
 /** The top bar, the React twin of the header in src/layouts/App.astro: menu button (phone), the area's tile, the area as a breadcrumb over
  * the page's name and badge, the tab row, then search, bell, Clips, help, Feedback and Make a request. */
 export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, jobs = null, user, onSignOut, classicHref, menuOpen, onMenu, onRemember }: Props) {
-  const found = resolveNav(navId);
-  const area = found?.area;
-  const sameAsArea = !!found && (found.page.label === found.area.label || found.page.label === found.area.short);
-  const headTitle = found ? (sameAsArea ? found.area.label : found.page.label) : title;
-  const headKey = found ? (sameAsArea ? found.area.id : 'page:' + found.page.id) : '';
-  const crumbHref = found ? (found.area.pages.find((p) => p.menu !== false) || found.area.pages[0]).href : '';
+  const { found, area, sameAsArea, headTitle, headKey, crumbHref } = topHead(navId, title, crumb);
   const clipsRecord = !!access.clips && access.clipsRecord !== false;
   return (
     <header className="h-top">

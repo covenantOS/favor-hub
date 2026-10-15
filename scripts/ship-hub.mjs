@@ -196,6 +196,7 @@ if (checks.length) {
   const web = checks.map((c) => c.replace(/^[A-Za-z]:[\\/].*?[\\/]Git(?=[\\/])/, '')).filter((c) => c.endsWith('=web')).map((c) => c.split('=')[0]);
   if (web.length) {
     try { execSync('node scripts/live-console.mjs --loads 2', { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CONSOLE: web.join(' ') } }); } catch { console.log('BROWSER ERRORS on a web route (above): fix them before turning the route on for more people'); }
+    try { execSync('node scripts/live-back.mjs', { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_BACK: web.join(' ') } }); } catch { console.log('LEFTOVERS after Back on a web route (above): the page keeps a hidden copy of streamed parts'); }
   }
 }
 console.log('\nshipped ' + sh('git rev-parse --short HEAD', { capture: true }).trim());

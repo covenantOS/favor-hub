@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { barCount, buildNav } from '@/shell/model';
+import { AREAS } from '@hub/data/areas';
+import { barCount, buildNav, pageVisible, tabRowHeld } from '@/shell/model';
 import { nav, staffNav } from '../../e2e/fixtures';
 
 const view = (n = nav, navId = 'home', tours = 0) => buildNav({ access: n.access, kpiTeams: n.kpiTeams, counts: n.counts, navId, tours });
@@ -48,5 +49,34 @@ describe('the menu for one person', () => {
   it('99+ on the phone bar, the whole number in the rail', () => {
     expect(barCount(120)).toBe('99+');
     expect(barCount(5)).toBe('5');
+  });
+});
+
+describe('the tab row the web app holds space for', () => {
+  // TabRow hides itself when fewer than two pages show, or one that is the open page.
+  const rowHides = (areaId: string, navId: string, access: Record<string, unknown>) => {
+    const area = AREAS.find((a) => a.id === areaId)!;
+    const pages = area.pages.filter((p) => !p.ext && p.menu !== false);
+    const visible = pages.filter((p) => pageVisible(p, access as never, []));
+    return visible.length === 0 || (visible.length === 1 && visible[0].id === navId) || pages.length < 2;
+  };
+
+  it('holds space on the gift pages and on no page of a one-page area', () => {
+    expect(tabRowHeld('gifts-home')).toBe(true);
+    expect(tabRowHeld('online-gifts')).toBe(true);
+    expect(tabRowHeld('recurring')).toBe(true);
+    expect(tabRowHeld('projects')).toBe(false);
+    expect(tabRowHeld('not-a-page')).toBe(false);
+  });
+
+  it('never holds space for a row that this person would not get', () => {
+    // Someone who may open a page has that page's access and nothing else. Wherever the frame holds space, the row still shows.
+    for (const area of AREAS) {
+      for (const p of area.pages) {
+        if (!tabRowHeld(p.id)) continue;
+        const access: Record<string, unknown> = p.need ? { [p.need]: true } : {};
+        expect(rowHides(area.id, p.id, access), `${area.id}/${p.id}`).toBe(false);
+      }
+    }
   });
 });

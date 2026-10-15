@@ -184,6 +184,8 @@ function liveChecks(entries) {
   let seen = '';
   if (web.length) {
     try { seen = execSync('node scripts/live-console.mjs --loads 2', { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CONSOLE: [...new Set(web)].join(' ') } }); } catch (e) { seen = 'BROWSER ERRORS\n' + String(e.stdout || ''); }
+    // Back from another page must leave nothing behind (streamed parts, repeated ids, a page that stopped drawing).
+    try { seen += execSync('node scripts/live-back.mjs', { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_BACK: [...new Set(web)].join(' ') } }); } catch (e) { seen += 'BACK LEFTOVERS ' + String(e.stdout || ''); }
   }
   return (r.ok ? '' : 'LIVE CHECK FAILED\n') + r.out + seen;
 }
