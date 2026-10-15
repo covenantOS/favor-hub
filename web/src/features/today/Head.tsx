@@ -101,7 +101,7 @@ function LivePill() {
 const AWAY_KEY = 'favor.hub.td.away.v1';
 function rememberAway(h: number) {
   try {
-    const k = window.innerWidth < 861 ? 'p' : 'd';
+    const k = window.matchMedia('(max-width: 860px)').matches ? 'p' : 'd';
     const s = (JSON.parse(localStorage.getItem(AWAY_KEY) || '{}') || {}) as Record<string, number>;
     if (s[k] === h) return;
     s[k] = h;
@@ -149,6 +149,7 @@ function useRememberWelcome() {
         // storage refused
       }
     };
+    // A class that is already set means nothing yet: the boot script sets it from this same key, and the tour script settles it later.
     const mo = new MutationObserver(note);
     mo.observe(root, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
