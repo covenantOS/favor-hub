@@ -67,9 +67,9 @@ function TopPart({ rail, onSignOut }: { rail: RailState; onSignOut: () => void }
   return <TopBar view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} jobs={d.jobs ?? null} user={d.user ?? EMPTY_USER} onSignOut={onSignOut} classicHref="?web=0" menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />;
 }
 
-function BarPart({ rail }: { rail: RailState }) {
+function BarPart() {
   const { view } = useView();
-  return <PhoneBar view={view} navOpen={rail.navOpen} onMore={() => rail.setNavOpen(!rail.navOpen)} />;
+  return <PhoneBar view={view} />;
 }
 
 /** The area color (Work green, Meet teal and so on) the classic layout puts on <body data-area>; round2.css reads --a from it. */
@@ -221,7 +221,7 @@ export function WebShell({ children }: { children: ReactNode }) {
           </main>
         </div>
         <Suspense fallback={null}>
-          <BarPart rail={rail} />
+          <BarPart />
           <AreaPart />
         </Suspense>
       </div>

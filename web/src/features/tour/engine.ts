@@ -104,7 +104,7 @@ export function navLink(via: string | undefined): Element | null {
   if (isPhone()) {
     const bar = area ? document.querySelector(`#h-bar [data-bar="${area.dataset.area}"]:not([hidden])`) : null;
     if (bar && visible(bar)) return bar;
-    return document.getElementById('h-bar-more');
+    return area?.querySelector('.h-area__link') || null;
   }
   if (visible(side)) return side;
   return area?.querySelector('.h-area__link') || null;
