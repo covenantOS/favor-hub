@@ -18,6 +18,7 @@ const H = await import('../functions/_lib/fgl/hold.ts');
 const R = await import('../functions/_lib/receipts/store.ts');
 const Rules = await import('../functions/_lib/receipts/rules.ts');
 const { readOnly } = await import('../functions/_lib/work/repo.ts');
+const G = await import('../functions/_lib/fgl/gate.ts');
 
 const realFetch = globalThis.fetch;
 let mirror;
@@ -340,5 +341,15 @@ describe('the wording', () => {
     assert.ok(!/[—–]/.test(all), 'no dashes used as punctuation in the default wording');
     assert.ok(!/\bdonors?\b/i.test(all));
     assert.ok(/first gift of \{amount\}/.test(all));
+  });
+});
+
+describe('who may open the page', () => {
+  const sc = (role, all) => ({ scope: { role, all, email: 'x@favorintl.org', name: 'X', fid: null, team: '', fids: new Set() } });
+  it('lets in admins, the Support Team and Partner Care', () => {
+    for (const c of [sc('admin', true), sc('support', false), sc('partner_care', false), { scope: undefined }]) assert.doesNotThrow(() => G.requireFgl(c));
+  });
+  it('refuses directors, grants writers and the gate fallback scope', () => {
+    for (const c of [sc('director', false), sc('grants', false), sc('admin', false)]) assert.throws(() => G.requireFgl(c), /First-gift letters are for/);
   });
 });
