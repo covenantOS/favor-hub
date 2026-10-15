@@ -2,7 +2,9 @@
 // asked, the privacy tools and the searchable transcript. Port of src/pages/meet/notes.astro and public/js/meet/notes.js: the same markup,
 // stylesheets and calls. The recording player is ./Player.tsx. Dates in the browser's zone draw once the page is live.
 import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { hubGet } from '../../../lib/hub';
+import { hubSend } from '../../../lib/write';
 import '@hub/styles/meet.css';
 import '@hub/styles/qa2-meet.css';
 import '@hub/styles/crit-meet.css';
@@ -177,8 +179,39 @@ function Notes({ mid }: { mid: string }) {
       subject: 'Notes: ' + (String(m.title || '').trim() || 'Meeting'),
     };
   };
-  const compose = hydrated ? (window as unknown as { FavorCompose?: { add: (i: unknown, o: unknown) => void; dragStart?: (e: unknown, i: unknown) => void } }).FavorCompose : undefined;
-  const canEmail = !!compose && hydrated && document.documentElement.classList.contains('has-mail') && !pending;
+  // The email composer and the Mail switch arrive after the page (the composer is a layout script, the switch comes with the menu answer),
+  // so the button waits for both.
+  const [mailReady, setMailReady] = useState(false);
+  useEffect(() => {
+    let n = 0;
+    const look = () => !!(window as unknown as { FavorCompose?: unknown }).FavorCompose && document.documentElement.classList.contains('has-mail');
+    if (look()) return setMailReady(true);
+    const t = setInterval(() => {
+      if (look()) {
+        setMailReady(true);
+        clearInterval(t);
+      } else if (++n > 100) clearInterval(t);
+    }, 200);
+    return () => clearInterval(t);
+  }, []);
+  const compose = mailReady ? (window as unknown as { FavorCompose?: { add: (i: unknown, o: unknown) => void; dragStart?: (e: unknown, i: unknown) => void } }).FavorCompose : undefined;
+  const canEmail = !!compose && mailReady && !pending;
+  // Make a task on each action item (public/js/projects/links.js does this on the classic page): the tasks already made from this meeting.
+  const tasks = useQuery({ queryKey: ['meet', 'notes-tasks', mid], queryFn: async () => ((await hubGet('/api/tasks/links/meet/actions?meeting_id=' + encodeURIComponent(mid))) as { tasks?: Record<string, { url: string; code?: string }> }).tasks || {}, retry: false, staleTime: 15_000 });
+  const [made, setMade] = useState<Record<string, { url: string; code?: string }>>({});
+  const [making, setMaking] = useState('');
+  const taskOf = (idx: number) => made[String(idx)] || (tasks.data && tasks.data[String(idx)]);
+  const makeTask = async (idx: number) => {
+    setMaking(String(idx));
+    try {
+      const r = await hubSend('/api/tasks/links/meet/action-task', 'POST', { meeting_id: mid, idx }, (d) => d as { task: { url: string; code?: string } });
+      toast('Task made' + (r.task.code ? ': ' + r.task.code : '') + '.');
+      setMade((m) => ({ ...m, [String(idx)]: { url: r.task.url, code: r.task.code } }));
+    } catch (e) {
+      toast((e as Error).message);
+    }
+    setMaking('');
+  };
 
   /* ------------------------------------------------ partners */
   const partnerClick = async (act: string, cid: string, name?: string) => {
@@ -525,6 +558,21 @@ function Notes({ mid }: { mid: string }) {
                         </>
                       ) : null}
                     </span>
+                      {tasks.data ? (
+                        <span className="pjl-act">
+                          {taskOf(a.idx) ? (
+                            <a className="pjl-btn" href={taskOf(a.idx)?.url}>
+                              Task {taskOf(a.idx)?.code || 'open'}
+                            </a>
+                          ) : (
+                            <button type="button" className="pjl-btn" disabled={making === String(a.idx)} onClick={(e) => { e.preventDefault(); void makeTask(a.idx); }}>
+                              Make a task
+                            </button>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="pjl-act" style={{ display: 'none' }} />
+                      )}
                   </div>
                   <span className={'mt-pill ' + (a.done ? 'mt-pill--ok' : '')}>{a.done ? 'Done' : 'Open'}</span>
                 </label>
@@ -1048,6 +1096,20 @@ function SpeakerBar({ sp, setSp, tr, names, onClick }: { sp: { a: number; b: num
 const esc = (s: unknown) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
 export function NotesPage({ m }: { m: string }) {
+  if (!m)
+    return (
+      <div id="mt-notes">
+        <div className="h-card mt-card" style={{ maxWidth: 560 }}>
+          <h2 className="mt-h2">Notes not available</h2>
+          <p className="mt-sub" style={{ fontSize: 14 }}>
+            Open a meeting's notes from the list.
+          </p>
+          <NavLink className="h-btn h-btn--primary" href="/meet/library/">
+            All meeting notes
+          </NavLink>
+        </div>
+      </div>
+    );
   return (
     <div id="mt-notes">
       <Boundary

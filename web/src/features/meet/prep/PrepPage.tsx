@@ -160,6 +160,12 @@ function PrepSheet({ id }: { id: string }) {
     document.title = 'Prep, ' + m.title + ' - FavorOS';
   }, [m.title]);
   useEffect(() => {
+    // The People section (the prep cards: giving, last contact, open tasks, what each person asked of you) is drawn under this page by
+    // public/js/integrations.js, which looks for it on load and on this event. It is removed when the page goes, so it never stays behind.
+    document.dispatchEvent(new Event('hub-swapped'));
+    return () => document.getElementById('ix-prep-people')?.remove();
+  }, [id]);
+  useEffect(() => {
     // The sheet is ready for a press at once; the script itself (a self-contained dialog) loads the moment the page is live.
     void loadSend();
   }, []);
