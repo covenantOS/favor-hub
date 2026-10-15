@@ -252,7 +252,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           var moreMenu = nav.querySelector('[data-menu="more"]');
           if (!row || !moreBtn || !moreMenu) return;
           var mine = window.__hubJobs || null;
-          var CAP = 6;
+          var CAP = 99;
           // Writes only what changes: observers on the row (Reporting remembers its open tab) see no churn from a pass that changes nothing.
           var cls = function (e, c, on) { if (e.classList.contains(c) !== !!on) e.classList.toggle(c, !!on); };
           var role = function (e, v) { if (v) { if (e.getAttribute('role') !== v) e.setAttribute('role', v); } else if (e.hasAttribute('role')) e.removeAttribute('role'); };
@@ -286,8 +286,9 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           var anyJob = shown.some(function (e) { return jobsOf(e) && window.hubJobMatch(jobsOf(e), mine); });
           var first = anyJob ? shown.filter(function (e) { return window.hubJobMatch(jobsOf(e), mine); }) : shown.slice();
           var rest = anyJob ? shown.filter(function (e) { return !window.hubJobMatch(jobsOf(e), mine); }) : [];
-          var inRow = first.slice(0, CAP);
-          var inMore = first.slice(CAP).concat(rest);
+          // No More menu (Danny and Will, 2026-10-15): every page sits in the row, which scrolls when it runs out of width.
+          var inRow = first.concat(rest).slice(0, CAP);
+          var inMore = first.concat(rest).slice(CAP);
           // Groups never go under More: a menu inside a menu is one tap too many.
           inMore = inMore.filter(function (e) { if (e.classList.contains('h-tabgrp')) { inRow.push(e); return false; } return true; });
           var placed = inRow.concat(entries.filter(function (e) { return e.hidden; }));

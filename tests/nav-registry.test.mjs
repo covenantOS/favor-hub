@@ -71,7 +71,7 @@ test('every page that left Work, Learn or Admin says where it was', () => {
   for (const id of moved) assert.ok(resolveNav(id).page.was, `${id} has no was`);
 });
 
-test('no area draws more than six tabs before its More menu', async () => {
+test('no area hides a tab under a More menu', async () => {
   const { arrangeTabs } = await import('../src/data/areas.ts');
   for (const a of AREAS) {
     const entries = [];
@@ -79,8 +79,9 @@ test('no area draws more than six tabs before its More menu', async () => {
       if (p.group) { if (!entries.some((e) => e.group === p.group)) entries.push({ group: p.group }); } else entries.push(p);
     }
     for (const mine of [null, ['admin'], [], ['giftdesk'], ['rdd']]) {
-      const { row } = arrangeTabs(entries, mine);
-      assert.ok(row.length <= 6, `${a.id} draws ${row.length} tabs for ${JSON.stringify(mine)}`);
+      const { row, more } = arrangeTabs(entries, mine);
+      assert.equal(more.length, 0, `${a.id} puts ${more.length} tabs under More for ${JSON.stringify(mine)}`);
+      assert.equal(row.length, entries.length);
     }
   }
 });

@@ -30,7 +30,7 @@ export const JOB_LABEL: Record<Job, string> = {
 };
 
 /** The most tabs a row shows; the rest sit under the row's More menu. */
-export const TAB_CAP = 6;
+export const TAB_CAP = 99;
 
 /** The date the Work area was split. Ctrl K shows a moved page's old place ("Was Work > Statements") for a month after. */
 export const MOVED_ON = '2026-10-14';
@@ -324,8 +324,9 @@ export function arrangeTabs<T extends { jobs?: readonly string[]; on?: boolean }
   const anyJob = ownJob.length > 0;
   const first = anyJob ? tabs.filter((t) => jobMatch(t.jobs, mine)) : tabs.slice();
   const rest = anyJob ? tabs.filter((t) => !jobMatch(t.jobs, mine)) : [];
-  const row = first.slice(0, cap);
-  const more = first.slice(cap).concat(rest);
+  // No More menu (Danny and Will, 2026-10-15): every page the person can open sits in the row, which scrolls when it runs out of width.
+  const row = first.concat(rest).slice(0, cap);
+  const more = first.concat(rest).slice(cap);
   return { row, more, moreOn: more.some((t) => t.on) };
 }
 

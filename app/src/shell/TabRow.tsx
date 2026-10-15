@@ -52,8 +52,9 @@ export function TabRow({ area, navId, view, access, kpiTeams, jobs, onRemember }
   const anyJob = entries.some((e) => jobsOf(e) && jobMatch(jobsOf(e)!, jobs));
   const first = anyJob ? entries.filter((e) => jobMatch(jobsOf(e) || undefined, jobs)) : entries.slice();
   const rest = anyJob ? entries.filter((e) => !jobMatch(jobsOf(e) || undefined, jobs)) : [];
-  let inRow = first.slice(0, TAB_CAP);
-  let inMore = first.slice(TAB_CAP).concat(rest);
+  // No More menu: every page sits in the row (Danny and Will, 2026-10-15).
+  let inRow = first.concat(rest);
+  let inMore: Entry[] = [];
   // Groups never go under More: a menu inside a menu is one tap too many.
   inRow = inRow.concat(inMore.filter((e) => e.kind === 'group')).sort((a, b) => a.ord - b.ord);
   inMore = inMore.filter((e) => e.kind !== 'group');
