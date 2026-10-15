@@ -17,7 +17,7 @@ import { Term } from './lists/Term';
 import { sendBatch } from './lists/batch';
 import { usePartnerOpen, partnerHref } from './lists/nav';
 import { useFit } from './lists/fit';
-import { contextQuery, addDays, dateWords, dayLabel, dowOf, moneyWhole, plural, telHref, useHeld, workGet, workPost } from './lists/core';
+import { contextQuery, addDays, dateWords, dayLabel, dowOf, moneyExact, moneyWhole, plural, telHref, useHeld, workGet, workPost } from './lists/core';
 
 // The WorkHeader (the page bar, the view chips) is built on branch pr-actions; render it here when ./WorkHeader exists.
 // TODO: <WorkHeader view="mine" search={search} />
@@ -328,7 +328,7 @@ function MineBody({ as }: { as: string }) {
       cell: (r) =>
         r.gift ? (
           <>
-            <b>{moneyWhole(r.gift.amount)}</b>{' '}
+            <b>{moneyExact(r.gift.amount)}</b>{' '}
             <span className="pt-sub">
               {dateWords(r.gift.date, today, true)}
               {r.gift.soft ? <> · <Term k="soft" label="soft credit" />{r.gift.through ? ' through ' + r.gift.through : ''}</> : null}

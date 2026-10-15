@@ -34,6 +34,7 @@ import { CadenceView, prefetchCadence } from './Cadence';
 import { MyWeekView, prefetchMyWeek } from './MyWeek';
 import { EntryView, prefetchEntry } from './Entry';
 import { GrantsView, prefetchGrants } from './Grants';
+import { WorkHeader } from './WorkHeader';
 
 export function prefetchWork(qc: QueryClient, s: WorkSearch): void {
   const v = s.view || 'open';
@@ -58,8 +59,11 @@ export function WorkPage({ search }: { search: WorkSearch }) {
     : v === 'intake' ? <EntryView search={search} />
     : v === 'grants' ? <GrantsView search={search} />
     : <ActionsView search={search} />;
+  // Actions and Entry draw the header themselves; every other tab gets the same pills row the classic Work Center shows on all tabs.
+  const ownHeader = v === 'intake' || !['gifts', 'mine', 'asks', 'cadence', 'week', 'grants'].includes(v);
   return (
     <div className="wc-root" id="wc-root">
+      {ownHeader ? null : <WorkHeader search={search} />}
       {view}
     </div>
   );

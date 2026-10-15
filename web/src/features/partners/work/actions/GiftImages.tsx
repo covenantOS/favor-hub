@@ -2,7 +2,7 @@
 // foundation, a designated gift) and that are not known to have one. Port of public/js/work-giftimages.js.
 // Check asks Blackbaud whether a gift has an attachment (1 call each, POST /api/work/giftimages/check). Attach puts an image on the gift
 // (POST /api/work/giftimages/attach, a form post). The list reads GET /api/work/giftimages, which makes no Blackbaud calls.
-import { Suspense, useDeferredValue, useRef, useState } from 'react';
+import { Suspense, useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
@@ -11,6 +11,8 @@ import { toast } from './engine';
 import { money } from './model';
 import { giftImagesQuery, wcKeys, type GiftImageRow } from './queries';
 import { useDensity } from '../../../../ui/table';
+import { loadScript } from '@/lib/legacy';
+import { SheetMark } from '../lists/icons';
 import { Ic, Skel } from './ui';
 import './gift-images.css';
 import { useBoard, useWork } from './useWork';
@@ -47,6 +49,32 @@ function GiftImageList({ as }: { as?: string }) {
   const lane = data.lane;
   const list = data.rows.filter((r) => (why ? r.why === why : designated || r.why !== 'designated') && (!dq || (r.name + ' ' + r.fund + ' ' + r.batch).toLowerCase().includes(dq)));
   const unchecked = list.filter((r) => r.state === 'unknown').slice(0, data.checkMax);
+  // Open in Google Sheets: the gifts the list shows now (work-giftimages.js registerSheet, same columns).
+  const shownRef = useRef(list);
+  shownRef.current = list;
+  useEffect(() => {
+    let live = true;
+    void loadScript('/js/sheets.js?v=2').then(() => {
+      const FS = (window as any).FavorSheets;
+      if (!live || !FS) return;
+      const cols = [
+        { key: 'partner', label: 'Partner', type: 'text' },
+        { key: 'amount', label: 'Amount', type: 'currency' },
+        { key: 'date', label: 'Gift date', type: 'date' },
+        { key: 'method', label: 'Method', type: 'text' },
+        { key: 'batch', label: 'Batch', type: 'text' },
+        { key: 'fund', label: 'Fund', type: 'text' },
+        { key: 'why', label: 'Why an image', type: 'text' },
+        { key: 'state', label: 'State', type: 'text' },
+      ];
+      FS.register('giftimages', () =>
+        FS.screen('Gift images', [{ name: 'Gift images', columns: cols, rows: shownRef.current.map((r) => ({ partner: r.name, amount: r.amount, date: r.date, method: r.method, batch: r.batch, fund: r.fund, why: r.whyLabel, state: r.state === 'none' ? 'No attachment' : 'Not checked' })) }], { classes: ['partner'] }),
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
   const stats: [string, string, number][] = [
     ['', 'To attach', s.need],
     ['', 'Not checked', s.unchecked],
@@ -188,6 +216,10 @@ function GiftImageList({ as }: { as?: string }) {
             </button>
           ) : null}
           <span className="wg-spacer" />
+          <button type="button" className="h-btn h-btn--ghost h-btn--sm" data-sheets="giftimages">
+            <SheetMark />
+            Open in Google Sheets
+          </button>
           <button type="button" className="h-btn h-btn--primary h-btn--sm" disabled={!(unchecked.length && (!lane || lane.left >= unchecked.length))} onClick={() => unchecked.length && void check(unchecked.map((r) => r.giftId))}>
             <Ic n="search" />
             Check {unchecked.length} in Blackbaud
