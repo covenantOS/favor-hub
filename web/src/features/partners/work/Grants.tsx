@@ -218,7 +218,7 @@ function GrantsBody({ as }: { as: string }) {
       ),
     },
     {
-      key: 'date', label: 'Date', sort: 'date', phone: true, className: 'c-date',
+      key: 'date', label: 'Date', sort: 'date', firstDir: 'desc', phone: true, className: 'c-date',
       cell: (r) => (
         <>
           <b>{r.date ? dateWords(r.date, today) : ''}</b> <span className="pt-sub">{r.open ? 'Due' : r.category}</span>

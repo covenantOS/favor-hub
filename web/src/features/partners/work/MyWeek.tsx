@@ -205,7 +205,7 @@ function WeekBody({ as }: { as: string }) {
   const pageRows = pageOf(rows, curPage, size);
 
   const columns: Column<WeekRow>[] = [
-    { key: 'date', label: 'Date', sort: 'date', phone: true, className: 'c-date', cell: (r) => <b>{fdShort(r.date)}</b> },
+    { key: 'date', label: 'Date', sort: 'date', firstDir: 'desc', phone: true, className: 'c-date', cell: (r) => <b>{fdShort(r.date)}</b> },
     {
       key: 'how', label: 'How', sort: 'how', phone: true, className: 'c-how',
       cell: (r) => (

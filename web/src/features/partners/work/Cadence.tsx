@@ -296,7 +296,7 @@ function CadenceBody({ as }: { as: string }) {
       cell: (r) => <span className={'pt-badge' + (r.rule === 'first' ? ' pt-badge--good' : '')}>{r.ruleLabel}</span>,
     },
     {
-      key: 'due', label: 'Due', sort: 'over', fixed: true, phone: false, className: 'c-due',
+      key: 'due', label: 'Due', sort: 'over', firstDir: 'desc', fixed: true, phone: false, className: 'c-due',
       cell: (r) => {
         const late = lateLine(r);
         const lateN = late ? late.split(' · ').length : 0;
@@ -341,7 +341,7 @@ function CadenceBody({ as }: { as: string }) {
       },
     },
     {
-      key: 'last', label: 'Last contact', sort: 'last', className: 'c-last',
+      key: 'last', label: 'Last contact', sort: 'last', firstDir: 'desc', className: 'c-last',
       title: (r) => (r.last ? `${dateWords(r.last.date, today)} · ${r.last.what.toLowerCase()}` : 'No contact on record'),
       cell: (r) => <span className="pt-sub">{r.last ? `${dateWords(r.last.date, today)} · ${r.last.what.toLowerCase()}` : 'No contact on record'}</span>,
     },

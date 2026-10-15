@@ -29,8 +29,6 @@ export interface Column<T> {
   className?: string;
   /** Header cell class. */
   thClassName?: string;
-  /** Header text read aloud only (a column with no visible title, such as the row buttons). */
-  srLabel?: string;
   /** Class on that hidden text. Default sr-only. */
   srClass?: string;
   cell: (row: T, index: number) => ReactNode;
@@ -474,8 +472,9 @@ export function useListKeys(listKey: string, opts: { search?: string } = {}) {
         }
       }
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // Capture phase: the list's [ and ] turn its pages before the shell's [ and ] (which switch the area's tabs) see the key, as ptable.js does.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [listKey, opts.search]);
 }
 
