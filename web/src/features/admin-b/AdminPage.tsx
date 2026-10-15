@@ -8,11 +8,15 @@ import { AdminHead } from '../admin-reports/AdminHead';
 
 const statusOf = (e: Error) => ((e as Error & { status?: number }).status || 0);
 
-/** The card a failed page shows: settings are for admins when the server said 401 or 403, otherwise the server's own words. */
-export function Failed({ e }: { e: Error }) {
+/**
+ * The card a failed page shows: settings are for admins when the server said 401 or 403, otherwise the server's own words. `area` names a page whose
+ * classic script fills only the area under its head (Gifts), so the head and the tab row stay; every other page loses them with the rest.
+ */
+export function Failed({ e, area }: { e: Error; area?: string }) {
   const denied = statusOf(e) === 401 || statusOf(e) === 403;
+  const box = area ? { className: 'ad', [area]: '' } : { className: 'ad', id: 'ad-root' };
   return (
-    <div className="ad" id="ad-root">
+    <div {...box}>
       {denied ? (
         <div className="ad-card ad-denied">
           <p>Settings are for FavorOS admins.</p>
@@ -38,18 +42,29 @@ export function Wait({ h = 140 }: { h?: number }) {
   );
 }
 
-export function AdminPage({ on, title, fact, intro, children, wait }: { on: string; title: string; fact?: string; intro?: ReactNode; children: ReactNode; wait?: ReactNode }) {
+export function AdminPage({ on, title, fact, intro, children, wait, failArea }: { on: string; title: string; fact?: string; intro?: ReactNode; children: ReactNode; wait?: ReactNode; failArea?: string }) {
+  const body = (
+    <Suspense fallback={wait ?? <Wait />}>{children}</Suspense>
+  );
   return (
     <QueryErrorResetBoundary>
-      {() => (
-        <Boundary fallback={(e) => <Failed e={e} />}>
+      {() =>
+        failArea ? (
           <div className="ad" id="ad-root">
             <AdminHead on={on} title={title} fact={fact} />
             {intro}
-            <Suspense fallback={wait ?? <Wait />}>{children}</Suspense>
+            <Boundary fallback={(e) => <Failed e={e} area={failArea} />}>{body}</Boundary>
           </div>
-        </Boundary>
-      )}
+        ) : (
+          <Boundary fallback={(e) => <Failed e={e} />}>
+            <div className="ad" id="ad-root">
+              <AdminHead on={on} title={title} fact={fact} />
+              {intro}
+              {body}
+            </div>
+          </Boundary>
+        )
+      }
     </QueryErrorResetBoundary>
   );
 }
