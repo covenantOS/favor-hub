@@ -126,7 +126,7 @@ const COLS = [
   { k: 'amount', l: 'Amount', fixed: true, num: true, td: (r) => `<button type="button" class="pt-name pa-amt" data-pt-open data-pa-open="${esc(r.id)}" aria-label="Open the ${esc(money(r.amount))} ask for ${esc(r.name)}">${esc(money(r.amount))}</button>` },
   { k: 'partner', l: 'Partner', fixed: true, td: (r) => `<a class="pt-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a>${r.place ? ` <span class="pt-sub">${esc(r.place)}</span>` : ''}` },
   { k: 'about', l: 'About', plain: true, td: (r) => (r.line ? esc(r.line) : '<span class="pt-mute">No note</span>'), title: (r) => r.line },
-  { k: 'asked', l: 'Asked', td: (r) => `${esc(fd(askedOn(r)))} <span class="pt-sub">${esc(ago(askedOn(r)))}</span>` },
+  { k: 'asked', l: 'Asked', td: (r) => `${esc(fd(askedOn(r)))} <span class="pt-sub">· ${esc(ago(askedOn(r)))}</span>` },
   { k: 'close', l: 'Expected close', td: chip },
   { k: 'director', l: 'Director', td: (r) => esc(directors(r)), title: (r) => directors(r) },
   { k: 'stage', l: 'Stage', td: (r) => stage(r) },
@@ -194,7 +194,7 @@ function view() {
         <label class="pt-search">${W().ic('search')}<input type="search" id="wa-q" data-pt-search placeholder="Find a partner" value="${esc(text)}" autocomplete="off" aria-label="Find a partner" /></label>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm wa-fbtn" data-wa-ftoggle aria-expanded="${A.fopen}">Filters${active.length ? ' ' + active.length : ''}</button>
         ${picker}
-        <select class="pt-sel pa-f${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>Tagged at any time</option></select>
+        <select class="pt-sel pa-f${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged range"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select>
         ${sortSel}
         <span class="pt-spacer"></span>
         <span class="pa-f pa-dens">${PT.densityHTML()}</span>
@@ -226,14 +226,14 @@ function registerSheet() {
 }
 
 /* ------------------------------------------------------------------ the side panel */
-// One panel for the whole tab. It lives beside #view so a redraw of the table leaves it open, and it is cleared when the page is swapped.
+// One panel for the whole tab. It sits on the body, above the page header, so a redraw of the table leaves it open; it is removed when the hub swaps the page.
 function sideHost() {
   let h = $('#pa-side-host');
   if (!h) {
     h = document.createElement('div');
     h.id = 'pa-side-host';
     h.innerHTML = '<div class="pt-scrim" data-pa-close></div><aside class="pt-side pa-side" id="pa-side" tabindex="-1"></aside>';
-    ($('#wc-root') || document.body).appendChild(h);
+    document.body.appendChild(h);
   }
   return h;
 }
@@ -256,7 +256,7 @@ function sideHTML(r) {
         <dt>Partner</dt><dd><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a></dd>
         <dt>Place</dt><dd>${r.place ? esc(r.place) : '<span class="pt-mute">No city on file</span>'}</dd>
         <dt>Asked on</dt><dd>${esc(fd(askedOn(r), true))}, ${esc(ago(askedOn(r)))}${r.tags > 1 ? ` · tagged ${r.tags} times` : ''}</dd>
-        <dt>Tagged by</dt><dd>${r.taggedNames && r.taggedNames.length ? esc(r.taggedNames.join(', ')) : '<span class="pt-mute">Not recorded</span>'}</dd>
+        <dt>Tagged by</dt><dd>${r.taggedNames && r.taggedNames.length ? esc([...new Set(r.taggedNames)].join(', ')) : '<span class="pt-mute">Not recorded</span>'}</dd>
         <dt>Director</dt><dd>${esc(directors(r))}</dd>
         <dt>Stage</dt><dd>${stage(r, true)}${r.review ? ' <span class="pt-badge pt-badge--gold">Check amount</span>' : ''}</dd>
       </dl>
@@ -424,9 +424,12 @@ document.addEventListener('input', (e) => {
     changed(false);
   }, 280);
 });
+// The hub swapped to another page: the panel goes with the tab.
+document.addEventListener('hub-swapped', () => { A.sideId = null; A.sideRow = null; const h = $('#pa-side-host'); if (h) h.remove(); });
 // Keys with the panel open: Escape closes it, the arrow keys and j and k step to the next ask. They stay out of a field being typed in.
 document.addEventListener('keydown', (e) => {
   if (!A.sideId || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!W().S || W().S.view !== 'asks') { closeSide(); return; }
   const typing = e.target && /^(input|textarea|select)$/i.test(e.target.tagName);
   if (e.key === 'Escape') { if ($('#layer .wc-dlg')) return; e.preventDefault(); e.stopPropagation(); closeSide(); return; }
   if (typing) return;

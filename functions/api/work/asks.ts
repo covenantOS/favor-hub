@@ -10,6 +10,8 @@ export const onRequestGet = work(async ({ ctx, url }) => {
     status: p.get('status') || 'all',
     state: p.get('state') || '',
     q: (p.get('q') || '').slice(0, 100),
+    sort: p.get('sort') || '',
+    dir: p.get('dir') || '',
     offset: Number(p.get('offset') || 0),
     limit: Number(p.get('limit') || 50),
   }) as any;

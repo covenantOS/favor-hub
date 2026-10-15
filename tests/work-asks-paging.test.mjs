@@ -77,6 +77,13 @@ const ctx = () => ({ env: env(), repo: { synced: async () => '2026-10-10T09:03:1
 const page = (query, range = '12m') => asks.asksResponse(ctx(), '', range, query);
 const ids = (out) => out.rows.map((r) => r.id);
 
+describe('the asks route', () => {
+  it('hands sort and dir to the query along with the filters and the page', () => {
+    const src = readFileSync(new URL('../functions/api/work/asks.ts', import.meta.url), 'utf8');
+    for (const k of ['status', 'state', 'q', 'sort', 'dir', 'offset', 'limit']) assert.equal(src.includes('    ' + k + ': ') && src.includes("p.get('" + k + "')"), true, k + ' is read from the URL');
+  });
+});
+
 describe('paged asks', () => {
   it('returns the first 50 rows by default, with the total for the filter', async () => {
     const out = await page({});

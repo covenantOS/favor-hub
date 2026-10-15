@@ -464,7 +464,7 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m', q
   const pick = state ? filtered.filter((r) => r.state === state) : filtered;
   const sort: AskSort = (SORTS as readonly string[]).includes(query.sort || '') ? (query.sort as AskSort) : 'asked';
   const dir: 'asc' | 'desc' = query.dir === 'asc' || query.dir === 'desc' ? query.dir : defaultDir(sort);
-  const named = (r: AskRow) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`), taggedNames: r.taggers.map((o) => nameOf[o] || `Fundraiser ${o}`) });
+  const named = (r: AskRow) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`), taggedNames: r.taggers.map((o) => nameOf[o] || 'Former fundraiser') });
   const page = pick.map(named).sort(askSort(sort, dir)).slice(offset, offset + limit);
   return {
     ok: true,
