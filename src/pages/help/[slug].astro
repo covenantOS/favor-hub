@@ -36,6 +36,15 @@ import { helpBadge } from '../../data/release';
         <a class="h-btn h-btn--ghost h-btn--sm hd-tool" href={doc.data.tool}>{doc.data.toolLabel || 'Open it'}
           <svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
       )}
+      <div class="hd-body">
+        <Content />
+      </div>
+      {related.length > 0 && (
+        <aside class="hd-related">
+          <b>Related</b>
+          <div>{related.map((r) => <a href={`/help/${r.id}/`}>{r.data.title}<span>{r.data.summary}</span></a>)}</div>
+        </aside>
+      )}
       <div class="hd-rate" data-rate={doc.id}>
         <span>Was this helpful?</span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-rate-v="helpful">Yes</button>
