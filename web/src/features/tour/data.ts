@@ -377,10 +377,10 @@ const TEAM: Record<TourId, StepDef[]> = {
       id: 'people',
       page: '/admin/people/',
       via: 'admin-people',
-      at: ['#pp-access', '#ad-root'],
+      at: ['#pp-find', '#pp-table'],
       title: 'People and roles',
       need: 'admin',
-      body: () => 'Everyone who can sign in is listed here with their role, team and Work Center access.',
+      body: () => 'Find anyone who can sign in here, and set their role, team and Work Center access.',
       side: 'bottom',
     },
     {
