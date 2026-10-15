@@ -28,6 +28,8 @@ export default defineConfig({
       { find: /^@\//, replacement: at('../app/src/') + '/' },
       { find: /^@shared\//, replacement: at('../shared/') + '/' },
       { find: /^@hub\//, replacement: at('../src/') + '/' },
+      // The Clips engine files (recorder, editor math, share window) stay in public/js/clips, where the classic pages load them, and are bundled from there.
+      { find: /^@clips\//, replacement: at('../public/js/clips/') + '/' },
     ],
   },
   // The repo root (../public/js, ../src, ../app) is read by the dev server too.

@@ -35,8 +35,11 @@ addEventListener('unhandledrejection',function(e){var m=String((e.reason&&e.reas
 // classic pages).
 const FONTS = `if (!(window.FavorLite && window.FavorLite.on)) ['/fonts/inter-var.woff2', '/fonts/playfair-500.woff2'].forEach(function (h) { var l = document.createElement('link'); l.rel = 'preload'; l.href = h; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = ''; document.head.appendChild(l); });`;
 
+// Routes that draw without the frame (staticData.solo): the Clips recorder is a small window of its own, no rail, no top bar.
+const isSoloPath = (p: string) => p === '/clips/rec' || p === '/clips/rec/';
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1.0, viewport-fit=cover' },
@@ -47,16 +50,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: 'apple-mobile-web-app-title', content: 'FavorOS' },
       { title: 'FavorOS' },
     ],
+    // A solo route (the Clips recorder window) draws without the frame, so it loads none of the frame's stylesheet and brings its own.
     links: [
-      { rel: 'stylesheet', href: css },
+      ...(matches.some((m) => m.staticData?.solo) ? [] : [{ rel: 'stylesheet', href: css }]),
       { rel: 'icon', type: 'image/png', href: '/images/favor-icon.png' },
       { rel: 'apple-touch-icon', href: '/images/apple-touch-icon.png' },
       { rel: 'manifest', href: '/manifest.webmanifest' },
     ],
   }),
   // The menu answer is asked for on the server before rendering starts and streams into the page when it arrives.
-  loader: ({ context }) => {
-    void context.queryClient.prefetchQuery(navQuery);
+  loader: ({ context, location }) => {
+    if (!isSoloPath(location.pathname)) void context.queryClient.prefetchQuery(navQuery);
   },
   shellComponent: Document,
   component: Root,
@@ -66,6 +70,22 @@ function Document({ children }: { children: ReactNode }) {
   // The page's area colors (body[data-area]) are on the server copy too, so the first paint is already in its accent.
   const navId = useMatches({ select: (m) => (m.at(-1)?.loaderData as { shell?: { nav: string } } | undefined)?.shell?.nav || m.map((x) => x.staticData?.nav).filter(Boolean).at(-1) }) || '';
   const area = navId ? resolveNav(navId)?.area.id : undefined;
+  const solo = useMatches({ select: (m) => m.some((x) => x.staticData?.solo) });
+  if (solo) {
+    // The recorder window: its own head scripts and class, none of the frame's.
+    return (
+      <html lang="en" data-cr-standalone="1" suppressHydrationWarning>
+        <head>
+          <HeadContent />
+          <style>{'html,body{margin:0;min-height:100%}'}</style>
+        </head>
+        <body className="cr-solo">
+          {children}
+          <Scripts />
+        </body>
+      </html>
+    );
+  }
   return (
     // The boot script sets classes and --sbw on <html> before React hydrates; those are expected to differ from the server copy.
     <html lang="en" suppressHydrationWarning>
@@ -102,6 +122,8 @@ function IdlePartnerLinks() {
 }
 
 function Root() {
+  const solo = useMatches({ select: (m) => m.some((x) => x.staticData?.solo) });
+  if (solo) return <Outlet />;
   return (
     <WebShell>
       <Outlet />
