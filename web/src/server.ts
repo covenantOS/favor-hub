@@ -9,17 +9,20 @@ export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === '/_w/ping') {
-      // Health, and whether this Worker can read the hub's /api with the caller's session (the server reads depend on it).
-      let nav = 0;
+      // Health, and whether this Worker can read the hub's /api through the relay with the caller's session (the server reads depend on
+      // it). ?path=/api/... tries another GET route and reports its status and time.
+      const path = url.searchParams.get('path') || '/api/hub/nav';
+      if (!path.startsWith('/api/')) return Response.json({ ok: false, message: 'path must start with /api/' }, { status: 400 });
+      const t0 = Date.now();
+      let status = 0;
       let err = '';
       try {
-        const r = await fetch(HUB_ORIGIN + '/api/hub/nav', {
-          headers: { 'X-Hub-Request': '1', 'X-Web-Key': (env as unknown as { WEB_KEY?: string }).WEB_KEY || '', cookie: request.headers.get('cookie') || '' } });
-        nav = r.status;
+        const r = await fetch(HUB_ORIGIN + path, { headers: { 'X-Hub-Request': '1', 'X-Web-Key': (env as unknown as { WEB_KEY?: string }).WEB_KEY || '', cookie: request.headers.get('cookie') || '' }, signal: AbortSignal.timeout(10000) });
+        status = r.status;
       } catch (e) {
         err = String((e as Error).message || e).slice(0, 200);
       }
-      return Response.json({ ok: true, at: new Date().toISOString(), nav, err }, { headers: { 'cache-control': 'no-store' } });
+      return Response.json({ ok: true, at: new Date().toISOString(), path, status, ms: Date.now() - t0, err, nav: path === '/api/hub/nav' ? status : undefined }, { headers: { 'cache-control': 'no-store' } });
     }
     // Only the middleware calls this Worker, and it always names the person. Anything else is refused.
     if (!request.headers.get('X-Hub-Email')) return new Response('Not found', { status: 404 });
