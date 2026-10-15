@@ -45,8 +45,10 @@ export function kindOf(ctype: string, codes: string[]): 'individual' | 'organiza
 
 /** "Smith, Ada" for a person, the name without a leading "The" for an organization, lower case. */
 export function sortNameOf(kind: string, name: string, first: string, last: string): string {
-  if (kind === 'individual' && last) return `${last}, ${first}`.trim().toLowerCase();
-  return name.replace(/^the\s+/i, '').trim().toLowerCase();
+  const clean = (x: string) => x.toLowerCase().replace(/^[^a-z0-9]+/, '').trim();
+  const key = kind === 'individual' && clean(last) ? `${clean(last)}, ${clean(first)}` : clean(name.replace(/^the\s+/i, ''));
+  // A name with no letters or digits ("? ?") sorts after every real name.
+  return /^[a-z0-9]/.test(key) ? key : '~' + key;
 }
 
 function minusYears(iso: string, n: number): string {

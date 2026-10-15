@@ -1,5 +1,5 @@
 /* Partners > All partners (public/js/partners-dir.js). The table parts come from ptable.css. */
-.pd-root { display: grid; gap: 10px; }
+.pd-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .pd-sheet { padding: 0; overflow: visible; }
 .pd-panes { display: flex; gap: 2px; border-bottom: 1px solid var(--h-line); }
 .pd-panes button { height: 34px; padding: 0 12px; border: 0; background: none; font: 600 13.5px var(--h-font); color: var(--h-ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
@@ -16,7 +16,7 @@
 .pd-chk { display: inline-flex !important; grid-auto-flow: column; align-items: center; gap: 7px !important; font: 500 13px var(--h-font) !important; color: var(--h-ink) !important; }
 .pd-chk input { accent-color: var(--h-brand); width: 15px; height: 15px; }
 .pd-clear { border: 0; background: none; font: 600 12.5px var(--h-font); color: var(--h-brand-ink); cursor: pointer; }
-.pd-wrap { max-height: none; }
+.pd-wrap { --pt-fit: 252px; }
 .pd-table .pd-name { max-width: 340px; }
 .pd-table .pd-name .pt-badge { margin-left: 6px; }
 .pd-table td.pd-star, .pd-table th.pd-starth { width: 28px; padding-left: 2px; padding-right: 2px; }

@@ -61,6 +61,10 @@
 
 /* The plain table the new lists draw: a real <table>, sticky header, one line per row. */
 .pt-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
+/* A list taller than the screen scrolls inside its card, so the header row stays in view and the pager stays under it. A scroll box
+   that only scrolls sideways would stop the header sticking to the page. */
+.pt-wrap--fit { max-height: calc(100dvh - var(--pt-fit, 250px)); overflow: auto; overscroll-behavior: contain; }
+@media (max-width: 860px) { .pt-wrap--fit { max-height: none; overflow-y: visible; } }
 .pt-table { width: 100%; border-collapse: separate; border-spacing: 0; font: 400 13.5px/1.35 var(--h-font); color: var(--h-ink); font-variant-numeric: tabular-nums; }
 .pt-table thead th { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--h-ivory, #fbf9f4) 96%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-bottom: 1px solid var(--h-line); text-align: left; font: 600 11.5px var(--h-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--h-ink-3); padding: 0 10px; height: 36px; white-space: nowrap; }
 .pt-table thead th.is-num { text-align: right; }

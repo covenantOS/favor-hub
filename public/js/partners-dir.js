@@ -261,7 +261,7 @@ function tableHTML() {
       ${cols.map((c) => `<td class="${c.num ? 'is-num' : ''}${c.k === 'codes' ? ' is-clip' : ''}">${cell(c, r)}</td>`).join('')}</tr>`;
   }).join('') : `<tr><td colspan="${cols.length + 3}"><div class="pt-empty"><b>No partners match</b>Change the search or a filter, or clear them all.</div></td></tr>`;
   const skel = !d ? Array.from({ length: 14 }, () => `<tr class="pt-loading">${'<td><i></i></td>'.repeat(cols.length + 3)}</tr>`).join('') : '';
-  return `<div class="pt-wrap pd-wrap"><table class="pt-table pd-table${S.busy ? ' is-busy' : ''}" id="pd-table"><thead>${head}</thead><tbody data-pt-list="pd">${body}${skel}</tbody></table></div>`;
+  return `<div class="pt-wrap pt-wrap--fit pd-wrap"><table class="pt-table pd-table${S.busy ? ' is-busy' : ''}" id="pd-table"><thead>${head}</thead><tbody data-pt-list="pd">${body}${skel}</tbody></table></div>`;
 }
 
 function footHTML() {
