@@ -37,7 +37,7 @@ export function IntakeBoard() {
             {teams.map((t) => (
               <button key={t.team} type="button" className={'pj-fchipbtn' + (t.team === team.team ? ' is-on' : '')} aria-pressed={t.team === team.team} onClick={() => setSearch((p) => p.set('team', t.team), 'replace')}>
                 {t.name}
-                {t.counts.intake ? ' ' + t.counts.intake : ''}
+                {t.counts.waiting ? ' ' + t.counts.waiting : ''}
               </button>
             ))}
           </div>

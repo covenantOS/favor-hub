@@ -145,7 +145,7 @@ export async function noticeGate(env: TaskEnv): Promise<(email: string) => boole
 
 export interface Notice {
   email: string;
-  kind: 'sent' | 'mention' | 'comment' | 'waiting' | 'done' | 'due';
+  kind: 'sent' | 'mention' | 'comment' | 'waiting' | 'done' | 'due' | 'accepted';
   note: string;
   comment_id?: string | null;
 }

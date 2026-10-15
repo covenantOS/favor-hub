@@ -160,6 +160,7 @@ function HomeBody() {
             <AsanaChip />
             <div className="pj-ph__act">
               <HomeIntake.MakeRequest />
+              <HomeIntake.EmailPrefs />
               <button type="button" className="pj-btn" data-h="task" onClick={() => quickAdd({})}>
                 <Icon name="plus" />
                 Add task

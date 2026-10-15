@@ -97,6 +97,8 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   // An old request link (/requests/?r=<id>, in emails, Chat cards and notices) opens that request in Projects.
   const asked = bare === '/requests' ? url.searchParams.get('r') : null;
   if (asked && /^[A-Za-z0-9_-]{4,80}$/.test(asked)) return Response.redirect(new URL(`/projects/?r=${asked}`, url).toString(), 301);
+  // The Request email link at the foot of every request, Learn and Chat email opens the choices on the Projects home.
+  if (bare === '/requests' && url.searchParams.get('notices') === '1') return Response.redirect(new URL('/projects/?notices=1', url).toString(), 301);
   const moved = NAV_MOVED.get(bare);
   if (moved) return Response.redirect(new URL(moved + (moved.includes('?') ? '' : url.search), url).toString(), 301);
 

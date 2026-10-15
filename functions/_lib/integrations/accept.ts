@@ -15,8 +15,8 @@ import { isTester } from '../testuser';
 import { isBlocked } from '../blocked';
 import { allowedAmong } from '../access';
 import { staffDirectory } from '../people';
-import { addFollower, noticeGate, taskOf, toldDone, upsertTask, type Actor, type TaskEnv } from '../requests/tasks';
-import { emailOn, send } from '../requests/mail';
+import { addFollower, noticeGate, taskOf, tellPeople, toldDone, upsertTask, type Actor, type TaskEnv } from '../requests/tasks';
+import { emailOn, mailMode, send } from '../requests/mail';
 import { C, LOGO, brandRow, esc, shell } from '../requests/email';
 import { postCard } from '../chat/tasks';
 import type { TaskRow as HubTask, ProjectRow } from '../projects/db';
@@ -32,14 +32,14 @@ export interface AcceptOptions {
   projects: Array<{ id: string; key: string; name: string; synced: boolean }>;
   owner: string;
   task: { id: string; code: string | null; url: string } | null;
-  requester: { email: string; name: string; staff: boolean; chat: boolean; told: boolean; via: 'chat' | 'email' | 'none' };
+  requester: { email: string; name: string; staff: boolean; chat: boolean; told: boolean; via: 'chat' | 'email' | 'summary' | 'none' };
   focus: { mine: boolean; ready: boolean; holds: Array<{ id: string; start: string; end: string }> };
 }
 
 export interface AcceptResult {
   ok: true;
   task: { id: string; code: string | null; title: string; url: string; project: string | null; synced: boolean; existing: boolean };
-  told: { via: 'chat' | 'email' | 'none'; email: string; why: string };
+  told: { via: 'chat' | 'email' | 'summary' | 'none'; email: string; why: string };
   focus: { offer: boolean; ready: boolean };
 }
 
@@ -81,6 +81,16 @@ export async function linkedTask(env: Env, requestId: string): Promise<HubTask |
   return env.DB.prepare(`SELECT * FROM hub_tasks WHERE request_id = ? AND status <> 'dropped' ORDER BY created_at LIMIT 1`).bind(requestId).first<HubTask>().catch(() => null);
 }
 
+/**
+ * Who owns the request right now. The card in Projects is the one place the owner changes (the task panel's Owner field, a drag, Accept),
+ * so its owner wins; a request with no card falls back to the old board's record.
+ */
+export async function ownerOfRequest(env: TaskEnv, requestId: string): Promise<string> {
+  const card = await linkedTask(env, requestId);
+  if (card?.owner_email) return lower(card.owner_email);
+  return lower((await taskOf(env, requestId).catch(() => null))?.owner_email);
+}
+
 async function holdsOf(env: Env, requestId: string, email: string) {
   const r = await env.DB.prepare('SELECT id, starts_at, ends_at FROM hub_focus_holds WHERE request_id = ? AND email = ? AND removed_at IS NULL ORDER BY starts_at')
     .bind(requestId, lower(email))
@@ -94,8 +104,7 @@ const taskUrl = (t: Pick<HubTask, 'id'>) => `/projects/?t=${encodeURIComponent(t
 /** What the Accept sheet needs: the projects this person may add to, who asked, and whether they are in Chat. */
 export async function acceptOptions(env: TaskEnv, row: RequestRow, actor: Actor): Promise<AcceptOptions> {
   if (!actor.admin) throw new HttpError(403, 'forbidden', 'Only a FavorOS admin can accept a request.');
-  const t = await taskOf(env, row.id).catch(() => null);
-  const owner = lower(t?.owner_email || actor.email);
+  const owner = (await ownerOfRequest(env, row.id)) || lower(actor.email);
   const submitter = lower(row.submitter_email);
   const dir = new Map((await staffDirectory(env).catch(() => [])).map((p) => [lower(p.email), p]));
   const chat = submitter ? await chatReach(env, submitter) : false;
@@ -163,9 +172,17 @@ export async function tellAccepted(
     await postCard(env, { from: ownerEmail, to: submitter, requestId: row.id, kind: 'accepted', note: noteRaw.slice(0, 600) });
     told = { via: 'chat', email: submitter, why: '' };
   } else if (await emailOn(env)) {
-    const owner = { email: ownerEmail, name: people.get(ownerEmail)?.name || ownerEmail };
-    const ok = await send(env, { to: submitter, ...acceptedEmail(row, owner, task, { name: people.get(submitter)?.name || row.submitter_name || '' }) }).catch(() => false);
-    told = ok ? { via: 'email', email: submitter, why: '' } : { via: 'none', email: submitter, why: 'The email did not go out.' };
+    // The person's own choice (Request email): one email now, a line in the weekday morning summary, or no email.
+    const mode = await mailMode(env, submitter);
+    if (mode === 'off') told.why = 'They chose no request email.';
+    else if (mode === 'daily') {
+      const made = await tellPeople(env, row.id, actor, [{ email: submitter, kind: 'accepted', note: task.code || '' }]).catch(() => [] as string[]);
+      told = made.length ? { via: 'summary', email: submitter, why: '' } : { via: 'none', email: submitter, why: 'The summary could not be noted.' };
+    } else {
+      const owner = { email: ownerEmail, name: people.get(ownerEmail)?.name || ownerEmail };
+      const ok = await send(env, { to: submitter, ...acceptedEmail(row, owner, task, { name: people.get(submitter)?.name || row.submitter_name || '' }) }).catch(() => false);
+      told = ok ? { via: 'email', email: submitter, why: '' } : { via: 'none', email: submitter, why: 'The email did not go out.' };
+    }
   } else told.why = 'Request email is switched off.';
   if (told.via !== 'none' || !already) {
     await env.DB.prepare(`INSERT INTO events (id, request_id, kind, actor, payload, created_at) VALUES (?, ?, 'accepted', ?, ?, ?)`)
@@ -254,15 +271,14 @@ export async function focusSlots(env: Env, actor: Actor, minutesRaw: unknown): P
 
 /** Puts a busy "Focus" block on the owner's own primary calendar. Only the owner may, and Google tells nobody (no guests). */
 export async function holdFocus(env: TaskEnv, row: RequestRow, actor: Actor, b: Record<string, unknown>): Promise<{ ok: true; hold: { id: string; start: string; end: string } }> {
-  const t = await taskOf(env, row.id).catch(() => null);
-  if (lower(t?.owner_email) !== lower(actor.email)) throw new HttpError(403, 'owner_only', 'Focus time goes on the owner\'s own calendar. Only the owner can hold it.');
+  if ((await ownerOfRequest(env, row.id)) !== lower(actor.email)) throw new HttpError(403, 'owner_only', 'Focus time goes on the owner\'s own calendar. Only the owner can hold it.');
   if (isTester(actor.email)) throw new HttpError(403, 'test_user', 'The test user has no calendar.');
   const start = Date.parse(String(b.start || ''));
   const minutes = [30, 60, 90, 120].includes(Number(b.minutes)) ? Number(b.minutes) : 60;
   if (!start || start < Date.now() - 5 * 60000) throw new HttpError(400, 'bad_time', 'Pick a time that has not passed.');
   const end = start + minutes * 60000;
   const { calFetch } = await import('../meetcal');
-  const url = `${ORIGIN}/requests/?r=${encodeURIComponent(row.id)}`;
+  const url = `${ORIGIN}/projects/?r=${encodeURIComponent(row.id)}`;
   const r = await calFetch(env as never, lower(actor.email), '/events?sendUpdates=none', {
     method: 'POST',
     body: {

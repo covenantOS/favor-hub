@@ -2,6 +2,7 @@
 // renders IntakeSlot for a request card. Everything else here is the screens those pieces open.
 export { IntakeSlot } from './slot';
 export { openComposer } from './Composer';
+export { openEmailPrefs } from './EmailPrefs';
 export { useIntakeParams } from './hooks';
 export { MyRequests } from './MyRequests';
 export { IntakeBoard } from './IntakeBoard';

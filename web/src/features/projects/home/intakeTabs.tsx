@@ -5,6 +5,7 @@ import { Suspense, useEffect } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { StaffDir } from '../lib/staff';
 import { openComposer } from '../intake/Composer';
+import { EmailPrefsButton } from '../intake/EmailPrefs';
 import { IntakeBoard } from '../intake/IntakeBoard';
 import { MyRequests } from '../intake/MyRequests';
 import { intakeTabs } from '../intake/logic';
@@ -52,4 +53,4 @@ function Tab({ id }: { id: string }) {
   return <Suspense fallback={<Skeleton />}>{id === 'intake' ? <IntakeBoard /> : <MyRequests />}</Suspense>;
 }
 
-export const HomeIntake = { MakeRequest, Tab };
+export const HomeIntake = { MakeRequest, EmailPrefs: EmailPrefsButton, Tab };

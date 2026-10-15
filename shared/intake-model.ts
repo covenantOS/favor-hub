@@ -162,7 +162,8 @@ export interface IntakeTeam {
   name: string;
   project: { id: string; key: string; name: string };
   sections: Array<{ id: string; name: string; stage: Stage | null }>;
-  counts: { intake: number; questions: number; open: number };
+  /** intake = still Sent; triage = in the Triage stage and this person's to start; waiting = intake + triage (the badge). */
+  counts: { intake: number; triage: number; waiting: number; questions: number; open: number };
 }
 
 /** A place Accept can put a request: a project the person may add to, with the stages it has. */

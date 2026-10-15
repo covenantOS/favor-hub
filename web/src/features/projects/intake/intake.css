@@ -156,3 +156,15 @@
 .ik-hold:hover { border-color: var(--r-ink-3); }
 .ik-hold small { display: block; color: var(--r-ink-3); font-size: 13px; }
 .ik-hold .pj-i { width: 18px; height: 18px; color: var(--r-ink-3); flex: none; }
+
+/* ------------------------------------------------------------------------------------------------ Request email */
+.ik-prefs { padding: 0 4px 8px; }
+.ik-pref { width: 100%; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 12px; border: 0; border-radius: 12px; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.ik-pref:hover { background: var(--r-hover); }
+.ik-pref:disabled { cursor: progress; }
+.ik-pref b { display: block; font-weight: 700; font-size: 15px; }
+.ik-pref small { display: block; color: var(--r-ink-3); font-size: 13px; }
+.ik-pref__dot { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--r-line-2); box-sizing: border-box; }
+.ik-pref.is-on .ik-pref__dot { border: 6px solid #2b4d24; }
+.ik-pref--chat { margin-top: 6px; border-top: 1px solid var(--r-line); border-radius: 0 0 12px 12px; }
+.ik-prefs__note { margin: 8px 12px 4px; color: var(--r-ink-3); font-size: 13px; }

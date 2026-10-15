@@ -100,28 +100,60 @@ export async function oneItem(env: Env, actor: Actor, id: string): Promise<{ ite
 
 export type TeamOut = IntakeTeam;
 
+/**
+ * What waits on this person in one team's pipeline. Intake is every request still Sent (any owner of the team may accept it). Triage is
+ * a request the owner accepted that sits in the pipeline's Triage stage and is this person's to start (their card, or a card nobody has
+ * yet). The rail badge, the Intake tab and the phone bar all add these two numbers.
+ */
+async function waitingIn(env: Env, actor: Actor, team: PipelineTeam, projectId: string): Promise<{ intake: number; triage: number; questions: number; open: number }> {
+  const test = isTester(actor.email) ? '' : ` AND lower(COALESCE(q.submitter_email, '')) NOT IN (${TEST_LIST})`;
+  const c = await env.DB.prepare(
+    `SELECT SUM(CASE WHEN q.status = 'inbox' THEN 1 ELSE 0 END) AS intake,
+            SUM(CASE WHEN q.status = 'inbox' AND i.question_open = 1 THEN 1 ELSE 0 END) AS questions,
+            SUM(CASE WHEN q.status IN ('inbox', 'approved', 'in_progress') THEN 1 ELSE 0 END) AS open,
+            SUM(CASE WHEN q.status = 'approved' AND EXISTS (
+                  SELECT 1 FROM hub_tasks t JOIN hub_project_sections s ON s.id = t.section_id
+                   WHERE t.request_id = q.id AND t.project_id = ?2 AND t.status <> 'dropped' AND lower(trim(s.name)) = 'triage'
+                     AND (COALESCE(t.owner_email, '') = '' OR lower(t.owner_email) = ?3)) THEN 1 ELSE 0 END) AS triage
+       FROM hub_intake i JOIN requests q ON q.id = i.request_id WHERE i.team = ?1${test}`
+  )
+    .bind(team, projectId, actor.email)
+    .first<{ intake: number | null; questions: number | null; open: number | null; triage: number | null }>();
+  return { intake: Number(c?.intake) || 0, triage: Number(c?.triage) || 0, questions: Number(c?.questions) || 0, open: Number(c?.open) || 0 };
+}
+
 /** The teams this person triages, with their pipeline sections and how many requests wait. */
 export async function teamsOut(env: Env, actor: Actor): Promise<TeamOut[]> {
   const out: TeamOut[] = [];
-  const test = isTester(actor.email) ? '' : ` AND lower(COALESCE(q.submitter_email, '')) NOT IN (${TEST_LIST})`;
   for (const team of await triageTeams(env, actor)) {
     const pipe = (await pipelineFor(env, actor, team))!;
-    const c = await env.DB.prepare(
-      `SELECT SUM(CASE WHEN q.status = 'inbox' THEN 1 ELSE 0 END) AS intake, SUM(CASE WHEN q.status = 'inbox' AND i.question_open = 1 THEN 1 ELSE 0 END) AS questions,
-              SUM(CASE WHEN q.status IN ('inbox', 'approved', 'in_progress') THEN 1 ELSE 0 END) AS open
-         FROM hub_intake i JOIN requests q ON q.id = i.request_id WHERE i.team = ?${test}`
-    )
-      .bind(team)
-      .first<{ intake: number | null; questions: number | null; open: number | null }>();
+    const c = await waitingIn(env, actor, team, pipe.project.id);
     out.push({
       team,
       name: teamLabel(team),
       project: { id: pipe.project.id, key: pipe.project.key, name: pipe.project.name },
       sections: [...pipe.sections.values()].map((s) => ({ id: s.id, name: s.name, stage: stageOf(s.name) })),
-      counts: { intake: Number(c?.intake) || 0, questions: Number(c?.questions) || 0, open: Number(c?.open) || 0 },
+      counts: { intake: c.intake, triage: c.triage, waiting: c.intake + c.triage, questions: c.questions, open: c.open },
     });
   }
   return out;
+}
+
+/**
+ * The number on the Projects rail item, the Projects tab row and the phone bar for requests: Intake plus Triage waiting on this person,
+ * over every team they triage. 0 for anyone who triages no team, and 0 before the intake tables are applied.
+ */
+export async function intakeWaitingCount(env: Env, actor: Actor): Promise<number> {
+  try {
+    let n = 0;
+    for (const team of await triageTeams(env, actor)) {
+      const pipe = await pipelineFor(env, actor, team);
+      if (pipe) n += (await waitingIn(env, actor, team, pipe.project.id).then((c) => c.intake + c.triage));
+    }
+    return n;
+  } catch {
+    return 0;
+  }
 }
 
 export type AcceptTarget = IntakeAcceptTarget;

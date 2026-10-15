@@ -19,8 +19,8 @@ function willEmail(env: Env): string {
   return env.NOTIFY_EMAIL || 'will@favorintl.org';
 }
 
-function recipients(env: Env, row: RequestRow): string[] {
-  const will = willEmail(env).trim();
+/** The done email goes to the person who asked and nobody else. There is no copy to the notify address. */
+function recipients(row: RequestRow): string[] {
   const to: string[] = [];
   const seen = new Set<string>();
   const add = (raw: string) => {
@@ -32,7 +32,6 @@ function recipients(env: Env, row: RequestRow): string[] {
     seen.add(key);
     to.push(email);
   };
-  add(will);
   add(row.submitter_email || '');
   return to;
 }
@@ -100,7 +99,7 @@ export async function notifyRequestDone(
     </div>
   </body></html>`;
   await sendResend(env, {
-    to: recipients(env, row),
+    to: recipients(row),
     subject: `Done: ${row.title}`,
     html,
   });

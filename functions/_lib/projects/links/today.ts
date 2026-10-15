@@ -4,6 +4,7 @@ import type { Env } from '../../http';
 import type { HubUser } from '../../session';
 import { actorOf, projectsFlag, visibleTask, visibleProject } from '../access';
 import { lower } from '../db';
+import { intakeWaitingCount } from '../../intake/views';
 import { STATUS_WORD, ORIGIN, dirMap, nameOf, plain, short, taskUrl, todayEt, dueLabel } from './shared';
 
 export interface TodayCard {
@@ -83,12 +84,27 @@ export async function projectCards(env: Env, user: HubUser): Promise<TodayCard[]
   } catch {
     // Tables not applied yet: no cards.
   }
+  // Requests waiting in Intake or Triage for a person who triages a team. The rail badge adds this card with the others.
+  const waiting = await intakeWaitingCount(env, { email: me, name: user.name || me, admin: user.role === 'admin' }).catch(() => 0);
+  if (waiting) {
+    cards.push({
+      id: 'requests',
+      label: 'Requests',
+      n: waiting,
+      what: pl(waiting, 'request waiting in Intake or Triage', 'requests waiting in Intake or Triage'),
+      note: 'Accept, ask a question or decline',
+      warn: false,
+      href: '/projects/?tab=intake',
+      cta: 'Open Intake',
+    });
+  }
   return cards;
 }
 
 /**
  * The number on the Projects menu entry and the phone bar: the sum of the Projects cards on Today. Tasks due today or late (the Overdue and Due today
- * tiles on My tasks), plus tasks given to the person and tasks with something new, each task counted once.
+ * tiles on My tasks), plus tasks given to the person and tasks with something new, each task counted once, plus the requests waiting in
+ * Intake or Triage for a person who triages a team (the Intake tab's number, intake/views.ts intakeWaitingCount).
  */
 export async function projectsMineCount(env: Env, user: HubUser): Promise<number> {
   try {
@@ -99,7 +115,8 @@ export async function projectsMineCount(env: Env, user: HubUser): Promise<number
               (SELECT COUNT(DISTINCT n.task_id) FROM hub_task_notices n JOIN hub_tasks t ON t.id = n.task_id WHERE n.email = ?1 AND n.read_at IS NULL AND n.kind = 'assigned') +
               (SELECT COUNT(DISTINCT n.task_id) FROM hub_task_notices n JOIN hub_tasks t ON t.id = n.task_id WHERE n.email = ?1 AND n.read_at IS NULL AND n.kind NOT IN ('assigned', 'due_soon')) AS n`
     ).bind(me, todayEt()).first<{ n: number }>();
-    return Number(r?.n) || 0;
+    const waiting = await intakeWaitingCount(env, { email: me, name: user.name || me, admin: user.role === 'admin' });
+    return (Number(r?.n) || 0) + waiting;
   } catch {
     return 0;
   }

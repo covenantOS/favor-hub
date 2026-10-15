@@ -49,6 +49,8 @@ export function testerWriteBlocked(email: string, method: string, path: string):
   if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return false;
   if (!WRITE_FAMILIES.some((re) => re.test(path))) return false;
   if (READ_STEPS.test(path) || /^\/api\/requests\/(route|search|people|prefs)\/?$/.test(path)) return false;
+  // Focus time answers a test account itself ("The test user has no calendar") and writes nothing, so the guard does not turn it away with the wrong reason.
+  if (/^\/api\/requests\/[^/]+\/focus(\/[^/]+)?\/?$/.test(path)) return false;
   return true;
 }
 

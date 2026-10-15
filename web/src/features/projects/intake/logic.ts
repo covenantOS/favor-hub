@@ -20,11 +20,11 @@ export const openCount = (mine: Pick<IntakeItem, 'status'>[]): number => mine.fi
 
 /**
  * The tabs this person gets after Team workload. Everyone gets My requests. People who triage a team (they own its pipeline, or are
- * admins) also get Intake, placed before it, counting the requests still waiting in Intake.
+ * admins) also get Intake, placed before it, counting the requests waiting in Intake or Triage on them (the same number as the Projects rail badge and the phone bar).
  */
 export function intakeTabs(teams: Pick<IntakeTeam, 'counts'>[], mine: Pick<IntakeItem, 'status'>[]): IntakeTab[] {
   const out: IntakeTab[] = [];
-  if (teams.length) out.push({ id: 'intake', label: 'Intake', count: teams.reduce((n, t) => n + (t.counts?.intake || 0), 0) });
+  if (teams.length) out.push({ id: 'intake', label: 'Intake', count: teams.reduce((n, t) => n + (t.counts?.waiting ?? t.counts?.intake ?? 0), 0) });
   out.push({ id: 'requests', label: 'My requests', count: openCount(mine) });
   return out;
 }

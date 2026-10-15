@@ -443,27 +443,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     return fn(cards).then(() => cards, (err) => { console.error('[today] card', err); return cards.length ? cards : []; });
   };
   const parts = await Promise.all([
-  section(async (cards) => { if (access.admin) {
-    const inbox = await env.DB.prepare(
-      "SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM requests WHERE status = 'inbox'"
-    ).first<{ n: number; oldest: string | null }>();
-    const first = await env.DB.prepare(
-      "SELECT title, submitter_name, created_at FROM requests WHERE status = 'inbox' ORDER BY created_at LIMIT 1"
-    ).first<{ title: string; submitter_name: string; created_at: string }>();
-    const n = Number(inbox?.n) || 0;
-    if (n) {
-      cards.push({
-        id: 'requests',
-        label: 'Requests',
-        n,
-        what: n === 1 ? 'request waiting for your review' : 'requests waiting for your review',
-        note: first ? `Oldest: ${first.title}, from ${first.submitter_name}` : '',
-        warn: false,
-        href: '/requests/',
-        cta: 'Review the board',
-      });
-    }
-  } }),
+  // Requests waiting for review are the Projects "projects-intake" card now (projects/links/today.ts), for everyone who triages a team.
   access.tasks ? taskCards(env, user.email).catch(() => [] as Card[]) : Promise.resolve([] as Card[]),
   // learn: begin
   learnCards(env, user, access).catch(() => [] as Card[]),

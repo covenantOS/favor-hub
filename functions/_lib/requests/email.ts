@@ -7,7 +7,7 @@
 // buildSummary groups a day's notices by request for people who chose the daily summary.
 // Pure functions: nothing here reads a database or sends anything, so tests and the preview render them directly.
 
-export type MailKind = 'sent' | 'mention' | 'comment' | 'waiting' | 'due' | 'done';
+export type MailKind = 'sent' | 'mention' | 'comment' | 'waiting' | 'due' | 'done' | 'accepted';
 
 export interface MailPerson {
   name: string;
@@ -63,7 +63,7 @@ export const timeWord = (iso: string) => {
 /** The links every request email carries. Each opens the hub on that request; a signed-out person signs in and lands there. */
 export function linksFor(origin: string, id: string) {
   const base = `${origin.replace(/\/$/, '')}/requests/?r=${encodeURIComponent(id)}`;
-  return { open: base, done: `${base}&do=done`, reply: `${base}&reply=1`, prefs: `${origin.replace(/\/$/, '')}/requests/?notices=1` };
+  return { open: base, done: `${base}&do=done`, reply: `${base}&reply=1`, prefs: `${origin.replace(/\/$/, '')}/projects/?notices=1` };
 }
 
 export function face(p: MailPerson, size = 40): string {
@@ -94,6 +94,7 @@ const HEAD: Record<MailKind, (m: NoticeMail) => { subject: string; line: string;
   waiting: (m) => ({ subject: `Waiting on you: ${m.request.title}`, line: `<b>${esc(m.actor.name)}</b> marked this request waiting on you`, pill: 'Waiting on you' }),
   due: (m) => ({ subject: `Due ${m.dueWord || 'soon'}: ${m.request.title}`, line: `Your request is due <b>${esc(m.dueWord || 'soon')}</b>`, pill: `Due ${m.dueWord || 'soon'}` }),
   done: (m) => ({ subject: `Done: ${m.request.title}`, line: `<b>${esc(m.actor.name)}</b> marked this request done`, pill: 'Done' }),
+  accepted: (m) => ({ subject: `Accepted: ${m.request.title}`, line: `<b>${esc(m.actor.name)}</b> accepted your request and is working on it`, pill: 'Accepted' }),
 };
 
 const DARK = `<style>
@@ -179,7 +180,7 @@ export interface SummaryGroup {
   items: Array<{ kind: MailKind; actor: MailPerson; note: string; at: string; dueWord?: string }>;
 }
 
-const SUMMARY_WORD: Record<MailKind, string> = { sent: 'sent it to you', mention: 'mentioned you', comment: 'commented', waiting: 'marked it waiting on you', due: 'It is due', done: 'marked it done' };
+const SUMMARY_WORD: Record<MailKind, string> = { sent: 'sent it to you', mention: 'mentioned you', comment: 'commented', waiting: 'marked it waiting on you', due: 'It is due', done: 'marked it done', accepted: 'accepted your request' };
 
 /** The daily summary: everything new since the last one, grouped by request, newest request first. */
 export function buildSummary(s: { to: { name: string; email: string }; groups: SummaryGroup[]; origin: string; now?: Date }): { subject: string; html: string; text: string } {

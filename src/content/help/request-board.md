@@ -19,11 +19,11 @@ My requests lists what you asked for, newest first, with a question waiting on y
 - **Declined** shows the reason the team gave.
 - **Open** shows your words, your files, how it was sorted, the conversation and the history. Add a note there with an @mention to bring someone in.
 
-You get an email when your request is done. Links to a request from Chat, Today, the bell and email open it here.
+You get an email when your request is done, and it goes to you alone. Links to a request from Chat, Today, the bell and email open it here.
 
 ## Intake
 
-Tech and Marketing each have a board with five columns: **Intake**, **Triage**, **In progress**, **Review** and **Done**. A new request lands in Intake. The Intake tab shows for the owners of a team's board and for FavorOS admins, and its number counts what waits in Intake. A person who triages both teams switches between them at the top.
+Tech and Marketing each have a board with five columns: **Intake**, **Triage**, **In progress**, **Review** and **Done**. A new request lands in Intake. The Intake tab shows for the owners of a team's board and for FavorOS admins. Its number counts the requests waiting on you in Intake and Triage, and the same number sits beside Projects in the side menu together with your tasks. A person who triages both teams switches between them at the top.
 
 Press a card to open it. Three buttons sit under the details:
 
@@ -33,7 +33,17 @@ Press a card to open it. Three buttons sit under the details:
 
 Drag a card from one column to the next as the work moves. Moving it to **Done** ticks the card and emails the person who asked, so move it only when the work is live. A card in Review reads In progress to the person who asked. Owners are added to a team's board under Project > Members.
 
-The owner of an open request can press **Hold focus time** in its panel. Pick how long, then one of three open times, and Google puts a busy block on the owner's own calendar with no guests.
+The owner of an open request can press **Hold focus time** in its panel. Pick how long, then one of three open times, and Google puts a busy block on the owner's own calendar with no guests. If the card is handed to someone else, the button moves to them.
+
+## Request email
+
+Press **Request email** at the top of Projects, or the link at the foot of any request email, and choose how you hear about requests:
+
+- **Immediately**: one email for each thing sent to you, each mention, each comment and each accepted request.
+- **Daily summary**: one email each weekday morning, grouped by request.
+- **None**: Today, the bell and Chat only.
+
+The email that says a request you sent is done comes whichever you pick. The person who did something never gets an email about it.
 
 ## Done in either place
 

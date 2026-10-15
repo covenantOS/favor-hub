@@ -36,3 +36,8 @@ test('an old link to one request opens that request in Projects', async () => {
   const odd = await go('https://dash.favorintl.org/requests/?r=%3Cscript%3E');
   assert.equal(odd.to, 'https://dash.favorintl.org/projects/?tab=intake');
 });
+
+test('the Request email link in old emails opens the email choices on the Projects home', async () => {
+  assert.deepEqual(await go('https://dash.favorintl.org/requests/?notices=1'), { status: 301, to: 'https://dash.favorintl.org/projects/?notices=1' });
+  assert.deepEqual(await go('https://dash.favorintl.org/requests?notices=1'), { status: 301, to: 'https://dash.favorintl.org/projects/?notices=1' });
+});

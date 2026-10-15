@@ -28,7 +28,7 @@ type ChatN = z.infer<typeof chatNotice>;
 
 const addDays = (ymd: string, n: number) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 
-const TK_WORD: Record<string, string> = { sent: 'sent you', mention: 'named you on', comment: 'commented on', waiting: 'is waiting on you for', done: 'finished' };
+const TK_WORD: Record<string, string> = { sent: 'sent you', mention: 'named you on', comment: 'commented on', waiting: 'is waiting on you for', done: 'finished', accepted: 'accepted' };
 
 const dueWord = (d: string) => {
   const t = todayEt();

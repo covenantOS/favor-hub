@@ -1,5 +1,6 @@
 // What the Projects home does with the request addresses. Call it once from the home page, with the page's openTask:
 //   /projects/?compose=1   opens the composer (and takes the parameter off the address)
+//   /projects/?notices=1   opens the Request email choices (the link at the foot of every request email)
 //   /projects/?r=<id>      opens that request. A person who triages its team gets its card in the drawer over the Intake view;
 //                          the person who asked gets My requests with that request open; anyone else is told it is not available
 //   /projects/?tab=intake  for a person who triages no team, shows My requests
@@ -8,6 +9,7 @@ import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { toast } from '../kit/toast';
 import { useSearchParams, useSetSearch } from '../lib/url';
 import { openComposer } from './Composer';
+import { openEmailPrefs } from './EmailPrefs';
 import { intakeDetailQuery, intakeTeamsQuery } from './queries';
 
 // Once per page load for each time the address says compose=1; reset when the address no longer says it.
@@ -45,6 +47,13 @@ export function useIntakeParams(openTask: (ref: string) => void): void {
     setSearch((p) => p.delete('compose'), 'replace');
     openComposer();
   }, [compose, setSearch]);
+
+  const notices = search.get('notices');
+  useEffect(() => {
+    if (notices !== '1') return;
+    setSearch((p) => p.delete('notices'), 'replace');
+    openEmailPrefs();
+  }, [notices, setSearch]);
 
   useEffect(() => {
     if (tab === 'intake' && !triages) setSearch((p) => p.set('tab', 'requests'), 'replace');

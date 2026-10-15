@@ -334,7 +334,7 @@ test('landing in Done, or ticking the card, closes the request and sends the don
     assert.equal(rows(w, 'SELECT status FROM hub_tasks WHERE id = ?', cardA)[0].status, 'done', 'the card is ticked');
     const done = sent.filter((m) => m.subject === 'Done: Add a banner to the home page of the website');
     assert.equal(done.length, 1);
-    assert.ok(done[0].to.includes(VIDEO.email), 'the asker gets the done email');
+    assert.deepEqual(done[0].to, [VIDEO.email], 'the done email goes to the asker alone, with no copy to the notify address');
     // Moved around inside Done again: still one email.
     await pc(w, WILL, 'PATCH', `tasks/${cardA}`, { move: { section_id: sec(w, p.id, 'Done') } });
     assert.equal(sent.filter((m) => m.subject.startsWith('Done:')).length, 1);
@@ -347,6 +347,7 @@ test('landing in Done, or ticking the card, closes the request and sends the don
     assert.equal(rows(w, 'SELECT status FROM requests WHERE id = ?', b.id)[0].status, 'done');
     assert.equal(rows(w, 'SELECT section_id FROM hub_tasks WHERE id = ?', cardB)[0].section_id, sec(w, p.id, 'Done'));
     assert.equal(sent.filter((m) => m.subject === 'Done: Fix the careers page on the website').length, 1);
+    for (const m of sent.filter((x) => x.subject.startsWith('Done:'))) assert.ok(!m.to.includes(WILL.email), 'the notify address is not copied on a done email');
     assert.ok(sent.every((m) => !JSON.stringify(m).includes(String.fromCharCode(8212))), 'no long dash in the email');
 
     // Reopened: back to In progress.
