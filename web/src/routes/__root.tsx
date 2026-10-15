@@ -1,11 +1,11 @@
 /// <reference types="vite/client" />
-import type { ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useMatches } from '@tanstack/react-router';
 import { resolveNav } from '@hub/data/areas';
 import type { QueryClient } from '@tanstack/react-query';
 import { WebShell } from '../shell/WebShell';
 import { navQuery } from '../lib/queries';
-import { PartnerLinks } from '../features/partners/record/PartnerLinks';
+import { useIdleReady } from '@/lib/idle';
 import css from '../styles/layout.css?url';
 // The classic layout inlines these three in its head, before anything draws: timer and listener ownership (hub-own), Lite mode's
 // switch, timers, fonts and meter (lite), and held space with fade-through page changes (hub-motion). Web pages do the same.
@@ -77,12 +77,26 @@ function Document({ children }: { children: ReactNode }) {
   );
 }
 
+// The partner drawer and its tools are a large file; every page loads it after the page is idle, in its own chunk, so pages without
+// partners never wait for it. Until it arrives a partner link does its own plain navigation.
+const PartnerLinks = lazy(() => import('../features/partners/record/PartnerLinks').then((m) => ({ default: m.PartnerLinks })));
+function IdlePartnerLinks() {
+  const idle = useIdleReady();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted && idle ? (
+    <Suspense fallback={null}>
+      <PartnerLinks />
+    </Suspense>
+  ) : null;
+}
+
 function Root() {
   return (
     <WebShell>
       <Outlet />
       {/* Partner names open the partner drawer on every web page, as partner.js does on classic pages. A page that mounts its own copy keeps it. */}
-      <PartnerLinks />
+      <IdlePartnerLinks />
     </WebShell>
   );
 }

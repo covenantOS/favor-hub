@@ -56,5 +56,10 @@ export default defineConfig({
       },
     },
   },
-  plugins: [cloudflare({ viteEnvironment: { name: 'ssr' } }), tanstackStart({ srcDirectory: 'src' }), react()],
+  plugins: [cloudflare({ viteEnvironment: { name: 'ssr' } }), tanstackStart({
+      srcDirectory: 'src',
+      // Each route's loader goes in its own chunk too, with the component: a loader that imports from its page's module (prefetchWork
+      // from WorkPage) would otherwise pull the whole page into the first-screen chunk every page downloads.
+      router: { codeSplittingOptions: { defaultBehavior: [['loader'], ['component'], ['pendingComponent', 'errorComponent', 'notFoundComponent']] } },
+    }), react()],
 });

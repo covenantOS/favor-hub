@@ -23,7 +23,7 @@ function WebCheck() {
         <Suspense fallback={<span>&nbsp;</span>}>
           <Who />
         </Suspense>
-        . Build {__BUILD__}.
+        .
       </p>
     </section>
   );

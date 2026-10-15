@@ -1,6 +1,7 @@
 // A partner's page (/work/partner/<id>): the record with Overview, Gifts, Actions, Relationships, Contact, Codes and Record.
 import { createFileRoute } from '@tanstack/react-router';
-import { PartnerPage, prefetchPartner, validatePartnerSearch, type PartnerSearch } from '../../../features/partners/record/PartnerPage';
+import { PartnerPage, prefetchPartner } from '../../../features/partners/record/PartnerPage';
+import { validatePartnerSearch, type PartnerSearch } from '../../../features/partners/record/search';
 
 export const Route = createFileRoute('/work/partner/$id')({
   validateSearch: (raw: Record<string, unknown>): PartnerSearch => validatePartnerSearch(raw),

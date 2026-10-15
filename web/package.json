@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/layout-css.mjs && vite dev --port 5190",
-    "build": "node scripts/layout-css.mjs && vite build",
+    "build": "node scripts/layout-css.mjs && vite build && node scripts/budget.mjs",
     "test": "node scripts/layout-css.mjs && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "deploy": "echo use scripts/ship-web.mjs",

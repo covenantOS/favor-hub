@@ -9,20 +9,8 @@ import { PartnerView } from './PartnerView';
 import { prefetchPartnerReads } from './queries';
 import type { Partner } from './lib';
 
-export interface PartnerSearch {
-  as?: string;
-  gift?: string;
-  opp?: string;
-}
-/** Checks the address's search part for the partner page. */
-export function validatePartnerSearch(raw: Record<string, unknown>): PartnerSearch {
-  const out: PartnerSearch = {};
-  if (typeof raw.as === 'string' && raw.as.trim()) out.as = raw.as.slice(0, 120);
-  const num = (v: unknown) => (typeof v === 'number' ? String(v) : typeof v === 'string' ? v : '');
-  if (/^\d{1,12}$/.test(num(raw.gift))) out.gift = num(raw.gift);
-  if (/^\d{1,12}$/.test(num(raw.opp))) out.opp = num(raw.opp);
-  return out;
-}
+import type { PartnerSearch } from './search';
+export { validatePartnerSearch, type PartnerSearch } from './search';
 
 export function prefetchPartner(qc: QueryClient, id: string, as = ''): void {
   prefetchPartnerReads(qc, id, as);
