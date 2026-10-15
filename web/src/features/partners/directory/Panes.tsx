@@ -1,5 +1,5 @@
-// The All partners page's other lists: the partners you opened lately (on any device) and the one queue for possible duplicates and
-// merge requests, which lives in Data care (dc_pair: compare side by side, then merge).
+// The All partners page's other list: the partners you opened lately (on any device). Possible duplicates and merge requests are
+// one queue, in Data care (a link on the tab row).
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { queryOptions } from '@tanstack/react-query';
 import { hubGet } from '../../../lib/hub';
@@ -36,23 +36,6 @@ export function RecentPane() {
         <span>The last partner records you opened, on any device.</span>
       </div>
       <DataTable<Card> listKey="pd-recent" label="Recently opened" columns={cols} rows={data} rowKey={(r) => String(r.id)} noFit empty={<div className="pt-empty"><b>Partners you open show here.</b></div>} />
-    </section>
-  );
-}
-
-/** Possible duplicates and merge requests: Data care's queue. */
-export function QueuePane() {
-  const n = useMergeCount();
-  return (
-    <section className="h-card pd-sheet">
-      <div className="pd-panehead">
-        <b>Duplicates and merges</b>
-        <span>Records that look like one partner, found by the nightly check or asked for from this list. Compare them side by side, then merge or mark them not the same.</span>
-      </div>
-      <div className="pt-empty">
-        <b>{n ? `${n.toLocaleString('en-US')} pairs to review` : 'Nothing waiting'}</b>
-        <a className="h-btn h-btn--primary h-btn--sm" href="/data-care/">Open the queue</a>
-      </div>
     </section>
   );
 }

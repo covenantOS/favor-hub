@@ -15,6 +15,8 @@ export interface Column<T> {
   /** Stable key, also the key the Columns menu saves. */
   key: string;
   label: string;
+  /** Read by screen readers only, for a column whose visible header is empty (a star, a row action). */
+  srLabel?: string;
   /** Sort key sent to onSort. A column without one cannot be sorted. */
   sort?: string;
   /** The first press sorts this way (numbers and dates usually 'desc'). */
@@ -203,7 +205,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                       <SortMark on={on} dir={p.sort?.dir} />
                     </button>
                   ) : (
-                    c.label
+                    c.srLabel ? <span className="sr-only">{c.srLabel}</span> : c.label
                   )}
                 </th>
               );
