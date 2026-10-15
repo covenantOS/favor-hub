@@ -1,0 +1,26 @@
+/* The phone app's start page (/m/) inside the web app. The classic page's rules (src/styles/phone-app.css) with the page-wide resets
+   removed: those reset every element and set the body, which would leak into every page reached by tapping from here. */
+.pa-page { --pa-green: #2b4d24; --pa-ink: #15181a; --pa-ink-2: #4b5157; --pa-line: #e3dfd0; --pa-card: #fffdf6; --pa-bg: #f4efe0; color: var(--pa-ink); }
+.pa-page [hidden] { display: none !important; }
+.pa-page .pa-main { max-width: 520px; margin: 0 auto; padding: 4px 0 8px; display: grid; gap: 14px; }
+.pa-page .pa-head { display: grid; gap: 6px; padding: 4px 2px 6px; }
+.pa-page .pa-logo { height: 34px; width: auto; justify-self: start; }
+.pa-page .pa-who { font-size: 14px; color: var(--pa-ink-2); min-height: 20px; margin: 0; }
+.pa-page .pa-tiles { display: grid; gap: 10px; }
+.pa-page .pa-tile { display: flex; align-items: center; gap: 14px; padding: 16px; min-height: 72px; background: var(--pa-card); border: 1px solid var(--pa-line); border-radius: 16px; color: inherit; text-decoration: none; }
+.pa-page .pa-tile:active { background: #f3eedb; }
+.pa-page .pa-tile svg { width: 28px; height: 28px; flex: none; fill: none; stroke: var(--pa-green); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pa-page .pa-tile b { display: block; font-size: 17px; }
+.pa-page .pa-tile small { display: block; font-size: 14px; color: var(--pa-ink-2); margin-top: 2px; }
+.pa-page .pa-card { background: var(--pa-card); border: 1px solid var(--pa-line); border-radius: 16px; padding: 16px; display: grid; gap: 10px; }
+.pa-page .pa-card h2 { font-size: 16px; margin: 0; }
+.pa-page .pa-card p { font-size: 14px; color: var(--pa-ink-2); line-height: 1.45; margin: 0; }
+.pa-page .pa-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pa-page .pa-btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--pa-line); background: #fff; font: inherit; font-weight: 600; color: var(--pa-ink); }
+.pa-page .pa-btn--on { background: var(--pa-green); border-color: var(--pa-green); color: #fff; }
+.pa-page .pa-btn:disabled { opacity: .55; }
+.pa-page .pa-msg { min-height: 18px; }
+.pa-page .pa-foot { text-align: center; padding-top: 6px; margin: 0; }
+.pa-page .pa-link { background: none; border: 0; font: inherit; font-size: 14px; color: var(--pa-ink-2); text-decoration: underline; min-height: 44px; padding: 0 12px; }
+.pa-page .pa-cardh { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pa-page .pa-pick { min-height: 44px; border: 0; background: none; padding: 0 2px; font: inherit; font-size: 16px; font-weight: 600; color: var(--pa-green); text-align: right; text-align-last: right; }

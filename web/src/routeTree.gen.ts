@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrainIndexRouteImport } from './routes/brain/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
+import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as EvaluationsIndexRouteImport } from './routes/evaluations/index'
@@ -25,6 +26,8 @@ import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as HighlightsIndexRouteImport } from './routes/highlights/index'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as ListsIndexRouteImport } from './routes/lists/index'
+import { Route as MIndexRouteImport } from './routes/m/index'
+import { Route as MailIndexRouteImport } from './routes/mail/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as OnlineGiftsIndexRouteImport } from './routes/online-gifts/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners/index'
@@ -68,6 +71,11 @@ const BrainIndexRoute = BrainIndexRouteImport.update({
 const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
   id: '/changelog/',
   path: '/changelog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
@@ -133,6 +141,16 @@ const LearnIndexRoute = LearnIndexRouteImport.update({
 const ListsIndexRoute = ListsIndexRouteImport.update({
   id: '/lists/',
   path: '/lists/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MIndexRoute = MIndexRouteImport.update({
+  id: '/m/',
+  path: '/m/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MailIndexRoute = MailIndexRouteImport.update({
+  id: '/mail/',
+  path: '/mail/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
@@ -286,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/help/$slug': typeof HelpSlugRoute
   '/brain/': typeof BrainIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
+  '/chat/': typeof ChatIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/evaluations/': typeof EvaluationsIndexRoute
@@ -298,6 +317,8 @@ export interface FileRoutesByFullPath {
   '/highlights/': typeof HighlightsIndexRoute
   '/learn/': typeof LearnIndexRoute
   '/lists/': typeof ListsIndexRoute
+  '/m/': typeof MIndexRoute
+  '/mail/': typeof MailIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
@@ -333,6 +354,7 @@ export interface FileRoutesByTo {
   '/help/$slug': typeof HelpSlugRoute
   '/brain': typeof BrainIndexRoute
   '/changelog': typeof ChangelogIndexRoute
+  '/chat': typeof ChatIndexRoute
   '/churches': typeof ChurchesIndexRoute
   '/data-care': typeof DataCareIndexRoute
   '/evaluations': typeof EvaluationsIndexRoute
@@ -345,6 +367,8 @@ export interface FileRoutesByTo {
   '/highlights': typeof HighlightsIndexRoute
   '/learn': typeof LearnIndexRoute
   '/lists': typeof ListsIndexRoute
+  '/m': typeof MIndexRoute
+  '/mail': typeof MailIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/online-gifts': typeof OnlineGiftsIndexRoute
   '/partners': typeof PartnersIndexRoute
@@ -381,6 +405,7 @@ export interface FileRoutesById {
   '/help/$slug': typeof HelpSlugRoute
   '/brain/': typeof BrainIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
+  '/chat/': typeof ChatIndexRoute
   '/churches/': typeof ChurchesIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/evaluations/': typeof EvaluationsIndexRoute
@@ -393,6 +418,8 @@ export interface FileRoutesById {
   '/highlights/': typeof HighlightsIndexRoute
   '/learn/': typeof LearnIndexRoute
   '/lists/': typeof ListsIndexRoute
+  '/m/': typeof MIndexRoute
+  '/mail/': typeof MailIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
@@ -430,6 +457,7 @@ export interface FileRouteTypes {
     | '/help/$slug'
     | '/brain/'
     | '/changelog/'
+    | '/chat/'
     | '/churches/'
     | '/data-care/'
     | '/evaluations/'
@@ -442,6 +470,8 @@ export interface FileRouteTypes {
     | '/highlights/'
     | '/learn/'
     | '/lists/'
+    | '/m/'
+    | '/mail/'
     | '/onboarding/'
     | '/online-gifts/'
     | '/partners/'
@@ -477,6 +507,7 @@ export interface FileRouteTypes {
     | '/help/$slug'
     | '/brain'
     | '/changelog'
+    | '/chat'
     | '/churches'
     | '/data-care'
     | '/evaluations'
@@ -489,6 +520,8 @@ export interface FileRouteTypes {
     | '/highlights'
     | '/learn'
     | '/lists'
+    | '/m'
+    | '/mail'
     | '/onboarding'
     | '/online-gifts'
     | '/partners'
@@ -524,6 +557,7 @@ export interface FileRouteTypes {
     | '/help/$slug'
     | '/brain/'
     | '/changelog/'
+    | '/chat/'
     | '/churches/'
     | '/data-care/'
     | '/evaluations/'
@@ -536,6 +570,8 @@ export interface FileRouteTypes {
     | '/highlights/'
     | '/learn/'
     | '/lists/'
+    | '/m/'
+    | '/mail/'
     | '/onboarding/'
     | '/online-gifts/'
     | '/partners/'
@@ -572,6 +608,7 @@ export interface RootRouteChildren {
   HelpSlugRoute: typeof HelpSlugRoute
   BrainIndexRoute: typeof BrainIndexRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
+  ChatIndexRoute: typeof ChatIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
   EvaluationsIndexRoute: typeof EvaluationsIndexRoute
@@ -584,6 +621,8 @@ export interface RootRouteChildren {
   HighlightsIndexRoute: typeof HighlightsIndexRoute
   LearnIndexRoute: typeof LearnIndexRoute
   ListsIndexRoute: typeof ListsIndexRoute
+  MIndexRoute: typeof MIndexRoute
+  MailIndexRoute: typeof MailIndexRoute
   OnboardingIndexRoute: typeof OnboardingIndexRoute
   OnlineGiftsIndexRoute: typeof OnlineGiftsIndexRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
@@ -636,6 +675,13 @@ declare module '@tanstack/react-router' {
       path: '/changelog'
       fullPath: '/changelog/'
       preLoaderRoute: typeof ChangelogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/churches/': {
@@ -727,6 +773,20 @@ declare module '@tanstack/react-router' {
       path: '/lists'
       fullPath: '/lists/'
       preLoaderRoute: typeof ListsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m/': {
+      id: '/m/'
+      path: '/m'
+      fullPath: '/m/'
+      preLoaderRoute: typeof MIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mail/': {
+      id: '/mail/'
+      path: '/mail'
+      fullPath: '/mail/'
+      preLoaderRoute: typeof MailIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding/': {
@@ -940,6 +1000,7 @@ const rootRouteChildren: RootRouteChildren = {
   HelpSlugRoute: HelpSlugRoute,
   BrainIndexRoute: BrainIndexRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
+  ChatIndexRoute: ChatIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
   EvaluationsIndexRoute: EvaluationsIndexRoute,
@@ -952,6 +1013,8 @@ const rootRouteChildren: RootRouteChildren = {
   HighlightsIndexRoute: HighlightsIndexRoute,
   LearnIndexRoute: LearnIndexRoute,
   ListsIndexRoute: ListsIndexRoute,
+  MIndexRoute: MIndexRoute,
+  MailIndexRoute: MailIndexRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,
   OnlineGiftsIndexRoute: OnlineGiftsIndexRoute,
   PartnersIndexRoute: PartnersIndexRoute,
