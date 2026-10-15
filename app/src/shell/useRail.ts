@@ -106,7 +106,7 @@ export function useRail(email: string, curArea: string) {
       const t = e.target as Element | null;
       if (!t || !(t instanceof Element)) return;
       if (!t.closest('.h-area--pop')) setPop(null);
-      if (navOpen && !t.closest('.h-side') && !t.closest('#h-menu') && !t.closest('#h-bar-more')) setNavOpen(false);
+      if (navOpen && !t.closest('.h-side') && !t.closest('#h-menu')) setNavOpen(false);
       if (peek && !t.closest('.h-side') && !t.closest('#h-wide')) setPeek(false);
     };
     document.addEventListener('click', onClick);

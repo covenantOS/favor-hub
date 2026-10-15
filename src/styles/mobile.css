@@ -147,10 +147,10 @@
   body.h-body.kb-open .bc-root .bc-scroll { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); }
 }
 
-/* Phone tab bar: four areas and More, each a full-height tap area. Built for a thumb, not a cursor. */
+/* Phone tab bar: every area the person can open, each a full-height tap area. Built for a thumb, not a cursor. */
 @media (max-width: 860px) {
   body.h-body .h-navbar { padding: 6px 8px calc(4px + env(safe-area-inset-bottom)); gap: 4px; }
-  body.h-body .h-bar__a { flex: 1 1 0; min-height: 58px; padding: 4px 0 2px; gap: 4px; border-radius: 16px; -webkit-tap-highlight-color: transparent; }
+  body.h-body .h-bar__a { flex: 1 0 72px; min-height: 58px; padding: 4px 0 2px; gap: 4px; border-radius: 16px; -webkit-tap-highlight-color: transparent; }
   body.h-body .h-bar__a .h-bar__i { width: 56px; height: 32px; border-radius: 999px; }
   body.h-body .h-bar__a .h-bar__i .h-i, body.h-body .h-bar__a .h-bar__i svg { width: 24px; height: 24px; }
   body.h-body .h-bar__l { font-size: 12.5px; font-weight: 600; letter-spacing: 0; }

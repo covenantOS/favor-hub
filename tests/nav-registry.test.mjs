@@ -25,10 +25,12 @@ test('the rail and the phone bar read the areas in the same order', () => {
   assert.deepEqual(ranks, ranks.slice().sort((x, y) => x - y));
 });
 
-test('the phone bar fits five areas plus More', () => {
+test('the phone bar draws every area in rank order and has no More button', () => {
   assert.ok(AREAS.filter((a) => !a.foot).length >= 5);
   const ranks = AREAS.filter((a) => !a.foot).map((a) => a.barRank);
   assert.equal(new Set(ranks).size, ranks.length);
+  assert.ok(!/h-bar-more/.test(fs.readFileSync('src/components/NavBar.astro', 'utf8')), 'NavBar has no More button');
+  assert.ok(!/h-bar-more/.test(fs.readFileSync('app/src/shell/PhoneBar.tsx', 'utf8')), 'PhoneBar has no More button');
 });
 
 test('every page route has a built page and a registry entry', () => {

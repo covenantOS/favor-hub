@@ -59,7 +59,7 @@ test('release badges: Brain is Beta, Projects Alpha, Requests and Clips none, Re
   const { AREAS: NAV } = await import('../src/data/areas.ts');
   assert.equal(r.badgeFor('ask'), 'beta');
   assert.equal(r.pageBadge('projects', 'projects'), 'alpha');
-  assert.equal(r.pageBadge('clips', 'meet'), null);
+  assert.equal(r.pageBadge('clips', 'staff'), null);
   assert.equal(r.pageBadge('meet-book', 'meet'), 'alpha');
   assert.equal(r.pageBadge('board', 'projects'), null);
   assert.equal(r.badgeFor('kpi'), null);

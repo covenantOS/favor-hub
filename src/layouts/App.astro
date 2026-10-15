@@ -223,23 +223,19 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           // One tab left is still shown when it is not the open page: a person on a page outside their access sees the page they may open.
           if (tabs) { var vt = q('a.h-tab[data-nav-id]:not([hidden])', tabs); tabs.hidden = !document.documentElement.classList.contains('nav-pending') && (!vt.length || (vt.length === 1 && vt[0].classList.contains('is-on'))); }
           if (window.hubTabsLayout) window.hubTabsLayout();
-          // The phone bar: Today and this person's next three areas, in rail order. More holds every other area.
+          // The phone bar: every area this person can open, in rail order. It scrolls when they do not fit; there is no More button.
           var bar = q('#h-bar [data-bar]');
           var vis = bar.filter(function (b) { var a = document.querySelector('.h-area[data-area="' + b.dataset.bar + '"]'); return a && !a.hidden; });
           vis.sort(function (x, y) { return Number(x.dataset.rank) - Number(y.dataset.rank); });
-          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 3; });
+          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0; });
           q('.h-area').forEach(function (a) { a.classList.toggle('in-bar', bar.some(function (b) { return !b.hidden && b.dataset.bar === a.dataset.area; })); });
           q('[data-sum]').forEach(function (el) {
             var s = sums[el.dataset.sum];
-            if (el.dataset.sum === 'more') { s = { n: 0, warn: false }; q('#h-bar [data-bar][hidden]').forEach(function (b) { var t = sums[b.dataset.bar]; if (t) s.n += t.n; }); ['admin', 'help'].forEach(function (k) { if (sums[k]) s.n += sums[k].n; }); }
             var n = s ? s.n : 0;
             el.hidden = !n;
             el.textContent = el.closest('#h-bar') && n > 99 ? '99+' : n.toLocaleString('en-US');
             el.classList.toggle('h-nav__count--warn', !!(s && s.warn));
           });
-          var cur = document.querySelector('.h-area.is-cur');
-          var more = document.getElementById('h-bar-more');
-          if (more) more.classList.toggle('is-on', !!cur && !bar.some(function (b) { return !b.hidden && b.dataset.bar === cur.dataset.area; }));
         };
         // The tab row (src/components/NavTabs.astro): this person's job pages first, at most six in the row, the rest under More;
         // an open page under More lights the More button. The same rule as arrangeTabs in src/data/areas.ts (tests/nav-areas.test.mjs runs both).

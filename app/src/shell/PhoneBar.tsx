@@ -4,13 +4,10 @@ import { barCount, type NavView } from './model';
 
 interface Props {
   view: NavView;
-  navOpen: boolean;
-  onMore: () => void;
 }
 
-/** The phone's bottom bar: up to four areas and More, which opens the full menu. */
-export function PhoneBar({ view, navOpen, onMore }: Props) {
-  const moreOn = !!view.curArea && !view.bar.some((a) => a.area.id === view.curArea);
+/** The phone's bottom bar: every area the person can open, scrolling sideways when they do not fit. There is no More button. */
+export function PhoneBar({ view }: Props) {
   return (
     <nav className="h-navbar" id="h-bar" aria-label="Areas">
       {view.main.map((v) => (
@@ -34,15 +31,6 @@ export function PhoneBar({ view, navOpen, onMore }: Props) {
           <span className="h-bar__l">{v.area.short || v.area.label}</span>
         </NavLink>
       ))}
-      <button type="button" className={'h-bar__a h-bar__more' + (moreOn ? ' is-on' : '')} id="h-bar-more" aria-controls="h-side" aria-expanded={navOpen} onClick={(e) => { e.stopPropagation(); onMore(); }}>
-        <span className="h-bar__i">
-          <Icon name="more" />
-          <i className="h-bar__n" data-sum="more" hidden={!view.more}>
-            {barCount(view.more)}
-          </i>
-        </span>
-        <span className="h-bar__l">More</span>
-      </button>
     </nav>
   );
 }
