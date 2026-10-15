@@ -1,9 +1,10 @@
 // Churches: the church partners Church Engagement works with, from the Blackbaud mirror. Giving, who holds the relationship, when anyone
 // last spoke to the church and when the next call is due (thank at once, then call every three months). Read only; opening a record
 // goes to the partner page, where visits and thank-yous are logged. Partner Care does not work with churches and the server refuses it.
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useSuspenseQuery } from '@tanstack/react-query';
+import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { hubGet } from '../../lib/hub';
 import './churches.css';
 
@@ -76,7 +77,55 @@ const REGIONS: Region[] = ['Southeast', 'South', 'Midwest', 'West', 'Northeast']
 const SIZES = [15, 30, 60];
 
 function Churches() {
-  const q = useQuery(listQuery);
+  return (
+    <ErrorBoundary label="Churches did not open." className="ch-card ch-notice">
+      <Suspense fallback={<ChurchesSkeleton />}>
+        <ChurchesBody />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function ChurchesSkeleton() {
+  return (
+    <div className="ch-page" aria-busy="true">
+      <section className="ch-band" aria-label="Church giving this year">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div className="ch-stat" key={i}>
+            <span>&nbsp;</span>
+            <b>
+              <i className="ch-sk" />
+            </b>
+          </div>
+        ))}
+      </section>
+      <div className="ch-grid">
+        <section className="ch-card ch-list">
+          <header className="ch-head">
+            <h2>Giving churches</h2>
+          </header>
+          <div className="ch-scroll">
+            <table className="ch-table">
+              <tbody>
+                {Array.from({ length: 8 }, (_, i) => (
+                  <tr key={i}>
+                    <td>
+                      <i className="ch-sk wide" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <aside className="ch-card ch-panel" />
+      </div>
+    </div>
+  );
+}
+
+function ChurchesBody() {
+  const q = useSuspenseQuery(listQuery);
   const [region, setRegion] = useState<Region | 'All' | 'Due'>('All');
   const [find, setFind] = useState('');
   const [page, setPage] = useState(1);
@@ -107,14 +156,6 @@ function Churches() {
   const slice = shown.slice((at - 1) * size, at * size);
   const open = shown.find((r) => r.cid === sel) ?? slice[0] ?? null;
 
-  if (q.isError) {
-    return (
-      <section className="ch-card ch-notice" role="alert">
-        <b>Churches did not open.</b>
-        <span>{(q.error as Error).message}</span>
-      </section>
-    );
-  }
   const s = data?.stats;
   const pct = s ? Math.min(100, Math.round((s.givingYtd / s.goal) * 100)) : 0;
   const setFilter = (v: Region | 'All' | 'Due') => {
@@ -290,13 +331,29 @@ function Stat({ label, value, note, warn }: { label: string; value: number | und
 }
 
 function Panel({ row, today }: { row: Row | null; today: string }) {
-  const d = useQuery({ ...detailQuery(row ? row.cid : '0'), enabled: !!row });
   if (!row) return <aside className="ch-card ch-panel" />;
-  const years = d.data?.years ?? [];
+  return (
+    <aside className="ch-card ch-panel" aria-label={row.name}>
+      <ErrorBoundary label="This church's details did not load." className="ch-notice">
+        <Suspense fallback={<PanelBody row={row} today={today} d={null} />}>
+          <PanelLoaded row={row} today={today} />
+        </Suspense>
+      </ErrorBoundary>
+    </aside>
+  );
+}
+
+function PanelLoaded({ row, today }: { row: Row; today: string }) {
+  const d = useSuspenseQuery(detailQuery(row.cid)).data;
+  return <PanelBody row={row} today={today} d={d} />;
+}
+
+function PanelBody({ row, today, d }: { row: Row; today: string; d: Detail | null }) {
+  const years = d?.years ?? [];
   const max = Math.max(1, ...years.map((y) => y.total));
   const status = row.call && row.call.overdue ? 'Call overdue' : row.toThank ? `${row.toThank} to thank` : 'Up to date';
   return (
-    <aside className="ch-card ch-panel" aria-label={row.name}>
+    <>
       <header>
         <h3>{row.name}</h3>
         <span className={'ch-pill' + (row.call && row.call.overdue ? ' is-late' : row.toThank ? ' is-soon' : ' is-ok')}>{status}</span>
@@ -320,7 +377,7 @@ function Panel({ row, today }: { row: Row | null; today: string }) {
         </div>
         <div>
           <dt>Open tasks</dt>
-          <dd>{d.data ? d.data.openTasks : ''}</dd>
+          <dd>{d ? d.openTasks : ''}</dd>
         </div>
       </dl>
       <h4>Giving by year</h4>
@@ -329,23 +386,23 @@ function Panel({ row, today }: { row: Row | null; today: string }) {
           <div key={y.year}>
             <i style={{ height: Math.max(3, Math.round((y.total / max) * 64)) + 'px' }} className={y.year === Number(today.slice(0, 4)) ? 'is-now' : ''} />
             <span>{y.year}</span>
-            <b>{d.data ? money(y.total) : ''}</b>
+            <b>{d ? money(y.total) : ''}</b>
           </div>
         ))}
       </div>
       <h4>People at the church</h4>
       <ul className="ch-people">
-        {(d.data?.people ?? []).map((p) => (
+        {(d?.people ?? []).map((p) => (
           <li key={p.name + p.role}>
             <span>{p.name}</span>
             <em>{p.role}</em>
           </li>
         ))}
-        {d.data && !d.data.people.length ? <li className="dim">No one linked to this church yet.</li> : null}
+        {d && !d.people.length ? <li className="dim">No one linked to this church yet.</li> : null}
       </ul>
       <h4>Recent contacts</h4>
       <ul className="ch-recent">
-        {(d.data?.recent ?? []).map((a, i) => (
+        {(d?.recent ?? []).map((a, i) => (
           <li key={i}>
             <time>{day(a.date)}</time>
             <span>
@@ -355,7 +412,7 @@ function Panel({ row, today }: { row: Row | null; today: string }) {
             </span>
           </li>
         ))}
-        {d.data && !d.data.recent.length ? <li className="dim">Nothing logged.</li> : null}
+        {d && !d.recent.length ? <li className="dim">Nothing logged.</li> : null}
       </ul>
       <footer>
         <a className="h-btn h-btn--primary" href={`/work/partner/${row.cid}`}>
@@ -363,6 +420,6 @@ function Panel({ row, today }: { row: Row | null; today: string }) {
         </a>
         <span className="dim">Log a visit and thank gifts there.</span>
       </footer>
-    </aside>
+    </>
   );
 }
