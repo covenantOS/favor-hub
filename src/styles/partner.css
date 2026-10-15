@@ -334,3 +334,15 @@ html.pp-locked, html.pp-locked body { overflow: hidden; }
 .pp-prefs__row b { display: block; font-weight: 600; }
 .pp-prefs__row small { color: var(--h-ink-3); font-size: 13px; }
 .pp-prefs__row.is-blocked small { color: var(--h-red); }
+
+/* Documents */
+.pp-docs__list { list-style: none; margin: 0; padding: 0; display: grid; }
+.pp-docs__list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--h-line); }
+.pp-docs__list li > div { flex: 1; min-width: 0; }
+.pp-docs__list a, .pp-docs__list b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.pp-docs__list small { display: block; color: var(--h-ink-3); font-size: 13px; }
+.pp-docs__bb { font-size: 12.5px; color: var(--h-ink-3); white-space: nowrap; }
+.pp-docs__bb.is-failed { color: var(--h-red); }
+.pp-docs__act { display: inline-flex; gap: 8px; }
+.pp-docs__form { margin-bottom: 12px; }
+@media (max-width: 720px) { .pp-docs__list li { flex-wrap: wrap; } }

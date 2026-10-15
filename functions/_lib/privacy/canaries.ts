@@ -7,6 +7,7 @@
 // The ids are fixed so the check can ask for each row by id. Seeding is safe to repeat (INSERT OR IGNORE plus a date refresh).
 // Every row belongs to the tester, whom no staff list, count or notice includes; none of it reaches a real person.
 import { TESTER_EMAIL, TESTER_NAME } from '../testuser';
+import { DOCS_SQL } from '../work/partner-docs';
 
 export const CANARY = 'PRVCNRY';
 export const OPEN_MARK = 'PRVOPEN';
@@ -45,6 +46,7 @@ export const IDS = {
   handoff: 'ho_prvcnry01', // a hand-off between the two testers
   request: 'req_prvcnry_1', // a request the tester sent, with its card in the members-only project (requests in Projects, 2026-10-14)
   requestCard: 'tsk_prvcnry_3',
+  pdoc: 'pd_prvcnry01', // a document on the tester's partner record: only people the Work Center admits may read it
   requestOpen: 'req_prvopen_1', // a request the probe itself sent: My requests must show it (PRVOPEN)
 } as const;
 
@@ -108,6 +110,9 @@ export function canaryStatements(now = Date.now()): Stmt[] {
       [c, TESTER_EMAIL, body, att, at, vis, c, body],
     ]),
     [`INSERT OR IGNORE INTO chat_scheduled (id, email, channel_id, thread_id, body, kind, send_at, status, created_at) VALUES (?, ?, ?, NULL, ?, 'send', '2099-01-01T12:00:00.000Z', 'waiting', ?)`, [IDS.scheduled, TESTER_EMAIL, IDS.chPrivate, `${CANARY} scheduled message`, at]],
+    // A document on a partner record (2026-10-15): the list and the file answer only to Work Center people, never to the probes.
+    [DOCS_SQL, []],
+    [`INSERT OR IGNORE INTO partner_docs (id, cid, kind, name, file_name, mime, size, r2_key, bb_state, doc_date, uploaded_by, uploaded_email, uploaded_at) VALUES (?, '27202', 'W-9', ?, 'prvcnry.pdf', 'application/pdf', 4, 'pdoc_27202/none', 'standin', '2026-01-01', ?, ?, ?)`, [IDS.pdoc, `${CANARY} W-9`, TESTER_NAME, TESTER_EMAIL, at]],
     // A reminder for the tester only.
     [`INSERT OR IGNORE INTO act_reminders (id, owner, kind, title, note, due_at, state, source, created_at) VALUES (?, ?, 'message', ?, ?, '2099-01-01T12:00:00.000Z', 'open', 'manual', ?)`, [IDS.reminder, TESTER_EMAIL, `${CANARY} reminder`, `${CANARY} reminder note`, at]],
     // A members-only project with a task, and a task of the tester's own outside any project.

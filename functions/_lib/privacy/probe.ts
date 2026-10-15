@@ -17,6 +17,8 @@ import { onRequest as tasksApi } from '../../api/tasks/[[path]]';
 import { onRequest as integrationsApi } from '../../api/integrations/[[path]]';
 import { onRequest as entityApi } from '../../api/hub/entity';
 import { onRequestGet as findApi } from '../../api/hub/find';
+import { onRequestGet as pdocsList } from '../../api/work/partners/[id]/documents/index';
+import { onRequestGet as pdocOpen } from '../../api/work/partners/[id]/documents/[doc]';
 import { onRequestGet as clipsApi } from '../../api/clips/index';
 import { onRequestGet as clipInfoApi } from '../../api/clips/[id]/info';
 import { onRequestGet as clipMediaApi } from '../../api/clips/[id]/media';
@@ -164,6 +166,8 @@ export function probes(): Probe[] {
     ...WORK_READS.map((p): Probe => ({ name: `Work Center read (no team) ${p.split('?')[0].replace('/api/work/', '')}`, path: p, who: ['noteam'], refuse: true, must: WORK_ADMIN_ONLY.test(p) ? 'Only an admin' : 'whose job touches it' })),
     ...['/api/moves/', '/api/moves/cards?stage=pool&q=prvcnry', '/api/moves/card?cid=27202', '/api/moves/relations?cid=27202'].map((p): Probe => ({ name: `Moves read (no team) ${p.replace('/api/moves/', '') || 'board'}`, path: p, who: ['noteam'], refuse: true, must: 'whose job touches it' })),
     { name: 'HQTY merged letters (no team)', path: '/api/work/hqty/pdf', method: 'POST', body: { ids: ['1'] }, who: ['noteam'], refuse: true, must: 'whose job touches it' },
+    { name: 'Documents on a partner record (list)', path: '/api/work/partners/27202/documents', who: ['staff', 'field', 'out'] },
+    { name: 'Document on a partner record (file)', path: `/api/work/partners/27202/documents/${M.pdoc}`, who: ['staff', 'field', 'out'] },
     // Signed out: nothing at all.
     ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry', '/api/tasks/intake/mine', `/api/tasks/intake/r/${M.request}`].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
   ];
@@ -199,6 +203,8 @@ function handlerFor(path: string, method = 'GET'): { fn: Handler; params: Record
   if (p === '/api/gifts/first-gifts/wording') return { fn: fglWordingApi as unknown as Handler, params: {} };
   { const m = /^\/api\/gifts\/first-gifts\/batches\/([\w-]+)(\/pdf)?$/.exec(p); if (m) return { fn: (m[2] ? fglPdfApi : fglBatchApi) as unknown as Handler, params: { id: m[1] } }; }
   if (p === '/api/moves/' || p.startsWith('/api/moves/')) return { fn: (method === 'POST' ? movesPost : movesGet) as unknown as Handler, params: { a: rest('/api/moves/') } };
+  const pd = /^\/api\/work\/partners\/(\d+)\/documents(?:\/([^/]+))?$/.exec(p);
+  if (pd) return pd[2] ? { fn: pdocOpen as unknown as Handler, params: { id: pd[1], doc: pd[2] } } : { fn: pdocsList as unknown as Handler, params: { id: pd[1] } };
   if (p.startsWith('/api/today/')) return { fn: todayApi as unknown as Handler, params: { path: rest('/api/today/') } };
   return null;
 }

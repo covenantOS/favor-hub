@@ -49,6 +49,10 @@ A partner with a do-not-contact mark shows a red strip under the name. It lists 
 
 The Communication preferences section lower on the page lists Call, Email, Mail and Text with the reason beside each. Admins and the Support Team have a switch on each row. Turning one on adds the matching solicit code (Do Not Call, Do Not Email, Do Not Mail or Do Not Text) with today's date; turning one off ends the codes that cause it. A row caused by a mark on a phone, email or address says Edit on Contact and opens the Contact tab. Every change saves to Blackbaud and shows Undo for 24 hours. Email codes reach GoHighLevel's Do Not Disturb at the next morning run, the same run that applies Blackbaud's Do Not Email codes.
 
+## Documents
+
+Documents holds the paperwork on a partner: letters of inquiry, DAF letters, award letters, W-9s, reports and agreements. It is open on foundation and DAF partners and folded on everyone else; Show opens it. Add a document asks for the type, the date, a name and the file (PDF, Word, Excel or image, up to 10 MB). FavorOS keeps the file and attaches a copy to the partner record in Blackbaud, so the record there carries it too. Each line says In Blackbaud once the copy is there. A line that says Not in Blackbaud yet has Send again beside it. An attachment that was added in Blackbaud shows as Held in Blackbaud and opens there. Press a document's name to open it. Remove deletes the FavorOS copy and the Blackbaud copy; the person who added a document, the Support Team and admins can remove it. Admins, the Support Team, directors, Partner Care and grants writers can add documents.
+
 ## Further down
 
 Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom as a summary; Edit beside a phone, email or the address opens the Contact tab.
