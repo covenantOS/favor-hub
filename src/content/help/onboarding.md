@@ -38,7 +38,7 @@ The first-day page shows five days built for the new hire's role. FavorOS reads 
 
 Day 1 is the FavorOS tour, FavorOS basics and a first conversation with the supervisor. Day 2 is Favor: who we are and requests, expenses and Clips. Day 3 is Blackbaud: your first week and the partner page. Day 4 is the role's own courses and the practice record. Day 5 is Favor Brain and a check-in with the supervisor. Each course ticks when the new hire finishes it in Learn, and the page shows how many of the courses and exercises are done.
 
-**Add to FavorOS** also assigns the Learn path for the role, with a due date seven days after the start date. It adds it to the two New hire paths, and a role with no path of its own gets only those.
+**Add to FavorOS** also assigns the Learn path (if Learn is turned on for the person's team) for the role, with a due date seven days after the start date. It adds it to the two New hire paths, and a role with no path of its own gets only those.
 
 ## Offboarding
 

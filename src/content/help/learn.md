@@ -10,7 +10,7 @@ toolLabel: Open My learning
 updated: 2026-10-12
 ---
 
-Learning, in Staff, is where courses live in FavorOS. A course is a short list of lessons. A learning path puts courses in order for a role or a purpose, such as New hire: Favor, New hire: FavorOS, RDD, Partner Care, Support Team, Grants, Marketing and Admin desk.
+If Learn is turned on for your team, Learning, in Staff, is where courses live in FavorOS. A course is a short list of lessons. A learning path puts courses in order for a role or a purpose, such as New hire: Favor, New hire: FavorOS, RDD, Partner Care, Support Team, Grants, Marketing and Admin desk.
 
 ## My learning
 
@@ -60,4 +60,4 @@ When someone assigns you a course or path, it shows on Today under **Learning**,
 3. **Assign**: pick a course or a path, then people, a team or everyone, with a due date and an optional note. Giving the same learning again moves its due date and never tells a person twice.
 4. **Reports**: who is assigned what, who is done, in progress, not started or late, and quiz scores. Filter by course, path, team or status, and download the list as a CSV. Remove an assignment here.
 
-Admins also choose **Who can use Learn** at the bottom of the Courses tab: admins and HR only, all staff, or off.
+Admins also choose **Who can use Learn** at the bottom of the Courses tab: admins and HR only, all staff, named people and teams, or off.
