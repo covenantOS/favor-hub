@@ -507,9 +507,12 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
     if (!sc) return;
     const qs = sc.querySelectorAll('.m-q');
     const last = qs[qs.length - 1] as HTMLElement | undefined;
-    if (last) sc.scrollTop += last.getBoundingClientRect().top - sc.getBoundingClientRect().top - 16;
+    // On a phone the bar floats over the top of the chat; the question lands below it, never under it.
+    const bar = app.current?.querySelector('.bc-bar');
+    const top = Math.max(sc.getBoundingClientRect().top, bar ? bar.getBoundingClientRect().bottom : 0);
+    if (last) sc.scrollTop += last.getBoundingClientRect().top - top - 16;
     else sc.scrollTop = 0;
-  }, [nTurns, s.cur && s.cur.id]);
+  }, [nTurns, s.cur && s.cur.id, !!s.busy]);
   // Focus: the FavorOS menu hides while chatting.
   useEffect(() => {
     document.querySelector('.h-app')?.classList.toggle('is-focus', focus);
@@ -575,6 +578,21 @@ export function BrainPage({ get, c }: { get: Get; c: string }) {
     return () => hubOv.off(tok);
   }, [panel]);
 
+  // For the render checks and screenshots: put a made-up answer in the chat (the classic page had the same).
+  useEffect(() => {
+    (window as any).BrainPage = {
+      show: (q: string, blocks: any[], extra: Record<string, unknown> = {}) => {
+        const cur = e.s.cur || { id: 'c_demo00', title: q, turns: [] };
+        cur.turns.push({ q, ref: 'demo01', at: new Date().toISOString(), blocks, reading: [], follow: [], lists: [], markdown: '', intent: 'demo', outcome: 'ok', asked_as: q, extras: [], rated: null, ...extra });
+        e.s.cur = cur;
+        e.touch();
+      },
+      state: () => e.s,
+    };
+    return () => {
+      delete (window as any).BrainPage;
+    };
+  }, [e]);
   const openTable = useCallback((key: string) => {
     setPanel({ kind: 'table', key });
   }, []);

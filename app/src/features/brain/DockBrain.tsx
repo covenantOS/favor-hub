@@ -89,7 +89,7 @@ export default function DockBrain({ open }: { open: boolean }) {
     const qs = sc.querySelectorAll('.fp-q');
     const last = qs[qs.length - 1] as HTMLElement | undefined;
     if (last) sc.scrollTop += last.getBoundingClientRect().top - sc.getBoundingClientRect().top - 8;
-  }, [n, s.cur && s.cur.id]);
+  }, [n, s.cur && s.cur.id, !!s.busy]);
 
   const host = { where: 'dock' as const, openTable: () => dock.expand() };
   if (view === 'list')
