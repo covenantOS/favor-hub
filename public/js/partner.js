@@ -251,6 +251,9 @@ function view(p, o = {}) {
   const years = (g.years || []).slice(0, 8).reverse();
   const max = Math.max(1, ...years.map((y) => y.total));
   const flags = [p.deceased ? 'Deceased' : '', p.inactive ? 'Inactive' : '', p.flags.doNotCall ? 'Do not call' : '', p.flags.doNotEmail ? 'Do not email' : '', p.flags.doNotMail ? 'Do not mail' : ''].filter(Boolean);
+  // Data care: no mailing address, or a possible duplicate (the flags come from /api/work/partners/:id).
+  const dc = p.dataCare || {};
+  const care = [dc.noAddress && dc.noAddress.state === 'open' ? { text: 'No mailing address', href: '/data-care/' } : null, ...((dc.pairs || []).slice(0, 1).map((x) => ({ text: 'Possible duplicate: ' + (x.otherName || 'another record'), href: '/data-care/?pair=' + encodeURIComponent(x.id) })))].filter(Boolean);
   const head = `
     <div class="pp-head">
       <div><span class="pp-kicker">${esc(p.kind)} · ID ${esc(p.lookup)}${g.firstDate ? ' · Giving since ' + esc(String(g.firstDate).slice(0, 4)) : ''}</span>
@@ -259,7 +262,7 @@ function view(p, o = {}) {
       <div class="pp-meta">
         ${holders.length ? holders.slice(0, 2).map((h) => `<div class="pp-holder"><i>${esc(ini(h.name))}</i><span><b>${esc(h.name)}</b>${h.type ? ' · ' + esc(h.type) : ''}</span></div>`).join('') : '<div class="pp-holder"><span>No current holder</span></div>'}
         ${iw ? `<div class="pp-iw" title="iWave${iw.ratedOn ? ', rated ' + esc(fd(iw.ratedOn, true)) : ''}">iWave <span class="pp-iw__dots">${Array.from({ length: 10 }, (_, i) => `<s class="${iw.overall != null && i < iw.overall ? 'on' : ''}"></s>`).join('')}</span> ${iw.overall != null ? esc(iw.overall) : 'Not rated'}${iw.capacityBand ? ' · ' + esc(iw.capacityBand) : iw.capacity ? ' · ' + short(iw.capacity) : ''}</div>` : ''}
-        ${flags.length ? `<div class="pp-flags">${flags.map((f) => `<span class="pp-flag">${esc(f)}</span>`).join('')}</div>` : ''}
+        ${flags.length || care.length ? `<div class="pp-flags">${flags.map((f) => `<span class="pp-flag">${esc(f)}</span>`).join('')}${care.map((c) => `<a class="pp-flag pp-flag--care" href="${esc(c.href)}">${esc(c.text)}</a>`).join('')}</div>` : ''}
       </div>
     </div>`;
   const acts = `<div class="pp-acts">

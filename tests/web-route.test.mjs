@@ -119,3 +119,21 @@ describe('a page with no Astro twin (Churches)', () => {
     assert.equal((await go(world({ 'web.routes': C }), C, staff, { dest: 'empty' })).kind, 'pass');
   });
 });
+
+describe('routes only the web app has', () => {
+  it('reaches staff whatever the audience, once listed', async () => {
+    const env = world({ 'web.routes': '/data-care/', 'web.audience': 'testers' });
+    assert.equal((await go(env, '/data-care/', staff)).kind, 'web');
+    assert.equal((await go(env, '/data-care/', admin)).kind, 'web');
+    assert.equal((await go(env, '/data-care/', field)).kind, 'pass');
+    assert.equal((await go(env, '/data-care/', null)).kind, 'pass');
+  });
+  it('stays off when the route is not listed', async () => {
+    const env = world({ 'web.routes': '/web-check/', 'web.audience': 'testers' });
+    assert.equal((await go(env, '/data-care/', staff)).kind, 'pass');
+  });
+  it('does not open the other web routes to the audience', async () => {
+    const env = world({ 'web.routes': '/web-check/,/data-care/', 'web.audience': 'testers' });
+    assert.equal((await go(env, '/web-check/', staff)).kind, 'pass');
+  });
+});

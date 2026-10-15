@@ -35,7 +35,7 @@ test('every page route has a built page and a registry entry', () => {
   for (const { p } of pages) {
     if (p.ext) continue;
     const route = p.href.split('?')[0].replace(/^\//, '').replace(/\/$/, '');
-    const cands = [route ? `src/pages/${route}/index.astro` : 'src/pages/index.astro', `src/pages/${route}.astro`, `src/content/help/${route.split('/').pop()}.md`];
+    const cands = [route ? `src/pages/${route}/index.astro` : 'src/pages/index.astro', `src/pages/${route}.astro`, `web/src/routes/${route}/index.tsx`, `src/content/help/${route.split('/').pop()}.md`];
     assert.ok(cands.some((c) => fs.existsSync(c)) || route.startsWith('help/'), `${p.id} ${p.href} has no page`);
   }
 });

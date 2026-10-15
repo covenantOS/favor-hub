@@ -30,6 +30,7 @@ export const RELEASE: Record<string, Badge | 'none'> = {
   // Pages whose stage differs from their area's: a dot on the tab, the word beside the page's title.
   clips: 'none', // fully released (Will, 2026-10-14), so it does not take the Meetings badge
   board: 'none', // Requests: in use since the spring, so it does not take the Projects badge
+  'partners-datacare': 'new',
   'online-gifts': 'alpha',
   statements: 'alpha',
   lists: 'alpha',

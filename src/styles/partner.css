@@ -55,6 +55,8 @@
 .pp-iw__dots s.on { background: var(--h-gold); }
 .pp-flags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .pp-flag { font: 600 13px var(--h-font); padding: 3px 9px; border-radius: 999px; background: var(--h-red-soft); color: var(--h-red); }
+.pp-flag--care { background: #fbf3d8; color: #6b4a00; text-decoration: none; }
+.pp-flag--care:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .pp-acts { display: flex; gap: 8px; flex-wrap: wrap; padding: 18px 28px 6px; }
 .pp-tap { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 13px var(--h-font); color: var(--h-ink); text-decoration: none; }

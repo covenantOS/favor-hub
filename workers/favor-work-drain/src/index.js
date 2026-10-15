@@ -188,7 +188,10 @@ export default {
       if (min % 30 === 0) ctx.waitUntil(job(env, 'smoke', () => smoke(env)));
     } else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(logged('digest', '/api/work/digest'));
     else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(logged('gift-entry', '/api/gift-entry/drain'));
-    else if (event.cron === '35 * * * *') ctx.waitUntil(logged('lists', '/api/lists/refresh?ifnewer=1'));
+    else if (event.cron === '35 * * * *') {
+      ctx.waitUntil(logged('lists', '/api/lists/refresh?ifnewer=1'));
+      ctx.waitUntil(logged('datacare', '/api/datacare/scan'));
+    }
     else if (event.cron === '10 * * * *') ctx.waitUntil(logged('fresh', '/api/work/fresh'));
     else ctx.waitUntil(job(env, 'drain', () => drainAll(env)));
   },
