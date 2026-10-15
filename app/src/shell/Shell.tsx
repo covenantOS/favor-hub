@@ -142,7 +142,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {children}
           </main>
         </div>
-        <PhoneBar view={view} navOpen={rail.navOpen} onMore={() => rail.setNavOpen(!rail.navOpen)} />
+        <PhoneBar view={view} />
       </div>
       <ErrorBoundary label="Search could not load." className="h-card">
         <Palette access={access} kpiTeams={kpiTeams} />

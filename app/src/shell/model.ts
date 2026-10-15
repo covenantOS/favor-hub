@@ -36,10 +36,8 @@ export interface NavView {
   areas: AreaView[];
   main: AreaView[];
   foot: AreaView[];
-  /** Areas on the phone bar, in order, at most four. */
+  /** Areas on the phone bar, in order: every area the person can open. The bar scrolls when they do not fit. */
   bar: AreaView[];
-  /** The More button's number: what the areas left off the bar, Admin and Help add up to. */
-  more: number;
   curArea: string;
   tourCount: number;
 }
@@ -82,14 +80,11 @@ export function buildNav(input: NavInput): NavView {
   const main = areas.filter((a) => !a.area.foot).sort((x, y) => x.area.barRank - y.area.barRank);
   const foot = areas.filter((a) => a.area.foot);
   const ranked = main.filter((a) => a.visible).sort((x, y) => x.area.barRank - y.area.barRank);
-  const bar = ranked.slice(0, 4);
+  const bar = ranked;
   bar.forEach((a) => {
     a.inBar = true;
   });
-  const byId = new Map(areas.map((a) => [a.area.id, a]));
-  const offBar = main.filter((a) => !bar.includes(a));
-  const more = offBar.reduce((n, a) => n + a.sum, 0) + (byId.get('admin')?.sum || 0) + (byId.get('help')?.sum || 0);
-  return { areas, main, foot, bar, more, curArea, tourCount: input.tours || 0 };
+  return { areas, main, foot, bar, curArea, tourCount: input.tours || 0 };
 }
 
 /** The phone bar shows 99+ above 99; the rail shows the whole number. */

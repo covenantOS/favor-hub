@@ -46,13 +46,13 @@ describe('the menu for one person', () => {
     expect(view().main.map((a) => a.area.id)).toEqual(order);
   });
 
-  it('the phone bar holds four areas, lowest rank first, and More adds up the rest', () => {
+  it('the phone bar holds every area the person can open, in rank order, with no More', () => {
     const v = view();
-    expect(v.bar).toHaveLength(4);
-    const ranks = v.bar.map((a) => a.area.barRank);
+    expect(v.bar.map((x) => x.area.id)).toEqual(v.main.filter((x) => x.visible).map((x) => x.area.id));
+    expect(v.bar.length).toBeGreaterThan(4);
+    const ranks = v.bar.map((x) => x.area.barRank);
     expect(ranks).toEqual([...ranks].sort((x, y) => x - y));
-    const off = v.main.filter((a) => !a.inBar).reduce((n, a) => n + a.sum, 0);
-    expect(v.more).toBe(off);
+    expect('more' in v).toBe(false);
   });
 
   it('99+ on the phone bar, the whole number in the rail', () => {
@@ -105,5 +105,39 @@ describe('the tab row the web app holds space for', () => {
     expect(tabRowDrawn('statements', { giftEntry: true }, [])).toBe(true);
     expect(tabRowDrawn('projects', { projects: true }, [])).toBe(true);
     expect(tabRowDrawn('not-a-page', {}, [])).toBe(false);
+  });
+});
+
+describe('what staff see (not early, not admin)', () => {
+  // Every gate a staff person could hold is on, so only Early access keeps these pages away.
+  const access = { admin: false, early: false, kpi: false, clips: true, clipsRecord: true, bell: true, giftEntry: true, otherGifts: true, moves: true, workCenter: true, chat: true, mail: true, meetings: true, projects: true, projectsNav: true, learn: false, hr: false };
+  const v = buildNav({ access, kpiTeams: [], counts: {}, navId: 'home' });
+  const ids = v.areas.flatMap((a) => a.pages.map((p) => p.page.id));
+
+  it('gets none of the Alpha and Beta pages', () => {
+    for (const id of ['chat', 'mail', 'learn', 'learn-catalog', 'meet', 'meet-book', 'meet-booking', 'meet-notes', 'online-gifts', 'statements', 'other-gifts', 'partners-churches', 'foundations', 'welcome', 'reporting']) {
+      expect(ids, id).not.toContain(id);
+    }
+  });
+
+  it('keeps gift entry and receipts for people with gift entry, and Clips as its own rail item', () => {
+    expect(ids).toContain('gift-entry');
+    expect(ids).toContain('receipts');
+    const clips = v.areas.find((a) => a.pages.some((p) => p.page.id === 'clips'))!;
+    expect(clips.area.id).not.toBe('meet');
+    expect(v.areas.find((a) => a.area.id === 'meet')!.visible).toBe(false);
+    expect(v.areas.find((a) => a.area.id === 'chat')!.visible).toBe(false);
+    expect(v.areas.find((a) => a.area.id === 'mail')!.visible).toBe(false);
+  });
+
+  it('has no More item on the phone bar', () => {
+    expect('more' in v).toBe(false);
+    expect(v.bar.map((a) => a.area.id)).toEqual(v.main.filter((a) => a.visible).map((a) => a.area.id));
+  });
+
+  it('an early person gets the pages back', () => {
+    const e = buildNav({ access: { ...access, early: true }, kpiTeams: [], counts: {}, navId: 'home' });
+    const eids = e.areas.flatMap((a) => a.pages.map((p) => p.page.id));
+    for (const id of ['meet', 'chat', 'mail', 'online-gifts', 'statements', 'other-gifts', 'partners-churches', 'foundations', 'welcome']) expect(eids, id).toContain(id);
   });
 });

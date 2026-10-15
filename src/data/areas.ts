@@ -200,6 +200,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'expenses', label: 'Expenses', href: '/expenses/', desc: 'Your expense requests with their status and signed PDFs, a new request, and for approvers the log and the schedule', keywords: 'expense expenses request requests log approver approve sign signed pdf schedule travel purchase reimbursement', count: 'expensesWaiting', learn: 'expense-request', swap: true, was: 'Work > Expenses and Admin > Expense log' },
       { id: 'expense', label: 'New expense request', href: '/expenses/new/', desc: 'Expense request, signed online', keywords: 'new expense request travel pre-travel approval signature purchase', learn: 'expense-request', swap: true, menu: false, parent: 'expenses', was: 'Work > Expenses' },
+      { id: 'clips', label: 'Clips', href: '/clips/', desc: 'Your recorded clips, searchable by what was said', keywords: 'clips clip loom screen record recording video walkthrough share link transcript', need: 'clips', learn: 'clips', swap: true },
       { id: 'evals', label: 'Evaluations', href: '/evaluations/', need: 'hr', desc: 'Your evaluation, the feedback you owe a colleague and your team’s reviews', keywords: 'evaluation evaluations review reviews self assessment feedback 360 performance development plan goals rre supervisor hr', count: 'evals', also: ['evals-admin'], learn: 'evaluations', was: 'Work > Evaluations', swap: true },
       // learn: begin
       { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'learn', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn', group: 'Learning', was: 'Learn > My learning', swap: true },
@@ -221,7 +222,6 @@ export const AREAS: NavArea[] = [
       { id: 'meet-book', label: 'Book', href: '/meet/book/', desc: 'Book a meeting from everyone’s calendars', keywords: 'book meeting schedule calendar invite', need: 'meetings', learn: 'meetings', swap: true },
       { id: 'meet-booking', label: 'Booking page', href: '/meet/booking/', desc: 'Your page where partners and staff book time with you', keywords: 'booking page book time with me calendly schedule partner appointment availability', need: 'meetings', learn: 'meetings', swap: true },
       { id: 'meet-notes', label: 'Notes', href: '/meet/library/', desc: 'Notes, action items and transcripts from meetings', keywords: 'meeting notes transcript action items recording', need: 'meetings', learn: 'meetings', swap: true },
-      { id: 'clips', label: 'Clips', href: '/clips/', desc: 'Your recorded clips, searchable by what was said', keywords: 'clips clip loom screen record recording video walkthrough share link transcript', need: 'clips', learn: 'clips', swap: true },
     ],
   },
   {
@@ -381,7 +381,7 @@ export const FULL_LOAD_PATHS = ['/work/', '/dashboard/'];
 
 // Pages held to Early access: Meetings, Chat, Mail, Clips and every page with its own Alpha or Beta badge (tests/early-access.test.mjs checks this list against src/data/release.ts).
 const EARLY_AREA_IDS = ['meet', 'chat', 'mail'];
-const EARLY_PAGE_IDS = ['online-gifts', 'statements', 'lists', 'list-reports', 'list-credit', 'welcome', 'partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting'];
+const EARLY_PAGE_IDS = ['online-gifts', 'statements', 'partners-churches', 'foundations', 'lists', 'list-reports', 'list-credit', 'welcome', 'partners-moves', 'partners-datacare', 'other-gifts', 'partners-grants', 'first-gifts', 'recurring', 'reporting'];
 for (const area of AREAS) for (const page of area.pages) if ((EARLY_AREA_IDS.includes(area.id) && page.id !== 'clips') || EARLY_PAGE_IDS.includes(page.id)) page.early = true;
 
 export const NAV_IDS = new Map<string, { area: NavArea; page: NavPage }>();

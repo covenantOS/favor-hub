@@ -94,7 +94,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     mayUseOther(env, user).catch(() => false),
     mayUseMoves(env, user).catch(() => false),
     isEarly(env, user).catch(() => false),
-    teamOf(env, email).then((t) => t === 'Marketing').catch(() => false),
+    isMarketing(env, email),
   ]);
   // The access groups (functions/_lib/access.ts): read only when a feature is in group mode.
   const [chatMembers, mailMembers] = await Promise.all([chatM === 'group' ? groupMembers(env, 'chat') : null, mailM === 'group' ? groupMembers(env, 'mail') : null]);
@@ -123,6 +123,16 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     moves: movesOn && !!work && work.ok,
     mail: mayUseMail(mailM, user, mailMembers),
   };
+}
+
+/** Marketing by the staff table (act_staff) or by the staff directory team (meet_directory), which every Marketing person has. */
+async function isMarketing(env: Env, email: string): Promise<boolean> {
+  if ((await teamOf(env, email).catch(() => '')) === 'Marketing') return true;
+  const row = await env.DB.prepare(`SELECT 1 AS ok FROM meet_directory WHERE lower(email) = ? AND active = 1 AND lower(trim(team)) = 'marketing'`)
+    .bind(email.toLowerCase())
+    .first<{ ok: number }>()
+    .catch(() => null);
+  return !!row;
 }
 
 export interface OpenFile {
