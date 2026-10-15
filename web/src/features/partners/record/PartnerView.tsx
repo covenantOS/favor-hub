@@ -490,7 +490,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
           </div>
           <aside className="pp-colside">
             <Chart p={p} />
-            <Docs p={p} />
+            {p.preview ? <Docs p={p} /> : null}
             <CommPrefs p={p} as={as} goTab={act.setTab} />
             <Opps c={ctx} />
             <Details c={ctx} open />
@@ -514,7 +514,7 @@ function Inner({ id, mode, as = '', focusGift = '', focusOpp = '', compose = nul
       <NotesSection c={ctx} list={notes} />
       <Timeline c={ctx} />
       <Chart p={p} />
-      <Docs p={p} />
+      {p.preview ? <Docs p={p} /> : null}
       <CommPrefs p={p} as={as} goTab={act.setTab} />
       <Opps c={ctx} />
       <Details c={ctx} />

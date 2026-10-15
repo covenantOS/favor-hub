@@ -2,18 +2,21 @@ import { HttpError } from '../../../../../_lib/http';
 import { isTester } from '../../../../../_lib/testuser';
 import { SYSTEM_ID } from '../../../../../_lib/work/partner';
 import { addDoc, listDocs } from '../../../../../_lib/work/partner-docs';
+import { recordPreview } from '../../../../../_lib/work/preview';
 import { param, work } from '../../../../../_lib/work/route';
 
 // Documents on a partner record: the list (FavorOS's copies and Blackbaud's attachments) and adding one. Anyone who can open the
 // partner record can read the list; the same gate as the record applies. A test account or the agent key keeps the file in FavorOS and
 // sends nothing to Blackbaud.
-export const onRequestGet = work(async ({ ctx, params, url }) => {
+export const onRequestGet = work(async ({ ctx, params, url, wu }) => {
+  if (!recordPreview(wu)) throw new HttpError(404, 'not_open', 'Documents are not open yet.');
   const id = param(params, 'id');
   if (!SYSTEM_ID.test(id)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
   return { ...(await listDocs(ctx, id, { fresh: url.searchParams.get('fresh') === '1' })) };
 });
 
 export const onRequestPost = work(async ({ ctx, params, request, wu }) => {
+  if (!recordPreview(wu)) throw new HttpError(404, 'not_open', 'Documents are not open yet.');
   const id = param(params, 'id');
   if (!SYSTEM_ID.test(id)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
   const form = await request.formData().catch(() => null);

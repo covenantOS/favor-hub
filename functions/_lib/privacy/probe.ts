@@ -60,6 +60,7 @@ const WORK_ADMIN_ONLY = /^\/api\/work\/(mail\/rollout|settings|staff|bbusers)/;
 const WORK_READS = [
   '/api/work/hqty', '/api/work/hqty/pdf?ids=1', '/api/work/board', '/api/work/gifts', '/api/work/thanks', '/api/work/partners?q=a', '/api/work/partners/27202',
   '/api/work/partners/27202/codes', '/api/work/partners/27202/comm', '/api/work/partners/27202/contact', '/api/work/partners/27202/notes', '/api/work/partners/27202/record',
+  '/api/work/partners/27202/documents', '/api/work/partners/27202/documents/pd_prvcnry01',
   '/api/work/portfolio', '/api/work/week', '/api/work/asks', '/api/work/cadence', '/api/work/churches', '/api/work/grants', '/api/work/giftimages', '/api/work/declines',
   '/api/work/recent', '/api/work/opps', '/api/work/recurring', '/api/work/reminders', '/api/work/views', '/api/work/views/default', '/api/work/entry', '/api/work/codes',
   '/api/work/health', '/api/work/mail', '/api/work/mail/preview', '/api/work/mail/rollout', '/api/work/settings', '/api/work/staff', '/api/work/bbusers', '/api/work/bbusers/jobs',
@@ -224,6 +225,8 @@ const WORK_ROUTES: Array<[RegExp, () => Promise<Mod>, string[]]> = [
   [/^\/api\/work\/partners\/([^/]+)\/contact$/, () => import('../../api/work/partners/[id]/contact'), ['id']],
   [/^\/api\/work\/partners\/([^/]+)\/notes$/, () => import('../../api/work/partners/[id]/notes'), ['id']],
   [/^\/api\/work\/partners\/([^/]+)\/record$/, () => import('../../api/work/partners/[id]/record'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/documents$/, () => import('../../api/work/partners/[id]/documents/index'), ['id']],
+  [/^\/api\/work\/partners\/([^/]+)\/documents\/([^/]+)$/, () => import('../../api/work/partners/[id]/documents/[doc]'), ['id', 'doc']],
   [/^\/api\/work\/portfolio$/, () => import('../../api/work/portfolio'), []],
   [/^\/api\/work\/week$/, () => import('../../api/work/week'), []],
   [/^\/api\/work\/asks$/, () => import('../../api/work/asks'), []],
