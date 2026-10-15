@@ -50,18 +50,32 @@ if (has('--train')) {
   try { execSync('git checkout -- app/src/routeTree.gen.ts web/src/routeTree.gen.ts', { stdio: 'ignore' }); } catch { /* clean */ }
   try { execSync('git fetch -q origin && git rebase --autostash -q origin/main', { stdio: 'inherit' }); } catch { console.error('FAIL train: the branch does not rebase onto origin/main; resolve and try again'); process.exit(1); }
   const pi = args.indexOf('--priority');
-  const id = `${new Date().toISOString().replace(/[:.]/g, '-')}-${branch.replace(/[^\w.-]/g, '_')}`;
   // The checks come back to their plain /path even when Git Bash rewrote them.
   const fix = (c) => c.replace(/^[A-Za-z]:[\\/].*?[\\/]Git(?=[\\/])/, '').replace(/\\/g, '/');
   mkdirSync(QDIR + '/done', { recursive: true });
-  writeFileSync(`${QDIR}/${id}.json`, JSON.stringify({ id, branch, checks: checks.map(fix), priority: pi >= 0 ? Number(args[pi + 1]) : 50, by: process.cwd(), at: new Date().toISOString() }, null, 1));
-  console.log(`queued ${branch} as ${id}; waiting for the merge train`);
+  const enqueue = () => {
+    const nid = `${new Date().toISOString().replace(/[:.]/g, '-')}-${branch.replace(/[^\w.-]/g, '_')}`;
+    writeFileSync(`${QDIR}/${nid}.json`, JSON.stringify({ id: nid, branch, checks: checks.map(fix), priority: pi >= 0 ? Number(args[pi + 1]) : 50, by: process.cwd(), at: new Date().toISOString() }, null, 1));
+    console.log(`queued ${branch} as ${nid}; waiting for the merge train`);
+    return nid;
+  };
+  const id = enqueue();
+  // Main moves while a branch waits. A branch the runner could not merge is rebased again here and queued again, up to three times;
+  // only a real conflict (the rebase itself stops) comes back to the agent.
+  let requeues = 0;
   // The result stays in done/<id>.json, so it can be read later even if this wait is stopped: node scripts/ship-hub.mjs --result <id>.
   for (let want = id; ;) {
     const f = `${QDIR}/done/${want}.json`;
     if (existsSync(f)) {
       const r = JSON.parse(readFileSync(f, 'utf8'));
       if (r.state === 'superseded' && r.supersededBy) { console.log(`${want} was replaced by ${r.supersededBy}; following it`); want = r.supersededBy; continue; }
+      if (r.state === 'rejected' && /^does not merge onto main/.test(r.reason || '') && requeues < 3) {
+        requeues++;
+        try { execSync('git fetch -q origin && git rebase --autostash -q origin/main', { stdio: 'inherit' }); } catch { console.error('REJECTED: the branch conflicts with main; resolve the rebase in this worktree and queue again'); process.exit(1); }
+        console.log('main moved; rebased and queued again');
+        want = enqueue();
+        continue;
+      }
       console.log(r.state === 'shipped' ? `shipped ${r.commit}\n${r.live || ''}` : `REJECTED: ${r.reason}`);
       process.exit(r.state === 'shipped' ? 0 : 1);
     }
