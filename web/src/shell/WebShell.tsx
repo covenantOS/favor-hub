@@ -103,7 +103,9 @@ function ClientBoot() {
       void qc.invalidateQueries({ queryKey: keys.nav, refetchType: force ? 'all' : 'active' });
     };
     afterPaint(() => {
-      void mountShellScripts()
+      // The camera button's script is the web app's own (features/clips/launch.ts), so the classic copy is left out.
+      void import('../features/clips/launch').then((m) => m.installClipsLauncher());
+      void mountShellScripts(/clips-launch/)
         .then(() => import('@hub/scripts/hub'))
         .then(() => mountClassicHelpers());
     });

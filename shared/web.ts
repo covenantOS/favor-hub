@@ -23,6 +23,12 @@ export const WEB_ONLY_ROUTES = ['/churches/', '/data-care/'] as const;
  */
 export const WEB_OWN_SWITCH: Record<string, string> = { '/gifts/other/': 'gifts.other' };
 
+/**
+ * Addresses the old React app (app2) loads whole but the web app serves: the Clips recorder window (no frame, its own document). They are
+ * served like any listed route, by the entry that owns them (/clips/).
+ */
+export const WEB_SOLO_ROUTES: readonly string[] = ['/clips/rec/'];
+
 export const WEB_SETTING_ROUTES = 'web.routes';
 export const WEB_SETTING_AUDIENCE = 'web.audience';
 /** Readable by classic scripts: the routes this person gets from the web app, joined with ~, so hub-swap.js loads them whole. */
@@ -71,7 +77,7 @@ export const formatWebEntries = (entries: WebEntry[]): string => entries.map((e)
 export function webServes(path: string, routes: readonly string[]): boolean {
   const p = normalizeRoute(path);
   // A path that always loads whole from Astro (the help videos under /help/) never goes to the web app, whatever route owns the paths above it.
-  if (FULL_LOAD.some((f) => p === f || p.startsWith(f))) return false;
+  if (FULL_LOAD.some((f) => !WEB_SOLO_ROUTES.includes(f) && (p === f || p.startsWith(f)))) return false;
   return routes.some((r) => (r === '/' || (WEB_EXACT_ROUTES as readonly string[]).includes(r) ? p === r : p === r || p.startsWith(r)));
 }
 

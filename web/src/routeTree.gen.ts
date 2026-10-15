@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrainIndexRouteImport } from './routes/brain/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
+import { Route as ClipsIndexRouteImport } from './routes/clips/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as EvaluationsIndexRouteImport } from './routes/evaluations/index'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses/index'
@@ -35,8 +36,12 @@ import { Route as StatementsIndexRouteImport } from './routes/statements/index'
 import { Route as WebCheckIndexRouteImport } from './routes/web-check/index'
 import { Route as WelcomeIndexRouteImport } from './routes/welcome/index'
 import { Route as WorkIndexRouteImport } from './routes/work/index'
+import { Route as AdminClipsIndexRouteImport } from './routes/admin/clips/index'
 import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as AdminReportsIndexRouteImport } from './routes/admin/reports/index'
+import { Route as ClipsAllIndexRouteImport } from './routes/clips/all/index'
+import { Route as ClipsEditIndexRouteImport } from './routes/clips/edit/index'
+import { Route as ClipsRecIndexRouteImport } from './routes/clips/rec/index'
 import { Route as EvaluationsAdminIndexRouteImport } from './routes/evaluations/admin/index'
 import { Route as ExpensesNewIndexRouteImport } from './routes/expenses/new/index'
 import { Route as ExpensesReviewIndexRouteImport } from './routes/expenses/review/index'
@@ -73,6 +78,11 @@ const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
 const ChurchesIndexRoute = ChurchesIndexRouteImport.update({
   id: '/churches/',
   path: '/churches/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClipsIndexRoute = ClipsIndexRouteImport.update({
+  id: '/clips/',
+  path: '/clips/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DataCareIndexRoute = DataCareIndexRouteImport.update({
@@ -185,6 +195,11 @@ const WorkIndexRoute = WorkIndexRouteImport.update({
   path: '/work/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminClipsIndexRoute = AdminClipsIndexRouteImport.update({
+  id: '/admin/clips/',
+  path: '/admin/clips/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminGoalsIndexRoute = AdminGoalsIndexRouteImport.update({
   id: '/admin/goals/',
   path: '/admin/goals/',
@@ -193,6 +208,21 @@ const AdminGoalsIndexRoute = AdminGoalsIndexRouteImport.update({
 const AdminReportsIndexRoute = AdminReportsIndexRouteImport.update({
   id: '/admin/reports/',
   path: '/admin/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClipsAllIndexRoute = ClipsAllIndexRouteImport.update({
+  id: '/clips/all/',
+  path: '/clips/all/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClipsEditIndexRoute = ClipsEditIndexRouteImport.update({
+  id: '/clips/edit/',
+  path: '/clips/edit/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClipsRecIndexRoute = ClipsRecIndexRouteImport.update({
+  id: '/clips/rec/',
+  path: '/clips/rec/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EvaluationsAdminIndexRoute = EvaluationsAdminIndexRouteImport.update({
@@ -287,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/brain/': typeof BrainIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/churches/': typeof ChurchesIndexRoute
+  '/clips/': typeof ClipsIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/evaluations/': typeof EvaluationsIndexRoute
   '/expenses/': typeof ExpensesIndexRoute
@@ -309,8 +340,12 @@ export interface FileRoutesByFullPath {
   '/welcome/': typeof WelcomeIndexRoute
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
+  '/admin/clips/': typeof AdminClipsIndexRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/admin/reports/': typeof AdminReportsIndexRoute
+  '/clips/all/': typeof ClipsAllIndexRoute
+  '/clips/edit/': typeof ClipsEditIndexRoute
+  '/clips/rec/': typeof ClipsRecIndexRoute
   '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
   '/expenses/new/': typeof ExpensesNewIndexRoute
   '/expenses/review/': typeof ExpensesReviewIndexRoute
@@ -334,6 +369,7 @@ export interface FileRoutesByTo {
   '/brain': typeof BrainIndexRoute
   '/changelog': typeof ChangelogIndexRoute
   '/churches': typeof ChurchesIndexRoute
+  '/clips': typeof ClipsIndexRoute
   '/data-care': typeof DataCareIndexRoute
   '/evaluations': typeof EvaluationsIndexRoute
   '/expenses': typeof ExpensesIndexRoute
@@ -356,8 +392,12 @@ export interface FileRoutesByTo {
   '/welcome': typeof WelcomeIndexRoute
   '/work': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
+  '/admin/clips': typeof AdminClipsIndexRoute
   '/admin/goals': typeof AdminGoalsIndexRoute
   '/admin/reports': typeof AdminReportsIndexRoute
+  '/clips/all': typeof ClipsAllIndexRoute
+  '/clips/edit': typeof ClipsEditIndexRoute
+  '/clips/rec': typeof ClipsRecIndexRoute
   '/evaluations/admin': typeof EvaluationsAdminIndexRoute
   '/expenses/new': typeof ExpensesNewIndexRoute
   '/expenses/review': typeof ExpensesReviewIndexRoute
@@ -382,6 +422,7 @@ export interface FileRoutesById {
   '/brain/': typeof BrainIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/churches/': typeof ChurchesIndexRoute
+  '/clips/': typeof ClipsIndexRoute
   '/data-care/': typeof DataCareIndexRoute
   '/evaluations/': typeof EvaluationsIndexRoute
   '/expenses/': typeof ExpensesIndexRoute
@@ -404,8 +445,12 @@ export interface FileRoutesById {
   '/welcome/': typeof WelcomeIndexRoute
   '/work/': typeof WorkIndexRoute
   '/work/partner/$id': typeof WorkPartnerIdRoute
+  '/admin/clips/': typeof AdminClipsIndexRoute
   '/admin/goals/': typeof AdminGoalsIndexRoute
   '/admin/reports/': typeof AdminReportsIndexRoute
+  '/clips/all/': typeof ClipsAllIndexRoute
+  '/clips/edit/': typeof ClipsEditIndexRoute
+  '/clips/rec/': typeof ClipsRecIndexRoute
   '/evaluations/admin/': typeof EvaluationsAdminIndexRoute
   '/expenses/new/': typeof ExpensesNewIndexRoute
   '/expenses/review/': typeof ExpensesReviewIndexRoute
@@ -431,6 +476,7 @@ export interface FileRouteTypes {
     | '/brain/'
     | '/changelog/'
     | '/churches/'
+    | '/clips/'
     | '/data-care/'
     | '/evaluations/'
     | '/expenses/'
@@ -453,8 +499,12 @@ export interface FileRouteTypes {
     | '/welcome/'
     | '/work/'
     | '/work/partner/$id'
+    | '/admin/clips/'
     | '/admin/goals/'
     | '/admin/reports/'
+    | '/clips/all/'
+    | '/clips/edit/'
+    | '/clips/rec/'
     | '/evaluations/admin/'
     | '/expenses/new/'
     | '/expenses/review/'
@@ -478,6 +528,7 @@ export interface FileRouteTypes {
     | '/brain'
     | '/changelog'
     | '/churches'
+    | '/clips'
     | '/data-care'
     | '/evaluations'
     | '/expenses'
@@ -500,8 +551,12 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/work'
     | '/work/partner/$id'
+    | '/admin/clips'
     | '/admin/goals'
     | '/admin/reports'
+    | '/clips/all'
+    | '/clips/edit'
+    | '/clips/rec'
     | '/evaluations/admin'
     | '/expenses/new'
     | '/expenses/review'
@@ -525,6 +580,7 @@ export interface FileRouteTypes {
     | '/brain/'
     | '/changelog/'
     | '/churches/'
+    | '/clips/'
     | '/data-care/'
     | '/evaluations/'
     | '/expenses/'
@@ -547,8 +603,12 @@ export interface FileRouteTypes {
     | '/welcome/'
     | '/work/'
     | '/work/partner/$id'
+    | '/admin/clips/'
     | '/admin/goals/'
     | '/admin/reports/'
+    | '/clips/all/'
+    | '/clips/edit/'
+    | '/clips/rec/'
     | '/evaluations/admin/'
     | '/expenses/new/'
     | '/expenses/review/'
@@ -573,6 +633,7 @@ export interface RootRouteChildren {
   BrainIndexRoute: typeof BrainIndexRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
   ChurchesIndexRoute: typeof ChurchesIndexRoute
+  ClipsIndexRoute: typeof ClipsIndexRoute
   DataCareIndexRoute: typeof DataCareIndexRoute
   EvaluationsIndexRoute: typeof EvaluationsIndexRoute
   ExpensesIndexRoute: typeof ExpensesIndexRoute
@@ -595,8 +656,12 @@ export interface RootRouteChildren {
   WelcomeIndexRoute: typeof WelcomeIndexRoute
   WorkIndexRoute: typeof WorkIndexRoute
   WorkPartnerIdRoute: typeof WorkPartnerIdRoute
+  AdminClipsIndexRoute: typeof AdminClipsIndexRoute
   AdminGoalsIndexRoute: typeof AdminGoalsIndexRoute
   AdminReportsIndexRoute: typeof AdminReportsIndexRoute
+  ClipsAllIndexRoute: typeof ClipsAllIndexRoute
+  ClipsEditIndexRoute: typeof ClipsEditIndexRoute
+  ClipsRecIndexRoute: typeof ClipsRecIndexRoute
   EvaluationsAdminIndexRoute: typeof EvaluationsAdminIndexRoute
   ExpensesNewIndexRoute: typeof ExpensesNewIndexRoute
   ExpensesReviewIndexRoute: typeof ExpensesReviewIndexRoute
@@ -643,6 +708,13 @@ declare module '@tanstack/react-router' {
       path: '/churches'
       fullPath: '/churches/'
       preLoaderRoute: typeof ChurchesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clips/': {
+      id: '/clips/'
+      path: '/clips'
+      fullPath: '/clips/'
+      preLoaderRoute: typeof ClipsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/data-care/': {
@@ -799,6 +871,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/clips/': {
+      id: '/admin/clips/'
+      path: '/admin/clips'
+      fullPath: '/admin/clips/'
+      preLoaderRoute: typeof AdminClipsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/goals/': {
       id: '/admin/goals/'
       path: '/admin/goals'
@@ -811,6 +890,27 @@ declare module '@tanstack/react-router' {
       path: '/admin/reports'
       fullPath: '/admin/reports/'
       preLoaderRoute: typeof AdminReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clips/all/': {
+      id: '/clips/all/'
+      path: '/clips/all'
+      fullPath: '/clips/all/'
+      preLoaderRoute: typeof ClipsAllIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clips/edit/': {
+      id: '/clips/edit/'
+      path: '/clips/edit'
+      fullPath: '/clips/edit/'
+      preLoaderRoute: typeof ClipsEditIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clips/rec/': {
+      id: '/clips/rec/'
+      path: '/clips/rec'
+      fullPath: '/clips/rec/'
+      preLoaderRoute: typeof ClipsRecIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/evaluations/admin/': {
@@ -941,6 +1041,7 @@ const rootRouteChildren: RootRouteChildren = {
   BrainIndexRoute: BrainIndexRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
   ChurchesIndexRoute: ChurchesIndexRoute,
+  ClipsIndexRoute: ClipsIndexRoute,
   DataCareIndexRoute: DataCareIndexRoute,
   EvaluationsIndexRoute: EvaluationsIndexRoute,
   ExpensesIndexRoute: ExpensesIndexRoute,
@@ -963,8 +1064,12 @@ const rootRouteChildren: RootRouteChildren = {
   WelcomeIndexRoute: WelcomeIndexRoute,
   WorkIndexRoute: WorkIndexRoute,
   WorkPartnerIdRoute: WorkPartnerIdRoute,
+  AdminClipsIndexRoute: AdminClipsIndexRoute,
   AdminGoalsIndexRoute: AdminGoalsIndexRoute,
   AdminReportsIndexRoute: AdminReportsIndexRoute,
+  ClipsAllIndexRoute: ClipsAllIndexRoute,
+  ClipsEditIndexRoute: ClipsEditIndexRoute,
+  ClipsRecIndexRoute: ClipsRecIndexRoute,
   EvaluationsAdminIndexRoute: EvaluationsAdminIndexRoute,
   ExpensesNewIndexRoute: ExpensesNewIndexRoute,
   ExpensesReviewIndexRoute: ExpensesReviewIndexRoute,

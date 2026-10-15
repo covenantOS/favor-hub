@@ -52,11 +52,11 @@ const FRAME_HELPERS = ['mention-input', 'drill'] as const;
 /** The shared email composer (public/js/compose/compose.js): every route can open it, and its windows stay open across routes. */
 export const COMPOSE_JS = '/js/compose/compose.js?v=3';
 
-/** Load the shell's helper scripts once the first frame has painted. */
-export async function mountShellScripts(): Promise<void> {
+/** Load the shell's helper scripts once the first frame has painted. `skip` names scripts the caller replaces with its own code (the web app's camera button). */
+export async function mountShellScripts(skip?: RegExp): Promise<void> {
   const { js } = await layoutAssets();
   const list = ['/js/clips-launch.js?v=5', COMPOSE_JS, '/js/copy-stamp.js?v=2', '/js/changelog-dot.js?v=1', '/js/handoff.js?v=1', '/js/ask-brain.js?v=3', ...FRAME_HELPERS.map((n) => js.find((s) => s.includes('/' + n + '.js'))).filter((x): x is string => !!x)];
-  await Promise.all(list.map((src) => loadScript(src).catch((e) => console.warn('[legacy]', (e as Error).message))));
+  await Promise.all(list.filter((src) => !(skip && skip.test(src))).map((src) => loadScript(src).catch((e) => console.warn('[legacy]', (e as Error).message))));
 }
 
 /** A frame after paint, so scripts never sit between the first render and what people see. */
