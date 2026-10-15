@@ -8,7 +8,7 @@ export const user = { email: 'test.admin@favorintl.org', name: 'Test Admin', pic
 export const nav: NavResponse = {
   ok: true,
   user,
-  access: { admin: true, kpi: true, workCenter: true, clips: true, clipsRecord: true, meetings: true, chat: true, projects: true, tasks: true, bell: true, hr: true, mail: true, expenseLog: true, giftEntry: true },
+  access: { admin: true, kpi: true, workCenter: true, clips: true, clipsRecord: true, meetings: true, chat: true, projects: true, tasks: true, bell: true, hr: true, mail: true, expenseLog: true, giftEntry: true, early: true, projectsNav: true },
   counts: { board: 3, workOpen: 12, chatMentions: 2, mailUnread: 7, receiptsLeft: 4, projectsMine: 1, evals: 0 },
   kpiTeams: ['rdd', 'pc', 'ce', 'grants', 'marketing'],
 };

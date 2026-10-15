@@ -83,7 +83,7 @@ describe('the tab row the web app holds space for', () => {
     for (const area of AREAS) {
       for (const p of area.pages) {
         if (!tabRowHeld(p.id)) continue;
-        const access: Record<string, unknown> = p.need ? { [p.need]: true } : {};
+        const access: Record<string, unknown> = { ...(p.need ? { [p.need]: true } : {}), ...(p.early ? { early: true } : {}) };
         expect(rowHides(area.id, p.id, access), `${area.id}/${p.id}`).toBe(false);
       }
     }
