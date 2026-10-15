@@ -57,7 +57,8 @@ step('hub tests', () => {
 step('typecheck and app tests', () => sh('npm run typecheck && npm run app:test'));
 step('web typecheck and build', () => sh('npm --prefix web exec -- tsc --noEmit -p web && npm --prefix web run build'));
 step('no live meeting', () => {
-  const out = sh(`npx wrangler d1 execute favor-requests --remote --json --command "SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE joined_at > (strftime('%s','now') - 1800) * 1000 AND (left_at IS NULL OR left_at = 0)"`, { capture: true });
+  // A real person seen in a room in the last two minutes. Test accounts (meeting suites run at night) do not count.
+  const out = sh(`npx wrangler d1 execute favor-requests --remote --json --command "SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND seen > (strftime('%s','now') - 120) * 1000 AND lower(email) NOT IN ('tester@favorintl.org','tester2@favorintl.org','privacy-probe@favorintl.org','privacy-probe@favourafrica.org')"`, { capture: true });
   const n = Number((out.match(/"n":\s*(\d+)/) || [])[1]);
   if (!(n === 0)) throw new Error('someone is in a meeting (' + n + '), wait');
 });
