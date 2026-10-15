@@ -341,7 +341,7 @@ export const DEFS: Def[] = [
       }
     },
   }),
-  hubDef({ id: 'evals.access', area: 'people', group: 'Evaluations', label: 'Who else can use Evaluations', hint: 'While Evaluations is in testing, the Early access list, hub admins, HR and the people here can open it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":["grace@favorintl.org"],"teams":[]}' }),
+  hubDef({ id: 'evals.access', area: 'people', group: 'Evaluations', label: 'Who else can use Evaluations', hint: 'While Evaluations is in testing, the Early access list, FavorOS admins, HR and the people here can open it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":["grace@favorintl.org"],"teams":[]}' }),
   hubDef({ id: 'evals.summary_url', area: 'people', group: 'Evaluations', label: 'Final evaluation form', hint: 'The Google Doc that supervisors copy after the review meeting. Use a link that ends in /copy so it opens as a copy.', kind: 'text', def: 'https://docs.google.com/document/d/1pgaiNGZiMti7b__V1H3QtqVJzvO4GpSBj7qBRvvjQC0/copy' }),
   hubDef({ id: 'evals.instructions_url', area: 'people', group: 'Evaluations', label: 'Supervisor instruction page', hint: 'The Google Doc that tells a supervisor how to prepare the review. HR writes it.', kind: 'text', def: 'https://docs.google.com/document/d/1LNhsspcLpxyf7wPaGJv_X9kEOBomH_Uj-HBg6kOb_AI/edit' }),
   hubDef({
