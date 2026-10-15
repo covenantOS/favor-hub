@@ -1,0 +1,2 @@
+/* Reporting > Highlights: the pins hide the table's "Open large" button (the Brain page's side panel does not exist here), as the classic page hid its tools. */
+.rg-pin__body [aria-label='Open large'] { display: none; }
