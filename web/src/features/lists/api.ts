@@ -133,9 +133,11 @@ export const reportQuery = (id: string, values: Record<string, string>) =>
 // Route loaders start the reads and never wait for them, so the frame streams at once and each part fills in as its read answers.
 export const prefetchLists = (qc: QueryClient) => void qc.prefetchQuery(listsMetaQuery);
 export const prefetchCredit = (qc: QueryClient) => void qc.prefetchQuery(creditQuery);
+/** The report ids the server has (functions/_lib/lists/reports.ts; tests/lists-web.test.mjs keeps the two lists equal). Only these are read ahead, so an address with a made-up ?r= draws the menu and the server never answers 404 to a page read. */
+export const REPORT_IDS = ['giving', 'credit', 'portfolio', 'new-lost', 'status', 'first-time', 'retention', 'actions', 'grants'] as const;
 export function prefetchReports(qc: QueryClient, id?: string) {
   void qc.prefetchQuery(reportsQuery);
-  if (id) void qc.prefetchQuery(reportQuery(id, {}));
+  if (id && (REPORT_IDS as readonly string[]).includes(id)) void qc.prefetchQuery(reportQuery(id, {}));
 }
 
 // ---- browser-side calls ----

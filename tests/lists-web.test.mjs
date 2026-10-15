@@ -138,6 +138,18 @@ describe('money and dates read as FavorUI writes them', () => {
   it('num groups thousands', () => assert.equal(F.num(6074), '6,074'));
 });
 
+describe('reports', () => {
+  it('the ids read ahead are the ids the server has', async () => {
+    const A = await import('../web/src/features/lists/api.ts');
+    const { REPORTS } = await import('../functions/_lib/lists/reports.ts');
+    assert.deepEqual([...A.REPORT_IDS].sort(), REPORTS.map((r) => r.id).sort());
+  });
+  it('the address names the report first and leaves out empty values', async () => {
+    const A = await import('../web/src/features/lists/api.ts');
+    assert.equal(A.reportPath('giving', { period: 'custom', from: '2026-01-01', by: '' }), '/api/lists/report?id=giving&period=custom&from=2026-01-01');
+  });
+});
+
 describe('the routes', () => {
   it('are registered and own only their own paths', () => {
     for (const r of ['/lists/', '/lists/credit/', '/lists/reports/']) {

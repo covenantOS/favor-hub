@@ -3,9 +3,9 @@
 // page with the criteria already set. The open report is in the address (?r=<id>); its period and options are held here.
 import '@hub/styles/reports.css';
 import '@hub/styles/lists.css';
-import { Fragment, Suspense, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { Component, Fragment, Suspense, startTransition, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { keepPreviousData, useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { EntityChip } from '@/features/entity/EntityChip';
 import { reportQuery, reportsQuery, type ReportCol, type ReportItem, type ReportResult, type ReportsList, type Row } from './api';
 import { day, money, num } from './fmt';
@@ -47,25 +47,48 @@ function Reports({ search }: { search: ReportsSearch }) {
   const navigate = useNavigate();
   // The report in the address counts only when the list has it; any other address shows the menu.
   const id = search.r && list.reports.some((x) => x.id === search.r) ? search.r : '';
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValuesNow] = useState<Record<string, string>>({});
+  // A change of period or option keeps the report on screen (dimmed) until the new answer arrives, as the classic page does, instead of
+  // dropping back to the loading box.
+  const [busy, setBusy] = useState(false);
+  const setValues = (v: Record<string, string>) => {
+    setBusy(true);
+    startTransition(() => {
+      setValuesNow(v);
+      setBusy(false);
+    });
+  };
   const go = (r: string) => void navigate({ to: '/lists/reports/', search: r ? { r } : {}, replace: true, resetScroll: false });
   return id ? (
-    <Report
-      list={list}
-      id={id}
-      values={values}
-      setValues={setValues}
-      onBack={() => go('')}
-    />
+    <ReportBoundary resetKey={id + JSON.stringify(values)}>
+      <Suspense fallback={<ReportsFallback />}>
+        <Report list={list} id={id} values={values} busy={busy} setValues={setValues} onBack={() => go('')} />
+      </Suspense>
+    </ReportBoundary>
   ) : (
     <Menu
       list={list}
       onPick={(r) => {
-        setValues({});
+        setValuesNow({});
         go(r);
       }}
     />
   );
+}
+
+/** A report that cannot open (the server refuses a person limited to their own partners) says why in the same card the classic page uses. */
+class ReportBoundary extends Component<{ children: ReactNode; resetKey: string }, { error: Error | null; key: string }> {
+  state = { error: null as Error | null, key: this.props.resetKey };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  static getDerivedStateFromProps(p: { resetKey: string }, st: { error: Error | null; key: string }) {
+    return p.resetKey !== st.key ? { error: null, key: p.resetKey } : null;
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return <ReportsError message={this.state.error.message || 'The report did not load.'} />;
+  }
 }
 
 function Menu({ list, onPick }: { list: ReportsList; onPick: (id: string) => void }) {
@@ -110,26 +133,9 @@ function NameCell({ r, c }: { r: Row; c: ReportCol }) {
   return <EntityChip kind="partner" id={String(r._cid)} label={String(v)} />;
 }
 
-function Report({ list, id, values, setValues, onBack }: { list: ReportsList; id: string; values: Record<string, string>; setValues: (v: Record<string, string>) => void; onBack: () => void }) {
+function Report({ list, id, values, busy, setValues, onBack }: { list: ReportsList; id: string; values: Record<string, string>; busy: boolean; setValues: (v: Record<string, string>) => void; onBack: () => void }) {
   const navigate = useNavigate();
-  const q = useQuery({ ...reportQuery(id, values), placeholderData: keepPreviousData });
-  const res = q.data;
-  if (!res) {
-    return (
-      <>
-        <div id="lr-app" data-api="/api/lists/report">
-          {q.error ? (
-            <div className="h-card ls-pad">
-              <p className="rp-note">{(q.error as Error).message || 'The report did not load.'}</p>
-            </div>
-          ) : (
-            <p className="rp-note rp-loading">Loading</p>
-          )}
-        </div>
-        <div className="rp-toast" id="lr-toast" role="status" />
-      </>
-    );
-  }
+  const { data: res } = useSuspenseQuery(reportQuery(id, values));
   const drill = (r: Row) => void navigate({ to: '/lists/', search: { spec: encodeSpec(r._drill) } });
   const rowProps = (r: Row) =>
     r._drill
@@ -158,7 +164,7 @@ function Report({ list, id, values, setValues, onBack }: { list: ReportsList; id
   };
   return (
     <>
-      <div id="lr-app" data-api="/api/lists/report" className={q.isPlaceholderData ? 'is-busy' : undefined}>
+      <div id="lr-app" data-api="/api/lists/report" className={busy ? 'is-busy' : undefined}>
         <div className="lr-head">
           <button type="button" className="ls-link" id="lr-back" onClick={onBack}>
             All reports
