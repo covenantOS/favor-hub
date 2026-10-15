@@ -98,7 +98,8 @@ function LivePill() {
 
 // How tall "Since you were away" was on this browser, per phone or desktop width (the smaller of the screen and the window: the window reads
 // as the wide layout width in the head of a phone page, before its viewport tag applies). The boot script in the web app's document reads it
-// before the first paint (--td-away-h), so the place is held while the briefing is read and nothing below it moves when it arrives.
+// before the first paint (--td-away-h), so the place is held while the briefing is read and nothing below it moves when it arrives. A browser
+// that has never shown the block has no height to hold (class td-await-away): the parts under it stay out of sight until the briefing answers.
 const AWAY_KEY = 'favor.hub.td.away.v1';
 function rememberAway(h: number) {
   try {
@@ -122,6 +123,7 @@ function Away() {
   useEffect(() => {
     const el = ref.current;
     if (el) rememberAway(show ? Math.round(el.getBoundingClientRect().height) : 0);
+    document.documentElement.classList.remove('td-await-away');
   }, [show]);
   return (
     <p className="td-away" id="td-away" ref={ref} hidden={!show}>

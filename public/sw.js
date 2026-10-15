@@ -22,6 +22,8 @@ self.addEventListener('activate', (event) => {
     (async () => {
       const keep = new Set([STATIC, SHELL, 'favoros-flags']);
       for (const k of await caches.keys()) if (!keep.has(k)) await caches.delete(k);
+      // The browser starts the page request itself, in parallel with this worker waking, and hands its streaming answer to fetch below.
+      try { if (self.registration.navigationPreload) await self.registration.navigationPreload.enable(); } catch { /* no preload: the worker fetches the page */ }
       await self.clients.claim();
     })()
   );
@@ -106,6 +108,21 @@ function pageFetch(request) {
   if (a) h.set('Accept', a);
   return fetch(request.url, { credentials: 'same-origin', headers: h, redirect: 'manual', cache: 'no-cache' });
 }
+// Today and Chat open from the browser's own page request (navigation preload), so the page streams to the screen as the server sends it.
+// A page the worker fetches itself (pageFetch) reached the screen only once it was complete, which held the web app's Today back by the
+// whole time its server reads took. Without a preload answer (an old browser, or offline) the worker's own fetch and the kept copy answer.
+async function openPage(event) {
+  const request = event.request;
+  let pre = null;
+  try { pre = await event.preloadResponse; } catch { pre = null; }
+  const on = await lite();
+  if (!pre) return on ? litePage(request) : pageFetch(request);
+  if (on && pre.ok && !pre.redirected && pre.type === 'basic') {
+    const keep = pre.clone();
+    caches.open(SHELL).then((cache) => cache.put(new URL(request.url).pathname, keep)).catch(() => undefined);
+  }
+  return pre;
+}
 async function litePage(request) {
   const cache = await caches.open(SHELL);
   try {
@@ -134,7 +151,7 @@ self.addEventListener('fetch', (event) => {
   }
   if (req.mode === 'navigate' && SHELL_PATHS.includes(url.pathname)) { event.respondWith(shellFirstFromNetwork(req)); return; }
   // Lite mode: Today and Chat are kept too, so they open with no signal (Chat then reads its kept messages, chat.js).
-  if (req.mode === 'navigate' && LITE_PAGES.includes(url.pathname)) event.respondWith(lite().then((on) => (on ? litePage(req) : pageFetch(req))));
+  if (req.mode === 'navigate' && LITE_PAGES.includes(url.pathname)) event.respondWith(openPage(event));
 });
 
 self.addEventListener('message', (event) => {

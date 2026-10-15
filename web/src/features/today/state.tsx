@@ -1,6 +1,6 @@
 // What Today's parts share: the rows a person just cleared, whose partners the briefing shows, and the one ranked list that the status line,
 // the Needs you heading and the list itself all read, so the three counts can never disagree.
-import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
 import { briefQ, giftsQ, homeQ, inboxQ, todayQ, waitingQ } from './queries';
 import { buildItems, type Item, type Thank } from './rank';
@@ -47,18 +47,31 @@ export function useShared(): Shared {
   return v;
 }
 
-/** The six reads the ranked list needs at once (suspends until they answer), then the mail parts, which merge in when Gmail answers. */
+const never = () => () => undefined;
+/** False on the server and during hydration, true after: late answers join only then, so the server page and the first browser render agree. */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(never, () => true, () => false);
+}
+
+/**
+ * The five reads the ranked list needs at once (suspends until they answer), then the parts that merge in without holding the list: the
+ * gift desk (the slowest read, and empty for most people) and the mail parts. Classic Today drew its list after its main sources or 1.5 s
+ * and let the gifts in when they answered; this does the same, so the server page carries the list as soon as the main sources are in.
+ */
 export function useNeeds() {
   const { gone, owner } = useShared();
   const now = useNow();
-  const [t, ib, wt, g, h, b] = useSuspenseQueries({ queries: [todayQ, inboxQ('fast'), waitingQ('fast'), giftsQ, homeQ, briefQ(owner)] });
+  const hydrated = useHydrated();
+  const [t, ib, wt, h, b] = useSuspenseQueries({ queries: [todayQ, inboxQ('fast'), waitingQ('fast'), homeQ, briefQ(owner)] });
+  const gifts = useQuery(giftsQ).data;
   const ibMail = useQuery(inboxQ('mail')).data;
   const wtMail = useQuery(waitingQ('mail')).data;
+  const g = hydrated && gifts ? gifts : null;
   const today = t.data;
   const brief = b.data ? b.data.briefing || null : null;
   const built = useMemo(
-    () => buildItems({ today, inbox: [...(ib.data.items || []), ...((ibMail && ibMail.items) || [])], waiting: [...(wt.data.items || []), ...((wtMail && wtMail.items) || [])], brief, gifts: g.data, home: h.data, gone, now }),
-    [today, ib.data, ibMail, wt.data, wtMail, brief, g.data, h.data, gone, now],
+    () => buildItems({ today, inbox: [...(ib.data.items || []), ...((ibMail && ibMail.items) || [])], waiting: [...(wt.data.items || []), ...((wtMail && wtMail.items) || [])], brief, gifts: g, home: h.data, gone, now }),
+    [today, ib.data, ibMail, wt.data, wtMail, brief, g, h.data, gone, now],
   );
   return { ...built, now, today, home: h.data, brief, briefRaw: b.data };
 }

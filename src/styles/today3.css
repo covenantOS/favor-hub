@@ -45,6 +45,10 @@
 .td-away--wait { display: none; }
 html.td-away-held .td-away--wait { display: block; flex: 1 0 100%; min-height: var(--td-away-h, 0px); }
 @media (max-width: 860px) { html.td-away-held .td-away--wait { flex: none; order: 1; } }
+/* A first visit on this browser has no remembered height for the block. Everything it would push down stays invisible (its space is kept) until
+   the briefing answers, so nothing that was drawn moves. */
+html.td-await-away:has(.td-away--wait) #td-root > :not(.td-head),
+html.td-await-away:has(.td-away--wait) .td-head__r { visibility: hidden; }
 .td-away a { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: #fff; border: 1px solid var(--r-line); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; transition: border-color var(--m-fast) var(--m-out), background-color var(--m-fast) var(--m-out); }
 .td-away a:hover { border-color: var(--r-line-2); background: var(--r-hover); }
 .td-head__r { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 0; margin-left: auto; }
