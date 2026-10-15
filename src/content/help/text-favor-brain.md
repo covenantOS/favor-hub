@@ -6,7 +6,7 @@ order: 4
 related: [ask-favor, access, asking-well]
 tool: /brain/text/
 toolLabel: Register my number
-updated: 2026-10-12
+updated: 2026-10-14
 ---
 
 ## Register your number
@@ -14,6 +14,8 @@ updated: 2026-10-12
 1. Open **Favor Brain**, then **Text Favor Brain** at the bottom of the left column.
 2. Enter your mobile number and press **Send code**.
 3. Type the 6 digit code from the text and press **Confirm**. The code lasts 10 minutes.
+
+The status at the top right of the card reads **Not open yet** until the Favor text number is set up, **Not registered** once it is open and your number is not on file, and **Registered** after you confirm. The page shows **Since** and the date you registered. Texts get answers only when the status is not **Not open yet**.
 
 Each person has one number, and one number belongs to one person. **Change number** replaces it. **Remove** stops answers to it.
 
