@@ -78,8 +78,8 @@ export function agentKeyOk(env: Env, request: Request): boolean {
 }
 
 /** The partner records the test accounts may attach a gift to. Anything else is a real partner. */
-export const TEST_PARTNER_IDS = ['18698', '16269'];
-export const TEST_PARTNER_REFUSAL = 'The test user can only use a test partner record. Pick Test Sponsor or Test Recommender.';
+export const TEST_PARTNER_IDS = ['37974', '37975'];
+export const TEST_PARTNER_REFUSAL = 'The test user can only use a test partner record. Pick FavorOS Test Sponsor or FavorOS Test Recommender.';
 export const isTestPartnerId = (id: unknown) => TEST_PARTNER_IDS.includes(String(id ?? '').trim()) || /^TEST/i.test(String(id ?? '').trim());
 /** Throws when a test account names a partner that is not a test record. Empty ids pass. */
 export function guardTestPartners(email: string, set: Record<string, unknown>): void {
