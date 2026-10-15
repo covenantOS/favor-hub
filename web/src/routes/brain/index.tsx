@@ -1,6 +1,6 @@
 // Favor Brain (/brain/): your chats, the conversation and its answers, the steps behind each answer as it is made. The page is
 // app/src/features/brain (shared with the dock's Favor Brain tab); this file reads the first frame on the server.
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { BrainPage } from '@/features/brain/BrainPage';
@@ -8,6 +8,7 @@ import { historyQuery, meQuery, threadQuery } from '@/features/brain/api';
 import { hubGet } from '../../lib/hub';
 
 const get = (path: string) => hubGet(path);
+let loaded = false;
 const chatOf = (search: Record<string, unknown>) => {
   const c = String(search.c || '');
   return /^c_[a-z0-9]{4,16}$/.test(c) ? c : '';
@@ -18,6 +19,9 @@ export const Route = createFileRoute('/brain/')({
   validateSearch: (s: Record<string, unknown>) => s,
   loaderDeps: ({ search }) => ({ c: chatOf(search) }),
   loader: ({ context, deps }) => {
+    // The page keeps ?c= in step with the open chat itself; after the first load a new ?c= is the page's own doing, not a read to make.
+    if (typeof window !== 'undefined' && loaded) return;
+    loaded = true;
     void context.queryClient.prefetchQuery(meQuery(get));
     void context.queryClient.prefetchQuery(historyQuery(get));
     void context.queryClient.prefetchQuery(threadQuery(get, deps.c || '-'));
@@ -26,7 +30,9 @@ export const Route = createFileRoute('/brain/')({
 });
 
 function Brain() {
-  const { c } = Route.useLoaderDeps();
+  // The chat in the address when the page opened. Later changes to ?c= come from the page itself (BrainPage keeps it in step).
+  const deps = Route.useLoaderDeps();
+  const [c] = useState(deps.c);
   return (
     <ErrorBoundary label="Favor Brain could not load." className="h-card">
       <Suspense fallback={<BrainSkeleton />}>
