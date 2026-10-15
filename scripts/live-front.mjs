@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 const BASE = process.env.HUB_ORIGIN || 'https://dash.favorintl.org';
 // Copies of FULL_LOAD (shared/app2.ts), WEB_EXACT_ROUTES and WEB_OWN_SWITCH (shared/web.ts); tests/web-route.test.mjs checks they match.
 const FULL_LOAD = ['/dashboard/', '/meet/room/', '/meet/g/', '/clips/rec/', '/login/', '/help/videos/'];
+const SOLO = ['/clips/rec/', '/dashboard/'];
 const EXACT = ['/gifts/', '/brain/', '/admin/'];
 const OWN_SWITCH = ['/gifts/other/'];
 const key = process.env.HUB_AGENT_KEY;
@@ -57,6 +58,6 @@ function readListed() {
 // and the help videos under /help/videos/ always load from Astro.
 function serves(path, routes) {
   const p = path.endsWith('/') ? path : path + '/';
-  if (FULL_LOAD.some((f) => p === f || p.startsWith(f))) return false;
+  if (FULL_LOAD.some((f) => !SOLO.includes(f) && (p === f || p.startsWith(f)))) return false;
   return routes.some((r) => (r === '/' || EXACT.includes(r) ? p === r : p.startsWith(r)));
 }

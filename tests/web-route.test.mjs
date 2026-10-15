@@ -220,6 +220,8 @@ describe('live-front.mjs judges a check by web.routes as it stands', () => {
     const copy = (name) => JSON.parse(src.match(new RegExp(`const ${name} = (\\[[^\\]]*\\]);`))[1].replace(/'/g, '"'));
     assert.deepEqual(copy('FULL_LOAD'), [...FULL_LOAD]);
     assert.deepEqual(copy('EXACT'), [...WEB_EXACT_ROUTES]);
+    const { WEB_SOLO_ROUTES } = await import('../shared/web.ts');
+    assert.deepEqual(copy('SOLO'), [...WEB_SOLO_ROUTES]);
     assert.deepEqual(copy('OWN_SWITCH'), Object.keys(WEB_OWN_SWITCH));
   });
 });
