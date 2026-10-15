@@ -7,6 +7,7 @@ import { EntityChip } from '@/features/entity/EntityChip';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { money0, money2 } from '@/lib/format';
 import { useOgIndex, useOgList, useTributes, type GiftTribute } from './data';
+import { GiftTerm } from '../gifts/Term';
 import { AddGift } from './AddGift';
 import { BatchesPanel } from './Batches';
 import './styles.css';
@@ -61,7 +62,9 @@ function Strip() {
         <span>DAF, foundation and stock gifts entered here</span>
       </div>
       <div className="og-stat">
-        <small>Soft credit given</small>
+        <small>
+          <GiftTerm k="soft" label="Soft credit" /> given
+        </small>
         <b>{s.month.softGifts}</b>
         <span>
           of {s.month.gifts} {s.month.label} gifts carry a soft credit

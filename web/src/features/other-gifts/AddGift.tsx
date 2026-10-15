@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { OgGift, OgIndex, OgKindId } from '@shared/schemas';
 import { money2 } from '@/lib/format';
 import { lastCoding, recommenders, searchPartners, useOgActions } from './data';
+import { GiftTerm } from '../gifts/Term';
 import { ListPicker, Picker } from './pickers';
 
 interface Person {
@@ -209,7 +210,7 @@ export function AddGift({
 
       <Picker<Person>
         id="og-from"
-        label={copy.from}
+        label={copy.from === 'From (the DAF sponsor)' ? <>From (the <GiftTerm k="daf" label="DAF" /> sponsor)</> : copy.from}
         placeholder="Find a partner by name, ID or email"
         chosen={f.partner ? (<><b>{f.partner.name}</b> <small>#{f.partner.lookup || f.partner.id}{f.partner.place ? ` · ${f.partner.place}` : ''}</small></>) : null}
         onClear={() => set({ partner: null })}
@@ -234,7 +235,7 @@ export function AddGift({
 
       <Picker<{ id: string; lookup: string; name: string; place: string; usedBefore: number; lastDate: string }>
         id="og-soft"
-        label={copy.soft}
+        label={copy.soft === 'Recommended by (soft credit)' ? <>Recommended by (<GiftTerm k="soft" label="soft credit" />)</> : copy.soft}
         placeholder={f.partner && kindInfo?.needsSoft ? 'Pick from past recommenders or search' : 'Find a partner'}
         chosen={f.soft ? (<><b>{f.soft.name}</b> <small>#{f.soft.lookup || f.soft.id}</small></>) : f.noSoft ? <i>No partner named</i> : null}
         onClear={() => set({ soft: null, noSoft: false })}

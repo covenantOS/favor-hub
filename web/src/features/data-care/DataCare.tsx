@@ -185,7 +185,9 @@ function PairBody({ tab, page, setTab, setPage }: { tab: Tab; page: number; setT
       ) : (
         slice.map((p) => (
           <button key={p.id} type="button" className="dc-pair" aria-current={p.id === picked} onClick={() => setParams(p.id)}>
-            <span className={'dc-score' + scoreClass(p.score)}>{p.score}</span>
+            <span className={'dc-score' + scoreClass(p.score)} title="How likely these are the same person. Every pair shares an email. Matching names and the same ZIP code raise the score.">
+              {p.score}
+            </span>
             <span style={{ minWidth: 0 }}>
               <b>
                 {p.a.name} · {p.b.name}
@@ -387,7 +389,7 @@ function Card({ pair, compare, nextId, onNext }: { pair: Pair; compare: Compare 
               <button type="button" className="h-btn h-btn--primary" onClick={() => setSure(true)}>
                 {mergeLabel}
               </button>
-              <button type="button" className="h-btn h-btn--ghost" disabled={decide.isPending} onClick={() => decide.mutate({ action: 'not_same' })}>
+              <button type="button" className="h-btn h-btn--ghost" disabled={decide.isPending} title="Takes this pair off the list. Put back in review brings it back." onClick={() => decide.mutate({ action: 'not_same' })}>
                 Not the same person
               </button>
             </>
@@ -487,7 +489,7 @@ function MissingTabs({ state, setState }: { state: FlagState; setState: (v: Flag
         Fixed {count(sum.noAddress.fixed)}
       </button>
       {sum.nameCheck > 0 ? (
-        <button type="button" className="dc-tab" aria-pressed={state === 'name'} onClick={() => setState('name')}>
+        <button type="button" className="dc-tab" aria-pressed={state === 'name'} title="Records flagged because the name is not a person's name." onClick={() => setState('name')}>
           Name check {count(sum.nameCheck)}
         </button>
       ) : null}

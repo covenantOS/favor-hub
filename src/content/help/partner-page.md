@@ -7,7 +7,7 @@ for: [admin, rdd, pc, ce, grants, leader]
 related: [work-center, search]
 tool: /work/partner/
 toolLabel: Find a partner
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 ## Open a partner
@@ -47,9 +47,21 @@ The timeline mixes gifts, calls, emails, meetings, notes and events, newest firs
 
 Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom as a summary; Edit beside a phone, email or the address opens the Contact tab.
 
+## Gifts, Actions and Relationships
+
+Seven tabs sit under the Call, Text and Email buttons: Overview, Gifts, Actions, Relationships, Contact, Codes and Record. The first four read the record's history.
+
+**Gifts** lists every gift page by page, newest first. Date, Amount and Type sort when you press the heading. The columns are Date, Amount, Type, Fund, Appeal, Counts as, Method and Thanked. Counts as says how each gift counts. Own means the gift is on this record. Soft credit means another record sent the gift and Favor's rule credits it here, and the line beside it names that record. Passed on means this record sent the gift for other partners, and it names them. Point at Soft credit or Passed on to read the meaning. Own and soft credit gifts count toward the partner's giving. Recurring gifts lists each schedule with how often it runs, the next charge and a Missed a charge mark when the next charge date has passed. Change a schedule on the Recurring page under Gifts. When Blackbaud has an ask suggestion for the partner, it shows above the list.
+
+A gift that honors or remembers someone shows "In honor of" or "In memory of" and the name under its fund, and the Tributes list names each tribute with its gift date and who to tell. FavorOS keeps these, and they show to the people who can open Other gifts. A tribute you enter on Other gifts appears here once the gift reaches Blackbaud, and tributes written in a gift comment in Blackbaud are copied in.
+
+**Actions** lists every action on the record, open ones first. All, Open and Contacts narrow it. Each row has the date, status, category, type, summary and fundraiser.
+
+**Relationships** lists the people and organizations linked to the partner, with the relationship, what they are to the partner, their position and the date it started. Under it are the contact details on file, the solicit codes, constituent codes, attributes and ratings, and the tags FavorOS holds for the partner. Add a tag here. Tags are FavorOS labels that everyone can see and filter by in All partners. They do not go to Blackbaud.
+
 ## Contact, Codes and Record
 
-Four tabs sit under the Call, Text and Email buttons: Overview, Contact, Codes and Record. Contact, Codes and Record read Blackbaud live each time you open them, so they show what is in Blackbaud now, including ended addresses and ended codes.
+Contact, Codes and Record read Blackbaud live each time you open them, so they show what is in Blackbaud now, including ended addresses and ended codes.
 
 **Contact** lists every address, phone and email. An address shows its type, a Preferred mark, Do not mail, the dates it was in use and, for a seasonal address, the window ("Every year May 1 to Oct 15"). Edit opens the row in place. Add an address, Add a phone and Add an email open a blank form. A new preferred address or phone takes the mark from the old one, and the tab checks that exactly one row holds it. End this address records the last day it was in use. Mark inactive keeps a phone or email on the record and stops it counting. A seasonal address keeps its type; end it and add the new address instead. The three record flags (Gives anonymously, Requests no email, No valid address) sit at the bottom. If someone changed the same field in Blackbaud since you opened the form, the form stops and shows their value with Use theirs and Keep mine.
 

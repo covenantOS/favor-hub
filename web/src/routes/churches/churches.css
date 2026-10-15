@@ -1,6 +1,8 @@
 /* Churches (web/src/routes/churches). Tokens only, the same ones the classic Work Center uses. */
 .ch-page { display: grid; gap: 16px; }
 .ch-card { background: var(--h-surface, #fff); border: 1px solid var(--h-line); border-radius: var(--h-radius, 16px); box-shadow: var(--h-shadow); min-width: 0; }
+/* chat.css also defines .ch-card (a flex box for chat link cards). Block here keeps the list and panel in normal flow. */
+.ch-page .ch-card:not(.ch-notice) { display: block; }
 .ch-notice { display: grid; gap: 4px; padding: 20px; color: var(--h-ink-2); }
 .ch-band { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: var(--h-surface, #fff); border: 1px solid var(--h-line); border-radius: var(--h-radius, 16px); box-shadow: var(--h-shadow); }
 .ch-stat { display: grid; gap: 2px; align-content: start; padding: 18px 20px; border-left: 1px solid var(--h-line); min-width: 0; }
