@@ -18,7 +18,7 @@ describe('which dashboard page an address asks for', () => {
     assert.equal(P.pageOf('/rdds'), '/rdds');
     assert.equal(P.pageOf('/rdds/12?tab=gifts&x=1'), '/rdds/12?tab=gifts&x=1');
   });
-  it('the hub address of a page is the one the menu links to', () => {
+  it('a dashboard page has the address the menu links to', () => {
     assert.equal(P.hubHref('/'), '/dashboard/');
     assert.equal(P.hubHref('/rdds'), '/dashboard/?page=%2Frdds');
     for (const e of P.KPI_ENTRIES) assert.equal(P.hubHref(e.kpiPage), e.id === 'kpi' ? '/dashboard/' : '/dashboard/?page=' + encodeURIComponent(e.kpiPage), e.id);
