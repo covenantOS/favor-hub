@@ -2,7 +2,7 @@
 //
 // First-gift letters (Gifts > First-gift letters) and the line between them and Receipts. A made-up mirror (the real column layout, in memory),
 // a made-up Blackbaud waiting list (the sync worker's CSV) and a recording stand-in for the acknowledge route. Every name and amount is made
-// up; the two ids 18698 and 16269 are the test partner records. Nothing here can reach Blackbaud or the live mirror.
+// up. Nothing here can reach Blackbaud or the live mirror.
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
@@ -58,8 +58,8 @@ before(() => {
     CREATE TABLE appeals (id TEXT PRIMARY KEY, appeal_id TEXT, appeal_category TEXT);
   `);
   mirror.prepare("INSERT INTO appeals VALUES ('2301', 'K254-GIFT', 'Acquisition'), ('2302', 'K254-FD', 'Acquisition'), ('2', 'GEN', 'Direct Mail Appeal')").run();
-  person('16269', 'Lowell', 'Denton');
-  person('18698', null, null, { org: 'National Christian Foundation' });
+  person('8801', 'Lena', 'Dorn');
+  person('8802', null, null, { org: 'Sample Giving Fund' });
   person('100', 'Ada', 'Brook');
   person('101', 'Ben', 'Cole', { spouse: '102' });
   person('102', 'Cara', 'Cole', { spouse: '101' });
@@ -68,8 +68,8 @@ before(() => {
   person('105', 'Fay', 'Ivers');
   person('106', 'Gil', 'Nash');
   person('107', 'Hal', 'Stone');
-  // 7001: the first gift of 16269, coded to an acquisition appeal.
-  gift('7001', '16269', 25, '2026-09-20', { appeal: '2301' });
+  // 7001: the first gift of 8801, coded to an acquisition appeal.
+  gift('7001', '8801', 25, '2026-09-20', { appeal: '2301' });
   // 7002 is 100's first gift (acknowledged long ago); 7003 is a second gift with an acquisition code: not a first gift.
   gift('7002', '100', 10, '2026-08-01', { appeal: '2301', ack: 'Acknowledged' });
   gift('7003', '100', 30, '2026-09-25', { appeal: '2301' });
@@ -77,7 +77,7 @@ before(() => {
   gift('6000', '102', 100, '2025-03-01', { appeal: '2', ack: 'Acknowledged' });
   gift('7004', '101', 40, '2026-09-26', { appeal: '2301' });
   // 7005: the foundation's gift soft credited to 103, whose first credited gift it is.
-  gift('7005', '18698', 500, '2026-09-27', { appeal: '2302', soft: ['103'] });
+  gift('7005', '8802', 500, '2026-09-27', { appeal: '2302', soft: ['103'] });
   // 7006: a first gift to a regular appeal: stays on Receipts.
   gift('7006', '104', 50, '2026-09-28', { appeal: '2' });
   // 7007 is a recurring schedule row coded to an acquisition appeal; 7008 is its first payment.
@@ -97,10 +97,10 @@ beforeEach(() => {
   env = { DB: hub, UPLOADS: memoryR2(), RECEIPTS_KEY: 'test', MIRROR_API_KEY: 'test', ASSETS: undefined };
   acks = [];
   waitingCsv = csvOf([
-    row('7001', '16269', 'Lowell Denton', 25),
+    row('7001', '8801', 'Lena Dorn', 25),
     row('7003', '100', 'Ada Brook', 30),
     row('7004', '101', 'Ben Cole', 40),
-    row('7005', '18698', 'National Christian Foundation', 500, { org: true, constituency: 'Foundation', soft: 'Hale, Dan' }),
+    row('7005', '8802', 'Sample Giving Fund', 500, { org: true, constituency: 'Foundation', soft: 'Hale, Dan' }),
     row('7006', '104', 'Eve Marsh', 50),
     row('7008', '105', 'Fay Ivers', 15, { type: 'Recurring Gift Payment' }),
     row('7009', '106', 'Gil Nash', 5),
@@ -250,9 +250,9 @@ describe('print files, marking and Undo', () => {
     assert.equal(new TextDecoder().decode(bytes.slice(0, 5)), '%PDF-');
     const docs = JSON.parse(b.letters);
     assert.equal(docs.length, 3);
-    const d = docs.find((x) => x.addressLines[0] === 'Lowell Denton');
+    const d = docs.find((x) => x.addressLines[0] === 'Lena Dorn');
     assert.equal(d.signerName, 'Terry Goodman');
-    assert.equal(d.greeting, 'Dear Lowell Denton,');
+    assert.equal(d.greeting, 'Dear Lena Dorn,');
     assert.match(d.paragraphs[0], /first gift of \$25/);
     assert.equal(d.dateLine, 'October 15, 2026');
     assert.equal((await S.openFile(env)).id, b.id);
@@ -329,7 +329,7 @@ describe('the wording', () => {
     const { letters, appeals } = await S.lettersFor(env, ['7001'], 90, false);
     const b = await S.makeBatch(env, { letters, letterDate: '2026-10-15', signer: 'rachel', appeals, actor: 'Test', simulated: false });
     const d = JSON.parse(b.letters)[0];
-    assert.equal(d.greeting, 'Dear Lowell,');
+    assert.equal(d.greeting, 'Dear Lena,');
     assert.equal(d.paragraphs[0], 'Thank you for $25 on Sep 20, a gift to General GIFT Program.');
     assert.equal(d.closing, 'Gratefully,');
     const log = hub.db.prepare("SELECT kind FROM rcp_log WHERE kind = 'fgl_wording'").all();
