@@ -79,6 +79,8 @@ function Lists({ search }: { search: ListsSearch }) {
   const [rowsErr, setRowsErr] = useState('');
   const [busy, setBusy] = useState(false);
   const pageRef = useRef(1);
+  const answers = useRef(0);
+  const [answerNo, setAnswerNo] = useState(0);
   const seq = useRef(0);
   const inflight = useRef(0);
   const timers = useRef<{ c?: ReturnType<typeof setTimeout>; r?: ReturnType<typeof setTimeout> }>({});
@@ -116,6 +118,7 @@ function Lists({ search }: { search: ListsSearch }) {
       }
       setRowsErr('');
       setData(d);
+      setAnswerNo(++answers.current);
     });
   }, []);
 
@@ -308,8 +311,8 @@ function Lists({ search }: { search: ListsSearch }) {
                   </b>
                   <span>{bigWord}</span>
                 </div>
-                <div className="ls-facts">{countErr || facts.join(' · ')}</div>
-                {count?.tie ? <TieBox tie={count.tie} /> : null}
+                <div className="ls-facts" key={'f' + bigNum}>{countErr || facts.join(' · ')}</div>
+                {count?.tie ? <TieBox key={'t' + bigNum} tie={count.tie} /> : null}
               </div>
               <div className="ls-acts">
                 <SaveButton spec={spec} saved={meta.saved || []} savedId={saved.id} onSaved={(s) => { setSaved({ id: s.id, name: s.name }); reloadSaved(); toast('Saved'); setUrl(s.id); }} onDeleted={() => { setSaved({ id: '', name: '' }); reloadSaved(); setUrl(''); toast('Deleted'); }} onError={toast} />
@@ -335,11 +338,11 @@ function Lists({ search }: { search: ListsSearch }) {
               </div>
             </div>
             <div className="h-card ls-tcard">
-              <div id="ls-table" className={'ls-tbl' + (busy && data ? ' is-busy' : '')}>
+              <div id="ls-table" className={'ls-tbl' + (busy && data ? ' is-busy' : '') + (!data && !rowsErr ? ' is-wait' : '')}>
                 {rowsErr ? (
                   <p className="rp-note ls-pad">{rowsErr}</p>
                 ) : data ? (
-                  <ResultsTable data={data} spec={spec} onSort={sortBy} onPage={turnPage} />
+                  <ResultsTable key={answerNo} data={data} spec={spec} onSort={sortBy} onPage={turnPage} />
                 ) : (
                   <p className="rp-note ls-pad rp-loading">Loading</p>
                 )}

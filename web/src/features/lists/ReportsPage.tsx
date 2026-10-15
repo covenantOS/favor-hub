@@ -136,6 +136,8 @@ function NameCell({ r, c }: { r: Row; c: ReportCol }) {
 function Report({ list, id, values, busy, setValues, onBack }: { list: ReportsList; id: string; values: Record<string, string>; busy: boolean; setValues: (v: Record<string, string>) => void; onBack: () => void }) {
   const navigate = useNavigate();
   const { data: res } = useSuspenseQuery(reportQuery(id, values));
+  // A new answer draws new elements instead of editing the old ones in place, so right-aligned columns that change width do not count as the page shifting.
+  const shown = id + JSON.stringify(values);
   const drill = (r: Row) => void navigate({ to: '/lists/', search: { spec: encodeSpec(r._drill) } });
   const rowProps = (r: Row) =>
     r._drill
@@ -177,7 +179,7 @@ function Report({ list, id, values, busy, setValues, onBack }: { list: ReportsLi
             <span className="lr-range">{day(res.from) + ' to ' + day(res.to)}</span>
           </div>
         ) : null}
-        <div className="h-card ls-sumc">
+        <div className="h-card ls-sumc" key={'sum' + shown}>
           <div className="lr-tiles">
             {res.tiles.map((t, i) => (
               <div className="lr-tile" key={i}>
@@ -204,7 +206,7 @@ function Report({ list, id, values, busy, setValues, onBack }: { list: ReportsLi
             );
           })}
         </div>
-        <div className="lr-cards">
+        <div className="lr-cards" key={'cards' + shown}>
           {res.rows.map((r, i) => {
             const sub = restCols
               .map((c) => (r[c.key] === '' || r[c.key] == null ? '' : c.label + ' ' + cell(c, r[c.key])))
@@ -228,7 +230,7 @@ function Report({ list, id, values, busy, setValues, onBack }: { list: ReportsLi
             );
           })}
         </div>
-        <div className="h-card ls-tcard lr-wide">
+        <div className="h-card ls-tcard lr-wide" key={'wide' + shown}>
           <div className="ls-scroll rp-scroll">
             <table className="rp-table ls-t">
               <thead>
