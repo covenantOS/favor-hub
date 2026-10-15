@@ -9,7 +9,7 @@ import { jobWho } from '../data/areas';
 interface Props { area: NavArea; nav: string; }
 const { area, nav } = Astro.props;
 const pages = area.pages.filter((p) => !p.ext && p.menu !== false);
-const allGated = pages.every((p) => p.need || p.team);
+const allGated = pages.every((p) => p.need || p.team || p.early);
 const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav) || area.pages.some((x) => x.id === nav && x.parent === p.id);
 // The row in registry order: a group is drawn once, where its first page sits.
 type Entry = { page: NavPage } | { group: string; pages: NavPage[] };
@@ -38,10 +38,11 @@ const CARET = '<svg class="h-tab__caret" viewBox="0 0 24 24" aria-hidden="true">
           data-nav-id={e.page.id}
           data-ord={i}
           data-need={e.page.need || undefined}
+          data-early={e.page.early ? '' : undefined}
           data-kpi-team={e.page.team || undefined}
           data-kpi-page={e.page.kpiPage}
           data-jobs={jobsOf(e.page)}
-          hidden={e.page.need || e.page.team ? true : undefined}
+          hidden={e.page.need || e.page.team || e.page.early ? true : undefined}
           aria-current={activeId(e.page) ? 'page' : undefined}
         >
           <span class="h-tab__t">{e.page.label}</span>
@@ -54,7 +55,7 @@ const CARET = '<svg class="h-tab__caret" viewBox="0 0 24 24" aria-hidden="true">
     {entries.map((e) => 'group' in e && (
       <div class="h-tabmenu" role="menu" data-menu={`grp:${e.group}`} aria-label={e.group} hidden>
             {e.pages.map((p) => (
-              <a class={`h-tab${activeId(p) ? ' is-on' : ''}`} role="menuitem" href={p.href} data-astro-prefetch="hover" data-nav-id={p.id} data-group={e.group} data-need={p.need || undefined} data-kpi-team={p.team || undefined} data-kpi-page={p.kpiPage} data-jobs={jobsOf(p)} hidden={p.need || p.team ? true : undefined} aria-current={activeId(p) ? 'page' : undefined}>
+              <a class={`h-tab${activeId(p) ? ' is-on' : ''}`} role="menuitem" href={p.href} data-astro-prefetch="hover" data-nav-id={p.id} data-group={e.group} data-need={p.need || undefined} data-early={p.early ? '' : undefined} data-kpi-team={p.team || undefined} data-kpi-page={p.kpiPage} data-jobs={jobsOf(p)} hidden={p.need || p.team || p.early ? true : undefined} aria-current={activeId(p) ? 'page' : undefined}>
                 <span class="h-tab__t">{p.label}</span>
                 {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
               </a>

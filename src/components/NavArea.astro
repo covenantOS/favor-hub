@@ -11,7 +11,7 @@ const { area, nav, curArea } = Astro.props;
 const isCur = curArea === area.id;
 const pages = area.pages.filter((p) => p.menu !== false);
 const first = pages[0];
-const allGated = pages.every((p) => p.need || p.team);
+const allGated = pages.every((p) => p.need || p.team || p.early);
 const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav) || area.pages.some((x) => x.id === nav && x.parent === p.id);
 ---
 <div class={`h-area${isCur ? ' is-cur is-open' : ''}${area.pop ? ' h-area--pop' : ''}${area.foot ? ' h-area--foot' : ''}`} data-area={area.id} data-key={area.key} hidden={allGated ? true : undefined}>
@@ -23,7 +23,7 @@ const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also
   <button type="button" class="h-area__tog" aria-expanded={isCur ? 'true' : 'false'} aria-label={`Show the ${area.label} pages`}><Fragment set:html={icon('chev')} /></button>
   <div class="h-area__pages" role="group" aria-label={`${area.label} pages`}>
     {pages.map((p) => (
-      <div class="h-pg" data-need={p.need || undefined} data-kpi-team={p.team || undefined} data-pg={p.id} hidden={p.need || p.team ? true : undefined}>
+      <div class="h-pg" data-need={p.need || undefined} data-kpi-team={p.team || undefined} data-early={p.early ? '' : undefined} data-pg={p.id} hidden={p.need || p.team || p.early ? true : undefined}>
         {p.ext ? (
           <a class="h-nav__item h-pg__a" href={p.href} target="_blank" rel="noopener noreferrer"><span>{p.label}</span><Fragment set:html={icon('ext', 'h-i h-nav__ext')} /></a>
         ) : (

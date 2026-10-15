@@ -124,3 +124,12 @@ test('every non-external page has a Learn slug or is exempt', () => {
   const have = new Set(fs.readdirSync('src/content/help').map((f) => f.replace(/\.md$/, '')));
   for (const { p } of pages) if (p.learn) assert.ok(have.has(p.learn), `${p.id} learn=${p.learn} has no article`);
 });
+
+test('the classic rail, tab row and phone bar hide Early access pages until the menu answer says early', () => {
+  for (const c of ['NavArea', 'NavTabs']) {
+    const src = fs.readFileSync('src/components/' + c + '.astro', 'utf8');
+    assert.ok(/data-early=/.test(src), c + ' marks early pages with data-early');
+    assert.ok(/.early ? true/.test(src) || /p.early ? true/.test(src) || /page.early ? true/.test(src), c + ' hides early pages first');
+  }
+  assert.ok(/p.early/.test(fs.readFileSync('src/components/NavBar.astro', 'utf8')));
+});
