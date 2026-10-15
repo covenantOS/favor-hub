@@ -86,6 +86,12 @@ describe('the route list', () => {
     assert.deepEqual(parseWebRoutes(''), []);
     assert.equal(webServes(R + 'deeper', [R]), true);
     assert.equal(webServes('/', ['/x/']), false);
+    // /gifts/ is the overview only; the letters and declines pages are still Astro.
+    assert.equal(webServes('/gifts/', ['/gifts/']), true);
+    assert.equal(webServes('/gifts/letters/', ['/gifts/']), false);
+    assert.equal(webServes('/gifts/declines/', ['/gifts/']), false);
+    assert.equal(webServes('/gifts/recurring/', ['/gifts/recurring/']), true);
+    assert.equal(decodeURIComponent(webCookie(['/gifts/', '/projects/'])).includes('/gifts/$~/projects/'), true);
   });
 });
 
