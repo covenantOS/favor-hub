@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { assignmentCall, afterApproval, holdersOn, mayApprove, oddCredits, proposeForGift } from '../functions/_lib/lists/credit.ts';
-import { actorOf, cancel, decide, history, listChanges, propose, putSetting, queueDone, queued, scan, setting, SETTING_APPLY } from '../functions/_lib/lists/credit-service.ts';
+import { actorOf, autoRun, cancel, decide, history, listChanges, propose, putSetting, queueDone, queued, scan, setting, SETTING_APPLY } from '../functions/_lib/lists/credit-service.ts';
 import { d1Of, makeHub, makeMirror, qOf } from './support/lists-fixture.mjs';
 
 const TODAY = '2026-10-12';
@@ -207,5 +207,60 @@ describe('the assignment call', () => {
     hub.exec(`INSERT INTO act_staff (email, name, team, work_center) VALUES ('mike@favorintl.org', 'Mike Ops', 'admin', 1)`);
     assert.equal((await actorOf(env, 'mike@favorintl.org', false)).team, 'admin');
     assert.equal(mayApprove(await actorOf(env, 'mike@favorintl.org', false)), true);
+  });
+});
+
+describe('the daily automatic run', () => {
+  let e;
+  let m;
+  const open = (extra = '') => {
+    const h = makeHub();
+    h.exec(`CREATE TABLE act_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT);`);
+    h.exec(`INSERT INTO act_settings (key, value) VALUES ('lists:credit_test_only', '') ${extra}`);
+    return { DB: d1Of(h) };
+  };
+  before(() => {
+    m = makeMirror();
+    m.exec(`INSERT INTO appeals (id, appeal_id, appeal_description, appeal_category, appeal_start_date) VALUES ('9', 'W300', 'x', 'White Mail', '2026-01-01')`);
+    // 900: this month, no credit (proposed). 902: an August gift, no credit (closed month, stays for a person).
+    m.exec(`INSERT INTO gifts (id, constituent_record_id, gift_date, gift_amount, gift_type, gift_splits) VALUES ('900', '101', '2026-10-05T00:00:00', 80, 'Donation', '[{"appeal_id":"9","fund_id":"79"}]')`);
+    m.exec(`INSERT INTO gifts (id, constituent_record_id, gift_date, gift_amount, gift_type, gift_splits) VALUES ('902', '101', '2026-09-20T00:00:00', 70, 'Donation', '[{"appeal_id":"9","fund_id":"79"}]')`);
+    m.exec("INSERT INTO assignments (id, constituent_record_id, assignment_fundraiser_id, assignment_type, assignment_from_date) VALUES ('4401', '101', '5001', 'Regional Development Director (RDD)', '2020-01-01')");
+  });
+
+  it('does nothing while apply or automatic apply is off', async () => {
+    e = open();
+    assert.match((await autoRun(e, qOf(m), TODAY, noOps)).skipped, /Apply is off/);
+    await putSetting(e, SETTING_APPLY, 'on');
+    assert.match((await autoRun(e, qOf(m), TODAY, noOps)).skipped, /Automatic apply is off/);
+    assert.equal((await listChanges(e, ['proposed'])).length, 0);
+  });
+
+  it('queues current-month rule proposals and leaves a closed-month one for a person', async () => {
+    await putSetting(e, 'lists:credit_auto', 'on');
+    const r = await autoRun(e, qOf(m), TODAY, noOps);
+    assert.equal(r.queued, 1);
+    assert.equal(r.heldClosedMonth, 1);
+    const q = await queued(e);
+    assert.deepEqual(q.map((x) => x.gift_id), ['900']);
+    const waiting = await listChanges(e, ['proposed']);
+    assert.deepEqual(waiting.map((x) => x.giftId), ['902']);
+    assert.equal((await history(e, q[0].id)).find((x) => x.event === 'approved').actor, 'credit-auto@favorintl.org');
+  });
+
+  it('a second run repeats nothing and a closed-month proposal stays', async () => {
+    const again = await autoRun(e, qOf(m), TODAY, noOps);
+    assert.equal(again.queued, 0);
+    assert.equal((await queued(e)).length, 1);
+    m.exec(`UPDATE gifts SET fundraiser_credits = '[{"amount":{"value":70},"constituent_id":"5001"}]' WHERE id = '902'`);
+    const third = await autoRun(e, qOf(m), TODAY, noOps);
+    assert.equal(third.heldClosedMonth, 1);
+  });
+
+  it('a persons proposal waits for a second person even with automatic apply on', async () => {
+    const id = await propose(e, qOf(m), { email: 'rita@favorintl.org' }, { kind: 'credit', giftId: '900', fundraiserId: '5002', op: 'add', reason: 'x' }, TODAY);
+    const r = await autoRun(e, qOf(m), TODAY, noOps);
+    assert.ok(r.heldForPerson >= 1);
+    assert.equal((await listChanges(e, ['proposed'])).some((x) => x.id === id), true);
   });
 });

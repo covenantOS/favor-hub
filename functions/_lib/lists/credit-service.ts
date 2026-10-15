@@ -17,6 +17,7 @@ const TESTER_REFUSAL = 'This is the FavorOS test user. It cannot write to Blackb
 export const SETTING_APPLY = 'lists:credit_apply';
 export const SETTING_TEST_ONLY = 'lists:credit_test_only';
 export const SETTING_APPROVERS = 'lists:credit_approvers';
+export const SETTING_AUTO = 'lists:credit_auto';
 export const TEST_RECORD = '27202';
 
 export async function setting(env: Env, key: string, fallback = ''): Promise<string> {
@@ -223,6 +224,60 @@ export async function cancel(env: Env, actor: Actor, id: string): Promise<void> 
   if (c.proposed_by !== actor.email && !mayApprove(actor)) throw new HttpError(403, 'not_yours', 'Only the person who proposed a change, or an approver, can take it back.');
   await env.DB.prepare(`UPDATE lr_credit_change SET state = 'cancelled', decided_by = ?2, decided_at = ?3 WHERE id = ?1`).bind(id, actor.email, nowIso()).run();
   await log(env, id, actor.email, 'cancelled');
+}
+
+// ---- the daily automatic run (desktop morning job, agent key) ----
+// Rule proposals from the scan are approved by the system once apply and auto are on. Only current-month changes go through: a change to a closed
+// month stays waiting for a person, because past numbers do not change on their own (Will, 2026-10-09). A proposal the mirror shows is already in
+// place is cancelled instead of applied. A person's or an agent's proposal always waits for a second person.
+const AUTO_ACTOR: Actor = { email: 'credit-auto@favorintl.org', admin: true, team: 'admin', named: [] };
+export interface AutoResult {
+  skipped?: string;
+  scanned?: number;
+  added?: number;
+  approved: number;
+  queued: number;
+  applied: number;
+  failed: number;
+  alreadyDone: number;
+  heldClosedMonth: number;
+  heldForPerson: number;
+}
+export async function autoRun(env: Env, mirror: Q, today: string, ops?: Parameters<typeof decide>[6], days = 45): Promise<AutoResult> {
+  const res: AutoResult = { approved: 0, queued: 0, applied: 0, failed: 0, alreadyDone: 0, heldClosedMonth: 0, heldForPerson: 0 };
+  if ((await setting(env, SETTING_APPLY, 'off')) !== 'on') return { ...res, skipped: 'Apply is off.' };
+  if ((await setting(env, SETTING_AUTO, 'off')) !== 'on') return { ...res, skipped: 'Automatic apply is off.' };
+  const from = new Date(Date.parse(today + 'T12:00:00Z') - days * 86400000).toISOString().slice(0, 10);
+  const sc = await scan(env, mirror, from, today, today);
+  res.scanned = sc.gifts;
+  res.added = sc.added;
+  const waiting = (await env.DB.prepare(`SELECT id, kind, gift_id, fundraiser_id, change, proposed_by FROM lr_credit_change WHERE state = 'proposed' ORDER BY proposed_at LIMIT 300`).all<Row>()).results || [];
+  for (const c of waiting) {
+    const ch = JSON.parse(c.change || '{}');
+    if (c.proposed_by !== 'scan' || c.kind !== 'credit') {
+      res.heldForPerson++;
+      continue;
+    }
+    if (ch.closedMonth) {
+      res.heldClosedMonth++;
+      continue;
+    }
+    const g = (await mirror(`${GIFT_SQL} WHERE g.id = ?1`, [String(c.gift_id)]))[0];
+    const has = g ? factsOf(g).credits.some((x) => x.fid === String(c.fundraiser_id)) : null;
+    if (g === undefined || has === null || (ch.op === 'add' && has) || (ch.op === 'remove' && !has)) {
+      const why = has === null ? 'The gift is not in the Blackbaud copy.' : 'Already in place in Blackbaud.';
+      await env.DB.prepare(`UPDATE lr_credit_change SET state = 'cancelled', decided_by = ?2, decided_at = ?3, decision_note = ?4 WHERE id = ?1 AND state = 'proposed'`).bind(c.id, AUTO_ACTOR.email, nowIso(), why).run();
+      await log(env, c.id, AUTO_ACTOR.email, 'cancelled', why);
+      res.alreadyDone++;
+      continue;
+    }
+    const r = await decide(env, AUTO_ACTOR, String(c.id), 'approve', 'Automatic: a rule proposal for a gift in the current month', today, ops);
+    res.approved++;
+    if (r.state === 'queued') res.queued++;
+    else if (r.state === 'applied') res.applied++;
+    else if (r.state === 'failed') res.failed++;
+  }
+  return res;
 }
 
 // ---- the runner's queue (agent key only) ----

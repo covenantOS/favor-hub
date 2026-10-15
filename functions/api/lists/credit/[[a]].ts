@@ -2,8 +2,8 @@ import { HttpError } from '../../../_lib/http';
 import { mirror, ops } from '../../../_lib/foundations/blackbaud';
 import { mayApprove } from '../../../_lib/lists/credit.ts';
 import {
-  actorOf, cancel, decide, history, listChanges, lookupGift, lookupPartner, propose, putSetting, queueDone, queued, scan, searchPartners, setting,
-  SETTING_APPLY, SETTING_APPROVERS, SETTING_TEST_ONLY, TEST_RECORD,
+  actorOf, autoRun, cancel, decide, history, listChanges, lookupGift, lookupPartner, propose, putSetting, queueDone, queued, scan, searchPartners, setting,
+  SETTING_APPLY, SETTING_AUTO, SETTING_APPROVERS, SETTING_TEST_ONLY, TEST_RECORD,
 } from '../../../_lib/lists/credit-service.ts';
 import { todayET } from '../../../_lib/lists/service.ts';
 import { body, work } from '../../../_lib/work/route';
@@ -16,6 +16,7 @@ import { body, work } from '../../../_lib/work/route';
 //   POST /propose               a person suggests a change
 //   POST /decide                an approver approves or rejects
 //   POST /cancel                take a proposal back
+//   POST /auto                  the daily run: scan, then approve the current-month rule proposals (agent key only; needs apply and auto on)
 //   POST /setting               an admin sets apply on or off, the test limit and the approvers
 //   GET  /queue, POST /queue/done   the desktop runner's queue (agent key only)
 const mirrorQ = (env: any) => (sql: string, p: unknown[]) => mirror(env, sql, p) as Promise<any[]>;
@@ -68,6 +69,10 @@ export const onRequestPost = work(async ({ request, env, wu, params }) => {
     await queueDone(env, String(b.id || ''), b.ok === true, String(b.result || ''));
     return {};
   }
+  if (a === 'auto') {
+    if (wu.user.via !== 'agent') throw new HttpError(403, 'agent_only', 'Only the morning job runs this.');
+    return await autoRun(env, mirrorQ(env), today, (m, p, bd) => ops(env, m, p, bd));
+  }
   if (a === 'scan') {
     if (!mayApprove(actor)) throw new HttpError(403, 'not_approver', 'Only an approver runs the scan.');
     const to = today;
@@ -87,6 +92,7 @@ export const onRequestPost = work(async ({ request, env, wu, params }) => {
   if (a === 'setting') {
     if (!actor.admin) throw new HttpError(403, 'admin_only', 'Only an admin changes these settings.');
     if (b.apply === 'on' || b.apply === 'off') await putSetting(env, SETTING_APPLY, b.apply);
+    if (b.auto === 'on' || b.auto === 'off') await putSetting(env, SETTING_AUTO, b.auto);
     if (typeof b.testLimit === 'string' && /^[0-9, ]{0,60}$/.test(b.testLimit)) await putSetting(env, SETTING_TEST_ONLY, b.testLimit.replace(/\s/g, ''));
     if (typeof b.approvers === 'string' && /^[a-z0-9@._, -]{0,400}$/i.test(b.approvers)) await putSetting(env, SETTING_APPROVERS, b.approvers.toLowerCase());
     return { apply: (await setting(env, SETTING_APPLY, 'off')) === 'on', testLimit: await setting(env, SETTING_TEST_ONLY, TEST_RECORD) };
