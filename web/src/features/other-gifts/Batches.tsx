@@ -1,8 +1,9 @@
 // Batches: the person's own batches and the ones waiting for a second look. The enterer sends a batch for approval; a second person approves it,
 // and approving posts every gift to Blackbaud. A gift that Blackbaud turns down stays in the batch with the reason, and Try again posts it after a fix.
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import type { OgBatchRow, OgGift, OgIndex } from '@shared/schemas';
 import { EntityChip } from '@/features/entity/EntityChip';
+import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { dayKey, money2 } from '@/lib/format';
 import { uploadLetter, useOgActions, useOgBatch } from './data';
 
@@ -105,14 +106,12 @@ function GiftLine({ g, batchStatus, canFix, onEdit }: { g: OgGift; batchStatus: 
   );
 }
 
-export function BatchDetail({ id, me, onEdit }: { id: string; me: OgIndex['me']; onEdit: (g: OgGift) => void }) {
-  const q = useOgBatch(id);
+function BatchLoaded({ id, me, onEdit }: { id: string; me: OgIndex['me']; onEdit: (g: OgGift) => void }) {
+  const { data } = useOgBatch(id);
   const act = useOgActions();
   const [confirm, setConfirm] = useState(false);
   const [err, setErr] = useState('');
-  if (q.isPending) return <div className="og-skel" aria-busy="true" />;
-  if (q.isError || !q.data) return <p className="og-err">{(q.error as Error)?.message || 'This batch did not load.'}</p>;
-  const { batch, gifts, approve } = q.data;
+  const { batch, gifts, approve } = data;
   const allReady = gifts.length > 0 && gifts.every((g) => g.blockers.length === 0);
   const press = async (action: 'submit' | 'withdraw' | 'approve' | 'retry' | 'remove') => {
     setErr('');
@@ -212,6 +211,16 @@ export function BatchDetail({ id, me, onEdit }: { id: string; me: OgIndex['me'];
 
       {batch.status === 'posted' ? <p className="og-ok">Every gift is in Blackbaud. The 6 AM gift phase sets constituency and fundraiser credit.</p> : null}
     </div>
+  );
+}
+
+export function BatchDetail({ id, me, onEdit }: { id: string; me: OgIndex['me']; onEdit: (g: OgGift) => void }) {
+  return (
+    <ErrorBoundary label="This batch did not load." className="og-err">
+      <Suspense fallback={<div className="og-skel" aria-busy="true" />}>
+        <BatchLoaded id={id} me={me} onEdit={onEdit} />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

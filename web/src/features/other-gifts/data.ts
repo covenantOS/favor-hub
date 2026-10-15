@@ -1,6 +1,7 @@
 // Other gifts: one hook per route, with the schema each answer must match. Writes go through send() and refresh the lists they change.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { api, ApiError, send } from '@/lib/api';
+import { hubGet } from '../../lib/hub';
 import {
   ogBatchDetail,
   ogIndex,
@@ -17,24 +18,28 @@ export const ogKeys = {
   batch: (id: string) => ['og', 'batch', id] as const,
 };
 
-export const useOgIndex = () => useQuery({ queryKey: ogKeys.index, queryFn: () => api('/api/other-gifts', ogIndex), staleTime: 15_000 });
+// Reads go through hubGet (the server reads /api with the visitor's cookie while the page renders, the browser reads it the usual way) and
+// are drawn with useSuspenseQuery inside Suspense, so the server's HTML and the browser's first render agree.
+export const ogIndexQuery = queryOptions({ queryKey: ogKeys.index, queryFn: async () => ogIndex.parse(await hubGet('/api/other-gifts')), staleTime: 15_000 });
 
-export const useOgList = (tab: string, term: string, page: number, size: number) =>
-  useQuery({
+export const ogListQuery = (tab: string, term: string, page: number, size: number) =>
+  queryOptions({
     queryKey: ogKeys.list(tab, term, page, size),
-    queryFn: () => api(`/api/other-gifts/list?tab=${encodeURIComponent(tab)}&q=${encodeURIComponent(term)}&page=${page}&size=${size}`, ogList),
-    placeholderData: (prev) => prev,
+    queryFn: async () => ogList.parse(await hubGet(`/api/other-gifts/list?tab=${encodeURIComponent(tab)}&q=${encodeURIComponent(term)}&page=${page}&size=${size}`)),
     staleTime: 15_000,
   });
 
 /** A batch in full. While it is posting the page asks again every few seconds so the approver watches it finish. */
-export const useOgBatch = (id: string | null) =>
-  useQuery({
-    queryKey: ogKeys.batch(id || 'none'),
-    queryFn: () => api(`/api/other-gifts/batches/${id}`, ogBatchDetail),
-    enabled: !!id,
-    refetchInterval: (q) => (q.state.data && ['posting'].includes(q.state.data.batch.status) ? 3000 : false),
+export const ogBatchQuery = (id: string) =>
+  queryOptions({
+    queryKey: ogKeys.batch(id),
+    queryFn: async () => ogBatchDetail.parse(await hubGet(`/api/other-gifts/batches/${id}`)),
+    refetchInterval: (q) => (q.state.data && q.state.data.batch.status === 'posting' ? 3000 : false),
   });
+
+export const useOgIndex = () => useSuspenseQuery(ogIndexQuery);
+export const useOgList = (tab: string, term: string, page: number, size: number) => useSuspenseQuery(ogListQuery(tab, term, page, size));
+export const useOgBatch = (id: string) => useSuspenseQuery(ogBatchQuery(id));
 
 export async function searchPartners(term: string): Promise<{ cid: string; lookup: string; name: string; place: string }[]> {
   const r = await api(`/api/gift-entry/partners?q=${encodeURIComponent(term)}`, ogPartnerHits);
