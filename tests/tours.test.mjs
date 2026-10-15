@@ -123,7 +123,9 @@ test('the Church Engagement tour ends its team stops on Churches, not on My week
   assert.doesNotMatch(c.body, /—/);
 });
 
-test('the Church Engagement Today stop does not promise My week', () => {
+test('the Church Engagement and Partner Care Today stops do not promise My week', () => {
+  const pc = D.tourFor('partner_care', WHO.partner_care, 'desk').find((s) => s.id === 'today');
+  assert.doesNotMatch(pc.body, /week/i);
   const today = D.tourFor('church', WHO.church, 'desk').find((s) => s.id === 'today');
   assert.doesNotMatch(today.body, /week/i);
   assert.doesNotMatch(today.body, /—/);
