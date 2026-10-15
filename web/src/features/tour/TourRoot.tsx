@@ -126,6 +126,8 @@ export function TourRoot(): ReactElement | null {
   const progressRef = useRef<Progress>({});
   progressRef.current = progress;
   const [news, setNews] = useState<News | null>(null);
+  // The card and the Help count wait for the news answer, so a card that was showing is not hidden for a moment while it is read.
+  const [newsAsked, setNewsAsked] = useState(false);
   const newsRef = useRef<News | null>(null);
   newsRef.current = news;
 
@@ -183,7 +185,10 @@ export function TourRoot(): ReactElement | null {
   }, [email]);
 
   useEffect(() => {
-    void loadNews().then(setNews);
+    void loadNews().then((n) => {
+      setNews(n);
+      setNewsAsked(true);
+    });
   }, []);
 
   const commit = useCallback((next: Progress, now = false) => {
@@ -230,7 +235,7 @@ export function TourRoot(): ReactElement | null {
 
   // The number on Help and the card on Today.
   useEffect(() => {
-    if (!who || !loaded) return;
+    if (!who || !loaded || !newsAsked) return;
     const count = (corePending ? 1 : 0) + (fresh > 0 ? 1 : 0);
     try {
       localStorage.setItem(PENDING, String(count));
@@ -252,7 +257,7 @@ export function TourRoot(): ReactElement | null {
       const btn = c.querySelector('button');
       if (btn) btn.textContent = corePending && (progress.core?.i || 0) > 0 ? 'Resume' : 'Show me';
     }
-  }, [who, loaded, corePending, fresh, path, progress.core?.i]);
+  }, [who, loaded, newsAsked, corePending, fresh, path, progress.core?.i]);
 
   // Help's own button replays the tour instead of opening the picker.
   useEffect(() => {
