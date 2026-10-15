@@ -6,7 +6,7 @@ const DockChat = lazy(() => import('@/features/chat/DockChat'));
 
 /** The floating dock for people who have Chat: a circle at the bottom right with a count, toasts with Reply, and a panel with Chat and Favor Brain tabs. */
 export function Dock({ chat, page }: { chat: boolean; page: string }) {
-  const s = useSyncExternalStore(dock.subscribe, dock.getSnapshot);
+  const s = useSyncExternalStore(dock.subscribe, dock.getSnapshot, dock.getSnapshot);
   useEffect(() => {
     dock.bind();
   }, []);

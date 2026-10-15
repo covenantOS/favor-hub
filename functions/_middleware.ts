@@ -7,7 +7,7 @@ import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
-import { decideWeb, serveWeb, webCookie } from './_lib/web';
+import { decideWeb, serveWeb, webCookie, webServerRead } from './_lib/web';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
 import { withAssetCache } from './_lib/assetcache';
@@ -83,7 +83,8 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   const enforce = signinEnforced(env);
   countAiCalls(env);
 
-  if (enforce && REDIRECT_HOSTS.has(url.hostname)) {
+  // The web app's server reads /api on the Pages address (a Worker cannot reach its own zone's Pages domain); its key exempts it.
+  if (enforce && REDIRECT_HOSTS.has(url.hostname) && !webServerRead(env, request, url)) {
     url.protocol = 'https:';
     url.hostname = CANONICAL_HOST;
     url.port = '';

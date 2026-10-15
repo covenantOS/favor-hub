@@ -75,14 +75,14 @@ async function run(act: string, it: EntityOut, anchor: HTMLElement | null | unde
 
 /** The hover card (computer) or sheet (phone) for whatever chip or search row opened it. Mounted once in the shell. */
 export function EntityHost() {
-  const ref = useSyncExternalStore(entityStore.subscribe, entityStore.getSnapshot);
+  const ref = useSyncExternalStore(entityStore.subscribe, entityStore.getSnapshot, entityStore.getSnapshot);
   useEffect(() => installTaskLinks(), []);
   if (!ref) return null;
   return createPortal(<Card key={ref.kind + ':' + ref.id} />, document.body);
 }
 
 function Card() {
-  const ref = useSyncExternalStore(entityStore.subscribe, entityStore.getSnapshot)!;
+  const ref = useSyncExternalStore(entityStore.subscribe, entityStore.getSnapshot, entityStore.getSnapshot)!;
   const q = useEntity(ref.kind, ref.id);
   const el = useRef<HTMLDivElement>(null);
   const hide = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
