@@ -10,7 +10,7 @@ toolLabel: Open Reports
 updated: 2026-10-11
 ---
 
-Reports lists every report your team runs. You see the reports your role uses today.
+Reports (under Reporting, in the Reports menu beside Highlights) lists every report your team runs. You see the reports your role uses today.
 
 ## Open a report
 
@@ -53,4 +53,4 @@ Each page says on its tie-out line how its count compares with the gifts table, 
 
 ## Where each Blackbaud query went
 
-The lookup at the bottom of Reports lists the Blackbaud queries run in 2026 with the query number and what replaced each: a report here, the Work Center, Favor Brain, or the morning run. Pick **Run in the last 120 days** to see the queries staff still run. Type a query name to find it.
+The **Blackbaud query map** link at the top of Reports opens a table of the Blackbaud queries run in 2026 with the query number and what replaced each: a report here, the Work Center, Favor Brain, or the morning run. Set Last run to **Last 120 days** to see the queries staff still run. Type a query name in **Search these rows**, or in **Find a report or query** on the list.

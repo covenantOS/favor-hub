@@ -14,7 +14,7 @@ updated: 2026-10-12
 
 Press the year total or a team total on Today, or a card on Highlights. A panel opens on the right, or from the bottom on a phone. It says how much the number moved since the end of last month and which gifts made up this month, sorted by where they came from, with the largest gifts. A line under it compares this month's gifts with the KPI dashboard's own figure for the month. When the two match, it says so. When they differ, it gives the gap.
 
-The gifts behind a total are listed under it, with Open in Google Sheets and Download CSV.
+The gifts behind a total are listed under it, with **Open in Google Sheets** and **CSV**.
 
 ## Pace to year end
 
