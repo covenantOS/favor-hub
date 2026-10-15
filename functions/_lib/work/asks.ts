@@ -9,7 +9,7 @@
 // Counting (corrected 2026-10-10 after the first total, $76.3M, looked far too high): one ask is one partner and one amount, so a follow-up
 // action that repeats the amount within 90 days joins the ask. An action Blackbaud no longer has (act_ask_gone) is left out. An ask of
 // $1,000,000 or more is held back from the default board and every total, and so is an ask of $100,000 or more that is over 20 times the
-// partner's largest gift (or the partner has never given). The board opens on the last 12 months.
+// partner's largest credited gift (or the partner has no credited gift; a gift sent through a DAF counts for the partner it names). The board opens on the last 12 months.
 //
 // Mirror rules that shape the SQL: the endpoint refuses any statement whose text contains insert, update, replace, upsert, delete,
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
@@ -17,6 +17,7 @@ import { HttpError, nowIso, type Env } from '../http';
 import { mirrorQ, listMirrorQ, type Q } from './partner';
 import { readOnly } from './repo';
 import { GIVEN, HOLD_TYPES } from './gifts';
+import { givingForMany, type MirrorQ } from '../gifts/partner-giving';
 import { logEvent } from './db';
 import { todayEt, type Ctx } from './service';
 import { addDays } from '../actions/completion';
@@ -201,9 +202,6 @@ const SOFT_GIFTS_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS g
   FROM gifts g WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
    AND g.soft_credits LIKE '%constituent_id%' LIMIT 5000`);
 
-const LARGEST_SQL = readOnly(`SELECT constituent_record_id AS cid, MAX(gift_amount) AS m FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1))
-   AND gift_amount > 0 AND gift_type IN ${GIVEN} AND COALESCE(gift_status, 'Active') = 'Active' GROUP BY 1`);
-
 const FUNDRAISER_NAMES_SQL = readOnly('SELECT id AS id, fundraiser_first_name AS first, fundraiser_last_name AS last FROM fundraisers');
 
 /** Who holds each partner now: a current assignment (RDD, Prospect Steward, Church Engagement Director or Partner Care) to a fundraiser who is still active. */
@@ -307,10 +305,10 @@ async function readMirrorAsks(q: Q, today: string, allTime: boolean): Promise<Mi
   const seen = new Set<string>();
   const gifts: RawAskGift[] = [];
   for (const g of parts.flat().concat(soft)) if (!seen.has(String(g.id))) { seen.add(String(g.id)); gifts.push(g); }
-  // The partner's largest gift ever, for the asks big enough to need the comparison.
+  // The partner's largest credited gift ever (household, soft credits through a DAF or foundation included), for the asks big enough to need the comparison.
   const bigCids = [...new Set(asks.filter((a) => num(a.amt) >= REVIEW_FLOOR && num(a.amt) < REVIEW_AMOUNT).map((a) => String(a.cid)))];
   const largest: Record<string, number> = {};
-  for (const part of await Promise.all(chunkOf(bigCids, 400).map((c) => q<{ cid: string; m: number }>(LARGEST_SQL, [JSON.stringify(c)])))) for (const g of part) largest[String(g.cid)] = num(g.m);
+  for (const part of await Promise.all(chunkOf(bigCids, 400).map((c) => givingForMany(q as unknown as MirrorQ, c, today)))) for (const [cid, g] of part) largest[cid] = g.largest ? g.largest.amount : 0;
   const holders: Record<string, string[]> = {};
   for (const part of await Promise.all(chunkOf(cids, 400).map((c) => q<{ cid: string; fid: string }>(HOLDERS_SQL, [JSON.stringify(c), JSON.stringify(HOLD_TYPES), today])))) for (const h of part) (holders[String(h.cid)] ||= []).push(String(h.fid));
   return { asks, gifts, largest, holders };

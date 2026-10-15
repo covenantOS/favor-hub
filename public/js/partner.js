@@ -137,7 +137,7 @@ function giftHow(g) {
   else if (g.soft) parts.push('Soft credit');
   if (g.by) parts.push('Given by ' + g.by);
   parts.push(g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type === 'Donation' ? '' : g.type);
-  if (g.credited != null && Math.abs(g.credited - g.amount) > 0.005) parts.push(money(g.credited) + ' of it credited here');
+  if (g.gift != null && Math.abs(g.gift - g.amount) > 0.005) parts.push('Part of a ' + money(g.gift) + ' gift');
   if (g.comment) parts.push(String(g.comment).replace(/\bDonor note\b/gi, 'Partner note'));
   return parts.filter(Boolean).join(' · ');
 }

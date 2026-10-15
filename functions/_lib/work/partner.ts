@@ -36,8 +36,9 @@ export interface PartnerGift {
   /** Set when the gift sits on another record (a DAF, foundation or business) and is soft-credited to this partner. */
   soft: boolean;
   comment: string;
-  /** The amount credited to this partner's household (shared/giving.ts). Equal to amount except on a split soft credit. */
+  /** amount is what counts for this partner's household (shared/giving.ts); gift is the whole gift when a soft credit split it. */
   credited?: number;
+  gift?: number;
   /** The record the gift came through, for a soft credit: "National Christian Foundation (DAF)". */
   through?: string;
   /** The household member whose record the gift is on, when it is the spouse's. */
@@ -365,7 +366,8 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   const memberName = new Map<string, string>((pg?.members || []).map((m) => [m.id, m.name]));
   const shown = (c: (typeof credited)[number]): PartnerGift => {
     const g = detail.get(c.id) || { id: c.id, amount: c.gift, gdate: c.date };
-    const out: PartnerGift = { ...giftOf(g, !!c.via), credited: c.amount };
+    const out: PartnerGift = { ...giftOf(g, !!c.via), amount: c.amount, credited: c.amount };
+    if (Math.abs(c.gift - c.amount) > 0.005) out.gift = c.gift;
     if (c.via) out.through = viaName.get(c.via) || '';
     else if (c.giver !== id) out.by = memberName.get(c.giver) || '';
     return out;

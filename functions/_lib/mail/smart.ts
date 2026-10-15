@@ -45,7 +45,7 @@ export interface SmartCtx {
   ai?: Runner;
   partners?: PartnerLookup;
   /** Biggest and total giving by partner id; tests pass a stand-in. */
-  giving?: (ids: string[]) => Promise<Record<string, { max: number; total: number; last: string; lastAmount?: number }>>;
+  giving?: (ids: string[]) => Promise<Record<string, MailGiving>>;
 }
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
@@ -147,19 +147,34 @@ export async function customsOf(env: Env, me: string): Promise<Custom[]> {
   return r.results || [];
 }
 
-/** Largest gift, total and last gift date for each partner id, from the Blackbaud copy. One query for the whole list. */
-export async function givingOf(ctx: SmartCtx, ids: string[]): Promise<Record<string, { max: number; total: number; last: string; lastAmount?: number }>> {
+/** What Mail knows about a partner's giving: the household's credited figures under the shared rule (shared/giving.ts). */
+export interface MailGiving {
+  max: number;
+  total: number;
+  last: string;
+  lastAmount?: number;
+  /** One credited gift of $1,000 or more, ever (a gift through a DAF counts for the partner it names). */
+  major?: boolean;
+}
+
+/** The cached rows carry this prefix so rows saved under the old rule (own-record gifts only) are never read. */
+const KEY = 'g2:';
+
+/** Largest credited gift, lifetime total and last credited gift for each partner id, household figures from the Blackbaud copy. Three reads for the whole list. */
+export async function givingOf(ctx: SmartCtx, ids: string[]): Promise<Record<string, MailGiving>> {
   const list = [...new Set(ids)].filter((x) => /^\d{1,12}$/.test(x)).slice(0, 150);
   if (!list.length) return {};
   if (ctx.giving) return ctx.giving(list).catch(() => ({}));
-  const out: Record<string, { max: number; total: number; last: string; lastAmount?: number }> = {};
+  const out: Record<string, MailGiving> = {};
   const have = new Set<string>();
   try {
-    const r = await ctx.env.DB.prepare('SELECT partner_id, max_gift, total, last_date, last_amount, at FROM hub_mail_giving WHERE partner_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(list)).all<any>();
+    const r = await ctx.env.DB.prepare('SELECT partner_id, max_gift, total, last_date, last_amount, at FROM hub_mail_giving WHERE partner_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(list.map((x) => KEY + x))).all<any>();
     for (const x of r.results || []) {
       if (Date.now() - Date.parse(x.at) > 6 * 3600e3) continue;
-      have.add(String(x.partner_id));
-      out[String(x.partner_id)] = { max: Number(x.max_gift) || 0, total: Number(x.total) || 0, last: String(x.last_date || ''), lastAmount: Number(x.last_amount) || 0 };
+      const id = String(x.partner_id).slice(KEY.length);
+      have.add(id);
+      const max = Number(x.max_gift) || 0;
+      out[id] = { max, total: Number(x.total) || 0, last: String(x.last_date || ''), lastAmount: Number(x.last_amount) || 0, major: max >= MAJOR };
     }
   } catch {
     /* the table is not there yet */
@@ -167,18 +182,16 @@ export async function givingOf(ctx: SmartCtx, ids: string[]): Promise<Record<str
   const need = list.filter((x) => !have.has(x));
   if (!need.length) return out;
   try {
-    const { mirror } = await import('../foundations/blackbaud');
-    const rows = await mirror<any>(
-      ctx.env,
-      `SELECT constituent_record_id AS id, MAX(gift_amount) AS mx, SUM(gift_amount) AS total, MAX(substr(gift_date, 1, 10)) AS last, (SELECT g2.gift_amount FROM gifts g2 WHERE g2.constituent_record_id = gifts.constituent_record_id AND g2.gift_amount > 0 ORDER BY g2.gift_date DESC LIMIT 1) AS lastamt FROM gifts
-        WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other') GROUP BY 1`,
-      [JSON.stringify(need)]
-    );
+    const { givingForMany } = await import('../gifts/partner-giving');
+    const { mirrorQ } = await import('../work/partner');
+    const got = await givingForMany(mirrorQ(ctx.env) as any, need);
     const at = new Date().toISOString();
-    const got = new Map<string, { max: number; total: number; last: string; lastAmount: number }>(rows.map((r: any) => [String(r.id), { max: Number(r.mx) || 0, total: Number(r.total) || 0, last: String(r.last || ''), lastAmount: Number(r.lastamt) || 0 }]));
-    const blank = { max: 0, total: 0, last: '', lastAmount: 0 };
-    for (const id of need) out[id] = got.get(id) || blank;
-    await ctx.env.DB.batch(need.map((id) => { const v = got.get(id) || blank; return ctx.env.DB.prepare('INSERT INTO hub_mail_giving (partner_id, max_gift, total, last_date, last_amount, at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(partner_id) DO UPDATE SET max_gift = excluded.max_gift, total = excluded.total, last_date = excluded.last_date, last_amount = excluded.last_amount, at = excluded.at').bind(id, v.max, v.total, v.last, v.lastAmount, at); })).catch(() => undefined);
+    const blank: MailGiving = { max: 0, total: 0, last: '', lastAmount: 0, major: false };
+    for (const id of need) {
+      const g = got.get(id);
+      out[id] = g ? { max: g.largest?.amount || 0, total: g.total, last: g.last?.date || '', lastAmount: g.last?.amount || 0, major: g.major } : blank;
+    }
+    await ctx.env.DB.batch(need.map((id) => { const v = out[id]; return ctx.env.DB.prepare('INSERT INTO hub_mail_giving (partner_id, max_gift, total, last_date, last_amount, at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(partner_id) DO UPDATE SET max_gift = excluded.max_gift, total = excluded.total, last_date = excluded.last_date, last_amount = excluded.last_amount, at = excluded.at').bind(KEY + id, v.max, v.total, v.last, v.lastAmount || 0, at); })).catch(() => undefined);
   } catch {
     /* the copy did not answer: no giving facts this time */
   }
@@ -290,7 +303,7 @@ export async function classify(ctx: SmartCtx, rows: ThreadRow[], read: boolean):
     if (partners[from]) {
       cls.partner = partners[from];
       const gv = giving[partners[from].id];
-      if (gv && gv.max >= MAJOR) cls.major = true;
+      if (gv && (gv.major ?? gv.max >= MAJOR)) cls.major = true;
     }
     cls.prio = (cls.major ? 2 : 0) + (partners[from] ? 1 : 0) + (ask ? 1 : 0) + (r.starred ? 1 : 0);
     by.set(r.id, cls);
@@ -596,7 +609,11 @@ export interface PartnerCard {
   count: number;
   firstDate: string;
   ytd: number;
-  last: { amount: number; date: string; fund: string } | null;
+  last: { amount: number; date: string; fund: string; through: string } | null;
+  /** The server's words for lifetime giving ("$76,500 in 43 gifts", "None of its own (it passes gifts on for others)", "No gifts yet"). */
+  line: string;
+  /** How it came in ("All through National Christian Foundation (DAF)"); empty when every gift is their own. */
+  source: string;
   holders: Array<{ name: string; type: string }>;
   lastContact: { date: string; category: string } | null;
   openActions: number;
@@ -612,7 +629,10 @@ export function cardOf(p: any): PartnerCard {
     count: Number(p.giving?.count) || 0,
     firstDate: String(p.giving?.firstDate || ''),
     ytd: Number(p.giving?.ytd) || 0,
-    last: p.giving?.last ? { amount: Number(p.giving.last.amount) || 0, date: String(p.giving.last.date || ''), fund: String(p.giving.last.fund || '') } : null,
+    // The credited amount is what counts for this partner; a split soft credit differs from the gift's full amount.
+    last: p.giving?.last ? { amount: Number(p.giving.last.credited ?? p.giving.last.amount) || 0, date: String(p.giving.last.date || ''), fund: String(p.giving.last.fund || ''), through: String(p.giving.last.through || '') } : null,
+    line: String(p.giving?.line || ''),
+    source: String(p.giving?.source || ''),
     holders: (p.assignments || []).filter((a: any) => a.current).map((a: any) => ({ name: String(a.name || ''), type: String(a.type || '') })).slice(0, 4),
     lastContact: p.lastContact ? { date: String(p.lastContact.date || ''), category: String(p.lastContact.category || '') } : null,
     openActions: Number(p.actions?.openCount) || 0,

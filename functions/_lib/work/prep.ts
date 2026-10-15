@@ -4,8 +4,8 @@
 import type { Env } from '../http';
 import { mirrorQ, loadPartner, type PartnerView, type Q } from './partner';
 import { readOnly, FUNDS_SQL } from './repo';
-import { GIVEN } from './gifts';
-import { addDays } from '../actions/completion';
+import { partnerGiving } from '../gifts/partner-giving';
+import { addMonths, giftDay } from '../../../shared/giving';
 
 const num = (v: unknown): number => {
   const n = Number(v);
@@ -16,12 +16,10 @@ export const money = (n: number): string => '$' + (Math.round(n) === n ? n.toLoc
 const shortDay = (iso: string): string => (iso ? `${MON[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}` : '');
 const longDay = (iso: string, today: string): string => (iso ? shortDay(iso) + (iso.slice(0, 4) === today.slice(0, 4) ? '' : ', ' + iso.slice(0, 4)) : '');
 
-const FUND_SPLIT_SQL = readOnly(`SELECT gift_amount AS amount, gift_splits AS splits, substr(gift_date, 1, 10) AS d FROM gifts
- WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} ORDER BY gift_date DESC LIMIT 600`);
+// The fund split of the gifts credited to the household (the ids come from partnerGiving, so a gift sent through a DAF is included).
+const FUND_SPLIT_SQL = readOnly(`SELECT id, gift_splits AS splits FROM gifts WHERE id IN (SELECT value FROM json_each(?1))`);
 const ASK_SQL = readOnly(`SELECT substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) AS d, t.action_ask_amount AS amt FROM actions a JOIN action_tags t ON t.id = a.id
  WHERE a.constituent_record_id = ?1 AND COALESCE(t.action_ask_amount, 0) > 0 ORDER BY COALESCE(a.action_completed_date, a.action_date_due) DESC LIMIT 1`);
-const PRIOR_SQL = readOnly(`SELECT COALESCE(SUM(gift_amount), 0) AS total FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN}
-   AND substr(gift_date, 1, 10) > ?2 AND substr(gift_date, 1, 10) <= ?3`);
 
 export interface NoteIn {
   date: string;
@@ -67,7 +65,10 @@ export interface Brief {
   name: string;
   kind: string;
   place: string;
+  /** The year of the first credited gift. Empty when the household has none. */
   since: string;
+  /** The year the record was added, shown as "On record since" when there is no credited gift. */
+  onRecord: string;
   household: { id: string; name: string; relation: string }[];
   call: { number: string } | null;
   text: { number: string } | null;
@@ -75,7 +76,7 @@ export interface Brief {
   flags: string[];
   owed: Owed[];
   steps: BriefStep[];
-  giving: { lifetime: number; count: number; last12: number; prior12: number; largest: { amount: number; date: string } | null; last: { amount: number; date: string; fund: string } | null };
+  giving: { lifetime: number; count: number; last12: number; prior12: number; largest: { amount: number; date: string } | null; last: { amount: number; date: string; fund: string; through?: string } | null; passedOn?: number };
   gives: { fund: string; share: number; since: string } | null;
   monthly: { amount: number; status: string; since: string; lastPayment: string }[];
   ask: { amount: number; date: string } | null;
@@ -88,7 +89,7 @@ export interface Brief {
 }
 
 /** The call, in the order the script runs. Every line comes from a record; a step with nothing on record says so. */
-export function stepsOf(b: Pick<Brief, 'owed' | 'giving' | 'gives' | 'monthly' | 'ask' | 'prayer' | 'since'>, today: string): BriefStep[] {
+export function stepsOf(b: Pick<Brief, 'owed' | 'giving' | 'gives' | 'monthly' | 'ask' | 'prayer' | 'since'> & { onRecord?: string }, today: string): BriefStep[] {
   const steps: BriefStep[] = [];
   if (b.owed.length === 1) {
     const g = b.owed[0];
@@ -97,8 +98,9 @@ export function stepsOf(b: Pick<Brief, 'owed' | 'giving' | 'gives' | 'monthly' |
     const total = b.owed.reduce((n, g) => n + g.amount, 0);
     steps.push({ n: 1, title: 'Thank', strong: `${b.owed.length} gifts, ${money(total)}`, post: ` since ${shortDay(b.owed[0].date)}. None thanked yet. The largest is ${money(Math.max(...b.owed.map((g) => g.amount)))} to ${b.owed.slice().sort((a, c) => c.amount - a.amount)[0].fund}.` });
   } else if (b.giving.last) {
-    steps.push({ n: 1, title: 'Thank', pre: 'Last gift ', strong: money(b.giving.last.amount), post: ` to ${b.giving.last.fund || 'no fund on file'} on ${longDay(b.giving.last.date, today)}.` });
-  } else steps.push({ n: 1, title: 'Thank', post: 'No gift on record yet. Thank them for their time.' });
+    steps.push({ n: 1, title: 'Thank', pre: 'Last gift ', strong: money(b.giving.last.amount), post: ` to ${b.giving.last.fund || 'no fund on file'} on ${giftDay(b.giving.last.date)}${b.giving.last.through ? ' through ' + b.giving.last.through : ''}.` });
+  } else if (b.giving.passedOn) steps.push({ n: 1, title: 'Thank', post: 'This record has no gifts of its own. It passes gifts on for other partners. Thank them for their time.' });
+  else steps.push({ n: 1, title: 'Thank', post: 'No gifts on record yet. Thank them for their time.' });
   steps.push(
     b.prayer
       ? { n: 2, title: 'Pray', pre: `Their last prayer request (${longDay(b.prayer.date, today)}): `, post: `"${b.prayer.text}"` }
@@ -111,12 +113,13 @@ export function stepsOf(b: Pick<Brief, 'owed' | 'giving' | 'gives' | 'monthly' |
   );
   steps.push(b.ask ? { n: 4, title: 'Ask', pre: 'Last ask ', strong: money(b.ask.amount), post: ` on ${longDay(b.ask.date, today)}.` } : { n: 4, title: 'Ask', post: 'No ask on record.' });
   const m = b.monthly.find((x) => /active/i.test(x.status));
-  steps.push({ n: 5, title: 'Thank', post: `${b.since ? 'Partner since ' + b.since + '.' : 'New partner.'}${m ? ` Gives ${money(m.amount)} a month.` : ''}` });
+  steps.push({ n: 5, title: 'Thank', post: `${b.since ? 'Partner since ' + b.since + '.' : b.onRecord ? 'On record since ' + b.onRecord + '.' : ''}${m ? ` Gives ${money(m.amount)} a month.` : ''}` || 'Thank them for their time.' });
   steps.push({ n: 6, title: 'Pray', post: 'Close in prayer.' });
   return steps;
 }
 
-function fundShare(rows: { amount: number; splits: string | null; d: string }[], names: Map<string, string>): { fund: string; share: number; since: string } | null {
+/** Each row's splits are scaled by k, the share of the gift credited to this household (a split soft credit gives less than the whole gift). */
+function fundShare(rows: { k: number; splits: string | null; d: string }[], names: Map<string, string>): { fund: string; share: number; since: string } | null {
   const by = new Map<string, { amt: number; since: string }>();
   let total = 0;
   for (const r of rows) {
@@ -128,7 +131,7 @@ function fundShare(rows: { amount: number; splits: string | null; d: string }[],
     }
     for (const s of splits) {
       const id = String(s?.fund_id ?? '');
-      const a = num(s?.amount?.value);
+      const a = num(s?.amount?.value) * r.k;
       if (!id || !(a > 0)) continue;
       total += a;
       const cur = by.get(id) || { amt: 0, since: r.d };
@@ -148,12 +151,17 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
   const q = o.q || mirrorQ(env);
   const p = o.partner || (await loadPartner(q, id, o.today));
   if (!p) return null;
-  const lastYear = addDays(o.today, -365);
-  const [splitRows, askRows, priorRows] = await Promise.all([
-    q<any>(FUND_SPLIT_SQL, [id]),
+  // Every number comes from the household's credited gifts (hard and soft), the same as the partner page: fund share, prior 12 months, since.
+  const pg = await partnerGiving(q, id, o.today);
+  const credited = (pg?.gifts || []).slice(0, 600);
+  const [splitRows, askRows] = await Promise.all([
+    credited.length ? q<any>(FUND_SPLIT_SQL, [JSON.stringify(credited.map((g) => g.id))]) : Promise.resolve([] as any[]),
     q<any>(ASK_SQL, [id]),
-    q<any>(PRIOR_SQL, [id, addDays(lastYear, -365), lastYear]),
   ]);
+  const t12 = addMonths(o.today, -12);
+  const t24 = addMonths(o.today, -24);
+  const prior12 = credited.filter((g) => g.date > t24 && g.date <= t12).reduce((t, g) => t + g.amount, 0);
+  const byId = new Map<string, { k: number; d: string }>(credited.map((g) => [g.id, { k: g.gift > 0 ? g.amount / g.gift : 1, d: g.date }]));
   const ids = new Set<string>();
   for (const r of splitRows) {
     try {
@@ -164,7 +172,7 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
   }
   const names = new Map<string, string>();
   if (ids.size) for (const f of await q<{ id: string; name: string }>(FUNDS_SQL, [JSON.stringify([...ids])])) names.set(String(f.id), f.name || '');
-  const gives = fundShare(splitRows.map((r: any) => ({ amount: num(r.amount), splits: r.splits, d: String(r.d || '') })), names);
+  const gives = fundShare(splitRows.map((r: any) => ({ k: byId.get(String(r.id))?.k ?? 1, splits: r.splits, d: byId.get(String(r.id))?.d || '' })), names);
   const phones = p.contact.phones || [];
   const callable = phones.find((x) => !x.doNotCall);
   const mobile = phones.find((x) => !x.doNotCall && /mobile|cell/i.test(x.type));
@@ -179,22 +187,26 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
   for (const n of p.notes || []) pool.push({ date: n.date, summary: n.summary, text: n.text, source: 'Note' });
   for (const n of o.notes || []) pool.push({ date: n.date, summary: n.summary, text: n.text, source: 'Note' });
   const prayer = prayerOf(pool);
-  const since = (p.giving.firstDate || p.addedOn || '').slice(0, 4);
+  // "Partner since" is the first credited gift. A record with no gift says when it was added instead.
+  const since = (p.giving.firstDate || '').slice(0, 4);
+  const onRecord = since ? '' : (p.addedOn || '').slice(0, 4);
   const base = {
     owed: o.owed,
     giving: {
       lifetime: p.giving.total,
       count: p.giving.count,
       last12: p.giving.last12,
-      prior12: num(priorRows[0]?.total),
+      prior12: Math.round(prior12 * 100) / 100,
       largest: p.giving.largest ? { amount: p.giving.largest.amount, date: p.giving.largest.date } : null,
-      last: p.giving.last ? { amount: p.giving.last.amount, date: p.giving.last.date, fund: p.giving.last.fund } : null,
+      last: p.giving.last ? { amount: p.giving.last.credited ?? p.giving.last.amount, date: p.giving.last.date, fund: p.giving.last.fund, through: p.giving.last.through || '' } : null,
+      passedOn: p.giving.passedOn.count,
     },
     gives,
     monthly: (p.recurring || []).map((r) => ({ amount: r.amount, status: r.status, since: r.since, lastPayment: r.lastPayment })),
     ask: askRows[0] && num(askRows[0].amt) > 0 ? { amount: num(askRows[0].amt), date: String(askRows[0].d || '') } : null,
     prayer,
     since,
+    onRecord,
   };
   return {
     id: p.id,
@@ -202,7 +214,6 @@ export async function briefFor(env: Env, id: string, o: { today: string; owed: O
     name: p.name,
     kind: p.kind,
     place: p.place,
-    since,
     household: p.household || [],
     call: callable ? { number: callable.number } : null,
     text: mobile ? { number: mobile.number } : null,

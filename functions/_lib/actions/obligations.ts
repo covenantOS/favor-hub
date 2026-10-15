@@ -1,4 +1,5 @@
 import type { Gift, ObligationKind } from './types.ts';
+import type { CreditedGift } from './rows.ts';
 import type { Params } from './params.ts';
 import { DEFAULTS } from './params.ts';
 import { daysBetween } from './dates.ts';
@@ -60,7 +61,8 @@ export function groupGifts(gifts: Gift[], windowDays: number): GiftGroup[] {
         partnerId,
         gifts: sorted,
         anchor: sorted[0],
-        total: Math.round(sorted.reduce((s, g) => s + g.amount, 0) * 100) / 100,
+        // What the thanked partner is credited: the soft-credit amount when the gift is split between partners, else the whole gift.
+        total: Math.round(sorted.reduce((s, g) => s + ((g as CreditedGift).credited ?? g.amount), 0) * 100) / 100,
         firstGiftDate: sorted[0].giftDate,
         lastGiftDate: sorted[sorted.length - 1].giftDate,
         firstEnteredDate: sorted.map((g) => g.enteredDate).sort()[0],

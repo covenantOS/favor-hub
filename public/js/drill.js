@@ -230,7 +230,7 @@
       <div class="dr-wk">
         <div><b>${count(w.gifts)}</b><span>Gifts</span><small>${esc(delta(w.lastGifts, count))}</small></div>
         <div><b>${money(w.total)}</b><span>Given</span><small>${esc(delta(w.lastTotal, money))}</small></div>
-        <div><b>${fresh ? count(newList.length) : '…'}</b><span>New partners</span><small>First gift ever</small></div>
+        <div><b>${fresh ? count(newList.length) : '…'}</b><span>New partners</span><small>First credited gift</small></div>
       </div>
       ${w.largest.length ? `<p class="dr-sub">Largest gifts this week</p><ul class="dr-lines dr-wkl">${w.largest.map(line).join('')}</ul>` : '<p class="dr-note">No gifts dated this week yet.</p>'}
       ${newList.length ? `<p class="dr-sub">New partners</p><ul class="dr-lines dr-wkl">${newList.slice(0, 8).map(line).join('')}</ul>${newList.length > 8 ? `<p class="dr-note">${count(newList.length - 8)} more in the rows below.</p>` : ''}` : ''}

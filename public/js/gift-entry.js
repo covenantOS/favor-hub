@@ -253,7 +253,11 @@ function historyHtml(r) {
   }
   if (h === 'loading') return box('<div class="ge-hist__row"><div><b class="n">&nbsp;</b><span>gifts before this one</span></div><div><b class="n">&nbsp;</b><span>lifetime</span></div><div><b class="n">&nbsp;</b><span>last gift</span></div></div>');
   if (h === 'error') return box('<p class="ge-muted">The history did not load.</p>');
-  return box(`<div class="ge-hist__row"><div><b class="n">${h.count}</b><span>gifts before this one</span></div><div><b class="n ge-money">${money(h.lifetimeCents)}</b><span>lifetime</span></div><div><b class="n ge-money">${h.last ? money(h.last.cents) : 'None'}</b><span>${h.last ? 'last gift, ' + esc(new Date(h.last.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })) : 'last gift'}</span></div></div>`);
+  const day = (ymd) => esc(new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }));
+  const none = h.passesOn ? 'Passes gifts on' : 'None';
+  const lastLine = h.last ? 'last gift, ' + day(h.last.date) + (h.last.through ? ' through ' + esc(h.last.through) : '') : 'last gift';
+  const how = h.source ? `<p class="ge-muted">${esc(h.source)}</p>` : '';
+  return box(`<div class="ge-hist__row"><div><b class="n">${h.count}</b><span>${h.count === 1 ? 'gift before this one' : 'gifts before this one'}</span></div><div><b class="n ge-money">${money(h.lifetimeCents)}</b><span>${UI.term ? UI.term('lifetime', 'lifetime') : 'lifetime'}</span></div><div><b class="n ge-money">${h.last ? money(h.last.cents) : none}</b><span>${lastLine}</span></div></div>${how}`);
 }
 /* What this gift sets off: the letters list, a personal contact appeal, a first gift. */
 function flagsHtml(r) {
@@ -264,7 +268,7 @@ function flagsHtml(r) {
   if (/personal contact/i.test(ap)) out.push(`<div class="ge-flag ge-flag--who"><b>Personal contact appeal.</b> ${esc(ap)}, from the gift's fundraiser.</div>`);
   const k = r.partner && r.partner.id ? r.partner.id + '|' + (r.giftDate || '') : '';
   const h = k ? HIST[k] : null;
-  if (h && typeof h === 'object' && h.first) out.push(`<div class="ge-flag ge-flag--new"><b>First gift.</b> Nothing from this partner in Blackbaud before this one.</div>`);
+  if (h && typeof h === 'object' && h.first) out.push(`<div class="ge-flag ge-flag--new"><b>First gift.</b> No gift is credited to this partner or their spouse before this one.</div>`);
   return out.join('');
 }
 

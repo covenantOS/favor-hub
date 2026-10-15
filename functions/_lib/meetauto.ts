@@ -114,8 +114,10 @@ export interface PartnerCard {
   lifetime: number;
   last12: number;
   count: number;
-  last: { amount: number; date: string; fund: string } | null;
+  last: { amount: number; date: string; fund: string; through?: string } | null;
   largest: { amount: number; date: string } | null;
+  /** The server's words for lifetime giving, true for a partner whose gifts all came through a DAF or who passes gifts on. */
+  line?: string;
   lastContact: { date: string; category: string; summary: string } | null;
   open: Array<{ what: string; due: string }>;
   holders: string[];
@@ -151,29 +153,31 @@ const defaultSource: PartnerSource = {
       lifetime: p.giving.total,
       last12: p.giving.last12,
       count: p.giving.count,
-      last: p.giving.last ? { amount: p.giving.last.amount, date: p.giving.last.date, fund: p.giving.last.fund } : null,
-      largest: p.giving.largest ? { amount: p.giving.largest.amount, date: p.giving.largest.date } : null,
+      line: p.giving.line,
+      last: p.giving.last ? { amount: p.giving.last.credited ?? p.giving.last.amount, date: p.giving.last.date, fund: p.giving.last.fund, through: p.giving.last.through || '' } : null,
+      largest: p.giving.largest ? { amount: p.giving.largest.credited ?? p.giving.largest.amount, date: p.giving.largest.date } : null,
       lastContact: p.lastContact ? { date: p.lastContact.date, category: p.lastContact.category, summary: p.lastContact.summary } : null,
       open: (p.actions.open || []).slice(0, 3).map((a) => ({ what: a.summary || a.type, due: a.due })),
       holders: (p.assignments || []).filter((a) => a.current).map((a) => a.name),
     };
   },
   async portfolio(env, fid) {
-    const { mirror } = await import('./foundations/blackbaud');
-    const { readOnly } = await import('./work/repo');
-    const { GIVEN } = await import('./work/gifts');
-    const held = await mirror<{ n: number }>(
-      env,
-      readOnly(`SELECT COUNT(DISTINCT constituent_record_id) AS n FROM assignments WHERE assignment_fundraiser_id = ?1 AND (assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= date('now'))`),
-      [fid]
-    );
-    const gave = await mirror<{ s: number }>(
-      env,
-      readOnly(`SELECT COALESCE(SUM(g.gift_amount), 0) AS s FROM gifts g WHERE g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND substr(g.gift_date, 1, 10) >= date('now', '-365 day')
-        AND g.constituent_record_id IN (SELECT constituent_record_id FROM assignments WHERE assignment_fundraiser_id = ?1 AND (assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= date('now')))`),
-      [fid]
-    );
-    return { count: Number(held[0]?.n) || 0, last12: Number(gave[0]?.s) || 0 };
+    // The same held set as My partners (RDD, Prospect Steward, Church Engagement Director, current in Eastern time) and the households'
+    // credited giving under the shared rule. A couple both held count their gifts once.
+    const [{ mirrorQ }, { heldIds }, { givingForMany, todayEt }] = await Promise.all([import('./work/partner'), import('./work/portfolio'), import('./gifts/partner-giving')]);
+    const q = mirrorQ(env);
+    const today = todayEt();
+    const ids = await heldIds(q, fid, today);
+    let last12 = 0;
+    const seen = new Set<string>();
+    for (let i = 0; i < ids.length; i += 400) {
+      for (const g of (await givingForMany(q as never, ids.slice(i, i + 400), today)).values()) {
+        if (seen.has(g.household)) continue;
+        seen.add(g.household);
+        last12 += g.last12;
+      }
+    }
+    return { count: ids.length, last12: Math.round(last12 * 100) / 100 };
   },
   async search(env, text) {
     const { blackbaudRepo } = await import('./work/repo');

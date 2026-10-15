@@ -5,7 +5,7 @@
 'use strict';
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const api = (path) => (window.FavorWG ? window.FavorWG.api(path) : fetch(path, { credentials: 'same-origin' }).then((r) => r.json()));
-const HEALTH = { growing: 'Growing', steady: 'Steady', slipping: 'Slipping', lapsing: 'Lapsing', atrisk: 'At risk', new: 'New', none: 'No gifts' };
+const HEALTH = { growing: 'Growing', steady: 'Steady', slipping: 'Slipping', lapsing: 'Lapsing', atrisk: 'At risk', new: 'New', none: 'No gifts yet' };
 
 async function load(id) {
   const [story, tl] = await Promise.all([api('/api/brief/story/' + encodeURIComponent(id)).catch(() => null), api('/api/brief/timeline/' + encodeURIComponent(id)).catch(() => null)]);
@@ -52,7 +52,7 @@ function storyHTML(V) {
   const txt = String(st.text || '').trim();
   const short = txt && txt.length <= 180 && (txt.match(/[.!?](\s|$)/g) || []).length <= 2 ? txt : '';
   return `<section class="pp-story">
-    <div class="pp-story__h"><h3>Giving pattern</h3><span class="pp-health pp-health--${esc(st.health)}">${esc(HEALTH[st.health] || st.health)}</span></div>
+    <div class="pp-story__h"><h3>Giving pattern</h3><span class="pp-health pp-health--${esc(st.health)}">${esc(st.health === 'none' && /passes gifts on/.test(st.why || '') ? 'Passes gifts on' : HEALTH[st.health] || st.health)}</span></div>
     <p class="pp-story__t">${esc(short || st.why || '')}</p>
     ${facts.length ? `<dl class="pp-story__f">${facts.map(([k, v, c]) => `<div${c ? ' class="is-' + c + '"' : ''}><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
     ${n.label ? `<div class="pp-nba pp-nba--${esc(n.kind)}"><div><small>Next</small><b>${esc(n.label)}</b><span>${esc(n.why)}</span></div>${go}</div>` : ''}

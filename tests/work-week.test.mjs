@@ -36,12 +36,12 @@ function act({ cid = '9001', cat = 'Phone call', typ = 'RDD Action', due, done =
 before(() => {
   db = new DatabaseSync(':memory:');
   db.exec(`
-    CREATE TABLE constituents (id TEXT PRIMARY KEY, first_name TEXT, last_name TEXT, raw_json TEXT);
+    CREATE TABLE constituents (id TEXT PRIMARY KEY, first_name TEXT, last_name TEXT, raw_json TEXT, spouse_id TEXT, organization_name TEXT);
     CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due TEXT, action_completed_date TEXT, action_category TEXT, action_type TEXT, action_summary TEXT, action_description TEXT, constituent_record_id TEXT, action_fundraiser_id TEXT, raw_json TEXT);
     CREATE TABLE action_tags (id TEXT PRIMARY KEY, action_ask_amount REAL, action_referrals REAL, attended_Hosted TEXT, presented INTEGER, scheduling INTEGER, stewardship INTEGER, texted INTEGER, thanked INTEGER);
     CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT, fundraiser_type TEXT, annual_goal REAL, fundraiser_start_date TEXT, fundraiser_end_date TEXT);
     CREATE TABLE fundraiser_totals (id TEXT PRIMARY KEY, totals_data TEXT);
-    CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date TEXT, gift_type TEXT, constituent_record_id TEXT);
+    CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date TEXT, gift_type TEXT, constituent_record_id TEXT, soft_credits TEXT);
     CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date TEXT);
     INSERT INTO constituents (id, first_name, last_name, raw_json) VALUES
       ('9001', 'Ada', 'Example', '{"name":"Ada Example"}'), ('9002', 'Ben', 'Sample', '{"name":"Ben Sample"}'), ('9003', 'Cy', 'Demo', '{"name":"Cy Demo"}'),
@@ -49,7 +49,7 @@ before(() => {
     INSERT INTO fundraisers VALUES ('501', 'Fay', 'Alpha', 'Regional Development Director (RDD)', 600000, '2025-01-01', NULL),
       ('502', 'Gus', 'Bravo', 'Regional Development Director (RDD)', 1000000, '2026-05-11', NULL);
     INSERT INTO assignments VALUES ('s1', '9001', '501', 'Regional Development Director (RDD)', NULL), ('s2', '9002', '501', 'Regional Development Director (RDD)', NULL);
-    INSERT INTO gifts VALUES ('g1', 500, '2026-10-13T00:00:00', 'Donation', '9001'), ('g2', 250, '2026-10-05T00:00:00', 'Donation', '9002'), ('g3', 100, '2026-10-14T00:00:00', 'RecurringGift', '9001');
+    INSERT INTO gifts VALUES ('g1', 500, '2026-10-13T00:00:00', 'Donation', '9001', NULL), ('g2', 250, '2026-10-05T00:00:00', 'Donation', '9002', NULL), ('g3', 100, '2026-10-14T00:00:00', 'RecurringGift', '9001', NULL);
   `);
   const months = [['2025-12', 50000], ['2026-01', 100000], ['2026-02', 200000], ['2026-09', 112000]].map(([m, a]) => ({ year_month: m, portfolio_amount: a, portfolio_gift_ct: 3 }));
   db.prepare('INSERT INTO fundraiser_totals VALUES (?, ?)').run('501', JSON.stringify(months));

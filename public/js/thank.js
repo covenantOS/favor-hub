@@ -12,6 +12,7 @@ const TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_Yo
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(TODAY.slice(0, 4)) ? ', ' + y : ''); };
 const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
+const whole = (v) => { const n = Math.round(Number(v) || 0); return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
 const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const dayn = (iso) => Math.round((Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z') - Date.parse(TODAY + 'T12:00:00Z')) / 86400000);
 // The 24-hour thank-you clock, drawn from the due time the server sends (functions/_lib/work/thank-clock.ts has the same words).
@@ -225,7 +226,7 @@ function bulk(gifts, how, o = {}) {
   const L = document.createElement('div');
   L.className = 'wg-layer';
   L.innerHTML = `<div class="wg-scrim" data-wg-close></div><div class="wg-dlg" role="dialog" aria-modal="true" aria-label="Thank ${gifts.length} partners">
-    <div class="wg-dlg__head"><div><h2>Thank ${gifts.length} ${gifts.length === 1 ? 'partner' : 'partners'} by ${WORD[how]}</h2><p>${money(total)} in gifts. Each partner gets one ${WORD[how]} record with the Thanked tag, and any open thank-you task for that gift closes.</p></div><button type="button" class="pp-iconbtn" data-wg-close aria-label="Close">${ic('x')}</button></div>
+    <div class="wg-dlg__head"><div><h2>Thank ${gifts.length} ${gifts.length === 1 ? 'partner' : 'partners'} by ${WORD[how]}</h2><p>${whole(total)} in gifts. Each partner gets one ${WORD[how]} record with the Thanked tag, and any open thank-you task for that gift closes.</p></div><button type="button" class="pp-iconbtn" data-wg-close aria-label="Close">${ic('x')}</button></div>
     <div class="wg-dlg__body"><ul class="wg-bulklist">${gifts.slice(0, 8).map((g) => `<li><b>${esc(g.name)}</b><span>${money(g.amount)} · ${fd(g.date)}</span></li>`).join('')}${gifts.length > 8 ? `<li class="is-more">and ${gifts.length - 8} more</li>` : ''}</ul>
       <label class="wg-lab">One line for every record (optional)<input type="text" id="wg-bline" maxlength="200" placeholder="For example: Sent the September thank-you letter" /></label>
       <label class="wg-check"><input type="checkbox" id="wg-bfu" /> Follow up in 2 weeks</label></div>
@@ -246,5 +247,5 @@ function bulk(gifts, how, o = {}) {
   setTimeout(() => { const i = $('#wg-bline', L); if (i) i.focus(); }, 40);
 }
 
-window.FavorWG = { api, post, esc, ic, I, fd, money, short, dayn, TODAY, clock, thank, pop, bulk, toast, closePop, reqId, HOWS };
+window.FavorWG = { api, post, esc, ic, I, fd, money, whole, short, dayn, TODAY, clock, thank, pop, bulk, toast, closePop, reqId, HOWS };
 })();

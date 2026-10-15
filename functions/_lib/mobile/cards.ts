@@ -1,13 +1,13 @@
 // The iPhone contract's Partner card for a list of partners in one pass (a search result, a portfolio). The partner page's own
-// loadPartner (functions/_lib/work/partner.ts) builds the same card for one partner with the same definitions: the gift types that
-// count as money, and the categories that count as a contact. A test holds the two to the same answer for the same partner.
+// loadPartner (functions/_lib/work/partner.ts) builds the same card for one partner with the same definitions: the household's credited
+// giving (shared/giving.ts, so a gift sent through a DAF counts for the partner it names), and the categories that count as a contact. A test holds the two to the same answer for the same partner.
 // Read only, through the mirror's reader, which refuses any statement that could write.
 import { openActionSql } from '../hub/actions';
 import { etParts } from '../actions/intake';
 import { readOnly, type PartnerHit } from '../work/repo';
 import type { Q } from '../work/partner';
+import { givingForMany, type MirrorQ } from '../gifts/partner-giving';
 
-const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 const CONTACT_CATEGORIES = "('Email', 'Phone call', 'Meeting', 'Mailing')";
 
 /** A Blackbaud calendar day as the contract's date-time. Noon UTC keeps the same calendar day in every US time zone. */
@@ -33,11 +33,6 @@ export interface Card {
   last_contact_date: string | null;
   last_contact_kind: 'call' | 'visit' | 'text' | null;
 }
-
-const num = (v: unknown): number => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
 
 /** The phone and email on file for each id: the primary one, else the first. */
 export async function contactsFor(q: Q, ids: string[]): Promise<Map<string, { phone: string | null; email: string | null }>> {
@@ -70,26 +65,9 @@ export async function cardsFor(q: Q, hits: PartnerHit[], today: string = etParts
   if (!hits.length) return [];
   const ids = hits.map((h) => h.cid);
   const list = JSON.stringify(ids);
-  const yearStart = today.slice(0, 4) + '-01-01';
-  const [contacts, last, ytd, contact] = await Promise.all([
+  const [contacts, giving, contact] = await Promise.all([
     contactsFor(q, ids),
-    q<any>(
-      readOnly(
-        `SELECT id, amount, gdate FROM (
-           SELECT constituent_record_id AS id, gift_amount AS amount, substr(gift_date, 1, 10) AS gdate,
-                  ROW_NUMBER() OVER (PARTITION BY constituent_record_id ORDER BY gift_date DESC) AS rn
-             FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN}
-         ) WHERE rn = 1`
-      ),
-      [list]
-    ),
-    q<any>(
-      readOnly(
-        `SELECT constituent_record_id AS id, COALESCE(SUM(gift_amount), 0) AS total FROM gifts
-          WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN} AND substr(gift_date, 1, 10) >= ?2 GROUP BY 1`
-      ),
-      [list, yearStart]
-    ),
+    givingForMany(q as unknown as MirrorQ, ids, today),
     q<any>(
       readOnly(
         `SELECT id, dt, category FROM (
@@ -101,11 +79,9 @@ export async function cardsFor(q: Q, hits: PartnerHit[], today: string = etParts
       [list]
     ),
   ]);
-  const lastBy = new Map(last.map((r: any) => [String(r.id), r]));
-  const ytdBy = new Map(ytd.map((r: any) => [String(r.id), num(r.total)]));
   const contactBy = new Map(contact.map((r: any) => [String(r.id), r]));
   return hits.map((h) => {
-    const g = lastBy.get(h.cid);
+    const g = giving.get(h.cid);
     const c = contactBy.get(h.cid);
     const cc = contacts.get(h.cid);
     return {
@@ -114,9 +90,9 @@ export async function cardsFor(q: Q, hits: PartnerHit[], today: string = etParts
       place: h.place,
       phone: cc?.phone ?? null,
       email: cc?.email ?? null,
-      last_gift_cents: g ? Math.round(num(g.amount) * 100) : null,
-      last_gift_date: g ? dayTime(String(g.gdate)) : null,
-      year_to_date_cents: Math.round((ytdBy.get(h.cid) || 0) * 100),
+      last_gift_cents: g && g.last ? Math.round(g.last.amount * 100) : null,
+      last_gift_date: g && g.last ? dayTime(g.last.date) : null,
+      year_to_date_cents: g ? Math.round(g.ytd * 100) : 0,
       last_contact_date: c ? dayTime(String(c.dt)) : null,
       last_contact_kind: c ? kindOf(String(c.category || '')) : null,
     };

@@ -1,7 +1,8 @@
 // What a partner's giving and contact history says: rhythm, health, the next best action and the moments worth a call.
 // Pure functions over plain facts, so the Today briefing, the partner page, My partners and Call mode all read a partner the same way.
 import { isOrgName, shortName } from '../../../shared/names';
-import { addDays, dayDiff, longDay, money, plural, shortDay } from './text';
+import { money, whole } from '../../../shared/giving';
+import { addDays, dayDiff, longDay, plural, shortDay } from './text';
 
 export interface GiftPt {
   /** Gift date, YYYY-MM-DD. */
@@ -68,7 +69,7 @@ export function rhythmOf(gifts: GiftPt[], today: string): Rhythm {
 
 export type Health = 'growing' | 'steady' | 'slipping' | 'lapsing' | 'atrisk' | 'new' | 'none';
 
-export const HEALTH_LABEL: Record<Health, string> = { growing: 'Growing', steady: 'Steady', slipping: 'Slipping', lapsing: 'Lapsing', atrisk: 'At risk', new: 'New', none: 'No gifts' };
+export const HEALTH_LABEL: Record<Health, string> = { growing: 'Growing', steady: 'Steady', slipping: 'Slipping', lapsing: 'Lapsing', atrisk: 'At risk', new: 'New', none: 'No gifts yet' };
 
 export interface HealthFacts {
   l12: number;
@@ -79,10 +80,12 @@ export interface HealthFacts {
   /** Days since the last completed call, visit or email; null when none is on record. */
   quiet: number | null;
   rhythm: Rhythm;
+  /** Gifts this record sent for other partners (a donor-advised fund granting for a family). They are not its own giving. */
+  passedOn?: number;
 }
 
 export function healthOf(f: HealthFacts, today: string): { health: Health; why: string } {
-  if (!(f.life > 0) && !f.gifts) return { health: 'none', why: 'No gift on record.' };
+  if (!(f.life > 0) && !f.gifts) return { health: 'none', why: f.passedOn && f.passedOn > 0 ? 'No gifts of its own. It passes gifts on for other partners.' : 'No gifts yet.' };
   const r = f.rhythm;
   if (f.firstDate && dayDiff(f.firstDate, today) <= 270 && r.n <= 3) return { health: 'new', why: `First gift ${shortDay(f.firstDate)}.` };
   const lapsing = r.lateDays > 0 && (r.daysSince || 0) >= 60;
@@ -94,10 +97,10 @@ export function healthOf(f: HealthFacts, today: string): { health: Health; why: 
     if (quiet && meaningful) return { health: 'atrisk', why: `${base} No contact in ${f.quiet === null ? 'the records' : plural(f.quiet, 'day')}.` };
     return { health: 'lapsing', why: base };
   }
-  if (f.p12 > 0 && f.l12 < f.p12 * 0.75) return { health: 'slipping', why: `${money(f.l12)} in the last 12 months, down from ${money(f.p12)}.` };
-  if (f.p12 > 0 && f.l12 > f.p12 * 1.2) return { health: 'growing', why: `${money(f.l12)} in the last 12 months, up from ${money(f.p12)}.` };
-  if (f.p12 === 0 && f.l12 > 0) return { health: 'growing', why: `${money(f.l12)} in the last 12 months, nothing the year before.` };
-  return { health: 'steady', why: f.l12 ? `${money(f.l12)} in the last 12 months, about the same as the year before.` : 'Giving is steady.' };
+  if (f.p12 > 0 && f.l12 < f.p12 * 0.75) return { health: 'slipping', why: `${whole(f.l12)} in the last 12 months, down from ${whole(f.p12)}.` };
+  if (f.p12 > 0 && f.l12 > f.p12 * 1.2) return { health: 'growing', why: `${whole(f.l12)} in the last 12 months, up from ${whole(f.p12)}.` };
+  if (f.p12 === 0 && f.l12 > 0) return { health: 'growing', why: `${whole(f.l12)} in the last 12 months, nothing the year before.` };
+  return { health: 'steady', why: f.l12 ? `${whole(f.l12)} in the last 12 months, about the same as the year before.` : 'Giving is steady.' };
 }
 
 /** How many days a partner can go without a call, visit or email, by what they give. */
@@ -157,7 +160,7 @@ export function nextAction(f: NbaFacts, today: string): Nba {
   const org = isOrgName(f.name);
   const first = shortName(f.name, org);
   if (f.owed && f.owed.n > 0) {
-    const what = f.owed.n === 1 ? `the ${money(f.owed.total)} gift` : `${f.owed.n} gifts, ${money(f.owed.total)}`;
+    const what = f.owed.n === 1 ? `the ${money(f.owed.total)} gift` : `${f.owed.n} gifts, ${whole(f.owed.total)}`;
     return {
       kind: 'thank',
       label: `Thank ${first} for ${what}`,
@@ -206,13 +209,13 @@ export function nextAction(f: NbaFacts, today: string): Nba {
     return {
       kind: 'checkin',
       label: `${VERB[ch]} ${first} to check in`,
-      why: f.quiet === null ? `No contact on record.${f.l12 ? ' ' + money(f.l12) + ' in 12 months.' : ''}` : `Last contact ${plural(f.quiet, 'day')} ago. A partner at this level hears from us about every ${every} days.`,
+      why: f.quiet === null ? `No contact on record.${f.l12 ? ' ' + whole(f.l12) + ' in 12 months.' : ''}` : `Last contact ${plural(f.quiet, 'day')} ago. A partner at this level hears from us about every ${every} days.`,
       channel: ch,
       urgency: f.quiet === null || f.quiet >= every * 1.6 ? 2 : 1,
     };
   }
   if (f.health === 'slipping') {
-    return { kind: 'follow', label: `Ask ${first} how you can serve them`, why: `Giving is ${money(f.l12)} in 12 months, down from ${money(f.p12)}. Listen before you ask.`, channel: channelFor(f), urgency: 1 };
+    return { kind: 'follow', label: `Ask ${first} how you can serve them`, why: `Giving is ${whole(f.l12)} in 12 months, down from ${whole(f.p12)}. Listen before you ask.`, channel: channelFor(f), urgency: 1 };
   }
   const next = f.rhythm.expectedNext;
   return {
@@ -292,7 +295,7 @@ export function momentsFor(list: MomentFacts[], today: string, max = 12): Moment
         kind: 'quiet',
         cid: p.cid,
         name: p.name,
-        line: `Gave ${money(p.l12)} in the last 12 months and has not given since ${longDay(p.rhythm.lastDate, today)}. A ${word}gift was due ${plural(p.rhythm.lateDays, 'day')} ago.`,
+        line: `Gave ${whole(p.l12)} in the last 12 months and has not given since ${longDay(p.rhythm.lastDate, today)}. A ${word}gift was due ${plural(p.rhythm.lateDays, 'day')} ago.`,
         when: p.rhythm.lastDate,
         amount: p.l12,
         step: { label: 'Call to reconnect', channel: 'call' },

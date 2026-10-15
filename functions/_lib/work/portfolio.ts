@@ -2,13 +2,16 @@
 //
 // "Held" means a current assignment of the director as Regional Development Director, Prospect Steward or Church Engagement
 // Director. A contact is a completed Email, Phone call or Meeting action. Mailings are left out on purpose: a printed receipt
-// letter is not a relationship touch. Giving counts gifts the partner gave plus soft credits that name them.
+// letter is not a relationship touch. Giving is the household's credited giving under the shared rule (shared/giving.ts, read through
+// givingForMany): gifts the partner or spouse gave plus gifts sent through a DAF, foundation or business that name them, once each,
+// RecurringGift schedules never counted, their payments counted.
 import { openActionSql } from '../hub/actions';
 import type { Q } from './partner';
+import { givingForMany, type MirrorQ, type PartnerGiving } from '../gifts/partner-giving';
+import { addMonths, throughName } from '../../../shared/giving';
 
 /** Assignment types that make a partner part of a director's portfolio. */
 export const HELD_TYPES = "('Regional Development Director (RDD)', 'Prospect Steward', 'Church Engagement Director')";
-const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 
 export interface PortfolioRow {
   cid: string;
@@ -18,8 +21,8 @@ export interface PortfolioRow {
   /** Days since the last contact, or null when the mirror holds none. */
   quiet: number | null;
   last: { date: string; how: string } | null;
-  /** The latest gift, or the latest soft credit when that is newer (soft is then true). */
-  gift: { date: string; amount: number; soft?: boolean } | null;
+  /** The latest credited gift. soft is true when it was sent through another record (a DAF, foundation or business); through names it. */
+  gift: { date: string; amount: number; soft?: boolean; through?: string } | null;
   l12: number;
   p12: number;
   life: number;
@@ -45,10 +48,18 @@ const num = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
-const addYears = (ymd: string, n: number) => `${Number(ymd.slice(0, 4)) + n}${ymd.slice(4)}`;
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
 
 const HOW: Record<string, string> = { 'Phone call': 'Call', Email: 'Email', Meeting: 'Visit' };
+
+/** Household giving for these partners under the shared credit rule, read in chunks so one mirror read stays small. */
+async function creditedGiving(q: Q, ids: string[], today: string) {
+  const out = new Map<string, PartnerGiving>();
+  const parts: string[][] = [];
+  for (let i = 0; i < ids.length; i += 400) parts.push(ids.slice(i, i + 400));
+  for (const m of await Promise.all(parts.map((p) => givingForMany(q as unknown as MirrorQ, p, today)))) for (const [k, v] of m) out.set(k, v);
+  return out;
+}
 
 /** The partners a fundraiser holds right now. */
 export async function heldIds(q: Q, fid: string, today: string): Promise<string[]> {
@@ -71,13 +82,12 @@ export interface PlannedTask {
 export async function loadPortfolio(q: Q, fid: string, today: string, planned: PlannedTask[] = []): Promise<Portfolio> {
   const ids = await heldIds(q, fid, today);
   const J = JSON.stringify(ids);
-  const y1 = addYears(today, -1);
-  const y2 = addYears(today, -2);
-  const yearStart = `${today.slice(0, 4)}-01-01`;
-  const lastStart = `${Number(today.slice(0, 4)) - 1}-01-01`;
+  const y1 = addMonths(today, -12);
+  const y2 = addMonths(today, -24);
+  const lastYearKey = String(Number(today.slice(0, 4)) - 1);
   if (!ids.length) return { fid, today, held: 0, rows: [], stats: { held: 0, quiet90: 0, gaveNoContact: 0, lapsed: 0, noPhone: 0 } };
 
-  const [names, gifts, contacts, phones, opens, soft] = await Promise.all([
+  const [names, giving, contacts, phones, opens] = await Promise.all([
     q<any>(
       `SELECT id, COALESCE(json_extract(raw_json, '$.name'), trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))) AS name,
               json_extract(raw_json, '$.address.city') AS city, json_extract(raw_json, '$.address.state') AS st, COALESCE(deceased, 0) AS gone, COALESCE(inactive, 0) AS off,
@@ -85,16 +95,7 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
          FROM constituents WHERE id IN (SELECT value FROM json_each(?1))`,
       [J]
     ),
-    q<any>(
-      `SELECT constituent_record_id AS cid, COUNT(*) AS n, SUM(gift_amount) AS total,
-              SUM(CASE WHEN substr(gift_date, 1, 10) > ?2 THEN gift_amount ELSE 0 END) AS l12,
-              SUM(CASE WHEN substr(gift_date, 1, 10) > ?3 AND substr(gift_date, 1, 10) <= ?2 THEN gift_amount ELSE 0 END) AS p12,
-              SUM(CASE WHEN substr(gift_date, 1, 10) >= ?4 THEN gift_amount ELSE 0 END) AS ytd,
-              SUM(CASE WHEN substr(gift_date, 1, 10) >= ?5 AND substr(gift_date, 1, 10) < ?4 THEN gift_amount ELSE 0 END) AS lastyr,
-              MAX(substr(gift_date, 1, 10) || '|' || gift_amount) AS lastg
-         FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN} GROUP BY 1`,
-      [J, y1, y2, yearStart, lastStart]
-    ),
+    creditedGiving(q, ids, today),
     q<any>(
       `SELECT constituent_record_id AS cid, MAX(substr(COALESCE(action_completed_date, action_date_due), 1, 10) || '|' || action_category) AS lastc
          FROM actions a WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND action_category IN ('Email', 'Phone call', 'Meeting')
@@ -111,11 +112,8 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
          FROM actions a WHERE a.constituent_record_id IN (SELECT value FROM json_each(?1)) AND ${openActionSql('a')} ORDER BY a.action_date_due`,
       [J]
     ),
-    // Soft credits name a partner inside the gift's JSON, so one read of the few gifts that carry any is cheaper than a text match per partner.
-    q<any>(`SELECT substr(gift_date, 1, 10) AS d, soft_credits AS soft FROM gifts WHERE soft_credits IS NOT NULL AND soft_credits NOT IN ('', '[]') AND gift_amount > 0`),
   ]);
 
-  const byG = new Map(gifts.map((g: any) => [String(g.cid), g]));
   const byC = new Map(contacts.map((c: any) => [String(c.cid), String(c.lastc || '')]));
   const byP = new Map(phones.map((p: any) => [String(p.cid), p]));
   const next = new Map<string, { id: string; due: string; summary: string; planned?: boolean }>();
@@ -130,43 +128,15 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
       if (!have || have.id !== p.id) next.set(k, { id: p.id, due: p.due, summary: p.summary, planned: true });
     }
   }
-  // Soft credits: add each credit that names a held partner, in the same windows as their own gifts.
-  const idSet = new Set(ids);
-  const sc = new Map<string, { total: number; l12: number; p12: number; ytd: number; lastyr: number; n: number; lastd: string; lasta: number }>();
-  for (const g of soft) {
-    let list: any[] = [];
-    try {
-      list = JSON.parse(String(g.soft));
-    } catch {
-      continue;
-    }
-    for (const s of list) {
-      const cid = String(s && s.constituent_id);
-      if (!idSet.has(cid)) continue;
-      const amt = num(s.amount && s.amount.value);
-      if (!(amt > 0)) continue;
-      const d = String(g.d);
-      const r = sc.get(cid) || { total: 0, l12: 0, p12: 0, ytd: 0, lastyr: 0, n: 0, lastd: '', lasta: 0 };
-      r.total += amt;
-      r.n += 1;
-      if (d > r.lastd) { r.lastd = d; r.lasta = amt; }
-      if (d > y1) r.l12 += amt;
-      else if (d > y2) r.p12 += amt;
-      if (d >= yearStart) r.ytd += amt;
-      else if (d >= lastStart) r.lastyr += amt;
-      sc.set(cid, r);
-    }
-  }
-
   const rows: PortfolioRow[] = [];
   for (const n of names) {
     if (Number(n.gone) === 1 || Number(n.off) === 1) continue;
     const cid = String(n.id);
-    const g = byG.get(cid) as any;
-    const s = sc.get(cid);
+    const g = giving.get(cid);
+    const lastG = g ? g.gifts[0] : undefined;
+    const via = lastG && lastG.via ? g!.through.find((t) => t.id === lastG.via) : undefined;
     const lastc = byC.get(cid) || '';
     const [cd, cat] = lastc.split('|');
-    const [gd, ga] = String(g && g.lastg ? g.lastg : '').split('|');
     const ph = byP.get(cid) as any;
     const place = [n.city, n.st].filter(Boolean).join(', ');
     rows.push({
@@ -176,13 +146,13 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
       place,
       quiet: cd ? Math.max(0, daysBetween(cd, today)) : null,
       last: cd ? { date: cd, how: HOW[cat] || cat } : null,
-      gift: s && s.lastd && (!gd || s.lastd > gd) ? { date: s.lastd, amount: s.lasta, soft: true } : gd ? { date: gd, amount: num(ga) } : null,
-      l12: num(g && g.l12) + (s ? s.l12 : 0),
-      p12: num(g && g.p12) + (s ? s.p12 : 0),
-      life: num(g && g.total) + (s ? s.total : 0),
-      gifts: num(g && g.n) + (s ? s.n : 0),
-      ytd: num(g && g.ytd) + (s ? s.ytd : 0),
-      lastYear: num(g && g.lastyr) + (s ? s.lastyr : 0),
+      gift: lastG ? { date: lastG.date, amount: lastG.amount, ...(via ? { soft: true, through: throughName(via) } : lastG.via ? { soft: true } : {}) } : null,
+      l12: g ? g.last12 : 0,
+      p12: g ? Math.round(g.gifts.filter((x) => x.date > y2 && x.date <= y1).reduce((t, x) => t + x.amount, 0) * 100) / 100 : 0,
+      life: g ? g.total : 0,
+      gifts: g ? g.count : 0,
+      ytd: g ? g.ytd : 0,
+      lastYear: g ? g.years.find((y) => y.year === lastYearKey)?.total || 0 : 0,
       next: next.get(cid) || null,
       phone: ph && ph.num ? String(ph.num) : null,
       dnc: !!ph && Number(ph.n) > 0 && !ph.num,

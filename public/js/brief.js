@@ -8,8 +8,9 @@ const root = document.getElementById('br-root');
 if (!root) return;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = (n) => { const v = Number(n) || 0; return '$' + (Math.round(v) === v ? v.toLocaleString('en-US') : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })); };
+const whole = (n) => { const v = Math.round(Number(n) || 0); return (v < 0 ? '-' : '') + '$' + Math.abs(v).toLocaleString('en-US'); };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const fd = (iso) => { const [, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d; };
+const fd = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); if (!m || !d) return ''; return MON[m - 1] + ' ' + d + (y === Number(new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).slice(0, 4)) ? '' : ', ' + y); };
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
 const I = {
   phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
@@ -125,8 +126,8 @@ function thankRow(b) {
 function giftRow(b) {
   const o = b.overnight;
   if (!o || !o.count) return '';
-  const items = o.rows.map((g) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${[money(g.amount), esc(g.fund || ''), esc(g.place || '')].filter(Boolean).join(' · ')}</span></div>${g.thanked ? '<span class="br-tag br-tag--ok">Thanked</span>' : `<span class="br-when">${esc(fd(g.date))}</span>`}</li>`);
-  return row('gifts', 'gift', 'New gifts', o.count.toLocaleString('en-US'), `${money(o.total)} since ${esc(fd(b.since))}`, items, o.count > o.rows.length ? { href: '/work/?view=gifts', text: 'All gifts' } : null);
+  const items = o.rows.map((g) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${[money(g.amount), g.through ? esc('through ' + g.through) : '', esc(g.fund || ''), esc(g.place || '')].filter(Boolean).join(' · ')}</span></div>${g.thanked ? '<span class="br-tag br-tag--ok">Thanked</span><span class="br-when">' + esc(fd(g.date)) + '</span>' : `<span class="br-when">${esc(fd(g.date))}</span>`}</li>`);
+  return row('gifts', 'gift', 'New gifts', o.count.toLocaleString('en-US'), `${whole(o.total)} since ${esc(fd(b.since))}`, items, o.count > o.rows.length ? { href: '/work/?view=gifts', text: 'All gifts' } : null);
 }
 
 const whenShort = (iso) => {

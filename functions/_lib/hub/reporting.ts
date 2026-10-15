@@ -188,7 +188,7 @@ export async function buildReportData(env: Env): Promise<ReportData> {
     kpiGet<GrantsApi>(env, '/api/cf/grants', who),
     kpiGet<TeamApi>(env, '/api/cf/marketing', who),
   ]);
-  const asOf = ytd.donorKpis?.current?.as_of || new Date().toISOString().slice(0, 10);
+  const asOf = ytd.donorKpis?.current?.as_of || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const thisKey = monthKey(asOf);
   const prevKey = prevMonthKey(asOf);
   const apis: Record<string, TeamApi | GrantsApi> = { rdd, ce, pc, mk, grants };

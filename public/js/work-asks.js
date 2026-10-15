@@ -23,6 +23,7 @@ const today = () => (A.meta && A.meta.today) || new Date().toISOString().slice(0
 const addDay = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(today().slice(0, 4)) ? ', ' + y : ''); };
 const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
+const whole = (v) => { const n = Math.round(Number(v) || 0); return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
 const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const ic = (n, cls) => (F() ? F().ic(n, cls) : W().ic(n, cls));
 const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : many || one + 's');
@@ -151,7 +152,7 @@ function colHTML(k, label) {
   const cnt = (A.meta.counts || {})[k] || { n: 0, total: 0 };
   const rows = c ? c.rows : [];
   const body = !c ? skel(120) : rows.map(card).join('') || (cnt.n ? '' : '<div class="wa-col__empty">Nothing here</div>');
-  return `<section class="wa-col" aria-label="${esc(label)}"><h4>${esc(label)} <b>${cnt.n.toLocaleString('en-US')}</b><em>${short(cnt.total)}</em></h4>
+  return `<section class="wa-col" aria-label="${esc(label)}"><h4>${esc(label)} <b>${cnt.n.toLocaleString('en-US')}</b><em>${whole(cnt.total)}</em></h4>
       ${body}${sentinel(k, !!c && rows.length < cnt.n)}</section>`;
 }
 function boardHTML() {
@@ -192,7 +193,7 @@ function view() {
     : M === 0 ? '<div class="wa-empty"><b>Nothing matches</b></div>'
       : A.mode === 'board' ? boardHTML() : listHTML();
   el.innerHTML = `
-    <div class="h-card wc-band wa-band" style="--n:4">${tiles.map(([l, t, warn]) => `<div class="wc-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><span class="wa-tot">${short(t.total)}</span></div>`).join('')}</div>
+    <div class="h-card wc-band wa-band" style="--n:4">${tiles.map(([l, t, warn]) => `<div class="wc-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><span class="wa-tot">${whole(t.total)}</span></div>`).join('')}</div>
     <section class="h-card wc-sheet${A.fopen ? ' is-fopen' : ''}" id="wa-sheet" aria-label="Asks">
       <div class="wa-filters" role="group" aria-label="Filter">${STATUS.map(([k, l]) => `<button type="button" class="wa-fchip${A.status === k ? ' is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + m.review.n + '</span>' : k === 'former' ? ' <span>' + m.former.n + '</span>' : ''}</button>`).join('')}
         <select class="wc-sel wa-range${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select></div>
@@ -202,7 +203,7 @@ function view() {
       ${activeHTML}
       <div class="wa-count" aria-live="polite">Showing ${shownN.toLocaleString('en-US')} of ${M.toLocaleString('en-US')} ${M === 1 ? 'ask' : 'asks'}</div>
       ${body}
-      <div class="wa-foot">${plural(M, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks are listed under the partner's current director. Asks on partners no current director holds sit under From former staff, and asks that look far above what the partner has given sit under Check amount. Neither is in the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
+      <div class="wa-foot">${plural(M, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks are listed under the partner's current director. Asks on partners no current director holds sit under From former staff, and asks that look far above what the partner has given, counting gifts sent through a donor-advised fund or foundation that name them, sit under Check amount. Neither is in the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
     </section>`;
   if (live) { const i = $('#wa-q'); if (i) { i.focus(); i.setSelectionRange(caret, caret); } }
   registerSheet();

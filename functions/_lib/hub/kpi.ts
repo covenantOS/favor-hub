@@ -121,7 +121,7 @@ export async function kpiSummary(env: Env): Promise<KpiSummary> {
 
 /** Year and team pacing from the answers the summary already holds. Last year's pattern comes from each team's own monthly totals. */
 export function paceFor(summary: KpiSummary, teams: { rdd: Goals; ce: Goals; pc: Goals; mk: Goals }, trend: Array<{ asOf: string; ytdRevenue: number }>, lyToDate: number | null): Record<string, Pace> {
-  const asOf = summary.asOf || new Date().toISOString().slice(0, 10);
+  const asOf = summary.asOf || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const lastYearEnd = trend.find((t) => t.asOf === `${Number(asOf.slice(0, 4)) - 1}-12-31`);
   const out: Record<string, Pace> = {
     year: pace({ key: 'year', name: 'Raised this year', raised: summary.raised, goal: summary.goal, asOf, lyToDate, lyTotal: lastYearEnd ? Number(lastYearEnd.ytdRevenue) || null : null }),

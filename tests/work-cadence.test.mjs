@@ -208,8 +208,8 @@ const touch = (id, cid, d, cat, tx = 0, outcome) => {
 function buildMirror() {
   mirror = new DatabaseSync(':memory:');
   mirror.exec(`
-    CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_type TEXT, first_name TEXT, last_name TEXT, deceased INTEGER DEFAULT 0, inactive INTEGER DEFAULT 0, raw_json TEXT);
-    CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date TEXT, gift_type TEXT, gift_status TEXT, constituent_record_id TEXT);
+    CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_type TEXT, first_name TEXT, last_name TEXT, deceased INTEGER DEFAULT 0, inactive INTEGER DEFAULT 0, raw_json TEXT, spouse_id TEXT, organization_name TEXT);
+    CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date TEXT, gift_type TEXT, gift_status TEXT, constituent_record_id TEXT, soft_credits TEXT);
     CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due TEXT, action_completed_date TEXT, action_category TEXT, constituent_record_id TEXT, raw_json TEXT, action_summary TEXT, action_description TEXT);
     CREATE TABLE action_tags (id TEXT PRIMARY KEY, texted INTEGER DEFAULT 0);
     CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date TEXT);
@@ -282,7 +282,7 @@ describe('loadCadence against the mirror', () => {
 
 describe('the mirror SQL passes the endpoint\'s refusal rule', () => {
   it('has none of the words the mirror refuses', () => {
-    for (const s of [cad.GIFTS_SQL, cad.FIRST_SQL, cad.FIRST_AMOUNT_SQL, cad.HOLDS_SQL, cad.CONTACTS_SQL, cad.FACTS_SQL, cad.PHONES_SQL, cad.EMAILS_SQL, cad.ADDRESSES_SQL]) assert.doesNotThrow(() => readOnly(s));
+    for (const s of [cad.GIVERS_SQL, cad.HOLDS_SQL, cad.CONTACTS_SQL, cad.FACTS_SQL, cad.PHONES_SQL, cad.EMAILS_SQL, cad.ADDRESSES_SQL]) assert.doesNotThrow(() => readOnly(s));
   });
 });
 

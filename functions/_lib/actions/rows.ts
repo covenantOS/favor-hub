@@ -3,6 +3,7 @@
 // Pure; no I/O.
 import type { ActionRecord, Assignment, Fundraiser, Gift } from './types.ts';
 import { ymd } from './dates.ts';
+import { creditTo, type GiftRow } from '../../../shared/giving.ts';
 
 /** One action as the Work Center's SQL returns it (columns named in functions/_lib/work/repo.ts). */
 export interface SlimActionRow {
@@ -70,12 +71,19 @@ export interface SlimGiftRow {
   splits?: string | null;
 }
 
-export function giftFromSlim(r: SlimGiftRow): Gift {
+/** A gift plus, when it carries soft credits, what the first soft-credited partner (the one thanked) is credited for it. amount stays the whole gift, so which thank-yous exist does not change. */
+export type CreditedGift = Gift & { credited?: number };
+
+export function giftFromSlim(r: SlimGiftRow): CreditedGift {
   const soft = parseJson<any[]>(r.soft, []);
   const fr = parseJson<any[]>(r.credits, []);
   const credits = (Array.isArray(fr) ? fr : []).map((c: any) => ({ id: String(c.constituent_id), amount: Number(c.amount?.value ?? 0) }));
   credits.sort((a, b) => b.amount - a.amount || Number(a.id) - Number(b.id));
+  const softIds = (Array.isArray(soft) ? soft : []).map((c: any) => String(c.constituent_id)).filter(Boolean);
+  const row: GiftRow = { id: String(r.id), amount: Number(r.amount ?? 0), date: ymd(r.gift_date), type: r.gift_type ?? '', giver: String(r.cid), soft: r.soft ?? null };
+  const credited = softIds.length ? creditTo(row, new Set([softIds[0]])) : 0;
   return {
+    ...(credited > 0 ? { credited } : {}),
     id: String(r.id),
     giverId: String(r.cid),
     softCreditIds: (Array.isArray(soft) ? soft : []).map((c: any) => String(c.constituent_id)).filter(Boolean),

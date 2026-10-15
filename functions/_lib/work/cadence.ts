@@ -7,12 +7,15 @@
 // partners a card and a call twice a year; annual partners a call, card, email and text. Order of contact: call, text, email, card.
 //
 // The mirror holds no schedule field for a recurring gift, so the pattern is read from the gift dates of the last 24 months (see classify).
+// The gifts are the household's credited gifts under the shared rule (shared/giving.ts): a gift sent through a DAF or foundation that names the
+// partner counts for the partner, and a spouse's gift counts for the couple. A first gift is the household's first credited gift.
 import { foundVia, type FoundVia } from './found-via';
 import type { Env } from '../http';
 import { readOnly } from './repo';
 import { hubValue } from '../admin/hubcache';
 import type { Q } from './partner';
 import { addDays } from '../actions/completion';
+import { givingForMany, type MirrorQ, type PartnerGiving } from '../gifts/partner-giving';
 
 export type Rule = 'first' | 'monthly' | 'quarterly' | 'semi' | 'annual';
 export type StepKey = 'call' | 'text' | 'email' | 'card';
@@ -255,26 +258,19 @@ export function finish(c: Candidate, facts: PartnerFacts, info: ContactInfo, con
 /* ------------------------------------------------------------------ the mirror */
 
 const CURRENT = `(assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= ?1)`;
-const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 const DIRECTOR_TYPES = "('Regional Development Director (RDD)', 'Prospect Steward', 'Church Engagement Director')";
 /** Partners Partner Care holds that no director holds and that are living and active. A partner a director holds stays the director's. */
 const PC_SET = `SELECT constituent_record_id FROM assignments WHERE assignment_type = 'Partner Care' AND ${CURRENT}
    AND constituent_record_id NOT IN (SELECT constituent_record_id FROM assignments WHERE assignment_type IN ${DIRECTOR_TYPES} AND ${CURRENT})
    AND constituent_record_id NOT IN (SELECT id FROM constituents WHERE COALESCE(deceased, 0) = 1 OR COALESCE(inactive, 0) = 1)`;
 
-export const GIFTS_SQL = readOnly(`SELECT g.constituent_record_id AS cid, group_concat(substr(g.gift_date, 1, 10) || '~' || g.gift_amount || '~' || CASE g.gift_type WHEN 'RecurringGiftPayment' THEN 'r' ELSE 'd' END, ',') AS gifts
-  FROM gifts g WHERE g.gift_date >= ?2 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
-   AND g.constituent_record_id IN (${PC_SET}) GROUP BY 1`);
-
-/** The first gift ever, for partners whose first gift is recent. */
-export const FIRST_SQL = readOnly(`SELECT g.constituent_record_id AS cid, MIN(substr(g.gift_date, 1, 10)) AS d, COUNT(*) AS n FROM gifts g
- WHERE g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active' AND g.constituent_record_id IN (${PC_SET})
-   AND g.constituent_record_id IN (SELECT constituent_record_id FROM gifts WHERE gift_date >= ?2 AND gift_amount > 0 AND gift_type IN ${GIVEN})
- GROUP BY 1 HAVING MIN(substr(g.gift_date, 1, 10)) >= ?2`);
-
-export const FIRST_AMOUNT_SQL = readOnly(`SELECT constituent_record_id AS cid, gift_amount AS amount FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1))
-   AND substr(gift_date, 1, 10) = (SELECT MIN(substr(g2.gift_date, 1, 10)) FROM gifts g2 WHERE g2.constituent_record_id = gifts.constituent_record_id AND g2.gift_amount > 0 AND g2.gift_type IN ${GIVEN})
-   AND gift_amount > 0 AND gift_type IN ${GIVEN}`);
+/** Credited-gift partners in the Partner Care set: a gift in the window on the partner's or spouse's record, or a soft credit naming either. givingForMany then settles the figures. */
+const SOFT_IDS = `SELECT json_extract(s.value, '$.constituent_id') FROM gifts g, json_each(g.soft_credits) s
+   WHERE g.gift_date >= ?2 AND g.gift_amount > 0 AND g.gift_type <> 'RecurringGift' AND g.soft_credits LIKE '%constituent_id%' AND json_valid(g.soft_credits)`;
+const HARD_IDS = `SELECT constituent_record_id FROM gifts WHERE gift_date >= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift'`;
+export const GIVERS_SQL = readOnly(`SELECT c.id AS cid FROM constituents c
+ WHERE c.id IN (${PC_SET})
+   AND (c.id IN (${HARD_IDS}) OR c.id IN (${SOFT_IDS}) OR (c.spouse_id IS NOT NULL AND (c.spouse_id IN (${HARD_IDS}) OR c.spouse_id IN (${SOFT_IDS}))))`);
 
 export const HOLDS_SQL = readOnly(`SELECT constituent_record_id AS cid, assignment_fundraiser_id AS fid FROM assignments
  WHERE assignment_type = 'Partner Care' AND ${CURRENT} AND constituent_record_id IN (SELECT value FROM json_each(?2))`);
@@ -355,15 +351,28 @@ export async function loadCadence(env: Env, q: Q, o: { today: string; names: Rec
   const cards = o.cards ?? (await monthlyCards(env));
   const since24 = addDays(today, -730);
   const firstSince = addDays(today, -FIRST_DAYS);
-  const gifts = await q<{ cid: string; gifts: string }>(GIFTS_SQL, [today, since24]);
-  const firsts = await q<{ cid: string; d: string; n: number }>(FIRST_SQL, [today, firstSince]);
-  const all = [...new Set([...gifts.map((g) => String(g.cid)), ...firsts.map((f) => String(f.cid))])];
+  // Household credited giving for every Partner Care partner who gave (or was credited) in the last 24 months. One row per household.
+  const pcIds = (await q<{ cid: string }>(GIVERS_SQL, [today, since24])).map((r) => String(r.cid));
+  const giving = new Map<string, PartnerGiving>();
+  for (const part of chunkOf(pcIds, 400)) for (const [k, v] of await givingForMany(q as unknown as MirrorQ, part, today)) giving.set(k, v);
+  const byHousehold = new Map<string, string>();
+  for (const id of pcIds.slice().sort((x, y) => Number(x) - Number(y))) {
+    const g = giving.get(id);
+    if (g && !byHousehold.has(g.household)) byHousehold.set(g.household, id);
+  }
+  const gifts = [...byHousehold.values()].map((cid) => ({ cid, gifts: giving.get(cid)!.gifts.filter((x) => x.date >= since24).map((x) => ({ d: x.date, amt: x.amount, rec: false })) }));
+  const firsts = [...byHousehold.values()].flatMap((cid) => {
+    const g = giving.get(cid)!;
+    if (!g.first || g.first < firstSince) return [];
+    const oldest = g.gifts.filter((x) => x.date === g.first).sort((x, y) => y.amount - x.amount)[0];
+    return [{ cid, d: g.first, n: g.count, amount: oldest ? oldest.amount : 0 }];
+  });
+  const all = [...new Set([...gifts.map((g) => g.cid), ...firsts.map((x) => x.cid)])];
   const each = async <T>(sql: string, list: string[], extra: unknown[] = []): Promise<T[]> => {
     const out: T[] = [];
     for (const part of chunkOf(list, 400)) out.push(...(await q<T>(sql, [JSON.stringify(part), ...extra])));
     return out;
   };
-  const firstAmt = firsts.length ? await each<{ cid: string; amount: number }>(FIRST_AMOUNT_SQL, firsts.map((f) => String(f.cid))) : [];
   const contactRows = await each<{ cid: string; cat: string; tx: number; sm: string; d: string }>(CONTACTS_SQL, all, [addDays(today, -420)]);
   const contacts: Record<string, Contacts> = {};
   for (const r of contactRows) {
@@ -379,10 +388,10 @@ export async function loadCadence(env: Env, q: Q, o: { today: string; names: Rec
     const c = contacts[cid] || (contacts[cid] = {});
     for (const k of STEP_ORDER) if (h[k] && (!c[k] || c[k]! < h[k]!)) c[k] = h[k];
   }
-  const firstBy = new Map(firsts.map((f) => [String(f.cid), { date: String(f.d), n: num(f.n), amount: num(firstAmt.find((a) => String(a.cid) === String(f.cid))?.amount) }]));
+  const firstBy = new Map(firsts.map((f) => [String(f.cid), { date: String(f.d), n: num(f.n), amount: num(f.amount) }]));
   const cands: Candidate[] = [];
   for (const g of gifts) {
-    const c = candidate(String(g.cid), parseGifts(g.gifts), firstBy.get(String(g.cid)) || null, contacts[String(g.cid)] || {}, today, cards);
+    const c = candidate(String(g.cid), g.gifts, firstBy.get(String(g.cid)) || null, contacts[String(g.cid)] || {}, today, cards);
     if (c) cands.push(c);
   }
   for (const f of firsts) {

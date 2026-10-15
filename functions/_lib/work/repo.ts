@@ -50,7 +50,10 @@ export const LATER_SQL = readOnly(`SELECT ${OPEN_COLUMNS} FROM actions a
 export const GIFTS_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS cid, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS gift_date,
        substr(g.date_added, 1, 10) AS added, g.gift_type AS gift_type, g.gift_status AS gift_status, g.soft_credits AS soft, g.fundraiser_credits AS credits,
        g.gift_splits AS splits
-  FROM gifts g WHERE g.constituent_record_id IN (SELECT value FROM json_each(?1)) AND g.gift_date >= ?2 AND g.gift_amount > 0
+  FROM gifts g WHERE (g.constituent_record_id IN (SELECT value FROM json_each(?1))
+       OR (g.soft_credits LIKE '%constituent_id%' AND json_valid(g.soft_credits)
+           AND EXISTS (SELECT 1 FROM json_each(g.soft_credits) s WHERE json_extract(s.value, '$.constituent_id') IN (SELECT value FROM json_each(?1)))))
+   AND g.gift_date >= ?2 AND g.gift_amount > 0
    AND g.gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other') ORDER BY g.gift_date`);
 
 export const ASSIGN_SQL = readOnly(`SELECT constituent_record_id AS cid, assignment_fundraiser_id AS fid, assignment_type AS type

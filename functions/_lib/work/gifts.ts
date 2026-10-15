@@ -9,6 +9,8 @@ import { readOnly, FUNDRAISERS_SQL, FUNDS_SQL } from './repo';
 import type { Q } from './partner';
 import { addDays } from '../actions/completion';
 import { clockOf, type Clock } from './thank-clock';
+import { givingForMany, type MirrorQ } from '../gifts/partner-giving';
+import { softOf } from '../../../shared/giving';
 
 /** The gift types that count as money received. A RecurringGift row is the pledge; its payments are the gifts. */
 export const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
@@ -52,7 +54,8 @@ export interface RawGift {
 export interface RawHold { cid: string; fid: string; type: string }
 export interface RawEvidence { cid: string; d: string; cat: string; tag: number }
 export interface RawFacts { id: string; name: string; kind: string; city: string; st: string; deceased: number; inactive: number }
-export interface RawStats { cid: string; n: number; total: number; mx: number; firstd: string }
+/** A partner's household giving under the shared credit rule (gifts credited to them, soft credits included): count, total, largest, first gift date, household key. */
+export interface RawStats { cid: string; n: number; total: number; mx: number; firstd: string; hh?: string }
 export interface RawLast { cid: string; d: string }
 export interface RawPhone { cid: string; number: string; dnc: number; prim: number; type: string }
 export interface RawMonthly { link: string; firstd: string }
@@ -164,13 +167,26 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
 
   for (const g of raw.gifts) {
     const soft = parse<any[]>(g.soft, []);
-    // The partners this gift counts for, with the amount each is credited. The giver counts for the full gift.
-    const credited: { cid: string; amount: number; soft: boolean }[] = [{ cid: String(g.giver), amount: num(g.amount), soft: false }];
-    for (const s of soft) {
-      const c = String(s?.constituent_id || '');
-      const a = num(s?.amount?.value);
-      if (c && c !== String(g.giver) && a > 0 && !credited.some((x) => x.cid === c)) credited.push({ cid: c, amount: a, soft: true });
+    // The partners this gift counts for, with the amount each is credited. The giver counts for the full gift. A soft entry with no
+    // amount gives the full gift; an entry of 0 gives nothing. A partner (or a couple) is credited once, never more than the gift.
+    const hhOf = (id: string): string => stats.get(id)?.hh || id;
+    const giftAmt = num(g.amount);
+    const entries = softOf(g.soft);
+    const credited: { cid: string; amount: number; soft: boolean; passed: boolean }[] = [{ cid: String(g.giver), amount: giftAmt, soft: false, passed: false }];
+    for (const e of entries) {
+      if (e.cid === String(g.giver)) continue;
+      const a = Math.min(giftAmt, entries.filter((x) => x.cid === e.cid).reduce((t, x) => t + (x.amount ?? giftAmt), 0));
+      if (a <= 0 || credited.some((x) => x.cid === e.cid)) continue;
+      const twin = credited.find((x) => hhOf(x.cid) === hhOf(e.cid));
+      if (twin) {
+        // Spouses are one household: the giver's own row already carries the gift; two soft-credited spouses share one row.
+        if (twin.soft) twin.amount = Math.min(giftAmt, twin.amount + a);
+        continue;
+      }
+      credited.push({ cid: e.cid, amount: a, soft: true, passed: false });
     }
+    // The giver keeps its row (a director may hold the giver), but a gift it sent for someone else is not part of the giver's own history.
+    if (entries.length && !entries.some((e) => hhOf(e.cid) === hhOf(String(g.giver)))) credited[0].passed = true;
     for (const c of credited) {
       const dirOwners = [...(holds.get(c.cid) || [])];
       const team: 'dir' | 'pc' = dirOwners.length ? 'dir' : 'pc';
@@ -206,9 +222,9 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
       if (isPayment) {
         const firstPay = g.link ? monthlyFirst.get(String(g.link)) : '';
         if (firstPay && date > firstPay) continue;
-        badges.push(count <= 1 || (first && date <= first) ? 'First gift' : 'First monthly gift');
-      } else if (!c.soft && first && date <= first && count <= 1) badges.push('First gift');
-      if (!c.soft && st && count > 1 && c.amount >= num(st.mx) && c.amount > 0) badges.push('Largest gift');
+        badges.push(c.passed ? 'First monthly gift' : count <= 1 || (first && date <= first) ? 'First gift' : 'First monthly gift');
+      } else if (!c.passed && first && date <= first && count <= 1) badges.push('First gift');
+      if (!c.passed && st && count > 1 && c.amount >= num(st.mx) && c.amount > 0) badges.push('Largest gift');
       if (c.amount >= 1000) badges.push('$1,000 and up');
       if (c.soft) badges.push('Soft credit');
       if (team === 'pc' && !badges.some((b) => /first/i.test(b)) && c.amount >= PC_LIMIT) continue;
@@ -279,9 +295,6 @@ const FACTS_SQL = readOnly(`SELECT c.id AS id, COALESCE(json_extract(c.raw_json,
        c.constituent_type AS kind, json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.deceased AS deceased, c.inactive AS inactive
   FROM constituents c WHERE c.id IN (SELECT value FROM json_each(?1))`);
 
-const STATS_SQL = readOnly(`SELECT constituent_record_id AS cid, COUNT(*) AS n, COALESCE(SUM(gift_amount), 0) AS total, COALESCE(MAX(gift_amount), 0) AS mx, MIN(substr(gift_date, 1, 10)) AS firstd
-  FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ${GIVEN} GROUP BY 1`);
-
 const LAST_SQL = readOnly(`SELECT constituent_record_id AS cid, MAX(substr(COALESCE(action_completed_date, action_date_due), 1, 10)) AS d FROM actions
  WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND json_extract(raw_json, '$.completed') = 1 AND action_category IN ('Email', 'Phone call', 'Meeting', 'Mailing') GROUP BY 1`);
 
@@ -290,6 +303,19 @@ const PHONES_SQL = readOnly(`SELECT constituent_record_id AS cid, phone_number A
 
 const MONTHLY_SQL = readOnly(`SELECT linked_gift_id AS link, MIN(substr(gift_date, 1, 10)) AS firstd FROM gifts
  WHERE linked_gift_id IN (SELECT value FROM json_each(?1)) AND gift_type = 'RecurringGiftPayment' GROUP BY 1`);
+
+/**
+ * Each partner's household giving under the shared credit rule (shared/giving.ts): soft credits count for the partner they name,
+ * spouses are one household, RecurringGift schedules never count, their payments do. Chunked so one read stays small.
+ */
+export async function creditedStats(q: Q, ids: string[]): Promise<RawStats[]> {
+  const out: RawStats[] = [];
+  for (const part of chunkOf(ids, 400)) {
+    const m = await givingForMany(q as unknown as MirrorQ, part);
+    for (const [cid, g] of m) out.push({ cid, n: g.count, total: g.total, mx: g.largest ? g.largest.amount : 0, firstd: g.first || '', hh: g.household });
+  }
+  return out;
+}
 
 /** The hub's own thank-you records for these gifts. A batch that was undone, or that Blackbaud turned down in part, does not count. */
 export async function hubThanks(env: Env, giftIds: string[]): Promise<RawThank[]> {
@@ -360,7 +386,7 @@ export async function loadGifts(env: Env, q: Q, o: LoadOpts): Promise<Shaped> {
   const [evidence, facts, stats, last, phones, monthly, funds, fundraisers, thanks] = await Promise.all([
     each<RawEvidence>(EVIDENCE_SQL, [since]),
     each<RawFacts>(FACTS_SQL),
-    each<RawStats>(STATS_SQL),
+    creditedStats(q, needList),
     each<RawLast>(LAST_SQL),
     each<RawPhone>(PHONES_SQL),
     links.length ? q<RawMonthly>(MONTHLY_SQL, [JSON.stringify(links)]) : Promise.resolve([] as RawMonthly[]),

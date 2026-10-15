@@ -431,6 +431,13 @@
 
   // ---- Partner card ---------------------------------------------------------------------------------
   const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
+  // A status or kind tag the server sends: the standard terms get their plain meaning on hover, tap and focus; LYBUNT is spelled as the term is.
+  const TAGTERM = { active: 'active', lybunt: 'lybunt', lapsed: 'lapsed', 'major partner': 'major', major: 'major', daf: 'daf', 'soft credit': 'soft', household: 'household', other: 'other' };
+  function tagHTML(t) {
+    const key = TAGTERM[String(t).trim().toLowerCase()];
+    const label = key === 'lybunt' ? 'LYBUNT' : String(t);
+    return `<span class="tag g">${window.FavorUI && FavorUI.term && key ? FavorUI.term(key, label) : esc(label)}</span>`;
+  }
   function partnerHTML(b, ctx) {
     const ys = b.years || [];
     const mx = Math.max(1, ...ys.map((y) => y.amount));
@@ -455,16 +462,16 @@
       })
       .join('');
     return `<div class="card pc${w && w.fresh ? ' is-fresh' : ''}">
-      <div class="pc__h"><div class="pc__av">${esc(initials(b.name))}</div><div style="min-width:0"><div class="pc__n">${esc(b.name)}</div><div class="pc__s">${esc(b.place || '')}${b.kind ? ' &middot; ' + esc(b.kind) : ''} ${(b.tags || []).map((t) => `<span class="tag g">${esc(t)}</span>`).join(' ')}</div></div>${b.holder ? `<span class="tag l">${ic('user')}Held by ${esc(b.holder.name)}</span>` : ''}</div>
+      <div class="pc__h"><div class="pc__av">${esc(initials(b.name))}</div><div style="min-width:0"><div class="pc__n">${esc(b.name)}</div><div class="pc__s">${esc(b.place || '')}${b.kind ? ' &middot; ' + esc(b.kind) : ''} ${(b.tags || []).map(tagHTML).join(' ')}</div></div>${b.holder ? `<span class="tag l">${ic('user')}Held by ${esc(b.holder.name)}</span>` : ''}</div>
       <div class="pc__stats">
         <div class="pc__stat"><span>Lifetime giving</span><b data-count="${s.lifetime || 0}" data-f="money">${esc(money(s.lifetime || 0))}</b><small>${s.since ? 'since ' + esc(s.since) : ''}</small></div>
-        <div class="pc__stat"><span>Last gift</span><b>${lg ? esc(money(lg.amount)) : 'None'}</b><small>${lg ? esc(dlong(lg.date)) : ''}</small></div>
-        <div class="pc__stat"><span>Largest gift</span><b>${s.largest ? esc(money(s.largest.amount)) : 'None'}</b><small>${s.largest ? esc(dlong(s.largest.date)) : ''}</small></div>
+        <div class="pc__stat"><span>Last gift</span><b>${lg ? esc(money(lg.credited != null ? lg.credited : lg.amount)) : 'None'}</b><small>${lg ? esc(dlong(lg.date)) + (lg.through ? ' through ' + esc(lg.through) : '') : ''}</small></div>
+        <div class="pc__stat"><span>Largest gift</span><b>${s.largest ? esc(money(s.largest.credited != null ? s.largest.credited : s.largest.amount)) : 'None'}</b><small>${s.largest ? esc(dlong(s.largest.date)) : ''}</small></div>
         <div class="pc__stat"><span>Last contact</span><b>${lc ? esc(lc.kind) : 'None on file'}</b><small>${lc ? esc(dlong(lc.date)) + (lc.by ? ' &middot; ' + esc(lc.by) : '') : ''}</small></div>
       </div>
       <div class="pc__body"><div class="pc__giving"><div class="pc__sec">Giving by year</div>
         ${ys.length ? `<div class="yb" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<button type="button" aria-label="${y.y}: ${money(y.amount)}"><i class="${y.amount ? '' : 'z'}" style="height:${(y.amount / mx) * 100}%;animation-delay:${k * 50}ms"></i><span class="tipbox"><b>${y.y}</b><br>${esc(money(y.amount))}</span></button>`).join('')}</div>
-        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<span>${ys.length <= 10 || k % Math.ceil(ys.length / 8) === 0 ? y.y : ''}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
+        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<span>${ys.length <= 10 || k % Math.ceil(ys.length / 8) === 0 ? y.y : ''}</span>`).join('')}</div>` : `<p style="margin:0;font-size:13px;color:var(--h-ink-3)">${s.lifetime ? 'No yearly breakdown came with this record.' : 'No gifts yet.'}</p>`}</div>${iw}</div>
       ${acts ? `<div class="pc__acts">${acts}</div>` : ''}</div>`;
   }
 

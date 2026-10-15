@@ -52,7 +52,7 @@ const count = () => (G.data ? rows().length : '');
 const dot = () => !!G.data && rows().some(isLate);
 const nameOf = (r) => r.partner.name;
 const ago = (r) => (r.ageDays === 0 ? 'Today' : r.ageDays === 1 ? 'Yesterday' : Number(r.ageDays).toLocaleString('en-US') + ' days');
-const badge = (b) => `<span class="wc-tag ${/first/i.test(b) ? 'wc-tag--done' : /largest|\$1,000/i.test(b) ? 'wc-tag--gift' : /soft/i.test(b) ? 'wc-tag--maybe' : ''}">${F().esc(b)}</span>`;
+const badge = (b) => `<span class="wc-tag ${/first/i.test(b) ? 'wc-tag--done' : /largest|\$1,000/i.test(b) ? 'wc-tag--gift' : /soft/i.test(b) ? 'wc-tag--maybe' : ''}">${/^soft credit$/i.test(b) && window.FavorUI && FavorUI.term ? FavorUI.term('soft') : F().esc(b)}</span>`;
 const tel = (n) => 'tel:' + String(n).replace(/[^\d+]/g, '');
 const mayLetter = () => { const me = W().DATA.me || {}; return (me.role === 'admin' || me.role === 'support') && !!window.WCLetter; };
 const asGift = (r) => ({ team: r.team, giftId: r.giftId, cid: r.cid, name: nameOf(r), amount: r.amount, date: r.date, fund: r.fund, phone: r.partner.phone, left: G.leftNow[r.key] || r.left, tasks: r.taskIds && r.taskIds.length });
@@ -65,7 +65,7 @@ function clockLine(r) {
 }
 function rowHTML(r) {
   const f = F(); const e = f.esc; const p = r.partner;
-  const ctx = [p.lifetime ? 'Lifetime ' + f.short(p.lifetime) : '', p.count > 1 ? p.count.toLocaleString('en-US') + ' gifts' : '', p.lastContact ? 'Last contact ' + f.fd(p.lastContact) : 'No contact yet'].filter(Boolean).join(' · ');
+  const ctx = [p.count > 0 ? 'Lifetime ' + f.whole(p.lifetime) + ' · ' + p.count.toLocaleString('en-US') + (p.count === 1 ? ' gift' : ' gifts') : '', p.lastContact ? 'Last contact ' + f.fd(p.lastContact) : 'No contact yet'].filter(Boolean).join(' · ');
   const call = p.phone && !p.doNotCall ? `<a class="wg-icon" href="${tel(p.phone)}" title="Call ${e(p.phone)}" aria-label="Call ${e(nameOf(r))}">${f.ic('phone')}</a>` : `<span class="wg-icon is-off" title="${p.doNotCall ? 'Do not call' : 'No phone to call'}">${f.ic('phone')}</span>`;
   const left = G.leftNow[r.key] || r.left;
   const who = G.data.owners.length > 1 && !G.owner ? `<div class="wg-who">${r.ownerNames.map((n) => `<span class="wg-ini">${e(String(n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => Array.from(w)[0]).join('').toUpperCase() || '?')}</span>${e(n)}`).join(', ')}</div>` : '';

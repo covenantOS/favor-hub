@@ -3,11 +3,14 @@ import { $, esc, ic, av, api, fmtDay, fmtTime } from './ui.js';
 const MID = new URLSearchParams(location.search).get('m') || '';
 const root = $('#mt-prep');
 const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
+// A single gift keeps its cents when it has them.
+const gift = (n) => (window.FavorUI && FavorUI.money ? FavorUI.money(n) : money(n));
 const day = (iso) => (iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const dayY = (iso) => (iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
 
 function person(a) {
   const bits = [a.title || a.team, a.role === 'host' ? 'Host' : '', a.you ? 'You' : ''].filter(Boolean).map(esc).join(' · ');
-  const held = a.held ? `<span>Holds ${a.held.count.toLocaleString('en-US')} partners, ${money(a.held.last12)} given in 12 months</span>` : '';
+  const held = a.held ? `<span>Holds ${a.held.count.toLocaleString('en-US')} ${a.held.count === 1 ? 'partner' : 'partners'}, ${money(a.held.last12)} given in 12 months</span>` : '';
   const tasks = a.between.length ? `<ul class="pr-tasks">${a.between.map((t) => `<li><a href="${esc(t.url)}">${esc(t.title)}</a><em>${t.mine ? 'You owe' : 'Owes you'}${t.due ? ' · due ' + esc(day(t.due)) : ''}</em></li>`).join('')}</ul>` : '';
   return `<div class="pr-p">${av(a.name)}<div><b>${esc(a.name)}</b><span>${bits || esc(a.email)}</span>${held}${tasks}</div></div>`;
 }
@@ -15,10 +18,10 @@ function person(a) {
 function partner(p) {
   if (!p.detail) return `<div class="pr-pc"><b>${esc(p.name)}</b><span>A partner on record.</span></div>`;
   const rows = [
-    ['Given in all', `${money(p.lifetime)} over ${p.count} gifts`],
+    ['Given in all', p.line || (p.count ? `${money(p.lifetime)} in ${p.count} ${p.count === 1 ? 'gift' : 'gifts'}` : 'No gifts yet')],
     ['Last 12 months', money(p.last12)],
-    p.last ? ['Last gift', `${money(p.last.amount)} to ${p.last.fund || 'no fund on file'}, ${day(p.last.date)}`] : null,
-    p.largest ? ['Largest gift', `${money(p.largest.amount)}, ${day(p.largest.date)}`] : null,
+    p.last ? ['Last gift', `${gift(p.last.amount)} to ${p.last.fund || 'no fund on file'}, ${dayY(p.last.date)}${p.last.through ? ' through ' + p.last.through : ''}`] : null,
+    p.largest ? ['Largest gift', `${gift(p.largest.amount)}, ${dayY(p.largest.date)}`] : null,
     p.lastContact ? ['Last contact', `${p.lastContact.category}, ${day(p.lastContact.date)}${p.lastContact.summary ? ': ' + p.lastContact.summary : ''}`] : null,
     p.holders.length ? ['Held by', p.holders.join(', ')] : null,
   ].filter(Boolean);

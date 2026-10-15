@@ -11,6 +11,8 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const today = () => WC().TODAY;
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(today().slice(0, 4)) ? ', ' + y : ''); };
 const money = (a) => { const n = Math.round(Number(a) || 0); return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
+const single = (a) => (window.FavorUI && FavorUI.money ? FavorUI.money(a) : money(a));
+const softTerm = () => (window.FavorUI && FavorUI.term ? FavorUI.term('soft', 'soft credit') : 'soft credit');
 const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const WDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const addDays = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -26,7 +28,7 @@ const ic = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${I[n
 const SHEET = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M6 2.5h8.5L19 7v13.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#0f9d58" stroke="none"/><path d="M14.5 2.5V7H19" fill="#87ceac" stroke="none"/><rect x="8" y="10.5" width="8" height="7" rx=".5" fill="#fff" stroke="none"/><path d="M8 13h8M8 15.3h8M11 10.5v7" stroke="#0f9d58" stroke-width=".9" fill="none"/></svg>';
 
 const M = { hmap: null, hcounts: {}, owner: '', directors: [], data: null, f: 'q90', sort: 'l12', dir: -1, sel: new Set(), q: '', shown: 100, loading: false, error: '', at: 0 };
-const FILTERS = [['q90', '90 days'], ['q180', '180 days'], ['gave', 'Gave, not contacted'], ['lapsed', 'Lapsed'], ['all', 'All']];
+const FILTERS = [['q90', '90 days'], ['q180', '180 days'], ['gave', 'Gave, not contacted'], ['lapsed', 'Gave last year, not this year'], ['all', 'All']];
 
 /* ------------------------------------------------------------------ the rules (the server's, repeated so a filter needs no round trip) */
 const quietAt = (r, n) => r.quiet === null || r.quiet >= n;
@@ -69,7 +71,7 @@ function rowHTML(r) {
   const q = r.quiet;
   const cls = q === null || q >= 180 ? 'is-180' : q >= 90 ? 'is-90' : '';
   const g = r.gift;
-  const delta = r.p12 ? (r.l12 >= r.p12 ? 'Up from ' : 'Down from ') + short(r.p12) : r.l12 ? 'New this year' : 'No gifts';
+  const delta = r.p12 ? (r.l12 >= r.p12 ? 'Up from ' : 'Down from ') + money(r.p12) : r.l12 ? (r.life > r.l12 ? 'None the year before' : 'New this year') : r.life ? 'None in 12 months' : 'No gifts yet';
   const tel = r.phone ? 'tel:' + r.phone.replace(/[^\d+]/g, '') : '';
   const call = tel ? `<a class="wm-icon" href="${esc(tel)}" title="Call ${esc(r.phone)}" aria-label="Call ${esc(r.name)}">${ic('phone')}</a>` : `<span class="wm-icon is-off" title="${r.dnc ? 'Do not call' : 'No phone to call'}" aria-label="${r.dnc ? 'Do not call' : 'No phone to call'}">${ic('phone')}</span>`;
   const next = r.next ? (r.next.planned ? `<span class="wc-tag wc-tag--done" title="${esc(r.next.summary)}"><span class="wm-next__t">${esc(r.next.summary || 'Task')}</span> ${fd(r.next.due)}</span>` : `<span class="wc-tag" title="${esc(r.next.summary)} · due ${fd(r.next.due, true)}"><span class="wm-next__t">${esc(r.next.summary || 'Open task')}</span></span>`) : `<button type="button" class="wm-addtask" data-wm-task1="${esc(r.cid)}">+ Task</button>`;
@@ -78,9 +80,9 @@ function rowHTML(r) {
     <label class="wm-cb"><input type="checkbox" data-wm-pick="${esc(r.cid)}" ${on ? 'checked' : ''} aria-label="Select ${esc(r.name)}" /></label>
     <div class="wm-c-who"><a class="wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(String(r.name || '').trim() || 'No name on file')}</a>${hchip(r)}<span class="wm-sub">${esc(r.place || 'No city on file')}${r.lookup ? ' · ID ' + esc(r.lookup) : ''}</span>${nbaLine(r)}</div>
     <div class="wm-quiet wm-c-quiet ${cls}"><b>${q === null ? 'Never' : plural(q, 'day')}</b><small>${r.last ? fd(r.last.date, true) + ' · ' + esc(r.last.how) : 'No contact on file'}</small></div>
-    <div class="wm-num wm-c-last">${g ? money(g.amount) : 'None'}<small>${g ? fd(g.date, true) + (g.soft ? ' · soft credit' : '') : ''}</small></div>
+    <div class="wm-num wm-c-last">${g ? single(g.amount) : 'None'}<small>${g ? fd(g.date, true) + (g.soft ? ' · ' + softTerm() + (g.through ? ' through ' + esc(g.through) : '') : '') : ''}</small></div>
     <div class="wm-num wm-c-12">${money(r.l12)}<small>${esc(delta)}</small></div>
-    <div class="wm-num wm-c-life">${short(r.life)}<small>${plural(r.gifts, 'gift')}</small></div>
+    <div class="wm-num wm-c-life">${money(r.life)}<small>${plural(r.gifts, 'gift')}</small></div>
     <div class="wm-next wm-c-next">${next}</div>
     <div class="wm-acts">${window.FavorCall && r.phone && !r.dnc ? `<button type="button" class="wm-icon" data-wm-callmode="${esc(r.cid)}" title="Call mode" aria-label="Call mode for ${esc(r.name)}">${ic('phone')}</button>` : call}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-prep="${esc(r.cid)}">${ic('brief')}${prep ? 'Prep' : 'Open'}</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-log="${esc(r.cid)}">Log</button></div>
   </div>`;
@@ -106,7 +108,7 @@ function paint() {
         ${M.directors.length > 1 ? `<select class="wc-sel" data-wm-owner aria-label="Whose partners">${M.directors.map((d) => `<option value="${esc(d.fid)}"${d.fid === M.owner ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}</select>` : ''}
         <label class="wc-find wm-find">${ic('search')}<span class="sr-only">Find a partner</span><input id="wm-q" type="search" placeholder="Find a partner" value="${esc(M.q)}" autocomplete="off" /></label>
         <label class="wm-sortsel"><span class="sr-only">Sort by</span><select class="wc-sel" data-wm-sortsel aria-label="Sort by">${[['quiet', 'Last contact'], ['l12', '12 months'], ['life', 'Lifetime'], ['name', 'Name']].map(([k, l]) => `<option value="${k}"${M.sort === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button type="button" class="wm-dir" data-wm-sort="${M.sort}" aria-label="Reverse the order">${M.dir < 0 ? '↓' : '↑'}</button></label>
-        <div class="wm-seg" role="group" aria-label="Show">${FILTERS.map(([k, l]) => `<button type="button" class="${M.f === k ? 'is-on' : ''}" data-wm-f="${k}" aria-pressed="${M.f === k}">${l}</button>`).join('')}${M.f === 'nophone' ? '<button type="button" class="is-on" data-wm-f="nophone" aria-pressed="true">No phone</button>' : ''}</div>
+        <div class="wm-seg" role="group" aria-label="Show">${FILTERS.map(([k, l]) => `<button type="button" class="${M.f === k ? 'is-on' : ''}" data-wm-f="${k}" aria-pressed="${M.f === k}"${k === 'lapsed' ? ' title="Gave in the calendar year before this one and has not given yet this year. The Lapsed status on the Lists page means no gift in over 24 months."' : ''}>${l}</button>`).join('')}${M.f === 'nophone' ? '<button type="button" class="is-on" data-wm-f="nophone" aria-pressed="true">No phone</button>' : ''}</div>
         <span class="wm-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="work-partners">${SHEET}Open in Google Sheets</button>
       </div>

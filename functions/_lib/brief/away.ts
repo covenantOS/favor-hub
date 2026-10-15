@@ -2,6 +2,7 @@
 // when Today was last opened; a visit more than four hours after the last one starts a new session and remembers where the old one ended.
 import { keepAllowed } from '../access';
 import type { Env } from '../http';
+import { whole } from '../../../shared/giving';
 import { cacheGet, plural, sig } from './text';
 
 export interface Seen {
@@ -70,7 +71,7 @@ export interface AwayInput {
   env: Env;
   email: string;
   from: string;
-  /** Gift count and total since the visit, read by the caller only when the person may see partners. */
+  /** Gift count and total since the visit (overnightGifts: credited to the partner a soft credit names, uncapped), read by the caller only when the person may see partners. */
   gifts: { count: number; total: number } | null;
   isAdmin: boolean;
 }
@@ -80,7 +81,7 @@ export async function awayFor(i: AwayInput): Promise<Away> {
   const me = i.email.toLowerCase();
   const days = Math.max(1, Math.round((Date.now() - Date.parse(from)) / 86400000));
   const parts: AwayPart[] = [];
-  if (i.gifts && i.gifts.count) parts.push({ key: 'partners', label: 'Partners', count: i.gifts.count, line: `${plural(i.gifts.count, 'new gift')} from your partners, $${Math.round(i.gifts.total).toLocaleString('en-US')} in all`, href: '/work/?view=gifts' });
+  if (i.gifts && i.gifts.count) parts.push({ key: 'partners', label: 'Partners', count: i.gifts.count, line: `${plural(i.gifts.count, 'new gift')} from your partners, ${whole(i.gifts.total)} in all`, href: '/work/?view=gifts' });
 
   const [notices, fresh, submitted] = await Promise.all([
     one(env, 'SELECT COUNT(DISTINCT request_id) AS n FROM request_notices WHERE email = ? AND created_at > ?', me, from),

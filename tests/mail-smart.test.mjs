@@ -396,7 +396,7 @@ describe('the partner card', () => {
     const p = (await call(ADMIN, 'GET', 'partner/27202')).data.partner;
     assert.equal(p.total, 4300.5);
     assert.equal(p.count, 12);
-    assert.deepEqual(p.last, { amount: 100, date: '2026-10-02', fund: 'General' });
+    assert.deepEqual(p.last, { amount: 100, date: '2026-10-02', fund: 'General', through: '' });
     assert.deepEqual(p.holders, [{ name: 'Grace Lin', type: 'Partner Care' }]);
     assert.equal(p.lastContact.category, 'Phone call');
     assert.equal(p.openActions, 2);
