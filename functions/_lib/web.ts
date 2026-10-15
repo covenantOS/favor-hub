@@ -99,6 +99,50 @@ export async function decideWeb(env: Env, request: Request, url: URL, user: HubU
   return { kind: 'web', routes };
 }
 
+/** The sign-in page's two addresses. */
+export const LOGIN_PATHS = new Set(['/login', '/login/']);
+
+/**
+ * Whether the web app answers /login/ for this request. A visitor who is not signed in has no audience to check, so the entry decides:
+ * /login/@all serves everyone, and a narrower entry serves a signed-in person in it, and anyone who adds ?web=1 (how the page is tried
+ * before it goes to everyone). ?classic=1 always gets the Astro page.
+ */
+export async function webLoginOn(env: Env, url: URL, user: HubUser | null): Promise<boolean> {
+  if (!env.WEB || url.searchParams.get('classic') === '1') return false;
+  const s = await readWebSettings(env);
+  const entry = s.routes.find((e) => e.route === '/login/');
+  if (!entry) return false;
+  if (url.searchParams.get('web') === '1') return true;
+  const audience = entry.audience || s.audience;
+  return audience === 'all' || (!!user && inAudience(user, audience));
+}
+
+/**
+ * Whether the web app draws the "That page isn't here" page for an address nothing answers. The entry /404/ in web.routes decides, with its audience,
+ * for a signed-in person (a visitor is sent to sign in before any address is looked up).
+ */
+export async function webNotFoundOn(env: Env, url: URL, user: HubUser | null): Promise<boolean> {
+  if (!env.WEB || !user || user.role === 'field' || url.searchParams.get('classic') === '1' || optedOutUrl(url)) return false;
+  const s = await readWebSettings(env);
+  const entry = s.routes.find((e) => e.route === '/404/');
+  return !!entry && inAudience(user, entry.audience || s.audience);
+}
+const optedOutUrl = (url: URL): boolean => url.searchParams.get('web') === '0';
+
+/** The web app's answer for a page it takes over (sign-in, the not-found page), or null when it is not up (a thrown call, a 5xx or no page), so the Astro page still answers. */
+export async function tryServeWeb(env: Env, forwarded: Request): Promise<Response | null> {
+  try {
+    const res = await env.WEB!.fetch(forwarded);
+    if (res.status >= 500 || !(res.headers.get('Content-Type') || '').includes('text/html')) return null;
+    const out = new Response(res.body, res);
+    out.headers.set('Cache-Control', 'private, no-cache');
+    out.headers.set('X-Hub-Front', 'web');
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 /** The own-switch routes this person may open: their setting is on for them. */
 async function ownRoutesFor(env: Env, user: HubUser): Promise<string[]> {
   const out: string[] = [];

@@ -8,8 +8,8 @@ import { earlyPaths } from '../src/data/early';
 import { isEarly } from './_lib/early';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
-import { decide, serveApp } from './_lib/app2';
-import { decideWeb, serveWeb, webCookie, WEB_OPEN_PAGES } from './_lib/web';
+import { decide, isPageLoad, serveApp } from './_lib/app2';
+import { decideWeb, LOGIN_PATHS, serveWeb, tryServeWeb, webCookie, webLoginOn, webNotFoundOn, WEB_OPEN_PAGES } from './_lib/web';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
 import { withAssetCache } from './_lib/assetcache';
@@ -176,6 +176,15 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
     return out;
   };
 
+  // The sign-in page is open to visitors, so the web app answers it from its own entry (web.routes, /login/) and not from a person's audience.
+  // A Worker that is down never costs the sign-in page: the Astro page answers instead.
+  if (LOGIN_PATHS.has(path) && request.method === 'GET' && isPageLoad(request) && env.WEB) {
+    if (await webLoginOn(env, url, user).catch(() => false)) {
+      const served = await tryServeWeb(env, forwarded);
+      if (served) return served;
+    }
+  }
+
   let webRoutes: string[] | null = null;
   // A page that stays open without sign-in (the approver's emailed link) still goes to the web app for a person who is signed in and in the
   // route's audience. A visitor with no session, and the token that opens it, keep the Astro page exactly as before.
@@ -210,6 +219,11 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
     if (user && !open && enforce) noteUse(ctx, user, request.method, path);
     const res = withGc(await ctx.next(forwarded));
     if (!enforce || open || !isHtml(res)) return res;
+    // An address nothing answers: the web app draws the not-found page inside the frame (entry /404/ in web.routes), the Astro page when it is off or down.
+    if (res.status === 404 && user && request.method === 'GET' && isPageLoad(request) && env.WEB && (await webNotFoundOn(env, url, user).catch(() => false))) {
+      const served = await tryServeWeb(env, forwarded);
+      if (served) return served;
+    }
     // A signed-in page must not sit in a shared cache.
     const out = new Response(res.body, res);
     out.headers.set('Cache-Control', 'private, no-cache');

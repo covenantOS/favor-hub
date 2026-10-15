@@ -70,6 +70,10 @@ Aliases: `@/` is `app/src/` (the app2 shell, hooks and features, reused as they 
   environment loaded (`source Q:/work/favor-hub/cfenv.sh`). It waits for the shared lock, rebases, runs every test, builds and deploys
   the Worker and Pages together, and reads the route live.
 
+## Sign in, Connect Google and the not-found page
+
+These three have an Astro twin and keep it as the fallback. `/login/` and `/connect/` are plain HTML drawn straight from `web/src/server.ts` (`features/signin/pages.tsx`, stylesheet inlined, no router, no hydration), because a sign-in page that waits for the app's scripts is slower than the Astro one. `/login/` is open to visitors, so its `web.routes` entry decides for everyone (`/login/@all`), and a narrower entry is tried by adding `?web=1`. If the Worker is down or answers 5xx, `functions/_middleware.ts` serves the Astro page (`tryServeWeb`). The not-found page is the router's own (`features/notfound`): with `/404/` listed, the middleware hands an address the Pages project answers 404 to the Worker for a signed-in person in that entry's audience. `off /login/ /connect/ /404/` returns all three to Astro within about a minute.
+
 ## Parity before a route goes to staff
 
 Every Feature Catalog row for the route works by tapping in from another page and pressing Back; the same data as the Astro page for

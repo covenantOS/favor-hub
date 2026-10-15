@@ -5,6 +5,7 @@ import handler from '@tanstack/react-start/server-entry';
 import { env } from 'cloudflare:workers';
 import { HUB_ORIGIN } from './lib/hub';
 import { deferEntry } from './lib/defer-entry';
+import { signinHtml } from './features/signin/pages';
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -25,8 +26,12 @@ export default {
       }
       return Response.json({ ok: true, at: new Date().toISOString(), path, status, ms: Date.now() - t0, err, nav: path === '/api/hub/nav' ? status : undefined }, { headers: { 'cache-control': 'no-store' } });
     }
-    // Only the middleware calls this Worker, and it always names the person. Anything else is refused.
-    if (!request.headers.get('X-Hub-Email')) return new Response('Not found', { status: 404 });
+    // Only the middleware calls this Worker, and it names the person. Anything else is refused.
+    // The one page that names nobody is the sign-in page, which a visitor opens before signing in.
+    if (!request.headers.get('X-Hub-Email') && !/^\/login\/?$/.test(url.pathname)) return new Response('Not found', { status: 404 });
+    // Sign in and Connect Google are plain pages: no router, no scripts of the app's own.
+    const plain = request.method === 'GET' ? signinHtml(url.pathname) : null;
+    if (plain) return new Response(plain, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-cache', 'x-hub-front': 'web' } });
     const res = await handler.fetch(request);
     const html = (res.headers.get('content-type') || '').includes('text/html') && !!res.body;
     // A page's scripts start once its stylesheets have arrived (lib/defer-entry.ts), so the two do not share a slow link.

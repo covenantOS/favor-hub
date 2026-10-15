@@ -42,7 +42,9 @@ function useMeta() {
   // A page whose title comes from its data (a help article) hands the menu entry and title back from its loader as `shell`.
   const own = useMatches({ select: (m) => (m.at(-1)?.loaderData as { shell?: { nav: string; title: string } } | undefined)?.shell });
   const by = own || (meta.navOf ? meta.navOf(search) : null);
-  return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || 'FavorOS', layout: meta.layout, lean: !!meta.lean };
+  // An address nothing answers is named as the classic not-found page names it.
+  const gone = useMatches({ select: (m) => m.some((x) => x.status === 'notFound' || (x as { _notFound?: boolean })._notFound === true) });
+  return { navId: by?.nav || meta.nav || '', title: by?.title || meta.title || (gone ? 'Page not found' : 'FavorOS'), layout: meta.layout, lean: !!meta.lean };
 }
 
 function useView() {

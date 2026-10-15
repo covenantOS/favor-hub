@@ -68,4 +68,7 @@ export const WEB_ROUTE_LIST = [
   '/meet/series/',
   '/meet/room/',
   '/admin/meetings/',
+  '/login/',
+  '/connect/',
+  '/404/',
 ] as const;
