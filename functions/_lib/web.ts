@@ -14,6 +14,9 @@ import { isTester } from './testuser';
 import type { Env } from './http';
 import type { HubUser } from './session';
 
+/** Pages the middleware leaves open without sign-in. A signed-in person still gets the web app's version when the route is turned on for them. */
+export const WEB_OPEN_PAGES = new Set(['/expenses/review', '/expenses/review/']);
+
 export interface WebSettings {
   routes: WebEntry[];
   audience: WebAudience;

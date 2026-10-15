@@ -22,4 +22,5 @@ export const WEB_ROUTE_LIST = [
   '/feedback/',
   '/welcome/',
   '/evaluations/',
+  '/expenses/',
 ] as const;

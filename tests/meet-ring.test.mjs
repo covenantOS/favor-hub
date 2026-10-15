@@ -14,6 +14,9 @@ function ringWorld(opts) {
   w.d1.exec(read('db/meetings-ring.sql'));
   w.d1.exec(read('db/quiet-hours.sql'));
   w.d1.exec(read('db/cron-runs.sql'));
+  // Quiet hours default to 8 PM to 7 AM Eastern, so a test that rings someone would fail at night. Every test person starts with them off;
+  // the quiet-hours test turns them on for one person.
+  for (const email of [ADMIN.email, ADMIN2.email, ADMIN3.email, 'tester@favorintl.org', 'tester2@favorintl.org']) w.d1.db.prepare(`INSERT INTO hub_quiet (email, on_quiet, start_min, end_min, weekends, tz, updated_at) VALUES (?, 0, 1200, 420, 0, 'America/New_York', '2026-10-14')`).run(email);
   return w;
 }
 
@@ -88,7 +91,7 @@ test('quiet hours: no ring, a missed huddle note instead; hanging up stops the r
   const w = ringWorld();
   for (const u of [ADMIN, ADMIN2, ADMIN3]) await call(w, u, 'GET', 'boot');
   // Bo's quiet hours cover the whole day.
-  w.d1.db.prepare(`INSERT INTO hub_quiet (email, on_quiet, start_min, end_min, weekends, tz, updated_at) VALUES (?, 1, 0, 1439, 0, 'America/New_York', '2026-10-14')`).run(ADMIN2.email);
+  w.d1.db.prepare(`INSERT OR REPLACE INTO hub_quiet (email, on_quiet, start_min, end_min, weekends, tz, updated_at) VALUES (?, 1, 0, 1439, 0, 'America/New_York', '2026-10-14')`).run(ADMIN2.email);
   w.events.length = 0;
   const r = await call(w, ADMIN, 'POST', 'ring', { to: [ADMIN2.email] });
   assert.equal(r.data.rings[0].state, 'missed');
