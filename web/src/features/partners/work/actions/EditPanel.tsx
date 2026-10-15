@@ -130,6 +130,8 @@ function EditPanel({ id }: { id: string }) {
   const loads = useRef<Record<string, Promise<Extra<NoteRow | TagRow | FileRow>> | undefined>>({});
   const sum = useRef<HTMLInputElement>(null);
   const [side, setSide] = useState(true);
+  // The line above the name is drawn once when the action loads, as classic does; a category changed here shows after the panel is opened again.
+  const [head, setHead] = useState<string | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -147,6 +149,7 @@ function EditPanel({ id }: { id: string }) {
         if (off) return;
         const a = { ...d.action, tags: d.action.tags || [], fundraisers: d.action.fundraisers || [] };
         setAct(a);
+        setHead((a.type || 'Action') + ' · ' + (a.category || ''));
         setOrig(copy(a));
         setPartner(d.partner);
         setRecur(recurDraft(a.recur));
@@ -327,7 +330,7 @@ function EditPanel({ id }: { id: string }) {
     <Drawer label="Edit action" cls="ep">
       <div className="wc-dlg__head ep-head">
         <div>
-          <span className="h-label">{act ? (act.type || 'Action') + ' · ' + (act.category || '') : a0 ? a0.type + ' · ' + a0.cat : 'Action'}</span>
+          <span className="h-label">{head ?? (a0 ? a0.type + ' · ' + a0.cat : 'Action')}</span>
           <h2>{partner ? partner.name : a0 ? a0.p : 'Loading…'}</h2>
           <p className="ep-sub">
             {act ? (

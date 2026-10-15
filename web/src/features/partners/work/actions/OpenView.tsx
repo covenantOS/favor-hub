@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { ColumnsMenu, DensitySwitch } from '../../../../ui/table';
 import { loadScript } from '@/lib/legacy';
+import { loadDrill } from '../../../highlights/drill';
 import { openNew, openKeys } from './EditDialogs';
 import { ActionTable, useActionTable } from './ActionTable';
 import { toast } from './engine';
@@ -101,6 +102,8 @@ export function OpenView({ board, w, as, focusId }: { board: BoardData; w: Work;
   // The search box reports after a short pause.
   const [qv, setQv] = useState(f.q);
   useEffect(() => setQv(f.q), [f.q]);
+  // The stat numbers open the click-to-explain panel (public/js/drill.js); the web shell does not carry the script, so load it here.
+  useEffect(() => loadDrill(), []);
   const qt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const typeQ = (v: string) => {
     setQv(v);
