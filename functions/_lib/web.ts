@@ -40,7 +40,10 @@ export function inAudience(user: HubUser | null, audience: WebAudience): boolean
   if (user.via !== 'google' && user.via !== 'password') return false;
   if (user.role === 'field') return false;
   const email = user.email.toLowerCase();
-  if (isTester(email) || email === OWNER) return true;
+  if (email === OWNER) return true;
+  // A test account gets every route held to testers. A route held to admins follows its role, so a test account set to staff (the way
+  // staff-facing checks are run) sees the classic page there, as a real staff member does.
+  if (isTester(email)) return audience !== 'admin' || user.role === 'admin';
   if (audience === 'all') return true;
   if (audience === 'admin') return user.role === 'admin';
   return false;
