@@ -145,7 +145,7 @@ function tableHTML() {
   const cols = shownCols();
   const sort = { col: A.sort, dir: A.dir };
   const head = cols.map((c) => `<th class="pa-c-${c.k}${c.num ? ' is-num' : ''}" scope="col">${c.plain ? esc(c.l) : PT.th(KEY, c.k, c.l, sort, c.num ? 'is-num' : '')}</th>`).join('') + '<th class="pa-c-act" scope="col"><span class="pa-vh">Prep</span></th>';
-  return `<div class="pt-wrap"><table class="pt-table pa-table${A.busy ? ' is-busy' : ''}" data-pt-list="${KEY}" aria-label="Asks" aria-busy="${A.busy}"><thead><tr>${head}</tr></thead><tbody>${A.rows.map((r) => rowHTML(r, cols)).join('')}</tbody></table></div>`;
+  return `<div class="pt-wrap pt-wrap--fit"><table class="pt-table pa-table${A.busy ? ' is-busy' : ''}" data-pt-list="${KEY}" aria-label="Asks" aria-busy="${A.busy}"><thead><tr>${head}</tr></thead><tbody>${A.rows.map((r) => rowHTML(r, cols)).join('')}</tbody></table></div>`;
 }
 
 function view() {
@@ -199,7 +199,7 @@ function view() {
         <span class="pt-spacer"></span>
         <span class="pa-f pa-dens">${PT.densityHTML()}</span>
         <span class="pa-f pa-colsbox">${PT.colsHTML(KEY, COLS.map((c) => ({ k: c.k, l: c.l, fixed: c.fixed })), [])}</span>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm pa-f" data-sheets="asks">${ic('sheet')}Open in Google Sheets</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm pa-f" data-sheets="asks" title="Open in Google Sheets" aria-label="Open in Google Sheets">${ic('sheet')}Google Sheets</button>
       </div>
       <div class="pt-chips" aria-label="Filters set">${chips}</div>
       ${body}
@@ -208,7 +208,16 @@ function view() {
     </section>`;
   if (live) { const i = $('#wa-q'); if (i) { i.focus(); i.setSelectionRange(caret, caret); } }
   registerSheet();
+  fit();
 }
+// The table scrolls inside its card (sticky header row); this sets how much of the screen sits above and below it, so the pager stays in view.
+function fit() {
+  const w = $('#wa-sheet .pt-wrap--fit'); if (!w) return;
+  const pg = $('#wa-sheet .pt-pager');
+  w.style.setProperty('--pt-fit', Math.round(w.getBoundingClientRect().top + window.scrollY + (pg ? pg.offsetHeight : 48) + 10) + 'px');
+}
+window.addEventListener('resize', fit);
+document.addEventListener('pt:density', () => setTimeout(fit, 0));
 
 function registerSheet() {
   if (!window.FavorSheets || A.sheetOn) return;
