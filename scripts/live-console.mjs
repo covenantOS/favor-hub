@@ -13,7 +13,8 @@ if (!key) throw new Error('HUB_AGENT_KEY is not set');
 const args = process.argv.slice(2);
 const li = args.indexOf('--loads');
 const loads = li >= 0 ? Number(args[li + 1]) : 3;
-const paths = (args.length ? args : (process.env.LIVE_CONSOLE || '').split(' ')).filter((a, i, all) => a && a.startsWith('/') && all[i - 1] !== '--loads');
+const given = args.filter((a) => a.startsWith('/'));
+const paths = (given.length ? given : (process.env.LIVE_CONSOLE || '').split(' ')).filter((a) => a && a.startsWith('/'));
 
 // The Chromium the hub's QA scripts use.
 function chrome() {
