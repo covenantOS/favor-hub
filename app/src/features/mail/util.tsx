@@ -94,8 +94,8 @@ export function kindOf(mime: string, name: string) {
   const t = (mime || '') + ' ' + (name || '');
   if (/^image\//.test(mime || '') || /\.(png|jpe?g|gif|webp)$/i.test(name || '')) return 'image';
   if (/pdf/i.test(t)) return 'pdf';
-  if (/wordprocessingml|\.docx/i.test(t)) return 'docx';
-  if (/spreadsheetml|\.xlsx|text\/csv|\.csv/i.test(t)) return 'xlsx';
+  if (/wordprocessingml|\.docx\b/i.test(t)) return 'docx';
+  if (/spreadsheetml|\.xlsx\b|text\/csv|\.csv\b/i.test(t)) return 'xlsx';
   if (/^video\//.test(mime || '')) return 'video';
   if (/^audio\//.test(mime || '')) return 'audio';
   return 'file';

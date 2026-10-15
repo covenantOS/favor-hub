@@ -490,7 +490,7 @@ export async function readSearch(runModel: (system: string, user: string, max: n
   const plainWords = question.replace(/[^\w@.\-\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
   const m = raw.match(/\{[\s\S]*\}/);
   // When the model gives no usable search, Gmail searches the words as typed.
-  if (!m) return plainWords ? { q: plainWords, partners: /partners?/i.test(question), major: /major/i.test(question) } : null;
+  if (!m) return plainWords ? { q: plainWords, partners: /\bpartners?\b/i.test(question), major: /\bmajor\b/i.test(question) } : null;
   try {
     const j = JSON.parse(m[0]);
     const q = String(j.q || '').replace(/[^\w@:.\-"\s/+]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);

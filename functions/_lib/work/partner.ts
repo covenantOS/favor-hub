@@ -9,11 +9,12 @@ import { mirror } from '../foundations/blackbaud';
 import { openActionSql } from '../hub/actions';
 import { etParts } from '../actions/intake';
 import { FUNDRAISERS_SQL, SYNCED_SQL, readOnly, type ActionsRepo, type PartnerHit } from './repo';
+import { partnerGiving, type MirrorQ } from '../gifts/partner-giving';
+import { lifetimeLine, passedOnLine, sourceLine, STATUS_WORD, throughName } from '../../../shared/giving';
 
 export type Q = <T = Record<string, any>>(sql: string, params?: unknown[]) => Promise<T[]>;
 
 /** The gift types that count as money received. A RecurringGift row is the pledge; its payments are the gifts. */
-const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 /** Categories that count as a contact with the partner. Task/Other is paperwork. */
 const CONTACT_CATEGORIES = "('Email', 'Phone call', 'Meeting', 'Mailing')";
 
@@ -32,9 +33,15 @@ export interface PartnerGift {
   type: string;
   fund: string;
   status: string;
-  /** Set when the credit is a soft credit to this partner for someone else's gift. */
+  /** Set when the gift sits on another record (a DAF, foundation or business) and is soft-credited to this partner. */
   soft: boolean;
   comment: string;
+  /** The amount credited to this partner's household (shared/giving.ts). Equal to amount except on a split soft credit. */
+  credited?: number;
+  /** The record the gift came through, for a soft credit: "National Christian Foundation (DAF)". */
+  through?: string;
+  /** The household member whose record the gift is on, when it is the spouse's. */
+  by?: string;
 }
 
 export interface PartnerAction {
@@ -68,17 +75,30 @@ export interface PartnerView {
     phones: { id?: string; number: string; type: string; primary: boolean; doNotCall: boolean }[];
   };
   household: { id: string; name: string; lookup: string; relation: string }[];
+  /** Household giving by the KPI dashboard's rule (shared/giving.ts): soft credits count for the partner they name, spouses once. */
   giving: {
     total: number;
     count: number;
     firstDate: string;
     ytd: number;
     last12: number;
+    /** total = everything credited that year; soft = the part that came through another record. */
     years: { year: string; total: number; count: number; soft: number }[];
     largest: PartnerGift | null;
     last: PartnerGift | null;
     recent: PartnerGift[];
     soft: { total: number; count: number; recent: PartnerGift[] };
+    /** Their own gifts (on their or their spouse's record, no soft credit). */
+    own: { total: number; count: number };
+    through: { id: string; name: string; kind: string; total: number; count: number }[];
+    /** "$76,500 in 43 gifts" and "All through National Christian Foundation (DAF)". */
+    line: string;
+    source: string;
+    status: string;
+    major: boolean;
+    /** Gifts this record sent for other partners (a DAF or foundation). */
+    passedOn: { total: number; count: number; partners: number; line: string };
+    household: { id: string; name: string; relation: string }[];
   };
   recurring: { id: string; amount: number; status: string; since: string; fund: string; lastPayment: string; lastAmount: number | null; payments: number }[];
   actions: { openCount: number; open: PartnerAction[]; recent: PartnerAction[] };
@@ -231,11 +251,8 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   const k = rows[0];
   if (!k) return null;
   const raw = parse<any>(k.raw, {});
-  const yearStart = today.slice(0, 4) + '-01-01';
-  const lastYear = String(Number(today.slice(0, 4)) - 1) + today.slice(4);
-  const like = `%"constituent_id":"${id}"%`;
 
-  const [emails, phones, addresses, own, byYear, largest, lastGift, ytdRow, last12Row, softRows, recurringRows, paymentRows, openRows, openN, doneRows, noteRows, contactRows,
+  const [emails, phones, addresses, pg, recurringRows, paymentRows, openRows, openN, doneRows, noteRows, contactRows,
     assigns, iwRows, bbIw, oppRows, codeRows, fundraisers, synced, spouseRows] = await Promise.all([
     q<any>('SELECT id AS id, email_address AS address, is_primary AS prim, do_not_email AS dne FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
     q<any>('SELECT id AS id, phone_number AS number, phone_type AS type, is_primary AS prim, do_not_call AS dnc FROM phones WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
@@ -244,33 +261,7 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
          FROM addresses WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 6`,
       [id]
     ),
-    q<any>(
-      `SELECT COUNT(*) AS n, COALESCE(SUM(gift_amount), 0) AS total, MIN(substr(gift_date, 1, 10)) AS first FROM gifts
-        WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN}`,
-      [id]
-    ),
-    q<any>(
-      `SELECT substr(gift_date, 1, 4) AS yr, COUNT(*) AS n, SUM(gift_amount) AS total FROM gifts
-        WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} GROUP BY 1 ORDER BY 1 DESC LIMIT 30`,
-      [id]
-    ),
-    q<any>(
-      `SELECT id, gift_amount AS amount, substr(gift_date, 1, 10) AS gdate, gift_type AS gtype, gift_status AS gstatus, gift_splits AS splits, gift_comments AS comment
-         FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} ORDER BY gift_amount DESC, gift_date DESC LIMIT 1`,
-      [id]
-    ),
-    q<any>(
-      `SELECT id, gift_amount AS amount, substr(gift_date, 1, 10) AS gdate, gift_type AS gtype, gift_status AS gstatus, gift_splits AS splits, gift_comments AS comment
-         FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} ORDER BY gift_date DESC LIMIT 30`,
-      [id]
-    ),
-    q<any>(`SELECT COALESCE(SUM(gift_amount), 0) AS total FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} AND substr(gift_date, 1, 10) >= ?2`, [id, yearStart]),
-    q<any>(`SELECT COALESCE(SUM(gift_amount), 0) AS total FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIVEN} AND substr(gift_date, 1, 10) > ?2`, [id, lastYear]),
-    q<any>(
-      `SELECT id, gift_amount AS amount, substr(gift_date, 1, 10) AS gdate, gift_type AS gtype, gift_status AS gstatus, gift_splits AS splits, gift_comments AS comment, soft_credits AS soft
-         FROM gifts WHERE soft_credits LIKE ?1 AND gift_amount > 0 ORDER BY gift_date DESC LIMIT 200`,
-      [like]
-    ),
+    partnerGiving(q as MirrorQ, id, today),
     q<any>(
       `SELECT id, gift_amount AS amount, gift_status AS status, substr(gift_date, 1, 10) AS since, gift_splits AS splits FROM gifts
         WHERE constituent_record_id = ?1 AND gift_type = 'RecurringGift' ORDER BY CASE gift_status WHEN 'Active' THEN 0 WHEN 'Held' THEN 1 ELSE 2 END, gift_date DESC LIMIT 12`,
@@ -323,8 +314,21 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   // Names for fundraisers and funds.
   const fname = new Map<string, string>();
   for (const f of fundraisers) fname.set(String(f.id), `${f.first ?? ''} ${f.last ?? ''}`.trim() || `Fundraiser ${f.id}`);
+  // The gift rows the page lists: the 25 newest credited gifts, the largest and the 10 newest that came through another record.
+  const credited = pg?.gifts || [];
+  const largestRow = credited.reduce<(typeof credited)[number] | null>((m, g) => (!m || g.amount > m.amount || (g.amount === m.amount && g.date > m.date) ? g : m), null);
+  const softList = credited.filter((g) => g.via).slice(0, 10);
+  const wanted = [...new Set([...credited.slice(0, 25), ...softList, ...(largestRow ? [largestRow] : [])].map((g) => g.id))];
+  const detailRows = wanted.length
+    ? await q<any>(
+        `SELECT id, gift_amount AS amount, substr(gift_date, 1, 10) AS gdate, gift_type AS gtype, gift_status AS gstatus, gift_splits AS splits, gift_comments AS comment
+           FROM gifts WHERE id IN (SELECT value FROM json_each(?1))`,
+        [JSON.stringify(wanted)]
+      )
+    : [];
+  const detail = new Map<string, any>(detailRows.map((g: any) => [String(g.id), g]));
   const fundIds = new Set<string>();
-  for (const g of [...largest, ...lastGift, ...softRows, ...recurringRows]) for (const f of fundIdsOf(g.splits)) fundIds.add(f);
+  for (const g of [...detailRows, ...recurringRows]) for (const f of fundIdsOf(g.splits)) fundIds.add(f);
   const funds = new Map<string, string>();
   if (fundIds.size) {
     for (const f of await q<{ id: string; name: string }>('SELECT id AS id, fund_description AS name FROM funds WHERE id IN (SELECT value FROM json_each(?1))', [JSON.stringify([...fundIds])])) funds.set(String(f.id), f.name || '');
@@ -356,31 +360,19 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     fundraisers: parse<any[]>(a.frs, []).map((f) => ({ id: String(f), name: fname.get(String(f)) || `Fundraiser ${f}` })),
   });
 
-  // Soft credits: the amount credited to this partner is the entry that names them, not the gift's full amount.
-  const softGifts: PartnerGift[] = [];
-  const softYears = new Map<string, { total: number; count: number }>();
-  let softTotal = 0;
-  for (const g of softRows) {
-    const mine = parse<any[]>(g.soft, []).filter((s) => String(s.constituent_id) === id);
-    if (!mine.length) continue;
-    const amount = mine.reduce((t, s) => t + num(s.amount?.value), 0);
-    if (!(amount > 0)) continue;
-    softTotal += amount;
-    const y = text(g.gdate).slice(0, 4);
-    const row = softYears.get(y) || { total: 0, count: 0 };
-    row.total += amount;
-    row.count += 1;
-    softYears.set(y, row);
-    softGifts.push({ ...giftOf(g, true), amount });
-  }
-
-  const years = new Map<string, { year: string; total: number; count: number; soft: number }>();
-  for (const y of byYear) years.set(text(y.yr), { year: text(y.yr), total: num(y.total), count: num(y.n), soft: 0 });
-  for (const [y, v] of softYears) {
-    const row = years.get(y) || { year: y, total: 0, count: 0, soft: 0 };
-    row.soft = v.total;
-    years.set(y, row);
-  }
+  // Credited gifts in the page's gift shape. The amount shown is the gift's own amount; credited is what counts for this household.
+  const viaName = new Map<string, string>((pg?.through || []).map((t) => [t.id, throughName(t)]));
+  const memberName = new Map<string, string>((pg?.members || []).map((m) => [m.id, m.name]));
+  const shown = (c: (typeof credited)[number]): PartnerGift => {
+    const g = detail.get(c.id) || { id: c.id, amount: c.gift, gdate: c.date };
+    const out: PartnerGift = { ...giftOf(g, !!c.via), credited: c.amount };
+    if (c.via) out.through = viaName.get(c.via) || '';
+    else if (c.giver !== id) out.by = memberName.get(c.giver) || '';
+    return out;
+  };
+  const softGifts = softList.map(shown);
+  const softTotal = (pg?.through || []).reduce((t, x) => t + x.total, 0);
+  const softCount = (pg?.through || []).reduce((t, x) => t + x.count, 0);
 
   // Contact details. The record's own address and the address table agree on the preferred one; the table lists the others.
   const prefAddr = addresses.find((a: any) => Number(a.prim) === 1) || addresses[0];
@@ -453,11 +445,9 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     else paid.set(key, { date: text(p.pdate), amount: num(p.amount), n: 1 });
   }
 
-  const total = num(own[0]?.total);
-  const gifts = lastGift.map((g: any) => giftOf(g));
-  const largestGift = largest[0] ? giftOf(largest[0]) : null;
+  const gifts = credited.slice(0, 25).map(shown);
+  const largestGift = largestRow ? shown(largestRow) : null;
   const lastOne = gifts[0] || null;
-  const ytd = num(ytdRow[0]?.total);
   const phone = phoneList.find((p) => p.primary) || phoneList[0];
   const mail = emailList.find((e) => e.primary) || emailList[0];
 
@@ -478,16 +468,24 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     },
     household,
     giving: {
-      total,
-      count: num(own[0]?.n),
-      firstDate: text(own[0]?.first),
-      ytd,
-      last12: num(last12Row[0]?.total),
-      years: [...years.values()].sort((a, c) => (a.year < c.year ? 1 : -1)),
+      total: pg?.total || 0,
+      count: pg?.count || 0,
+      firstDate: pg?.first || '',
+      ytd: pg?.ytd || 0,
+      last12: pg?.last12 || 0,
+      years: (pg?.years || []).slice(0, 30).map((y) => ({ year: y.year, total: y.total, count: y.count, soft: y.through })),
       largest: largestGift,
       last: lastOne,
-      recent: gifts.slice(0, 25),
-      soft: { total: softTotal, count: softGifts.length, recent: softGifts.slice(0, 10) },
+      recent: gifts,
+      soft: { total: Math.round(softTotal * 100) / 100, count: softCount, recent: softGifts },
+      own: pg?.own || { total: 0, count: 0 },
+      through: (pg?.through || []).map((t) => ({ id: t.id, name: throughName(t), kind: t.kind, total: t.total, count: t.count })),
+      line: pg ? lifetimeLine(pg) : 'No gifts yet',
+      source: pg ? sourceLine(pg) : '',
+      status: pg && pg.count ? STATUS_WORD[pg.status] : '',
+      major: !!pg?.major,
+      passedOn: { ...(pg?.passedOn || { total: 0, count: 0, partners: 0 }), line: pg ? passedOnLine(pg) : '' },
+      household: (pg?.members || []).map((m) => ({ id: m.id, name: m.name, relation: m.relation === 'self' ? 'This partner' : 'Spouse' })),
     },
     recurring: recurringRows.map((r: any) => ({
       id: String(r.id),
@@ -543,9 +541,9 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
       place,
       phone: phone ? phone.number : null,
       email: mail ? mail.address : null,
-      last_gift_cents: lastOne ? centsOf(lastOne.amount) : null,
+      last_gift_cents: lastOne ? centsOf(lastOne.credited ?? lastOne.amount) : null,
       last_gift_date: lastOne ? lastOne.date : null,
-      year_to_date_cents: centsOf(ytd),
+      year_to_date_cents: centsOf(pg?.ytd || 0),
       last_contact_date: lastContact ? lastContact.date : null,
       last_contact_kind: lastContact ? kindOf(lastContact.category) : null,
     },

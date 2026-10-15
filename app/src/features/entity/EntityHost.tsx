@@ -192,7 +192,15 @@ function Card() {
           <dl className="fe-facts">
             {it.facts.map((f) => (
               <div key={f.k}>
-                <dt>{f.k}</dt>
+                <dt>
+                  {f.tip ? (
+                    <span className="h-term" tabIndex={0} role="button" aria-label={`${f.k}. ${f.tip}`} data-term={f.tip}>
+                      {f.k}
+                    </span>
+                  ) : (
+                    f.k
+                  )}
+                </dt>
                 <dd>{f.v}</dd>
               </div>
             ))}

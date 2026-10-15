@@ -90,3 +90,9 @@ button.fe-chip { appearance: none; }
 @media (prefers-reduced-motion: reduce) { .fe-card, .fe-scrim, .fe-toast, .fe-av--wait, .fe-wait i { animation: none; transition: none; } }
 
 body:has(.fe-card) .h-tt { display: none; }
+
+/* terms: a word with its plain meaning (FavorUI.term, the Term component). Dotted underline; the box shows on hover, focus and tap. */
+.h-term { border-bottom: 1px dotted currentColor; cursor: help; text-decoration: none; }
+.h-term:focus-visible { outline: 2px solid var(--h-brand, #2b4d24); outline-offset: 2px; border-radius: 2px; }
+.h-tipbox { position: fixed; z-index: 10050; left: 0; top: 0; padding: 8px 10px; border-radius: 8px; background: var(--h-ink, #1b1f1a); color: #fff; font: 500 12.5px/1.45 var(--h-font, inherit); box-shadow: 0 6px 20px rgba(0, 0, 0, .18); opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+.h-tipbox.is-on { opacity: 1; }

@@ -127,6 +127,31 @@ const PANES = new Map(); // id:tab -> the element a record tab (records.js) draw
 const V = { tab: 'overview', id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host: null, mode: 'drawer', editing: null, tl: null, story: null };
 function holderOf(p) { const cur = (p.assignments || []).filter((a) => a.current); return cur; }
 function figure(label, value, sub) { return `<div class="pp-fig"><b>${value}</b><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</div>`; }
+/* A word with its plain meaning on hover and tap (FavorUI.term, shared/giving.ts TERMS). */
+const term = (key, label) => (window.FavorUI && window.FavorUI.term ? window.FavorUI.term(key, label) : esc(label || key));
+const wholeMoney = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
+/* How a gift reached the partner, in plain words: through a DAF or foundation (soft credit), from the spouse, a monthly payment. */
+function giftHow(g) {
+  const parts = [];
+  if (g.through) parts.push('Through ' + g.through + ' (soft credit)');
+  else if (g.soft) parts.push('Soft credit');
+  if (g.by) parts.push('Given by ' + g.by);
+  parts.push(g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type === 'Donation' ? '' : g.type);
+  if (g.credited != null && Math.abs(g.credited - g.amount) > 0.005) parts.push(money(g.credited) + ' of it credited here');
+  if (g.comment) parts.push(String(g.comment).replace(/\bDonor note\b/gi, 'Partner note'));
+  return parts.filter(Boolean).join(' · ');
+}
+/* Under the four figures: where the giving came from, the household it counts for, status, and gifts a DAF passed on for others. */
+function givingNotes(p) {
+  const g = p.giving || {};
+  const bits = [];
+  if (g.source) bits.push(`<span>${term((g.through || []).some((t) => t.kind === 'daf') ? 'daf' : 'soft', g.source)}</span>`);
+  const spouse = (g.household || []).find((m) => m.relation === 'Spouse');
+  if (spouse) bits.push(`<span>${term('household', 'Counts ' + spouse.name + '\u2019s gifts too')}</span>`);
+  if (g.status) bits.push(`<span>${term(g.status === 'LYBUNT' ? 'lybunt' : String(g.status).toLowerCase(), g.status)}${g.major ? ' · ' + term('major') : ''}</span>`);
+  if (g.passedOn && g.passedOn.count) bits.push(`<span>${term('passedOn', 'Passed on for others')}: ${esc(g.passedOn.line)}</span>`);
+  return bits.length ? `<p class="pp-givenote">${bits.join('')}</p>` : '';
+}
 function eventsOf(p) {
   const L = local(p.id);
   if (V.tl && window.FavorBrief) {
@@ -135,8 +160,9 @@ function eventsOf(p) {
     return all.filter((e) => e.d).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
   }
   const ev = [];
-  for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', gid: g.id, d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment ? String(g.comment).replace(/Donor note/gi, 'Partner note') : ''].filter(Boolean).join(' · ') });
-  for (const g of ((p.giving.soft && p.giving.soft.recent) || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: 'Soft credit' });
+  for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', gid: g.id, d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: giftHow(g) });
+  // Older pages sent soft credits apart; the list above now holds them, so only add ones it lacks.
+  for (const g of ((p.giving.soft && p.giving.soft.recent) || [])) if (!(p.giving.recent || []).some((x) => x.id === g.id)) ev.push({ t: 'gift', gid: g.id, d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: giftHow(g) });
   for (const a of (p.actions.recent || [])) ev.push({ t: 'act', id: a.id, d: a.done || a.due, icon: CAT_IC[a.category] || 'task', what: a.summary || plain(a.type), text: a.description, by: (a.fundraisers || []).map((f) => f.name).join(', ') + (a.outcome ? ' · ' + a.outcome : '') });
   for (const e of L.events) if (!ev.some((x) => x.t === e.t && x.what === e.what && x.d === e.d)) ev.push(e);
   return ev.filter((e) => e.d).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
@@ -190,7 +216,7 @@ function oweCards(p) {
   const L = local(p.id);
   const list = (p.toThank || []).filter((g) => !L.thanked || !L.thanked.has(g.key));
   if (!list.length || !window.FavorWG) return L.thankedNow ? `<div class="wg-owe is-done"><div><b>Thanked just now</b><span>By ${esc(L.thankedNow)}</span></div></div>` : '';
-  return list.slice(0, 3).map((g) => `<div class="wg-owe" data-wg-owe="${esc(g.key)}"><div><b>${money(g.amount)} to thank</b><span>${[esc(fd(g.date)), esc(g.fund || ''), (g.clock && g.clock.state !== 'older' && window.FavorWG && window.FavorWG.clock ? esc(window.FavorWG.clock(g.clock.due).label) : g.ageDays > 1 ? Number(g.ageDays).toLocaleString('en-US') + ' days' : g.ageDays === 1 ? 'Yesterday' : 'Today'), g.soft ? 'Soft credit' : ''].filter(Boolean).join(' · ')}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-thank="${esc(g.key)}">${ic('check')}Thank</button></div>`).join('') + (list.length > 3 ? `<p class="pp-empty" style="margin:6px 28px 0">${(list.length - 3).toLocaleString('en-US')} more ${list.length - 3 === 1 ? 'gift' : 'gifts'} to thank</p>` : '');
+  return list.slice(0, 3).map((g) => `<div class="wg-owe" data-wg-owe="${esc(g.key)}"><div><b>${money(g.amount)} to thank</b><span>${[esc(fd(g.date)), esc(g.fund || ''), (g.clock && g.clock.state !== 'older' && window.FavorWG && window.FavorWG.clock ? esc(window.FavorWG.clock(g.clock.due).label) : g.ageDays > 1 ? Number(g.ageDays).toLocaleString('en-US') + ' days' : g.ageDays === 1 ? 'Yesterday' : 'Today'), g.soft ? term('soft') : ''].filter(Boolean).join(' · ')}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-thank="${esc(g.key)}">${ic('check')}Thank</button></div>`).join('') + (list.length > 3 ? `<p class="pp-empty" style="margin:6px 28px 0">${(list.length - 3).toLocaleString('en-US')} more ${list.length - 3 === 1 ? 'gift' : 'gifts'} to thank</p>` : '');
 }
 const commSec = () => (window.FavorComm ? '<section class="pp-sec" data-pp-comm><h3>Communication</h3><div data-pp-commbody></div></section>' : '');
 function commFill(root, p) {
@@ -250,18 +276,18 @@ function view(p, o = {}) {
       ${window.FavorIx && email ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ix-clip="${esc(JSON.stringify({ kind: 'partner', ref: String(p.id), people: [{ email: email.address, name: p.name }] }))}">Send a clip</button>` : ''}
     </div>`;
   const giving = `<div class="pp-giving">
-      ${figure('Lifetime', money(Math.round(g.total)), g.count ? g.count.toLocaleString('en-US') + (g.count === 1 ? ' gift' : ' gifts') : 'No gifts')}
-      ${figure('This year', money(Math.round(g.ytd)), 'Last 12 months ' + short(g.last12))}
-      ${figure('Last gift', g.last ? money(g.last.amount) : 'None', g.last ? fd(g.last.date) + (g.last.fund ? ' · ' + esc(g.last.fund) : '') : '')}
-      ${figure('Largest', g.largest ? money(g.largest.amount) : 'None', g.largest ? fd(g.largest.date, true) : '')}
-    </div>`;
+      ${figure(term('lifetime', 'Lifetime'), wholeMoney(g.total), g.count ? g.count.toLocaleString('en-US') + (g.count === 1 ? ' gift' : ' gifts') : g.passedOn && g.passedOn.count ? 'None of its own' : 'No gifts yet')}
+      ${figure('This year', wholeMoney(g.ytd), 'Last 12 months ' + wholeMoney(g.last12))}
+      ${figure('Last gift', g.last ? money(g.last.credited != null ? g.last.credited : g.last.amount) : 'None', g.last ? fd(g.last.date) + (g.last.fund ? ' · ' + esc(g.last.fund) : '') + (g.last.through ? ' · through ' + esc(g.last.through) : '') : '')}
+      ${figure('Largest', g.largest ? money(g.largest.credited != null ? g.largest.credited : g.largest.amount) : 'None', g.largest ? fd(g.largest.date, true) : '')}
+    </div>${givingNotes(p)}`;
   const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? lateText(-dayn(t.due)) : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
       <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? lateText(-n) : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div>${p.actions.openCount > (p.actions.open || []).length ? `<p class="pp-empty pp-openmore">Showing ${(p.actions.open || []).length} of ${Number(p.actions.openCount).toLocaleString('en-US')} open. The rest are in Blackbaud.</p>` : ''}</section>`;
   const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].concat(V.tl && V.tl.events.some((x) => x.kind === 'chat' || x.kind === 'clip' || x.kind === 'mention' || (x.kind === 'meeting' && x.id.startsWith('meet:'))) ? [['more', 'Mentions and meetings']] : []).map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
   if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${commSec()}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
-  const chart = years.length ? `<section class="pp-sec"><h3>Giving by year</h3><div class="pp-chart" style="grid-template-columns:repeat(${years.length}, minmax(0, 1fr))">${years.map((y) => `<div class="pp-bar2${y.year === TODAY.slice(0, 4) ? ' is-now' : ''}" title="${esc(y.year)}: ${money(Math.round(y.total))}${y.soft ? ' plus ' + money(Math.round(y.soft)) + ' soft credit' : ''}"><em>${short(y.total)}</em><i style="height:${Math.max(4, Math.round(y.total / max * 92))}px"></i><span>${esc(y.year)}</span></div>`).join('')}</div></section>` : '';
+  const chart = years.length ? `<section class="pp-sec"><h3>Giving by year</h3><div class="pp-chart" style="grid-template-columns:repeat(${years.length}, minmax(0, 1fr))">${years.map((y) => { const via = Math.min(y.soft || 0, y.total); const words = `${y.year}: ${wholeMoney(y.total)} in ${y.count} ${y.count === 1 ? 'gift' : 'gifts'}${via ? (via >= y.total - 0.005 ? ', all through another record (soft credit)' : `, ${wholeMoney(via)} of it through another record (soft credit)`) : ''}`; return `<div class="pp-bar2${y.year === TODAY.slice(0, 4) ? ' is-now' : ''}" title="${esc(words)}" aria-label="${esc(words)}"><em>${short(y.total)}</em><i style="height:${Math.max(4, Math.round(y.total / max * 92))}px">${via ? `<b class="pp-bar2__via" style="height:${Math.round(via / Math.max(y.total, 1) * 100)}%"></b>` : ''}</i><span>${esc(y.year)}</span></div>`; }).join('')}</div>${years.some((y) => y.soft) ? `<p class="pp-chartkey"><s></s>${term('soft', 'Through a DAF, foundation or business')}</p>` : ''}</section>` : '';
   const opps = `<section class="pp-sec"><h3>Opportunities <button type="button" data-pp-oppnew>New opportunity</button></h3>
       ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp${x.id && String(x.id) === FOCUS_OPP ? ' is-focus' : ''}" data-opp="${esc(x.id || '')}"><div><b>${esc(String(x.name || '').trim() || 'No name')}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
       ${V.editing === 'oppnew' ? oppForm(null) : ''}</section>`;
@@ -463,7 +489,7 @@ async function peek(el, id) {
   if (peekFor !== el) return;
   if (!peekEl) { peekEl = document.createElement('div'); peekEl.className = 'pp-peek'; peekEl.setAttribute('aria-hidden', 'true'); document.body.appendChild(peekEl); }
   const h = holderOf(p)[0];
-  peekEl.innerHTML = `<h4>${esc(p.name)}</h4><p>${esc(p.place || 'No city on file')}${h ? ' · ' + esc(h.name) : ''}</p><dl><dt>Last gift</dt><dd>${p.giving.last ? money(p.giving.last.amount) + ' on ' + fd(p.giving.last.date) : 'None'}</dd><dt>This year</dt><dd>${money(Math.round(p.giving.ytd))}</dd><dt>Lifetime</dt><dd>${money(Math.round(p.giving.total))}</dd><dt>Last contact</dt><dd>${p.lastContact ? esc(p.lastContact.category || p.lastContact.type) + ', ' + fd(p.lastContact.date) : 'None'}</dd><dt>Open</dt><dd>${p.actions.openCount} ${p.actions.openCount === 1 ? 'action' : 'actions'}</dd></dl>`;
+  peekEl.innerHTML = `<h4>${esc(p.name)}</h4><p>${esc(p.place || 'No city on file')}${h ? ' · ' + esc(h.name) : ''}</p><dl><dt>Last gift</dt><dd>${p.giving.last ? money(p.giving.last.credited != null ? p.giving.last.credited : p.giving.last.amount) + ' on ' + fd(p.giving.last.date) + (p.giving.last.through ? ' through ' + esc(p.giving.last.through) : '') : 'None'}</dd><dt>This year</dt><dd>${wholeMoney(p.giving.ytd)}</dd><dt>Lifetime</dt><dd>${wholeMoney(p.giving.total)}${p.giving.source ? '<br><small>' + esc(p.giving.source) + '</small>' : ''}</dd><dt>Last contact</dt><dd>${p.lastContact ? esc(p.lastContact.category || p.lastContact.type) + ', ' + fd(p.lastContact.date) : 'None'}</dd><dt>Open</dt><dd>${p.actions.openCount} ${p.actions.openCount === 1 ? 'action' : 'actions'}</dd></dl>`;
   const r = el.getBoundingClientRect();
   peekEl.style.left = Math.max(8, Math.min(window.innerWidth - 316, r.left)) + 'px';
   peekEl.style.top = (r.bottom + 236 > window.innerHeight ? Math.max(8, r.top - 232) : r.bottom + 8) + 'px';
