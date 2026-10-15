@@ -129,7 +129,7 @@ test('the classic rail, tab row and phone bar hide Early access pages until the 
   for (const c of ['NavArea', 'NavTabs']) {
     const src = fs.readFileSync('src/components/' + c + '.astro', 'utf8');
     assert.ok(/data-early=/.test(src), c + ' marks early pages with data-early');
-    assert.ok(/.early ? true/.test(src) || /p.early ? true/.test(src) || /page.early ? true/.test(src), c + ' hides early pages first');
+    assert.ok(src.includes('early ? true'), c + ' hides early pages first');
   }
-  assert.ok(/p.early/.test(fs.readFileSync('src/components/NavBar.astro', 'utf8')));
+  assert.ok(fs.readFileSync('src/components/NavBar.astro', 'utf8').includes('p.early'));
 });
