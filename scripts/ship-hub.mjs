@@ -192,5 +192,10 @@ if (checks.length) {
     pause(45000);
     return execSync('node scripts/live-front.mjs', { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CHECKS: checks.join(' ') } });
   });
+  // Web routes are opened in a real browser too (script and hydration errors). A finding is reported; the ship stays.
+  const web = checks.map((c) => c.replace(/^[A-Za-z]:[\\/].*?[\\/]Git(?=[\\/])/, '')).filter((c) => c.endsWith('=web')).map((c) => c.split('=')[0]);
+  if (web.length) {
+    try { execSync('node scripts/live-console.mjs --loads 2', { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CONSOLE: web.join(' ') } }); } catch { console.log('BROWSER ERRORS on a web route (above): fix them before turning the route on for more people'); }
+  }
 }
 console.log('\nshipped ' + sh('git rev-parse --short HEAD', { capture: true }).trim());
