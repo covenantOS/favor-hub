@@ -2,5 +2,6 @@ node_modules/
 dist/
 .wrangler/
 src/styles/layout.css
+src/boot/favor-boot.js
 .dev.vars
 src/routeTree.gen.ts

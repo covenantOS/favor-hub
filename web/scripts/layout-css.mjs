@@ -16,4 +16,11 @@ let old = '';
 try { old = readFileSync(target, 'utf8'); } catch { /* first run */ }
 mkdirSync(here('../src/styles'), { recursive: true });
 if (old !== out) writeFileSync(target, out);
+// The three scripts every page ran inline in its head (page ownership, Lite mode, held space) as one file: a repeat visit reads it from the
+// cache instead of downloading the same 38 KB of text inside every page. Generated here from the classic layout's own sources.
+const boot = ['hub-own.js', 'lite.js', 'hub-motion.js'].map((f) => readFileSync(here('../../public/js/' + f), 'utf8')).join('\n;\n');
+mkdirSync(here('../src/boot'), { recursive: true });
+let oldBoot = '';
+try { oldBoot = readFileSync(here('../src/boot/favor-boot.js'), 'utf8'); } catch { /* first run */ }
+if (oldBoot !== boot) writeFileSync(here('../src/boot/favor-boot.js'), boot);
 console.log('layout-css: ' + files.length + ' stylesheets');

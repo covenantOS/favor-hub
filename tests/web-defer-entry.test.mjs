@@ -56,3 +56,23 @@ describe('deferEntry with a repeat visitor', () => {
     assert.ok(!(await new Response(deferEntry(mk(), 'hub_w=index-1.jsx')).text()).includes('<script type="module"'));
   });
 });
+
+describe('head scripts move ahead of the stylesheets', () => {
+  const PAGE = '<!DOCTYPE html><html><head><meta charset="utf-8"/><link rel="stylesheet" href="/_w/a.css"/><title>T</title><script src="/_w/boot-1.js"></script><style>html{}</style><script>window.a=1</script></head><body><main>x</main>' + ENTRY + TAIL;
+  it('puts the plain head scripts, in order, before the first stylesheet and leaves the rest where it was', async () => {
+    const enc = new TextEncoder();
+    const out = await new Response(deferEntry(new ReadableStream({ start(c) { c.enqueue(enc.encode(PAGE)); c.close(); } }))).text();
+    const head = out.slice(0, out.indexOf('</head>'));
+    assert.ok(head.indexOf('/_w/boot-1.js') < head.indexOf('<link rel="stylesheet"'));
+    assert.ok(head.indexOf('window.a=1') < head.indexOf('<link rel="stylesheet"'));
+    assert.ok(head.indexOf('/_w/boot-1.js') < head.indexOf('window.a=1'));
+    assert.ok(head.includes('<title>T</title><style>html{}</style></head>') || head.includes('<title>T</title><style>html{}</style>'));
+    assert.equal((out.match(/boot-1\.js/g) || []).length, 1);
+  });
+  it('also does it for a repeat visitor', async () => {
+    const enc = new TextEncoder();
+    const out = await new Response(deferEntry(new ReadableStream({ start(c) { c.enqueue(enc.encode(PAGE)); c.close(); } }), 'hub_w=index-1.js')).text();
+    assert.ok(out.indexOf('/_w/boot-1.js') < out.indexOf('<link rel="stylesheet"'));
+    assert.ok(out.includes('<script type="module" async="" src="/_w/index-1.js">'));
+  });
+});

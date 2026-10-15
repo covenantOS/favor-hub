@@ -16,6 +16,26 @@ const ENTRY = /<script type="module" async="" src="(\/_w\/[^"]+\.js)"><\/script>
 const PRELOAD = /<link rel="modulepreload" href="([^"]+)"\/>/g;
 const LIMIT = 200_000;
 
+// Scripts in the head that sit after a stylesheet link make the browser stop reading the page until that stylesheet has arrived, so the
+// body is not built while the styles download. React puts its stylesheet links first in the head, so the head's own plain scripts are
+// moved ahead of the first one: the page is read while the styles load and paints the moment they land.
+const HEAD_SCRIPT = /<script(?: src="[^"]+")?><\/script>|<script>[\s\S]*?<\/script>/g;
+const FIRST_SHEET = '<link rel="stylesheet"';
+
+function hoistHeadScripts(html: string): string {
+  const end = html.indexOf('</head>');
+  const sheet = html.indexOf(FIRST_SHEET);
+  if (end < 0 || sheet < 0 || sheet > end) return html;
+  const head = html.slice(sheet, end);
+  const moved: string[] = [];
+  const rest = head.replace(HEAD_SCRIPT, (m) => {
+    moved.push(m);
+    return '';
+  });
+  if (!moved.length) return html;
+  return html.slice(0, sheet) + moved.join('') + rest + html.slice(end);
+}
+
 const COOKIE = 'hub_w';
 const base = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 
@@ -35,7 +55,7 @@ export function rewriteHead(html: string, cookie = ''): string | null {
   const m = ENTRY.exec(html);
   if (!m) return null;
   // This browser ran this build's entry script before, so its files are in the cache: leave the page as the server drew it.
-  if (cookie && cookie.split(';').some((c) => c.trim() === COOKIE + '=' + base(m[1]))) return html;
+  if (cookie && cookie.split(';').some((c) => c.trim() === COOKIE + '=' + base(m[1]))) return hoistHeadScripts(html);
   const preloads: string[] = [];
   const stripped = html.replace(PRELOAD, (_all, href: string) => {
     preloads.push(href);
@@ -43,7 +63,7 @@ export function rewriteHead(html: string, cookie = ''): string | null {
   });
   const at = ENTRY.exec(stripped);
   if (!at) return null;
-  return stripped.slice(0, at.index) + LOADER(m[1], preloads) + stripped.slice(at.index + at[0].length);
+  return hoistHeadScripts(stripped.slice(0, at.index) + LOADER(m[1], preloads) + stripped.slice(at.index + at[0].length));
 }
 
 /** Wraps a streamed page. Only the part up to the entry script is held; everything after it passes through untouched. */
