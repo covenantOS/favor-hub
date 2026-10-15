@@ -47,9 +47,9 @@ function RailPart({ rail, onSignOut }: { rail: RailState; onSignOut: () => void 
 }
 
 function TopPart({ rail }: { rail: RailState }) {
-  const { access, kpiTeams, view, navId } = useView();
+  const { d, access, kpiTeams, view, navId } = useView();
   const { title } = useMeta();
-  return <TopBar view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />;
+  return <TopBar view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} jobs={d.jobs ?? null} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />;
 }
 
 function BarPart({ rail }: { rail: RailState }) {

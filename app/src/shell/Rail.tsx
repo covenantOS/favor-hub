@@ -280,11 +280,6 @@ export function Rail({ view, user, rail, tours, onSignOut }: Props) {
           Feedback
         </button>
         <Account user={user} onSignOut={onSignOut} />
-        <button type="button" className="h-search" data-cmdk-open>
-          <Icon name="search" />
-          <span className="h-search__t">Search</span>
-          <kbd>Ctrl K</kbd>
-        </button>
       </div>
     </aside>
   );

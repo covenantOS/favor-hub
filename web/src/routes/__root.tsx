@@ -43,7 +43,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function Document({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // The boot script sets classes and --sbw on <html> before React hydrates; those are expected to differ from the server copy.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <style>{'html,body{background:#f4efe0}'}</style>

@@ -136,7 +136,7 @@ export function Shell({ children }: { children: ReactNode }) {
         />
         <div className="h-main">
           <ErrorBoundary label="The top bar could not load." className="h-top">
-            <TopBar actions={pm.actions} view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />
+            <TopBar actions={pm.actions} view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} jobs={d?.jobs ?? null} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />
           </ErrorBoundary>
           <main id="h-content" tabIndex={-1} className={layoutClass}>
             {children}

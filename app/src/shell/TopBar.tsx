@@ -5,10 +5,8 @@ import { Icon } from './Icon';
 import { NavLink } from './NavLink';
 import { RelBadge } from './RelBadge';
 import type { NavView } from './model';
-import { pageVisible } from './model';
 import { resolveNav } from '@hub/data/areas';
-import { useEffect } from 'react';
-import { loadScript } from '@/lib/legacy';
+import { TabRow } from './TabRow';
 
 interface Props {
   /** Markup a classic page put in the actions slot. */
@@ -20,21 +18,22 @@ interface Props {
   crumb?: string;
   access: Partial<Access> & Record<string, unknown>;
   kpiTeams: string[];
+  /** This person's jobs from /api/hub/nav: which tabs come first. */
+  jobs?: readonly string[] | null;
   menuOpen: boolean;
   onMenu: () => void;
   onRemember: (areaId: string, pageId: string) => void;
 }
 
-/** The top bar: menu button (phone), the area's tile and title, its tabs, then search, bell, Clips, help, Feedback and Make a request. */
-export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, menuOpen, onMenu, onRemember }: Props) {
-  // Groups the tabs and moves any that do not fit under More (public/js/tab-org.js).
-  useEffect(() => {
-    loadScript('/js/tab-org.js?v=1').catch(() => {});
-  }, []);
+/** The top bar, the React twin of the header in src/layouts/App.astro: menu button (phone), the area's tile, the area as a breadcrumb over
+ * the page's name and badge, the tab row, then search, bell, Clips, help, Feedback and Make a request. */
+export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, jobs = null, menuOpen, onMenu, onRemember }: Props) {
   const found = resolveNav(navId);
   const area = found?.area;
-  const tabs = area ? area.pages.filter((p) => !p.ext && pageVisible(p, access, kpiTeams)) : [];
-  const showTabs = tabs.length > 1;
+  const sameAsArea = !!found && (found.page.label === found.area.label || found.page.label === found.area.short);
+  const headTitle = found ? (sameAsArea ? found.area.label : found.page.label) : title;
+  const headKey = found ? (sameAsArea ? found.area.id : 'page:' + found.page.id) : '';
+  const crumbHref = found ? (found.area.pages.find((p) => p.menu !== false) || found.area.pages[0]).href : '';
   const clipsRecord = !!access.clips && access.clipsRecord !== false;
   return (
     <header className="h-top">
@@ -47,34 +46,18 @@ export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', ac
         </span>
       )}
       <div className="h-top__head">
-        <div className="h-top__crumb">{area ? area.label : crumb}</div>
+        <div className="h-top__crumb" hidden={found && !sameAsArea ? undefined : true}>
+          {found && !sameAsArea ? <NavLink href={crumbHref}>{found.area.label}</NavLink> : found ? found.area.label : crumb}
+          <span className="h-top__crumb2" id="h-crumb2" />
+        </div>
         <div className="h-top__title">
-          {area ? area.label : title}
-          {found && <RelBadge k={'page:' + found.page.id} areaId={found.area.id} className="h-rel--head" />}
-          {found?.page.id === 'projects' && <span className="h-top__note">Synced with Asana</span>}
+          {headTitle}
+          {found && <RelBadge k={headKey} areaId={found.area.id} className="h-rel--head" />}
+          {found && found.page.note && <span className="h-top__note">{found.page.note}</span>}
         </div>
       </div>
       <div className="h-top__tabs" id="h-tabs-slot">
-        {area && (
-          <nav className="h-tabs" id="h-tabs" data-area={area.id} aria-label={`${area.label} sections`} hidden={!showTabs}>
-            <div className="h-tabs__row">
-              {tabs.map((p) => {
-                const on = p.id === navId || (p.also || []).includes(navId);
-                const n = p.count ? view.areas.flatMap((a) => a.pages).find((x) => x.page.id === p.id)?.count || 0 : 0;
-                return (
-                  <NavLink key={p.id} className={'h-tab' + (on ? ' is-on' : '')} href={p.href} data-nav-id={p.id} data-kpi-page={p.kpiPage} aria-current={on ? 'page' : undefined} onClick={() => onRemember(area.id, p.id)}>
-                    {p.label}
-                    {p.count && (
-                      <span className="h-nav__count" data-count={p.count} hidden={!n}>
-                        {n.toLocaleString('en-US')}
-                      </span>
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          </nav>
-        )}
+        {area && <TabRow area={area} navId={navId} view={view} access={access} kpiTeams={kpiTeams} jobs={jobs} onRemember={onRemember} />}
       </div>
       <div className="h-top__right" data-ui-actions>
         <div className="pp-headsearch pv-find" id="pp-headsearch" hidden>

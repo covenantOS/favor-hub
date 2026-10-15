@@ -28,7 +28,8 @@ const typing = (t: EventTarget | null) => {
 export function useRail(email: string, curArea: string) {
   const wideOk = useMq(wideMq);
   const phone = useMq(phoneMq);
-  const [prefs, setPrefs] = useState(() => (typeof window === 'undefined' ? ({} as ReturnType<typeof readPrefs>) : readPrefs(email)));
+  // Empty on the first render everywhere (server and hydration agree); the saved choices load right after mount.
+  const [prefs, setPrefs] = useState(() => ({}) as ReturnType<typeof readPrefs>);
   const [peek, setPeek] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [pop, setPop] = useState<string | null>(null);
