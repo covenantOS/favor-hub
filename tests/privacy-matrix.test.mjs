@@ -672,7 +672,7 @@ describe('Work Center and HQTY gate: no team, no access (2026-10-15)', () => {
     assert.equal(mayHqty((await gateOf(care, 'madeup@favorintl.org', 'staff')).wu.scope), false, 'Partner Care does not open HQTY');
   });
 
-  it('the hub admin flag alone gives all-access, and an admin with no staff row keeps it', async () => {
+  it('the FavorOS admin flag alone gives all-access, and an admin with no staff row keeps it', async () => {
     const { d1 } = await world();
     const r = await gateOf(d1, 'ann@favorintl.org', 'admin');
     assert.equal(r.ok, true);
