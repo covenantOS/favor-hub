@@ -8,16 +8,39 @@ import { HttpError, newId, nowIso } from '../http';
 import { isTester, TESTER_REFUSAL } from '../testuser';
 import { mirrorQ, listMirrorQ } from '../work/partner';
 import { opsUrl } from '../foundations/blackbaud';
+import { sendMail } from '../notify/send';
+import { logEvent } from '../work/db';
 import { saveBatch, todayEt, authorizeBatch, type Ctx } from '../work/service';
 import { planEdit } from '../work/edit';
 import { clean } from '../actions/completion';
 import { EDITABLE_FREQUENCIES, FREQUENCY_LABEL, loadRecurring, type RawSchedule, type ScheduleRow, type RecurringStats } from './read';
 
+const NL = String.fromCharCode(10, 10);
 const ID = /^\d{1,12}$/;
+
+/** Codes that mean Blackbaud was asked and the schedule may not read the way the person wanted: the read-back failed, the call was refused or no answer came. */
+const ALERT_CODES = new Set(['not_applied', 'status_not_applied', 'sky_api_error', 'lost', 'refused']);
+
+/**
+ * A failed read-back alerts tech@favorintl.org: one row in the Work Center event log (act_events) and one email through the hub's
+ * mail sender (which honors the notify.only hold). Never throws: the person still sees the failure message.
+ */
+export async function alertTech(ctx: Ctx, f: { code: string; message: string; giftId: string; cid: string; op: string; changeId: string; lost?: boolean }): Promise<void> {
+  if (!f.lost && !ALERT_CODES.has(f.code)) return;
+  const detail = `Recurring gift ${f.giftId} (partner ${f.cid}), ${f.op}: ${f.code}. ${f.message}`.slice(0, 600);
+  await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, kind: 'recurring_alert', ok: false, detail }).catch(() => undefined);
+  const lines = [
+    `A recurring gift change by ${ctx.actor} did not check out.`,
+    detail,
+    f.lost ? 'Blackbaud gave no answer, so the change may or may not have landed. Open the schedule in Blackbaud before anyone tries again.' : 'Blackbaud did not show the new value on read-back. The page told the person it was not saved.',
+    `Change log id ${f.changeId} in FavorOS (table act_recurring_changes).`,
+  ];
+  await sendMail(ctx.env, { to: 'tech@favorintl.org', subject: 'Recurring gift change failed read-back', html: lines.map((l) => `<p>${l.replace(/[&<>]/g, '')}</p>`).join(''), text: lines.join(NL), fromName: 'FavorOS' }).catch(() => false);
+}
 export const UNDO_HOURS = 24;
 export const FOLLOW_TYPE = 'RESERVED (Information Update)';
 export const ASKED_BY = ['Phone call', 'Email', 'Letter', 'Online', 'In person'] as const;
-export const OPS = ['amount', 'frequency', 'status'] as const;
+export const OPS = ['amount', 'frequency', 'status', 'skip', 'next_date'] as const;
 export type Op = (typeof OPS)[number];
 export const STATUS_WANTED = ['Active', 'Held', 'Terminated'] as const;
 
@@ -26,7 +49,7 @@ export const mayRecurring = (s: Ctx['scope']): boolean => !s || s.role === 'admi
 
 export interface Snapshot { id: string; constituent_id: string; amount: number | null; frequency: string | null; status: string | null; start_date: string | null; end_date: string | null; next_date: string | null }
 export type SenderResult = { ok: true; before: Snapshot; after: Snapshot } | { ok: false; message: string; code?: string; lost?: boolean };
-export interface SendInput { id: string; op: Op; amount?: number; frequency?: string; status?: string }
+export interface SendInput { id: string; op: Op; amount?: number; frequency?: string; status?: string; date?: string }
 export type EditSender = (env: Ctx['env'], input: SendInput) => Promise<SenderResult>;
 
 export async function recurringEditUrl(env: Ctx['env']): Promise<string> {
@@ -91,6 +114,8 @@ const lc = (v: string | null | undefined) => (v ? FREQUENCY_LABEL[String(v).toUp
 export function summaryOf(op: string, before: Partial<Snapshot>, after: Partial<Snapshot>): string {
   if (op === 'amount') return `Amount ${money(before.amount)} to ${money(after.amount)}`;
   if (op === 'frequency') return `Frequency ${lc(before.frequency)} to ${lc(after.frequency)}`;
+  if (op === 'skip') return `Skipped one charge, next charge ${after.next_date || ''}`.trim();
+  if (op === 'next_date') return `Next charge ${before.next_date || ''} to ${after.next_date || ''}`;
   const word: Record<string, string> = { Active: 'Resumed', Held: 'Held', Terminated: 'Stopped' };
   return word[String(after.status)] || `Status ${before.status} to ${after.status}`;
 }
@@ -125,6 +150,7 @@ export function overlay(schedules: RawSchedule[], changes: ChangeRow[], today: s
       if (!after) continue;
       if (c.op === 'amount' && after.amount != null) out.amount = after.amount;
       if (c.op === 'frequency' && after.frequency) out.freq = after.frequency;
+      if ((c.op === 'skip' || c.op === 'next_date') && after.next_date) out.nxt = after.next_date;
       if (c.op === 'status' && after.status) {
         out.status = after.status;
         out.sdate = c.at.slice(0, 10);
@@ -229,6 +255,10 @@ export async function editSchedule(ctx: Ctx, input: EditInput, send: EditSender 
     const f = String(input.frequency || '').toUpperCase();
     if (!(EDITABLE_FREQUENCIES as readonly string[]).includes(f)) throw new HttpError(400, 'bad_frequency', 'Pick weekly, monthly, quarterly or yearly.');
     send_.frequency = f;
+  } else if (op === 'skip') {
+    // the route works out the new date from the next charge it reads
+  } else if (op === 'next_date') {
+    throw new HttpError(400, 'bad_op', 'Change the amount, the frequency, the status or skip one charge.');
   } else {
     const s = String(input.status || '');
     if (!(STATUS_WANTED as readonly string[]).includes(s)) throw new HttpError(400, 'bad_status', 'Pick Active, Held or Stopped.');
@@ -244,6 +274,7 @@ export async function editSchedule(ctx: Ctx, input: EditInput, send: EditSender 
   if (op === 'amount' && now.status !== 'Active' && now.status !== 'Held') throw new HttpError(409, 'not_active', 'Only an active or held schedule can change.');
   if (op === 'amount' && Number(send_.amount) === now.amount) throw new HttpError(400, 'same', 'That is the amount it already has.');
   if (op === 'frequency' && send_.frequency === now.frequency.toUpperCase()) throw new HttpError(400, 'same', 'It already runs on that frequency.');
+  if (op === 'skip' && now.status !== 'Active') throw new HttpError(409, 'not_active', 'Only an active schedule can skip a charge.');
   if (op === 'status' && send_.status === now.status) throw new HttpError(400, 'same', `It is already ${now.status === 'Terminated' ? 'stopped' : now.status.toLowerCase()}.`);
   await authorizeBatch(ctx, { op: 'new', cids: [now.cid], set: ctx.scope && ctx.scope.fid ? { fundraisers: [ctx.scope.fid] } : {} });
 
@@ -256,6 +287,7 @@ export async function editSchedule(ctx: Ctx, input: EditInput, send: EditSender 
   const sent = await send(ctx.env, send_);
   if (!sent.ok) {
     await ctx.env.DB.prepare('UPDATE act_recurring_changes SET state = ?, error = ? WHERE id = ?').bind(sent.lost ? 'lost' : 'failed', sent.message.slice(0, 300), id).run();
+    await alertTech(ctx, { code: sent.code || '', message: sent.message, giftId: giftId, cid: now.cid, op: op, changeId: id, lost: sent.lost });
     throw new HttpError(sent.lost ? 504 : 502, sent.lost ? 'lost' : sent.code || 'refused', sent.message);
   }
   await ctx.env.DB.prepare('UPDATE act_recurring_changes SET state = ?, before_json = ?, after_json = ? WHERE id = ?').bind('done', JSON.stringify(sent.before), JSON.stringify(sent.after), id).run();
@@ -311,7 +343,12 @@ export async function undoChange(ctx: Ctx, input: { id?: string; req?: string },
   const back: SendInput = { id: row.gift_id, op };
   if (op === 'amount') back.amount = Number(before.amount);
   else if (op === 'frequency') back.frequency = String(before.frequency);
-  else back.status = String(before.status);
+  else if (op === 'skip') {
+    if (!before.next_date) throw new HttpError(409, 'not_undoable', 'That change has no saved date to go back to.');
+    back.op = 'next_date';
+    back.date = String(before.next_date);
+  } else back.status = String(before.status);
+  const rowOp = back.op;
   const req = String(input.req || '').slice(0, 60) || newId('rcu');
   const repeat = await claimReq(ctx, req);
   if (repeat) return { ok: true, repeat: true };
@@ -319,19 +356,20 @@ export async function undoChange(ctx: Ctx, input: { id?: string; req?: string },
   const id = newId('rcg');
   await ctx.env.DB.prepare(
     `INSERT INTO act_recurring_changes (id, req, gift_id, cid, op, before_json, after_json, asked_by, state, undo_of, actor, actor_email, at) VALUES (?,?,?,?,?,?,?,?, 'sending', ?,?,?,?)`
-  ).bind(id, req, row.gift_id, row.cid, op, row.after_json, null, row.asked_by, row.id, ctx.actor, ctx.email, nowIso()).run();
+  ).bind(id, req, row.gift_id, row.cid, rowOp, row.after_json, null, row.asked_by, row.id, ctx.actor, ctx.email, nowIso()).run();
   const sent = await send(ctx.env, back);
   if (!sent.ok) {
     await ctx.env.DB.prepare('UPDATE act_recurring_changes SET state = ?, error = ? WHERE id = ?').bind(sent.lost ? 'lost' : 'failed', sent.message.slice(0, 300), id).run();
+    await alertTech(ctx, { code: sent.code || '', message: sent.message, giftId: row.gift_id, cid: row.cid, op: rowOp, changeId: id, lost: sent.lost });
     throw new HttpError(sent.lost ? 504 : 502, sent.lost ? 'lost' : sent.code || 'refused', sent.message);
   }
   await ctx.env.DB.prepare('UPDATE act_recurring_changes SET state = ?, before_json = ?, after_json = ? WHERE id = ?').bind('done', JSON.stringify(sent.before), JSON.stringify(sent.after), id).run();
   let batch: { id: string; n: number } | null = null;
   try {
     const now = await scheduleNow(ctx, row.gift_id);
-    batch = await logAction(ctx, { changeId: id, cid: row.cid, name: now ? now.name : '', op, before: sent.before, after: sent.after, askedBy: row.asked_by || '', note: '', giftId: row.gift_id, undo: true });
+    batch = await logAction(ctx, { changeId: id, cid: row.cid, name: now ? now.name : '', op: rowOp, before: sent.before, after: sent.after, askedBy: row.asked_by || '', note: '', giftId: row.gift_id, undo: true });
   } catch {
     // The undo stands.
   }
-  return { ok: true, id, state: 'done', summary: summaryOf(op, sent.before, sent.after), batch };
+  return { ok: true, id, state: 'done', summary: summaryOf(rowOp, sent.before, sent.after), batch };
 }

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { recurringResponse, type RecurringResponse, type RecurringRow } from '@shared/schemas';
+vi.mock('@/lib/legacy', async (orig) => ({ ...(await orig<object>()), loadScript: async () => undefined }));
 import { chipCounts, pageCount, pageList, parseAmount, shortDate, statusWord, visibleRows, monthsTitle } from '@/features/recurring/logic';
 
 const TODAY = '2026-10-14';
@@ -165,5 +166,35 @@ describe('the Recurring gifts page', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Active [0-9]/ }));
     fireEvent.change(screen.getByLabelText('Find a partner'), { target: { value: 'hal' } });
     expect(within(screen.getByRole('table')).queryByText('Ann Active')).toBeNull();
+  });
+});
+
+describe('skip one charge, hovers and Google Sheets', () => {
+  it('Skip one charge asks first, names the new date, then sends the skip', async () => {
+    const { calls } = await mount(true);
+    await screen.findByText('Active schedules');
+    fireEvent.click(within(screen.getByRole('table')).getByText('Ann Active').closest('[role="row"]') as HTMLElement);
+    fireEvent.click(await screen.findByRole('button', { name: 'Skip one charge' }));
+    expect(screen.getByText(/Skip the Nov 5 charge. The next charge becomes Dec 5./)).toBeTruthy();
+    expect(calls).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Skip it' }));
+    await screen.findByText(/Blackbaud read it back/);
+    expect(calls[0].body).toMatchObject({ giftId: '1', op: 'skip' });
+  });
+  it('the chip and the number say what they count on hover', async () => {
+    await mount(true);
+    const chip = (await screen.findByRole('button', { name: /^Giving 2\+ years/ })) as HTMLButtonElement;
+    expect(chip.title).toMatch(/first paid installment/);
+    expect((screen.getByText('Paid in the last 30 days').closest('.rg-stat') as HTMLElement).title).toMatch(/Eastern dates/);
+  });
+  it('Open in Google Sheets sends the rows on screen to the sheet builder', async () => {
+    const run = vi.fn(async () => ({ ok: true, url: 'https://docs.google.com/spreadsheets/d/x' }));
+    (window as unknown as { FavorSheets: unknown }).FavorSheets = { run, consent: vi.fn() };
+    await mount(true);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open in Google Sheets' }));
+    expect(await screen.findByText('Your sheet is ready. Open it')).toBeTruthy();
+    const spec = (run.mock.calls[0] as unknown[])[0] as { tabs: { rows: unknown[] }[]; provenance: { filters: string } };
+    expect(spec.tabs[0].rows).toHaveLength(5);
+    expect(spec.provenance.filters).toBe('Active');
   });
 });

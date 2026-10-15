@@ -104,3 +104,7 @@
   .rg-tr > [role="cell"]:last-child { grid-column: 1 / -1; }
   .rg-pair { grid-template-columns: 1fr; }
 }
+
+.rg-sheets { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rg-sheets .h-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.rg-sheets__err { font: 500 13px var(--h-font); color: #8f2a18; }

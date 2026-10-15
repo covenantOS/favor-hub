@@ -123,3 +123,55 @@ export function parseAmount(v: string): number | null {
 }
 
 export const methodLine = (r: RecurringRow) => `${amount(r.amount)}${r.frequencyLabel ? ' ' + r.frequencyLabel : ''}${r.method ? ' by ' + r.method.toLowerCase() : ''}`;
+
+/** What a chip or a number counts, shown on hover. Dates are Eastern. A paid installment is a payment above $0, so a declined charge never counts. */
+export const HINTS = {
+  twoyears: 'Active schedules whose first paid installment was two or more years ago. Counted from the first payment above $0, not from the start date.',
+  paid30: 'Active schedules with at least one paid installment (a payment above $0, so declined charges do not count) in the last 30 days, by Eastern dates. The dollars are the sum of those installments.',
+  declined: 'Active schedules with a declined charge since July 1. A schedule stays here after a later payment goes through, and the row says so.',
+  stopped90: 'Schedules stopped in the last 90 days that had a paid installment in the 180 days before.',
+} as const;
+
+/** Next charge one cycle on, for the confirm line. Mirrors the Blackbaud route (a month end stays a month end). */
+export function addCycle(ymd: string, frequency: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
+  if (!m) return '';
+  const f = frequency.toUpperCase();
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (f === 'WEEKLY') return new Date(Date.UTC(y, mo - 1, d + 7)).toISOString().slice(0, 10);
+  const add = ({ MONTHLY: 1, QUARTERLY: 3, ANNUALLY: 12 } as Record<string, number>)[f];
+  if (!add) return '';
+  const last = new Date(Date.UTC(y, mo - 1 + add + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, mo - 1 + add, Math.min(d, last))).toISOString().slice(0, 10);
+}
+
+/** Columns and rows for Open in Google Sheets: the rows the person is looking at, all pages. */
+export function sheetTabs(rows: RecurringRow[], today: string) {
+  const columns = [
+    { key: 'partner', label: 'Partner', type: 'text' },
+    { key: 'cid', label: 'Partner record', type: 'id' },
+    { key: 'amount', label: 'Amount', type: 'money' },
+    { key: 'frequency', label: 'How often', type: 'text' },
+    { key: 'method', label: 'Method', type: 'text' },
+    { key: 'status', label: 'Status', type: 'text' },
+    { key: 'next', label: 'Next charge', type: 'date' },
+    { key: 'lastPaid', label: 'Last paid', type: 'date' },
+    { key: 'paid', label: 'Paid installments', type: 'int' },
+    { key: 'paid12', label: 'Paid, last 12 months', type: 'int' },
+    { key: 'holder', label: 'Held by', type: 'text' },
+    { key: 'fund', label: 'Fund', type: 'text' },
+    { key: 'start', label: 'Started', type: 'date' },
+    { key: 'declinedOn', label: 'Last decline', type: 'date' },
+    { key: 'reason', label: 'Decline reason', type: 'text' },
+  ];
+  return [
+    {
+      name: 'Schedules',
+      columns,
+      rows: rows.map((r) => ({
+        partner: r.name, cid: r.cid, amount: r.amount, frequency: r.frequencyLabel, method: r.method, status: statusWord(r, today).text, next: r.status === 'Active' ? r.next : '', lastPaid: r.lastPaid,
+        paid: r.paid, paid12: r.paid12, holder: r.holder, fund: r.fund, start: r.start, declinedOn: r.declinedOn, reason: r.declineReason,
+      })),
+    },
+  ];
+}

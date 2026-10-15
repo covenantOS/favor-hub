@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const recurringChange = z
   .object({
     id: z.string(),
-    op: z.enum(['amount', 'frequency', 'status']),
+    op: z.enum(['amount', 'frequency', 'status', 'skip', 'next_date']),
     summary: z.string(),
     by: z.string().default(''),
     at: z.string(),

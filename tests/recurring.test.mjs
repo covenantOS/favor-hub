@@ -345,6 +345,48 @@ describe('editing a schedule', () => {
     } finally { done(); }
   });
 
+  it('a failed read-back or a lost answer alerts tech@ by email and in the event log; a plain validation refusal does not', async () => {
+    try {
+      const mails = [];
+      ctx.env.MAIL_HOOK = async (m) => { mails.push(m); return true; };
+      hub.exec('CREATE TABLE IF NOT EXISTS hub_settings (key TEXT PRIMARY KEY, value TEXT, updated_by TEXT, updated_at TEXT)');
+      await assert.rejects(svc.editSchedule(ctx, { giftId: '1002', op: 'amount', amount: 75, req: 'al1' }, sender({ fail: { ok: false, code: 'not_applied', message: 'Blackbaud accepted the change but the schedule still reads the old value.' } })));
+      await assert.rejects(svc.editSchedule(ctx, { giftId: '1002', op: 'amount', amount: 76, req: 'al2' }, sender({ fail: { ok: false, lost: true, message: 'Blackbaud did not answer.' } })));
+      await assert.rejects(svc.editSchedule(ctx, { giftId: '1002', op: 'amount', amount: 40, req: 'al3' }, sender()), /already has/);
+      assert.equal(mails.length, 2);
+      assert.equal(mails[0].to, 'tech@favorintl.org');
+      assert.match(mails[0].subject, /failed read-back/);
+      assert.match(mails[1].text, /may or may not have landed/);
+      assert.ok(!/token/i.test(mails[0].text));
+      assert.equal(hub.prepare("SELECT COUNT(*) n FROM act_events WHERE kind = 'recurring_alert'").get().n, 2);
+    } finally { done(); }
+  });
+
+  it('skip one charge is saved, moves the next charge over the mirror, and Undo sends the old date back', async () => {
+    try {
+      const calls2 = [];
+      const send = async (env, input) => {
+        calls2.push(input);
+        return input.op === 'skip'
+          ? { ok: true, before: { id: input.id, constituent_id: '2', amount: 40, frequency: 'MONTHLY', status: 'Active', next_date: day(20) }, after: { id: input.id, constituent_id: '2', amount: 40, frequency: 'MONTHLY', status: 'Active', next_date: day(50) } }
+          : { ok: true, before: { id: input.id, next_date: day(50) }, after: { id: input.id, next_date: input.date } };
+      };
+      const out = await svc.editSchedule(ctx, { giftId: '1002', op: 'skip', askedBy: 'Phone call', req: 'sk1' }, send);
+      assert.match(out.summary, /Skipped one charge/);
+      assert.deepEqual(calls2[0], { id: '1002', op: 'skip' });
+      let list = await svc.recurringResponse(ctx);
+      assert.equal(list.rows.find((x) => x.id === '1002').next, day(50));
+      const change = hub.prepare("SELECT id FROM act_recurring_changes WHERE op = 'skip'").get();
+      await svc.undoChange(ctx, { id: change.id, req: 'sk2' }, send);
+      assert.deepEqual(calls2[1], { id: '1002', op: 'next_date', date: day(20) });
+      list = await svc.recurringResponse(ctx);
+      assert.equal(list.rows.find((x) => x.id === '1002').next, day(20));
+      await assert.rejects(svc.editSchedule(ctx, { giftId: '1002', op: 'next_date', req: 'sk3' }, send), /Change the amount/);
+      await assert.rejects(svc.editSchedule(ctx, { giftId: '1004', op: 'skip', req: 'sk4' }, send), /has stopped/);
+      await assert.rejects(svc.editSchedule(ctx, { giftId: '1005', op: 'skip', req: 'sk5' }, send), /active schedule/);
+    } finally { done(); }
+  });
+
   it('a press repeated with the same req changes the schedule once', async () => {
     try {
       const send = sender();

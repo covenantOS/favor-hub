@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import { navResponse, type NavResponse } from '@shared/schemas';
+import { navResponse, recurringResponse, type NavResponse, type RecurringResponse } from '@shared/schemas';
 import { keys } from '@/lib/query';
 import { hubGet } from './hub';
 
@@ -9,4 +9,11 @@ export const navQuery = queryOptions({
   queryFn: async (): Promise<NavResponse> => navResponse.parse(await hubGet('/api/hub/nav')),
   staleTime: 20_000,
   refetchInterval: 120_000,
+});
+
+/** Gifts > Recurring: the same key and shape as the browser's read, drawn through hubGet so the server asks with the visitor's cookie. */
+export const recurringHubQuery = queryOptions({
+  queryKey: ['recurring'] as const,
+  queryFn: async (): Promise<RecurringResponse> => recurringResponse.parse(await hubGet('/api/work/recurring')),
+  staleTime: 20_000,
 });

@@ -1,20 +1,21 @@
 import './recurring.css';
-import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { api, send, ApiError } from '@/lib/api';
 import { ago, count, money0 } from '@/lib/format';
 import { hubOv } from '@/lib/hubOv';
+import { loadScript } from '@/lib/legacy';
 import { EntityChip } from '@/features/entity/EntityChip';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
 import { NavLink } from '@/shell/NavLink';
 import { recurringEditResponse, recurringResponse, type RecurringResponse, type RecurringRow } from '@shared/schemas';
-import { ROWS_CHOICES, amount, chipCounts, methodLine, monthsTitle, pageCount, pageList, parseAmount, shortDate, statusWord, visibleRows, type FilterId } from './logic';
+import { HINTS, ROWS_CHOICES, addCycle, amount, sheetTabs, chipCounts, methodLine, monthsTitle, pageCount, pageList, parseAmount, shortDate, statusWord, visibleRows, type FilterId } from './logic';
 
 export const RECURRING_KEY = ['recurring'] as const;
 
-function useRecurring() {
-  return useQuery({ queryKey: RECURRING_KEY, queryFn: () => api('/api/work/recurring', recurringResponse), staleTime: 20_000, refetchOnWindowFocus: true });
-}
+/** The browser's read. The web app passes its own (server and browser) through the page's `query` prop. */
+export const recurringQuery = queryOptions({ queryKey: RECURRING_KEY, queryFn: () => api('/api/work/recurring', recurringResponse), staleTime: 20_000, refetchOnWindowFocus: true });
+type RecurringQuery = typeof recurringQuery;
 
 const Dots = ({ months, today }: { months: boolean[]; today: string }) => (
   <span className="rg-dots" title={monthsTitle(months, today)} role="img" aria-label={monthsTitle(months, today)}>
@@ -24,9 +25,9 @@ const Dots = ({ months, today }: { months: boolean[]; today: string }) => (
   </span>
 );
 
-function Stat({ k, v, sub, link }: { k: string; v: string; sub?: string; link?: { href: string; text: string } }) {
+function Stat({ k, v, sub, link, hint }: { k: string; v: string; sub?: string; link?: { href: string; text: string }; hint?: string }) {
   return (
-    <div className="rg-stat">
+    <div className="rg-stat" title={hint}>
       <span className="rg-stat__k">{k}</span>
       <b className="rg-stat__v">{v}</b>
       {link ? (
@@ -47,9 +48,9 @@ function Stats({ d }: { d: RecurringResponse }) {
     <section className="h-card rg-stats" aria-label="Recurring gift numbers">
       <Stat k="Active schedules" v={count(s.active)} sub={`${count(s.card)} by card, ${count(s.bank)} by bank draft`} />
       <Stat k="Scheduled each cycle" v={money0(s.scheduledEach)} sub={`${count(s.payments12)} payments in the last 12 months`} />
-      <Stat k="Paid in the last 30 days" v={count(s.paid30Schedules)} sub={`${money0(s.paid30Amount)} from schedules with a payment since ${shortDate(since, d.today)}`} />
-      <Stat k="Declined since July" v={count(s.declined)} link={{ href: '/gifts/declines/', text: 'Work the declines' }} />
-      <Stat k="Stopped in 90 days" v={count(s.stopped90)} sub="Win-back calls for Partner Care" />
+      <Stat k="Paid in the last 30 days" hint={HINTS.paid30} v={count(s.paid30Schedules)} sub={`${money0(s.paid30Amount)} from schedules with a payment since ${shortDate(since, d.today)}`} />
+      <Stat k="Declined since July" hint={HINTS.declined} v={count(s.declined)} link={{ href: '/gifts/declines/', text: 'Work the declines' }} />
+      <Stat k="Stopped in 90 days" hint={HINTS.stopped90} v={count(s.stopped90)} sub="Win-back calls for Partner Care" />
     </section>
   );
 }
@@ -91,6 +92,7 @@ function Panel({ row, d, onClose }: { row: RecurringRow; d: RecurringResponse; o
   const [asked, setAsked] = useState('Phone call');
   const [note, setNote] = useState('');
   const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
   const st = statusWord(row, d.today);
   const newAmount = parseAmount(amt);
@@ -107,6 +109,7 @@ function Panel({ row, d, onClose }: { row: RecurringRow; d: RecurringResponse; o
       setAmt('');
       setNote('');
       setConfirmStop(false);
+      setConfirmSkip(false);
       await qc.invalidateQueries({ queryKey: RECURRING_KEY });
     },
     onError: (e) => setMsg({ tone: 'bad', text: e instanceof ApiError ? e.message : 'Something went wrong. Try again.' }),
@@ -266,6 +269,32 @@ function Panel({ row, d, onClose }: { row: RecurringRow; d: RecurringResponse; o
             >
               {held ? 'Resume the schedule' : 'Hold the schedule'}
             </button>
+            {row.status === 'Active' && row.next && !confirmSkip && (
+              <button type="button" className="h-btn h-btn--sm" disabled={busy} onClick={() => setConfirmSkip(true)}>
+                Skip one charge
+              </button>
+            )}
+            {confirmSkip && (
+              <span className="rg-confirm" role="alertdialog" aria-label="Confirm skip">
+                <span>
+                  Skip the {shortDate(row.next, d.today)} charge. The next charge becomes {shortDate(addCycle(row.next, row.frequency), d.today) || 'one cycle later'}.
+                </span>
+                <button
+                  type="button"
+                  className="h-btn h-btn--sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setMsg(null);
+                    change.mutate({ op: 'skip' });
+                  }}
+                >
+                  Skip it
+                </button>
+                <button type="button" className="h-btn h-btn--sm" onClick={() => setConfirmSkip(false)}>
+                  Keep it
+                </button>
+              </span>
+            )}
             {!confirmStop ? (
               <button type="button" className="h-btn h-btn--sm rg-danger" disabled={busy} onClick={() => setConfirmStop(true)}>
                 Stop the schedule
@@ -348,10 +377,11 @@ function Schedules({ d }: { d: RecurringResponse }) {
         <div className="rg-list__hd">
           <h2>Schedules</h2>
           <span>Declines first, then largest</span>
+          <SheetsButton rows={rows} today={d.today} filter={filter} search={search} />
         </div>
         <div className="rg-chips" role="group" aria-label="Filter schedules">
           {chips.map((c) => (
-            <button key={c.id} type="button" className={'rg-chip' + (filter === c.id ? ' is-on' : '')} aria-pressed={filter === c.id} onClick={() => pick(c.id)}>
+            <button key={c.id} type="button" title={c.id === 'twoyears' ? HINTS.twoyears : c.id === 'declined' ? HINTS.declined : c.id === 'stopped90' ? HINTS.stopped90 : undefined} className={'rg-chip' + (filter === c.id ? ' is-on' : '')} aria-pressed={filter === c.id} onClick={() => pick(c.id)}>
               {c.label} <b>{count(chips.counts[c.id])}</b>
             </button>
           ))}
@@ -471,38 +501,98 @@ function Schedules({ d }: { d: RecurringResponse }) {
   );
 }
 
+const SHEET_ICON = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M6 2.5h8.5L19 7v13.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#0f9d58" stroke="none"/><path d="M14.5 2.5V7H19" fill="#87ceac" stroke="none"/><rect x="8" y="10.5" width="8" height="7" rx=".5" fill="#fff" stroke="none"/><path d="M8 13h8M8 15.3h8M11 10.5v7" stroke="#0f9d58" stroke-width=".9" fill="none"/></svg>';
+
+interface SheetsApi {
+  run(spec: unknown): Promise<{ ok: boolean; url?: string; message?: string; error?: string; consentUrl?: string; connectUrl?: string }>;
+  consent(spec: unknown, url: string): void;
+}
+
+const CHIP_TEXT: Record<FilterId, string> = { active: 'Active', declined: 'Declined', stopped: 'Stopped', held: 'Held', twoyears: 'Giving 2+ years', card: 'Card', bank: 'Bank', pastdue: 'Past due', pastend: 'Past end date', stopped90: 'Stopped in 90 days' };
+
+/** Open in Google Sheets: sends the rows on screen (every page of the chosen chip and search) to the shared sheet builder. */
+function SheetsButton({ rows, today, filter, search }: { rows: RecurringRow[]; today: string; filter: FilterId; search: string }) {
+  const [state, setState] = useState<{ phase: 'idle' | 'busy' | 'done' | 'bad'; text?: string; url?: string }>({ phase: 'idle' });
+  // Loaded after mount so the script's return-from-Google step runs on this page.
+  useEffect(() => {
+    void loadScript('/js/sheets.js?v=2').catch(() => undefined);
+  }, []);
+  const press = async () => {
+    if (!rows.length) return setState({ phase: 'bad', text: 'There is nothing to put in a sheet yet.' });
+    setState({ phase: 'busy' });
+    try {
+      await loadScript('/js/sheets.js?v=2');
+      const sheets = (window as unknown as { FavorSheets?: SheetsApi }).FavorSheets;
+      if (!sheets) throw new Error('Sheets did not load.');
+      const label = CHIP_TEXT[filter] + (search.trim() ? ', matching ' + search.trim() : '');
+      const spec = { mode: 'rows', title: 'Recurring gifts ' + today, tabs: sheetTabs(rows, today), provenance: { kind: 'screen', page: '/gifts/recurring/', filters: label }, classes: [] };
+      const out = await sheets.run(spec);
+      if (!out.ok && (out.error === 'consent' || out.error === 'not_connected')) {
+        sheets.consent(spec, out.consentUrl || out.connectUrl || '');
+        return;
+      }
+      setState(out.ok ? { phase: 'done', url: out.url } : { phase: 'bad', text: out.message || 'The sheet did not build.' });
+    } catch (e) {
+      setState({ phase: 'bad', text: e instanceof Error ? e.message : 'The sheet did not build.' });
+    }
+  };
+  return (
+    <span className="rg-sheets">
+      {state.phase === 'done' && state.url ? (
+        <a className="h-btn h-btn--ghost h-btn--sm" href={state.url} target="_blank" rel="noopener" title="Only you can open it. Keep it inside Favor.">
+          <span dangerouslySetInnerHTML={{ __html: SHEET_ICON }} />
+          Your sheet is ready. Open it
+        </a>
+      ) : (
+        <button type="button" className="h-btn h-btn--ghost h-btn--sm" disabled={state.phase === 'busy'} onClick={() => void press()}>
+          <span dangerouslySetInnerHTML={{ __html: SHEET_ICON }} />
+          {state.phase === 'busy' ? 'Building your sheet' : 'Open in Google Sheets'}
+        </button>
+      )}
+      {state.phase === 'bad' && (
+        <span className="rg-sheets__err" role="alert">
+          {state.text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** Gifts > Recurring: every recurring gift schedule with the numbers over it, and the changes staff make to a schedule. */
-export function RecurringPage() {
-  const q = useRecurring();
-  const d = q.data;
+export function RecurringPage({ query = recurringQuery }: { query?: RecurringQuery }) {
   return (
     <div className="rg">
-      <ErrorBoundary label="Recurring numbers" className="h-card">
-        {d ? (
-          <>
-            <Stats d={d} />
-            {d.synced && <p className="rg-sync">Blackbaud copy read {ago(d.synced)}. Changes made here show at once.</p>}
-          </>
-        ) : q.isError ? null : (
-          <div className="h-card rg-stats rg-stats--wait" aria-busy="true" />
-        )}
-      </ErrorBoundary>
-      <ErrorBoundary label="Schedules" className="h-card">
-        {d ? (
-          <Schedules d={d} />
-        ) : q.isError ? (
-          <section className="h-card rg-list" role="alert">
-            <p className="rg-empty">{q.error instanceof ApiError ? q.error.message : 'Recurring gifts did not load.'}</p>
-            <button type="button" className="h-btn h-btn--sm" onClick={() => void q.refetch()}>
-              Try again
-            </button>
-          </section>
-        ) : (
-          <section className="h-card rg-list">
-            <SkeletonList />
-          </section>
-        )}
+      <ErrorBoundary label="Recurring gifts did not load." className="h-card">
+        <Suspense fallback={<Waiting />}>
+          <Loaded query={query} />
+        </Suspense>
       </ErrorBoundary>
     </div>
+  );
+}
+
+function Waiting() {
+  return (
+    <>
+      <div className="h-card rg-stats rg-stats--wait" aria-busy="true" />
+      <section className="h-card rg-list">
+        <SkeletonList />
+      </section>
+    </>
+  );
+}
+
+function Loaded({ query }: { query: RecurringQuery }) {
+  const { data: d } = useSuspenseQuery(query);
+  return (
+    <>
+      <ErrorBoundary label="Recurring numbers" className="h-card">
+        <Stats d={d} />
+        {d.synced && <p className="rg-sync">Blackbaud copy read {ago(d.synced)}. Changes made here show at once.</p>}
+      </ErrorBoundary>
+      <ErrorBoundary label="Schedules" className="h-card">
+        <Schedules d={d} />
+      </ErrorBoundary>
+    </>
   );
 }
