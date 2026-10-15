@@ -1,0 +1,112 @@
+/* Work Center list tabs in React (web/src/features/partners/work: GiftsToThank, MyPartners, Cadence, Grants, MyWeek and Asks).
+   The shared table parts are in ptable.css and pt-lists.css; this file holds what the React versions add: Gifts to thank as a table,
+   and on a phone (860 px and under) My partners, Cadence and Gifts to thank as one-line rows (about 50 px) with the rest of a row in the
+   side panel. */
+
+/* ------------------------------------------------------------------ rows a list draws in groups, and rows that leave */
+.pt-table tbody tr.pt-group td { padding: 0; border-bottom: 1px solid var(--h-line); max-width: none; white-space: normal; overflow: visible; background: color-mix(in srgb, var(--h-surface-2) 60%, transparent); }
+.pt-table tbody tr.pt-group:hover td { background: color-mix(in srgb, var(--h-surface-2) 60%, transparent); }
+.pt-table tbody tr.pt-group .wg-group { border-bottom: 0; background: none; }
+html[data-density='compact'] .pt-table tbody tr.pt-group .wg-group { padding: 6px 12px; font-size: 11.5px; }
+.gt-table tbody tr.gt-row.is-leaving td, .mp-table tbody tr.is-leaving td, .cd-table tbody tr.is-leaving td { opacity: 0; transition: opacity 0.35s ease; }
+
+/* ------------------------------------------------------------------ Gifts to thank */
+.gt-sheet .pt-bar.wg-tools { padding: 8px 12px; gap: 6px; }
+.gt-table td.gt-c-amt { width: 1%; }
+.gt-table td.gt-c-due { width: 1%; }
+.gt-table .gt-amt { font: 600 15px/1.2 var(--h-font); white-space: nowrap; color: var(--h-ink); font-variant-numeric: lining-nums tabular-nums; }
+.gt-table .gt-amt.is-long { font-size: 13px; letter-spacing: -0.01em; }
+.gt-table .gt-clock { font: 600 12px var(--h-font); color: var(--h-ink-2); white-space: nowrap; }
+.gt-table .gt-clock.is-soon { color: var(--h-brand-ink); }
+.gt-table .gt-clock.is-late { color: var(--h-red); }
+.gt-table td.gt-c-who { width: 100%; max-width: 0; min-width: 260px; }
+.gt-table .gt-who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.gt-table .gt-who .wg-who { display: inline-flex; flex: none; margin: 0; flex-wrap: nowrap; font-size: 12px; align-items: center; }
+.gt-table .gt-who .wg-ini { width: 20px; height: 20px; font-size: 11px; margin-right: 4px; }
+.gt-table .gt-who .wg-name { flex: 0 1 auto; max-width: 70%; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-table .gt-who .gt-sub { flex: 1 1 0; min-width: 0; margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-table td.gt-c-fund { max-width: 420px; min-width: 200px; }
+.gt-table .gt-fund { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gt-table .gt-fund b { flex: 0 1 auto; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.gt-table .gt-fund > .wg-sub { flex: none; max-width: 70px; margin: 0; font-size: 12px; }
+.gt-table .gt-fund .wg-badges { margin: 0; flex-wrap: nowrap; overflow: hidden; gap: 4px; min-width: 0; }
+.gt-table .wc-tag { height: 18px; padding: 0 7px; font-size: 11.5px; flex: 0 1 auto; }
+.gt-table td.gt-c-acts { width: 1%; }
+.gt-table .pt-acts { gap: 4px; }
+.gt-table .pt-acts .h-btn { height: 26px; min-height: 26px; padding: 0 9px; font-size: 12.5px; }
+.gt-table .gt-thank .wg-caret { width: 12px; height: 12px; margin-left: -2px; }
+.gt-table .wg-empty { padding: 34px 16px; }
+[data-density='comfortable'] .gt-table .gt-who { flex-wrap: wrap; row-gap: 1px; }
+[data-density='comfortable'] .gt-table .gt-who .gt-sub { flex-basis: 100%; }
+[data-density='comfortable'] .gt-table .gt-fund { flex-wrap: wrap; }
+[data-density='comfortable'] .gt-table .gt-fund .wg-badges { flex-wrap: wrap; flex-basis: 100%; }
+[data-density='comfortable'] .gt-table .pt-acts .h-btn { height: 32px; min-height: 32px; }
+.gt-sheet .wg-foot { padding: 6px 12px; }
+.gt-sheet .wg-foot .pt-pager { flex: 1 1 auto; border: 0; padding: 0; background: none; }
+.gt-sheet .wg-foot .pt-pager .pt-range { margin-right: auto; }
+
+/* ------------------------------------------------------------------ My partners */
+.pt-phoneonly { display: none; }
+.mp-table .mp-fig { font: 600 13px var(--h-font); color: var(--h-ink-2); font-variant-numeric: tabular-nums; }
+.mp-table .mp-fig.is-90 { color: #7a5a17; }
+.mp-table .mp-fig.is-180 { color: var(--h-red); }
+.mp-table .mp-callmode + .mp-call { display: none; }
+.mp-table td.c-12, .mp-table td.c-life { max-width: 260px; }
+
+/* ------------------------------------------------------------------ Cadence */
+.cd-table .cd-fig { font: 600 13px var(--h-font); color: var(--h-ink-2); white-space: nowrap; }
+.cd-table .cd-fig.is-late { color: var(--h-red); }
+.cd-table .cd-panel-steps, .cd-sheet .cd-panel-steps { flex-wrap: wrap; gap: 6px; }
+.cd-expand .cm-expand { padding: 10px 14px; }
+.cd-table tbody tr.cd-row.is-open td { background: color-mix(in srgb, var(--h-brand) 6%, transparent); }
+.cd-table tbody tr.ptl-expand td { padding: 0; max-width: none; white-space: normal; overflow: visible; background: color-mix(in srgb, var(--h-surface-2, #f1ede4) 55%, transparent); }
+.cd-sheet .wg-foot { padding: 8px 14px; border-top: 1px solid var(--h-line); }
+
+/* ------------------------------------------------------------------ the Filters button (phones): search stays, the other controls open */
+.pl-fbtn { display: none; }
+
+/* ------------------------------------------------------------------ phone: one line per row */
+@media (max-width: 860px) {
+  .pl-fbtn { display: inline-flex; flex: none; min-height: 40px; }
+  .pt-bar .pl-f { display: none; }
+  .is-fopen .pt-bar select.pl-f { display: block; flex: 1 1 100%; max-width: none; min-height: 40px; font-size: 16px; }
+  .is-fopen .pt-bar .h-btn.pl-f { display: inline-flex; min-height: 40px; }
+  .is-fopen .pt-bar .pt-seg.pl-f { display: flex; flex: 1 1 100%; }
+  .pt-bar .pt-search { flex: 1 1 0; min-width: 0; }
+  .gt-table .pt-nophone, .mp-table .pt-nophone, .cd-table .pt-nophone { display: none !important; }
+  .gt-table, .gt-table tbody, .mp-table, .mp-table tbody, .cd-table, .cd-table tbody { display: block; }
+  .gt-table thead, .mp-table thead, .cd-table thead { display: none; }
+  .gt-table tbody tr[data-pt-row], .mp-table tbody tr[data-pt-row], .cd-table tbody tr[data-pt-row] { display: flex; align-items: center; gap: 8px; min-height: 50px; height: 50px; padding: 0 10px 0 4px; border-bottom: 1px solid var(--h-line); cursor: pointer; }
+  .gt-table tbody tr[data-pt-row] > td, .mp-table tbody tr[data-pt-row] > td, .cd-table tbody tr[data-pt-row] > td { display: block; padding: 0; border: 0; max-width: none; min-width: 0; width: auto; white-space: nowrap; overflow: hidden; background: none; flex: none; }
+  .gt-table tbody tr.is-picked, .mp-table tbody tr.is-picked, .cd-table tbody tr.is-picked { background: color-mix(in srgb, var(--h-gold, #c9a227) 12%, transparent); }
+  .gt-table tbody tr.is-open, .mp-table tbody tr.is-open, .cd-table tbody tr.is-open { background: color-mix(in srgb, var(--h-brand) 8%, transparent); }
+  .gt-table tbody tr[data-pt-row]:active { background: color-mix(in srgb, var(--h-brand) 8%, transparent); }
+  .gt-table tbody tr[data-pt-row] > td.pt-cb, .mp-table tbody tr[data-pt-row] > td.pt-cb, .cd-table tbody tr[data-pt-row] > td.pt-cb { width: 32px; display: grid; place-items: center; align-self: stretch; }
+  .mp-table tbody tr[data-pt-row] > td.pt-phoneonly, .cd-table tbody tr[data-pt-row] > td.pt-phoneonly { display: block; text-align: right; order: 2; }
+  .cd-table tbody tr[data-pt-row] > td.cd-c-main { order: 3; }
+  .cd-table .cd-main { height: 36px; min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+  .cd-table tbody tr.ptl-expand { display: none; }
+  .cd-table .cd-fig { font-size: 13px; }
+  .mp-table .mp-fig { font-size: 14px; }
+  .mp-table .mp-open, .mp-table .mp-log, .mp-table .mp-callmode { display: none; }
+  .mp-table .mp-callmode + .mp-call { display: inline-grid; }
+  .mp-table .mp-call { width: 40px; height: 40px; }
+  .mp-table .pt-icon { width: 40px; height: 40px; }
+  .gt-table .pt-cb input, .mp-table .pt-cb input { width: 20px; height: 20px; }
+  /* the name takes what the figure and the button leave */
+  .gt-table tbody tr[data-pt-row] > td.gt-c-who, .mp-table tbody tr[data-pt-row] > td.mp-c-who, .cd-table tbody tr[data-pt-row] > td.cd-c-who { flex: 1 1 0; min-width: 0; width: auto; max-width: none; }
+  .gt-table tbody tr.pt-group, .mp-table tbody tr.pt-group, .cd-table tbody tr.pt-group { display: block; }
+  .gt-table tbody tr.pt-group > td { display: block; }
+  .gt-table .gt-who, .mp-table .mp-who, .cd-table .cd-who { display: block; min-width: 0; }
+  .gt-table .gt-who .wg-name, .mp-table .mp-who .pt-name, .cd-table .cd-who .pt-name { display: block; max-width: 100%; font-size: 15px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gt-table .gt-who .wg-who, .gt-table .gt-who .gt-sub, .mp-table .mp-who .pt-sub, .mp-table .mp-who .wm-hchip, .mp-table .mp-who .wm-nba, .cd-table .cd-who .pt-sub { display: none; }
+  .gt-table td.gt-c-amt { order: 2; text-align: right; }
+  .gt-table .gt-amt { font-size: 15px; }
+  .gt-table td.gt-c-acts, .mp-table td.mp-c-acts, .cd-table td.cd-c-acts { order: 3; width: auto; }
+  .gt-table .gt-call, .gt-table .gt-prep, .gt-table .gt-letter { display: none; }
+  .gt-table .pt-acts .h-btn { height: 36px !important; min-height: 36px !important; padding: 0 12px; font-size: 13.5px; }
+  .gt-table .gt-thank .wg-caret { display: none; }
+  .gt-sheet .pt-bar.wg-tools { padding: 8px 10px; gap: 6px; }
+  .gt-sheet .pt-bar .pt-search input { height: 40px; font-size: 16px; }
+  .gt-sheet .pt-bar select { height: 40px; }
+}

@@ -255,22 +255,3 @@ export function exportQuery(spec: DirSpec, ctx: Ctx, contacts: boolean, ids?: st
 
 export const STATUS_LABEL: Record<string, string> = { active: 'Active', lybunt: 'LYBUNT', lapsed: 'Lapsed', never: 'Never gave' };
 export const KIND_LABEL: Record<string, string> = { individual: 'Individual', household: 'Household', organization: 'Organization', church: 'Church', foundation: 'Foundation' };
-
-/** Possible duplicates: records that share an email, a phone, or a name and ZIP. Read on pd_partner; returns pairs. */
-export const DUP_SQL = `
-WITH e AS (SELECT lower(email) AS k, 'email' AS why, id FROM pd_partner WHERE email IS NOT NULL AND email <> '' AND deceased = 0 AND inactive = 0),
-     ph AS (SELECT substr(replace(replace(replace(replace(replace(phone, '(', ''), ')', ''), '-', ''), ' ', ''), '.', ''), -10) AS k, 'phone' AS why, id FROM pd_partner
-             WHERE phone IS NOT NULL AND length(phone) >= 7 AND deceased = 0 AND inactive = 0),
-     nz AS (SELECT sort_name || '|' || substr(COALESCE(zip, ''), 1, 5) AS k, 'name and ZIP' AS why, id FROM pd_partner WHERE zip IS NOT NULL AND zip <> '' AND deceased = 0 AND inactive = 0),
-     allk AS (SELECT * FROM e UNION ALL SELECT * FROM ph WHERE length(k) >= 7 UNION ALL SELECT * FROM nz)
-SELECT a.id AS a, b.id AS b, group_concat(DISTINCT a.why) AS why
-  FROM allk a JOIN allk b ON a.k = b.k AND a.why = b.why AND a.id < b.id
-  JOIN pd_partner pa ON pa.id = a.id JOIN pd_partner pb ON pb.id = b.id
- WHERE (pa.kind = 'individual') = (pb.kind = 'individual')
-   AND COALESCE(pa.spouse_id, '') <> pb.id
-   -- A shared phone or email between two people counts only when they share a last name (a household phone is not a duplicate).
-   AND (a.why = 'name and ZIP' OR pa.kind <> 'individual' OR substr(pa.sort_name, 1, instr(pa.sort_name || ',', ',')) = substr(pb.sort_name, 1, instr(pb.sort_name || ',', ',')))
-   AND NOT EXISTS (SELECT 1 FROM pd_merge m WHERE m.state = 'not_same' AND ((m.keep_cid = a.id AND m.other_cid = b.id) OR (m.keep_cid = b.id AND m.other_cid = a.id)))
- GROUP BY a.id, b.id
- ORDER BY a.id
- LIMIT 500`;

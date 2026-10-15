@@ -31,5 +31,7 @@ declare module '@tanstack/react-router' {
     nav?: string;
     title?: string;
     layout?: 'page' | 'wide' | 'full' | 'bare';
+    /** A page with tabs in its address (/work/?view=gifts): the menu entry and title for this address. */
+    navOf?: (search: Record<string, unknown>) => { nav: string; title: string } | null;
   }
 }

@@ -122,37 +122,30 @@ export async function dropTag(env: Env, cids: string[], tag: string): Promise<vo
 }
 
 // ---- merge requests ----
+// One queue for possible duplicates and merge requests: Data care's dc_pair (db/datacare.sql), where Support compares the two records
+// side by side and queues the merge that the desktop runner performs. A request from All partners adds a pair for review; a pair that
+// is already decided keeps its decision.
 export async function requestMerge(env: Env, who: { email: string; name: string }, keep: string, other: string, note: string): Promise<string> {
   checkId(keep);
   checkId(other);
   if (keep === other) throw new HttpError(400, 'same', 'Pick two different records.');
-  const open = await env.DB.prepare(`SELECT id FROM pd_merge WHERE state = 'open' AND ((keep_cid = ? AND other_cid = ?) OR (keep_cid = ? AND other_cid = ?))`).bind(keep, other, other, keep).first<{ id: string }>();
-  if (open) return open.id;
-  const id = newId('pdm');
-  await env.DB.prepare('INSERT INTO pd_merge (id, keep_cid, other_cid, note, by_email, by_name, at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, keep, other, String(note || '').slice(0, 600), who.email, who.name.slice(0, 80), nowIso())
+  const [a, b] = Number(keep) < Number(other) ? [keep, other] : [other, keep];
+  const id = `${a}-${b}`;
+  const names = new Map((await cards(env, [a, b])).map((c) => [String(c.id), c]));
+  const why = `Asked to merge by ${who.name || who.email}${note.trim() ? ': ' + note.trim().slice(0, 400) : ''}`;
+  const now = nowIso();
+  await env.DB.prepare(
+    `INSERT INTO dc_pair (id, a, b, a_lookup, b_lookup, a_name, b_name, score, why, state, found_at, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, 99, ?, 'review', ?, ?)
+     ON CONFLICT(id) DO UPDATE SET score = CASE WHEN dc_pair.state = 'review' THEN 99 ELSE dc_pair.score END, why = CASE WHEN dc_pair.state = 'review' THEN excluded.why ELSE dc_pair.why END`
+  )
+    .bind(id, a, b, names.get(a)?.lookup ?? null, names.get(b)?.lookup ?? null, names.get(a)?.name ?? null, names.get(b)?.name ?? null, why, now, now)
     .run();
   return id;
 }
-export async function merges(env: Env, state = 'open'): Promise<Row[]> {
-  const rows = await all(env, `SELECT * FROM pd_merge WHERE state = ? ORDER BY at DESC LIMIT 200`, state);
-  const ids = [...new Set(rows.flatMap((r) => [String(r.keep_cid), String(r.other_cid)]))];
-  const by = new Map((await cards(env, ids)).map((c) => [String(c.id), c]));
-  return rows.map((r) => ({ id: r.id, keep: by.get(String(r.keep_cid)) || { id: r.keep_cid }, other: by.get(String(r.other_cid)) || { id: r.other_cid }, note: r.note, by: r.by_name || r.by_email, at: r.at, state: r.state, doneBy: r.done_by, doneAt: r.done_at }));
-}
-/** Support marks a request merged (done in Blackbaud) or not the same partner. A pair marked not the same leaves the duplicates list. */
-export async function decideMerge(env: Env, email: string, b: Row): Promise<void> {
-  const state = b.state === 'done' ? 'done' : b.state === 'not_same' ? 'not_same' : '';
-  if (!state) throw new HttpError(400, 'state', 'Mark it merged or not the same partner.');
-  if (b.id) {
-    await env.DB.prepare('UPDATE pd_merge SET state = ?, done_by = ?, done_at = ? WHERE id = ?').bind(state, email, nowIso(), String(b.id)).run();
-    return;
-  }
-  // A pair from the duplicates list marked not the same without a request first.
-  const a = checkId(String(b.keep || '')), c = checkId(String(b.other || ''));
-  await env.DB.prepare('INSERT INTO pd_merge (id, keep_cid, other_cid, note, by_email, by_name, at, state, done_by, done_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(newId('pdm'), a, c, '', email, '', nowIso(), state, email, nowIso())
-    .run();
+/** Pairs waiting for review, for the count on the All partners tab. */
+export async function mergeCount(env: Env): Promise<number> {
+  const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM dc_pair WHERE state = 'review'`).first<{ n: number }>().catch(() => null);
+  return Number(r?.n) || 0;
 }
 
 // ---- the record page's paged reads from the mirror ----

@@ -5,6 +5,7 @@ import { resolveNav } from '@hub/data/areas';
 import type { QueryClient } from '@tanstack/react-query';
 import { WebShell } from '../shell/WebShell';
 import { navQuery } from '../lib/queries';
+import { PartnerLinks } from '../features/partners/record/PartnerLinks';
 import css from '../styles/layout.css?url';
 // The classic layout inlines these three in its head, before anything draws: timer and listener ownership (hub-own), Lite mode's
 // switch, timers, fonts and meter (lite), and held space with fade-through page changes (hub-motion). Web pages do the same.
@@ -78,6 +79,8 @@ function Root() {
   return (
     <WebShell>
       <Outlet />
+      {/* Partner names open the partner drawer on every web page, as partner.js does on classic pages. A page that mounts its own copy keeps it. */}
+      <PartnerLinks />
     </WebShell>
   );
 }
