@@ -11,7 +11,7 @@ try { importScripts('/js/phone-core.js?v=2'); } catch { /* sends from the page i
 const VERSION = 'favoros-sw-1';
 const STATIC = `${VERSION}-static`;
 const SHELL = `${VERSION}-shell`;
-const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/js/', '/css/', '/fonts/', '/images/'];
+const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/_w/', '/js/', '/css/', '/fonts/', '/images/'];
 const SHELL_PATHS = ['/m/'];
 const ICON = '/images/app-icon-192.png';
 

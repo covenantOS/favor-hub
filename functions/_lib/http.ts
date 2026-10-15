@@ -47,6 +47,8 @@ export interface Env {
   AI?: { run(model: string, input: unknown): Promise<unknown>; counted?: boolean };
   /** The KPI dashboard Worker (kpi-dashboard), bound so the hub can read its numbers and hand people over. */
   KPI?: AssetsFetcher;
+  /** The FavorOS web app Worker (favoros-web, web/): the middleware hands it the routes in the hub setting web.routes (functions/_lib/web.ts). */
+  WEB?: AssetsFetcher;
   /** The KPI dashboard's session key, so the hub can sign a KPI session for someone allowed to see it. */
   KPI_JWT_SECRET?: string;
   /** Where the KPI dashboard lives (https://kpi.favorintl.org when unset). */

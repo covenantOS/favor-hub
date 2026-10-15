@@ -7,6 +7,7 @@ import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
+import { decideWeb, serveWeb, webCookie } from './_lib/web';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
 import { withAssetCache } from './_lib/assetcache';
@@ -18,7 +19,7 @@ const REDIRECT_HOSTS = new Set(['hub.favorintl.org', 'favor-hub-d4n.pages.dev'])
 
 // Files the sign-in page itself needs, and files with nothing private in them.
 // /_app/ holds the React app's built files (app/, served by functions/_lib/app2.ts for people who opted in).
-const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/images/', '/js/', '/css/', '/fonts/', '/receipts/fonts/'];
+const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/_w/', '/images/', '/js/', '/css/', '/fonts/', '/receipts/fonts/'];
 const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg', '/manifest.webmanifest', '/apple-touch-icon.png', '/version.json', '/sw.js', '/m/manifest.webmanifest']);
 
 // Open without sign-in: the sign-in page and its API, the approver's emailed review link (its token
@@ -95,6 +96,12 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   const moved = NAV_MOVED.get(path.length > 1 ? path.replace(/\/$/, '') : path);
   if (moved) return Response.redirect(new URL(moved + (moved.includes('?') ? '' : url.search), url).toString(), 301);
 
+  // The web app's built files (hashed, nothing private) come from its Worker.
+  if (path.startsWith('/_w/') && env.WEB) {
+    const res = await env.WEB.fetch(request);
+    return res.ok ? withAssetCache(res, path, url) : res;
+  }
+
   if (STATIC_FILES.has(path) || STATIC_PREFIXES.some((p) => path.startsWith(p))) {
     const res = await ctx.next();
     return res.ok ? withAssetCache(res, path, url) : res;
@@ -133,20 +140,34 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   // Google is part of signing in: a person with no connected Google account goes to Google's consent
   // screen before any page opens, and that one screen asks for everything FavorOS uses. A cookie set
   // when they connect saves the lookup on later pages. Scripts and the admin password are exempt.
+  let setGc = false;
   if (enforce && user && user.via === 'google' && !isTester(user.email) && user.role !== 'field' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
     const marked = /(?:^|;\s*)hub_gc=1/.test(request.headers.get('Cookie') || '');
     if (!marked) {
       const row = await env.DB.prepare('SELECT 1 AS ok FROM hub_google WHERE email = ?').bind(user.email).first().catch(() => ({ ok: 1 }));
       if (!row) return Response.redirect(new URL('/api/google/connect?next=' + encodeURIComponent(path + url.search), url).toString(), 302);
-      const res = await ctx.next(forwarded);
-      const out = new Response(res.body, res);
-      if (isHtml(res)) out.headers.set('Cache-Control', 'private, no-cache');
-      out.headers.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
-      return out;
+      setGc = true;
     }
   }
+  // The connected-Google cookie rides on whichever page answers, classic or web.
+  const withGc = (res: Response): Response => {
+    if (!setGc) return res;
+    const out = new Response(res.body, res);
+    if (isHtml(res)) out.headers.set('Cache-Control', 'private, no-cache');
+    out.headers.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
+    return out;
+  };
 
+  let webRoutes: string[] | null = null;
   if (user && !open && !path.startsWith('/api/')) {
+    // The web app (web/, the favoros-web Worker) takes a route an admin turned on, for the people in its audience.
+    const w = await decideWeb(env, request, url, user).catch((err) => { console.error('[web]', err); return { kind: 'pass', routes: [] as string[] } as const; });
+    if (w.kind === 'switch') return new Response(null, { status: 302, headers: { Location: new URL(w.to, url).toString(), 'Set-Cookie': w.cookie, 'Cache-Control': 'no-store' } });
+    if (w.kind === 'web') {
+      if (enforce) noteUse(ctx, user, request.method, path);
+      return withGc(await serveWeb(env, forwarded));
+    }
+    webRoutes = w.routes;
     // The React app takes a page only for an admin-enabled route and a person who opted in; any other page falls through unchanged.
     const d = await decide(env, request, url, user).catch((err) => { console.error('[app2]', err); return { kind: 'pass' } as const; });
     if (d.kind === 'redirect') return new Response(null, { status: 302, headers: { Location: new URL(d.to, url).toString(), 'Set-Cookie': d.cookie, 'Cache-Control': 'no-store' } });
@@ -156,11 +177,13 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   if (user || open || !enforce) {
     // Adoption tracker: one cheap write per person, day and area, after the page has gone out (functions/_lib/hub/usage.ts).
     if (user && !open && enforce) noteUse(ctx, user, request.method, path);
-    const res = await ctx.next(forwarded);
+    const res = withGc(await ctx.next(forwarded));
     if (!enforce || open || !isHtml(res)) return res;
     // A signed-in page must not sit in a shared cache.
     const out = new Response(res.body, res);
     out.headers.set('Cache-Control', 'private, no-cache');
+    // Classic pages learn which routes the web app serves this person, so a link there loads whole (hub-swap.js).
+    if (webRoutes) out.headers.append('Set-Cookie', webCookie(webRoutes));
     return out;
   }
 

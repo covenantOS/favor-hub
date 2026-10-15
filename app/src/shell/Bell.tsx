@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { BodyPortal } from './BodyPortal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, send } from '@/lib/api';
 import { hubOv } from '@/lib/hubOv';
@@ -137,8 +137,7 @@ export function Bell({ access }: { access: A }) {
         <Icon name="bell" />
         <em>{text}</em>
       </button>
-      {open &&
-        createPortal(
+      {open && BodyPortal(
           <div className="wm-pop" ref={pop} role="dialog" aria-label="Notifications" style={{ left: pos.left, top: pos.top }}>
             <h4>
               <span>
@@ -246,9 +245,7 @@ export function Bell({ access }: { access: A }) {
                 </button>
               )}
             </div>
-          </div>,
-          document.body
-        )}
+          </div>)}
     </>
   );
 }
