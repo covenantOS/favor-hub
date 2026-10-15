@@ -26,7 +26,7 @@ export const TODAY_FRAME = `
 <div id="fw-root"></div>
 <div class="td-main">
   <section class="h-card td-card td-needs" id="td-needs" aria-labelledby="td-needs-h" data-keep-h="td-needs">
-    <header class="td-ch"><h2 id="td-needs-h">Needs you</h2><span class="td-n" id="td-needs-n" hidden></span><div class="td-tabs" id="td-tabs" role="tablist" aria-label="Show"></div></header>
+    <header class="td-ch"><h2 id="td-needs-h">Needs you</h2><span class="td-n" id="td-needs-n" data-flow="today-needs" hidden></span><div class="td-tabs" id="td-tabs" role="tablist" aria-label="Show"></div></header>
     <ol class="td-list" id="t-cards" aria-busy="true">${rows(6, 'td-skel')}</ol>
     <footer class="td-foot">
       <button type="button" class="td-more" id="td-all" hidden>Show all</button>

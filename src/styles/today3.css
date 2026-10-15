@@ -17,6 +17,7 @@
   --live: #12402b;
   --row-h: 60px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
   min-width: 0;
   font-variant-numeric: tabular-nums;
@@ -29,6 +30,7 @@
 .td .h-i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ------------------------------------------------------------ header */
+.td-head > * { min-width: 0; max-width: 100%; }
 .td-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 32px; flex-wrap: wrap; min-width: 0; }
 .td-hello { min-width: 0; display: grid; gap: 8px; }
 .td .td-hello h1 { font: 600 40px/1.05 var(--h-serif); letter-spacing: -0.01em; font-variant-numeric: lining-nums; overflow-wrap: anywhere; }
@@ -358,14 +360,24 @@ body.h-body .td .td-team .dr-num.dr-num { min-width: 0; min-height: 0; padding: 
   .td-mission { text-align: left; }
   .td-live { max-width: none; }
   .td .td-tour { align-self: flex-start; }
-  .td-away { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: calc(-1 * var(--pad)); padding-right: var(--pad); }
-  .td-away::-webkit-scrollbar { display: none; }
+  .td-away { position: relative; padding-right: 36px; }
+  .td-away__l { flex-basis: 100%; }
+  .td-away a { white-space: normal; min-height: 30px; padding: 4px 10px; line-height: 1.35; }
+  .td-away > .td-x { position: absolute; top: -6px; right: -6px; }
+  .td .td-mods > * { order: 0; }
+  .td-team .wh-table th:nth-child(2), .td-team .wh-table td:nth-child(2) { display: none; }
+  .td-mods .wh-owners .wh-lc { display: none; }
   .td-ch { flex-wrap: wrap; }
   .td-needs .td-ch .td-tabs { order: 3; flex-basis: 100%; margin: 4px 0 0; }
   .td-mod, .td-mods .td-team { flex-basis: 100%; }
-  .td-mods .wh-owners a { grid-template-columns: minmax(0, 1fr) 60px auto 36px; gap: 8px; }
+  .td-mods .wh-owners a { grid-template-columns: minmax(0, 1fr) 72px 40px; gap: 10px; }
   .td-stamp { flex-basis: 100%; margin-left: 0; padding: 0 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .td *, .td *::after { animation: none !important; transition: none !important; }
+}
+
+/* An Entry queue on its own row lays its people out in columns, so a name and its count never sit a screen apart. */
+@container (min-width: 720px) {
+  .td-mods .wh-owners { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); column-gap: 28px; }
 }

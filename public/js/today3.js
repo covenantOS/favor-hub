@@ -239,7 +239,7 @@
     if (it.kind === 'wait-in') return `<a class="td-btn td-btn--primary" href="${esc(it.href)}">Reply</a><button type="button" class="td-x" data-td-stop="${esc(it.id)}" aria-label="Take it off the list" title="Take it off the list">${ic('x')}</button>`;
     if (it.kind === 'card') return `<a class="td-btn" href="${esc(it.href)}">${esc(it.card.cta || 'Open')}</a>${window.hubSnoozeButton ? window.hubSnoozeButton('hub', 'card:' + it.card.id, it.card.label, 'td-snz') : ''}`;
     if (it.kind === 'thank') return `<button type="button" class="td-btn td-btn--primary" data-td-thank="${it.gi}">Thank</button>`;
-    if (it.kind === 'group') return `<span class="td-count">${it.rows.length > 99 ? '99+' : n0(it.id === 'grp:actions' ? ((S.home.work.due.overdue || 0) + (S.home.work.due.today || 0)) : it.rows.length)}</span>`;
+    if (it.kind === 'group') return `<span class="td-count" data-flow="today-${esc(it.id)}">${it.rows.length > 99 ? '99+' : n0(it.id === 'grp:actions' ? ((S.home.work.due.overdue || 0) + (S.home.work.due.today || 0)) : it.rows.length)}</span>`;
     return '';
   }
   function row(it) {
@@ -558,9 +558,12 @@
     if (o || th.length) {
       const late = th.filter((x) => x.late).length;
       cells.push(`<div class="td-dc td-dc--gifts"><span class="td-lab">New gifts${b && b.since ? ' since ' + esc(et(b.since + 'T12:00:00Z', { weekday: 'long' })) : ''}${b && b.partners && S.owner ? '' : ''}</span>` +
-        `<a class="td-big" href="/work/?view=gifts"><b data-countup>${n0(o ? o.count : 0)}</b><span>${o && o.count ? money(o.total) : 'None yet'}</span></a>` +
+        `<a class="td-big" href="/work/?view=gifts"><b data-flow="today-newgifts">${n0(o ? o.count : 0)}</b><span>${o && o.count ? money(o.total) : 'None yet'}</span></a>` +
         `<a class="td-mini" href="/work/?view=gifts">${th.length ? `${plural(th.length, 'gift')} to thank${late ? `, <em>${n0(late)} overdue</em>` : ''}` : 'Every gift thanked'}</a></div>`);
     }
+    // Until the sources it waits on have answered, the card keeps its placeholders rather than drawing and then hiding.
+    const ready = !!T && (!(T.access && T.access.kpi) || !!k || S.kpiDone) && S.briefDone;
+    if (!cells.length && !ready) return;
     box.innerHTML = cells.join('');
     box.dataset.n = String(cells.length);
     box.removeAttribute('aria-busy');
@@ -569,6 +572,8 @@
     const link = $('td-kpi-link');
     if (link) link.hidden = !k;
     wrap.hidden = !cells.length;
+    // A card hidden on purpose lets go of the room hub-motion held for it (it would otherwise show a placeholder while it holds).
+    if (wrap.hidden && wrap.__kh && window.hubMotion && window.hubMotion.letGo) window.hubMotion.letGo(wrap);
     if (T && !(T.access && T.access.kpi)) wrap.classList.add('is-nokpi');
   }
 
@@ -743,10 +748,10 @@
     return get('/api/hub/today').then((d) => { store.set('favor.hub.today.v1', d); apply(d); }).catch(() => {});
   }
   function loadKpi() {
-    const apply = (k) => { if (k && k.summary) { S.kpi = k.summary; paint(); } };
-    if (window.FavorData) { window.FavorData.watch('kpi', '/api/hub/kpi', { stale: 120000 }, (d, meta) => { if (!meta.error) apply(d); }); return; }
+    const apply = (k) => { S.kpiDone = true; if (k && k.summary) S.kpi = k.summary; paint(); };
+    if (window.FavorData) { window.FavorData.watch('kpi', '/api/hub/kpi', { stale: 120000 }, (d, meta) => { if (!meta.error) apply(d); else { S.kpiDone = true; paint(); } }); return; }
     const hit = store.get('favor.hub.kpi.v1'); if (hit) apply(hit);
-    get('/api/hub/kpi').then((d) => { store.set('favor.hub.kpi.v1', d); apply(d); }).catch(() => {});
+    get('/api/hub/kpi').then((d) => { store.set('favor.hub.kpi.v1', d); apply(d); }).catch(() => { S.kpiDone = true; paint(); });
   }
   function loadList(name) {
     const key = name === 'inbox' ? 'favor.td.inbox.v1' : 'favor.td.waiting.v1';
@@ -769,10 +774,11 @@
       S.brief = d.briefing || null;
       if (d.away) S.away = d.away;
       store.set('favor.td.brief.v1', { brief: S.brief, owner: S.owner });
+      S.briefDone = true;
       paintScope();
       paint();
       return true;
-    } catch { return false; }
+    } catch { S.briefDone = true; paint(); return false; }
   }
   function loadDay() {
     return get('/api/hub/day').then((d) => {
