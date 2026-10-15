@@ -284,26 +284,76 @@ export function ChannelRow({ e, c, onOpen }: { e: ChatEngine; c: J; onOpen?: (id
 function Side({ e }: { e: ChatEngine }) {
   const S = e.S;
   const phone = e.phone();
-  if (!S.me)
+  if (!S.me) {
+    // The same frame Chat's first paint draws (bootHtml in chat-ui.js, and the web app's server copy of it), so nothing moves when the channels arrive.
+    const head = (title: string, label: string) => (
+      <div className="ch-sec__h">
+        <button type="button" className="ch-sec__t" tabIndex={-1}>
+          <Ic n="caret" />
+          <b>{title}</b>
+        </button>
+        <button type="button" className="ch-iconbtn" tabIndex={-1} aria-label={label}>
+          <Ic n="plus" />
+        </button>
+      </div>
+    );
+    const nav = (icon: string, label: string) => (
+      <button type="button" className="ch-row ch-nav" tabIndex={-1}>
+        <span className="ch-row__ic">
+          <Ic n={icon} />
+        </span>
+        <span className="ch-row__n">{label}</span>
+      </button>
+    );
     return (
       <aside className="ch-side" aria-label="Channels">
+        <div className="ch-pnav">
+          <button type="button" className="ch-pn" tabIndex={-1} aria-label="FavorOS menu">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M5 8h10" />
+              <path d="M5 16h14" />
+            </svg>
+          </button>
+          <div className="ch-seg">
+            <button type="button" tabIndex={-1} aria-pressed="true">
+              Channels
+            </button>
+            <button type="button" tabIndex={-1} aria-pressed="false">
+              Messages
+            </button>
+          </div>
+          <button type="button" className="ch-pn" tabIndex={-1} aria-label="New message">
+            <Ic n="pen" />
+          </button>
+        </div>
         <div className="ch-side__head">
           <button type="button" className="ch-jump" tabIndex={-1}>
             <Ic n="search" />
             <span>Jump to or search</span>
             <kbd>Ctrl K</kbd>
           </button>
+          <button type="button" className="ch-iconbtn" tabIndex={-1} aria-label="New message">
+            <Ic n="pen" />
+          </button>
         </div>
-        <div className="ch-list">
-          <div className="ch-sec">
+        <div className="ch-list" data-seg="channels">
+          <div className="ch-navs">
+            {nav('threads', 'Threads')}
+            {nav('at', 'Mentions and reactions')}
+            {nav('pen', 'Drafts')}
+          </div>
+          <div className="ch-sec" data-sec="channels">
+            {head('Channels', 'New channel')}
             <SkelRows ws={['46%', '62%', '38%', '54%']} />
           </div>
-          <div className="ch-sec">
+          <div className="ch-sec" data-sec="messages">
+            {head('Direct messages', 'New message')}
             <SkelRows ws={['50%', '40%']} />
           </div>
         </div>
       </aside>
     );
+  }
   const s = e.sorted();
   const isOpen = (c: J) => c.id === S.active && S.page === 'channel';
   const sec = (key: string, title: string, label: string, onAdd: () => void, rows: J[], extra: React.ReactNode) => {
