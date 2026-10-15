@@ -104,8 +104,17 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
 
   // The web app's built files (hashed, nothing private) come from its Worker.
   if (path.startsWith('/_w/') && env.WEB) {
-    const res = await env.WEB.fetch(request);
-    return res.ok ? withAssetCache(res, path, url) : res;
+    // While a new Worker version rolls out, a page drawn by the new version can ask an isolate still on the old one for a file it does
+    // not have yet. Ask again for a few seconds before answering 404, and never let a 404 for a built file sit in a cache.
+    let res = await env.WEB.fetch(request);
+    for (let i = 0; res.status === 404 && i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 700));
+      res = await env.WEB.fetch(request);
+    }
+    if (res.ok) return withAssetCache(res, path, url);
+    const out = new Response(res.body, res);
+    out.headers.set('Cache-Control', 'no-store');
+    return out;
   }
 
   if (STATIC_FILES.has(path) || STATIC_PREFIXES.some((p) => path.startsWith(p))) {

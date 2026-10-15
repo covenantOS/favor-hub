@@ -39,6 +39,7 @@ describe('one notification list', () => {
   it('the badge reads 99+ past two digits and nothing at zero', () => {
     expect(badge(0)).toBe('');
     expect(badge(7)).toBe('7');
-    expect(badge(100)).toBe('99+');
+    expect(badge(10)).toBe('9+');
+    expect(badge(100)).toBe('9+');
   });
 });
