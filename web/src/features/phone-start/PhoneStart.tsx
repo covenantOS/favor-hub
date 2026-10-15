@@ -33,7 +33,10 @@ const NOTE: Record<string, string> = {
 
 export function PhoneStart() {
   const nav = useQuery(navQuery);
-  const d = nav.data;
+  // The first browser draw is the server's draw; the menu answer fills in who and the tiles right after it.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const d = mounted ? nav.data : undefined;
   const access = (d?.access ?? {}) as Record<string, unknown>;
   const who = d?.user ? (d.user.name || '') + (d.user.email ? ' (' + d.user.email + ')' : '') : '';
 
