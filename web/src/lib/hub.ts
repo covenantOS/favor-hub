@@ -3,8 +3,9 @@
 import { createIsomorphicFn } from '@tanstack/react-start';
 import { getRequestHeader } from '@tanstack/react-start/server';
 
-// A Worker's fetch to its own zone (dash.favorintl.org) times out, so server reads go to the Pages address with the shared key.
-export const HUB_ORIGIN = 'https://favor-hub-d4n.pages.dev';
+// The Worker cannot fetch the Pages project that called it (Cloudflare answers that loop with 522), so server reads go through the
+// key-guarded favoros-relay Worker (workers/favoros-relay), which forwards them to dash.favorintl.org with the visitor's cookie.
+export const HUB_ORIGIN = 'https://favoros-relay.marketing-6e9.workers.dev';
 
 export class HubReadError extends Error {
   status: number;

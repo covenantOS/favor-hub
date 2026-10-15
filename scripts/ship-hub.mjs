@@ -3,9 +3,10 @@
 //   clean tree, fetch and rebase on origin/main, no conflict markers, npm install, the hub tests, typecheck, app tests, the web app's
 //   typecheck and build, no live meeting, the Pages build with its image check, push to main, deploy the favoros-web Worker, deploy Pages, then read each --check path live and fail if it does not answer as expected.
 // usage: node scripts/ship-hub.mjs [--no-pages] [--check /path/=web|classic ...] [--skip-known-failures]
+// In Git Bash set MSYS_NO_PATHCONV=1 first, or a /path argument turns into C:/Program Files/Git/path.
 // Needs the Marketing account environment (source Q:/work/favor-hub/cfenv.sh) and the agent key for --check.
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 const args = process.argv.slice(2);
@@ -26,6 +27,18 @@ const step = (name, fn) => {
     process.exit(1);
   }
 };
+
+// One ship at a time on this machine: agents share Q:/work/favor-hub/ship.lock (pid, worktree, start time). A lock older than 40
+// minutes is stale (a ship takes about 10). The lock is released on exit, success or failure.
+const LOCK = 'Q:/work/favor-hub/ship.lock';
+for (let waited = 0; ; waited += 15) {
+  if (!existsSync(LOCK) || Date.now() - statSync(LOCK).mtimeMs > 40 * 60 * 1000) break;
+  if (waited === 0) console.log('waiting for another ship: ' + readFileSync(LOCK, 'utf8'));
+  if (waited > 45 * 60) { console.error('FAIL lock: another ship has held it for 45 minutes'); process.exit(1); }
+  execSync('node -e "setTimeout(()=>{},15000)"');
+}
+writeFileSync(LOCK, `${process.pid} ${process.cwd()} ${new Date().toISOString()}`);
+process.on('exit', () => { try { if (readFileSync(LOCK, 'utf8').startsWith(String(process.pid) + ' ')) unlinkSync(LOCK); } catch { /* gone */ } });
 
 // Tests that fail on main for reasons outside a ship (named in the work log); listed so a ship is not blocked by them.
 const KNOWN = ['Huddle on a person rings them', 'Decline with a message posts it', 'the test accounts ring only each other'];
@@ -77,7 +90,7 @@ if (checks.length) {
   const key = readFileSync(homedir() + '/.claude/secrets/favor-hub-agent-key.txt', 'utf8').split('\n')[0].trim();
   step('live check', () => {
     execSync('node -e "setTimeout(()=>{},45000)"');
-    return execSync(`node scripts/live-front.mjs ${checks.map((c) => JSON.stringify(c)).join(' ')}`, { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key } });
+    return execSync('node scripts/live-front.mjs', { stdio: 'inherit', env: { ...process.env, HUB_AGENT_KEY: key, LIVE_CHECKS: checks.join(' ') } });
   });
 }
 console.log('\nshipped ' + sh('git rev-parse --short HEAD', { capture: true }).trim());
