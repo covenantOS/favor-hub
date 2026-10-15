@@ -10,7 +10,7 @@ updated: 2026-10-09
 ## A page won't load or shows an error
 
 1. Reload the page.
-2. If it still fails, press **Feedback**, pick **Something's wrong**, and say what you pressed and what happened. The page comes along with the note.
+2. If it still fails, press the feedback button at the top right, pick **Something's wrong**, and say what you pressed and what happened. The page comes along with the note.
 
 ## FavorOS asks you to sign in again
 

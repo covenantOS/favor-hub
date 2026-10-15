@@ -11,7 +11,7 @@ updated: 2026-10-10
 
 ## Send a note
 
-1. Press **Feedback** at the top right of any page. On a phone, it is in **More** at the bottom of the screen and in your account menu.
+1. Press the feedback button at the top right of any page (its tip reads "Tell Will what's wrong, confusing or worth adding"), or **Send feedback** on the Feedback page. On a phone, it is in **More** at the bottom of the screen and in your account menu.
 2. Pick what kind of note it is: something's wrong, confusing, an idea, or works well.
 3. Write a few words. Say which button, number or page if it helps.
 4. Press **Send**.
@@ -36,8 +36,8 @@ The picture stays private. Only you and the FavorOS admin can see it.
 
 ## Getting the answer
 
-Every note is read. When Will answers, the answer shows on your **Feedback** page, a number appears beside Feedback in the menu, and Today shows a card until you read it. Each note also shows where it stands: waiting, read, fixed, or not now.
+Every note is read. When Will answers, the answer shows on your **Feedback** page, a number appears beside Feedback in the menu, and Today shows a card until you read it. Each note also shows where it stands: Waiting, Seen, Fixed, or Not now.
 
 ## For the FavorOS admin
 
-The Feedback page lists every note, newest first, with who sent it, where from, and for Favor Brain notes, the exact question and how it was read. Mark each one **Mark read**, **Fixed** or **Not now**, and write an answer when it needs one. New notes count beside Feedback in the menu and show on Today.
+The Feedback page lists every note, newest first, with who sent it, where from, and for Favor Brain notes, the exact question and how it was read. Filter by **New**, **Seen**, **Fixed**, **Not now** or **All**. Press **Mark read**, **Mark updated**, **Fixed** or **Not now** on each note, and write an answer in **Write an answer** and press **Save the answer** when it needs one. **Open in Google Sheets** sends the list to a sheet. New notes count beside Feedback in the menu and show on Today.
