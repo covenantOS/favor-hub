@@ -15,6 +15,7 @@ import { Route as ChurchesIndexRouteImport } from './routes/churches/index'
 import { Route as DataCareIndexRouteImport } from './routes/data-care/index'
 import { Route as FoundationsIndexRouteImport } from './routes/foundations/index'
 import { Route as GiftsIndexRouteImport } from './routes/gifts/index'
+import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as OnlineGiftsIndexRouteImport } from './routes/online-gifts/index'
 import { Route as PartnersIndexRouteImport } from './routes/partners/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
@@ -24,6 +25,11 @@ import { Route as AdminGoalsIndexRouteImport } from './routes/admin/goals/index'
 import { Route as GiftsOtherIndexRouteImport } from './routes/gifts/other/index'
 import { Route as GiftsRecurringIndexRouteImport } from './routes/gifts/recurring/index'
 import { Route as LearnAdminIndexRouteImport } from './routes/learn/admin/index'
+import { Route as LearnCIndexRouteImport } from './routes/learn/c/index'
+import { Route as LearnCatalogIndexRouteImport } from './routes/learn/catalog/index'
+import { Route as LearnCertificateIndexRouteImport } from './routes/learn/certificate/index'
+import { Route as LearnPIndexRouteImport } from './routes/learn/p/index'
+import { Route as LearnPracticeIndexRouteImport } from './routes/learn/practice/index'
 import { Route as ProjectsPIndexRouteImport } from './routes/projects/p/index'
 import { Route as WorkPartnerIdRouteImport } from './routes/work/partner/$id'
 import { Route as LearnAdminCourseIndexRouteImport } from './routes/learn/admin/course/index'
@@ -56,6 +62,11 @@ const FoundationsIndexRoute = FoundationsIndexRouteImport.update({
 const GiftsIndexRoute = GiftsIndexRouteImport.update({
   id: '/gifts/',
   path: '/gifts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnIndexRoute = LearnIndexRouteImport.update({
+  id: '/learn/',
+  path: '/learn/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnlineGiftsIndexRoute = OnlineGiftsIndexRouteImport.update({
@@ -103,6 +114,31 @@ const LearnAdminIndexRoute = LearnAdminIndexRouteImport.update({
   path: '/learn/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LearnCIndexRoute = LearnCIndexRouteImport.update({
+  id: '/learn/c/',
+  path: '/learn/c/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnCatalogIndexRoute = LearnCatalogIndexRouteImport.update({
+  id: '/learn/catalog/',
+  path: '/learn/catalog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnCertificateIndexRoute = LearnCertificateIndexRouteImport.update({
+  id: '/learn/certificate/',
+  path: '/learn/certificate/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnPIndexRoute = LearnPIndexRouteImport.update({
+  id: '/learn/p/',
+  path: '/learn/p/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnPracticeIndexRoute = LearnPracticeIndexRouteImport.update({
+  id: '/learn/practice/',
+  path: '/learn/practice/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsPIndexRoute = ProjectsPIndexRouteImport.update({
   id: '/projects/p/',
   path: '/projects/p/',
@@ -126,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/data-care/': typeof DataCareIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
   '/gifts/': typeof GiftsIndexRoute
+  '/learn/': typeof LearnIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -136,6 +173,11 @@ export interface FileRoutesByFullPath {
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
   '/learn/admin/': typeof LearnAdminIndexRoute
+  '/learn/c/': typeof LearnCIndexRoute
+  '/learn/catalog/': typeof LearnCatalogIndexRoute
+  '/learn/certificate/': typeof LearnCertificateIndexRoute
+  '/learn/p/': typeof LearnPIndexRoute
+  '/learn/practice/': typeof LearnPracticeIndexRoute
   '/projects/p/': typeof ProjectsPIndexRoute
   '/learn/admin/course/': typeof LearnAdminCourseIndexRoute
 }
@@ -146,6 +188,7 @@ export interface FileRoutesByTo {
   '/data-care': typeof DataCareIndexRoute
   '/foundations': typeof FoundationsIndexRoute
   '/gifts': typeof GiftsIndexRoute
+  '/learn': typeof LearnIndexRoute
   '/online-gifts': typeof OnlineGiftsIndexRoute
   '/partners': typeof PartnersIndexRoute
   '/projects': typeof ProjectsIndexRoute
@@ -156,6 +199,11 @@ export interface FileRoutesByTo {
   '/gifts/other': typeof GiftsOtherIndexRoute
   '/gifts/recurring': typeof GiftsRecurringIndexRoute
   '/learn/admin': typeof LearnAdminIndexRoute
+  '/learn/c': typeof LearnCIndexRoute
+  '/learn/catalog': typeof LearnCatalogIndexRoute
+  '/learn/certificate': typeof LearnCertificateIndexRoute
+  '/learn/p': typeof LearnPIndexRoute
+  '/learn/practice': typeof LearnPracticeIndexRoute
   '/projects/p': typeof ProjectsPIndexRoute
   '/learn/admin/course': typeof LearnAdminCourseIndexRoute
 }
@@ -167,6 +215,7 @@ export interface FileRoutesById {
   '/data-care/': typeof DataCareIndexRoute
   '/foundations/': typeof FoundationsIndexRoute
   '/gifts/': typeof GiftsIndexRoute
+  '/learn/': typeof LearnIndexRoute
   '/online-gifts/': typeof OnlineGiftsIndexRoute
   '/partners/': typeof PartnersIndexRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -177,6 +226,11 @@ export interface FileRoutesById {
   '/gifts/other/': typeof GiftsOtherIndexRoute
   '/gifts/recurring/': typeof GiftsRecurringIndexRoute
   '/learn/admin/': typeof LearnAdminIndexRoute
+  '/learn/c/': typeof LearnCIndexRoute
+  '/learn/catalog/': typeof LearnCatalogIndexRoute
+  '/learn/certificate/': typeof LearnCertificateIndexRoute
+  '/learn/p/': typeof LearnPIndexRoute
+  '/learn/practice/': typeof LearnPracticeIndexRoute
   '/projects/p/': typeof ProjectsPIndexRoute
   '/learn/admin/course/': typeof LearnAdminCourseIndexRoute
 }
@@ -189,6 +243,7 @@ export interface FileRouteTypes {
     | '/data-care/'
     | '/foundations/'
     | '/gifts/'
+    | '/learn/'
     | '/online-gifts/'
     | '/partners/'
     | '/projects/'
@@ -199,6 +254,11 @@ export interface FileRouteTypes {
     | '/gifts/other/'
     | '/gifts/recurring/'
     | '/learn/admin/'
+    | '/learn/c/'
+    | '/learn/catalog/'
+    | '/learn/certificate/'
+    | '/learn/p/'
+    | '/learn/practice/'
     | '/projects/p/'
     | '/learn/admin/course/'
   fileRoutesByTo: FileRoutesByTo
@@ -209,6 +269,7 @@ export interface FileRouteTypes {
     | '/data-care'
     | '/foundations'
     | '/gifts'
+    | '/learn'
     | '/online-gifts'
     | '/partners'
     | '/projects'
@@ -219,6 +280,11 @@ export interface FileRouteTypes {
     | '/gifts/other'
     | '/gifts/recurring'
     | '/learn/admin'
+    | '/learn/c'
+    | '/learn/catalog'
+    | '/learn/certificate'
+    | '/learn/p'
+    | '/learn/practice'
     | '/projects/p'
     | '/learn/admin/course'
   id:
@@ -229,6 +295,7 @@ export interface FileRouteTypes {
     | '/data-care/'
     | '/foundations/'
     | '/gifts/'
+    | '/learn/'
     | '/online-gifts/'
     | '/partners/'
     | '/projects/'
@@ -239,6 +306,11 @@ export interface FileRouteTypes {
     | '/gifts/other/'
     | '/gifts/recurring/'
     | '/learn/admin/'
+    | '/learn/c/'
+    | '/learn/catalog/'
+    | '/learn/certificate/'
+    | '/learn/p/'
+    | '/learn/practice/'
     | '/projects/p/'
     | '/learn/admin/course/'
   fileRoutesById: FileRoutesById
@@ -250,6 +322,7 @@ export interface RootRouteChildren {
   DataCareIndexRoute: typeof DataCareIndexRoute
   FoundationsIndexRoute: typeof FoundationsIndexRoute
   GiftsIndexRoute: typeof GiftsIndexRoute
+  LearnIndexRoute: typeof LearnIndexRoute
   OnlineGiftsIndexRoute: typeof OnlineGiftsIndexRoute
   PartnersIndexRoute: typeof PartnersIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -260,6 +333,11 @@ export interface RootRouteChildren {
   GiftsOtherIndexRoute: typeof GiftsOtherIndexRoute
   GiftsRecurringIndexRoute: typeof GiftsRecurringIndexRoute
   LearnAdminIndexRoute: typeof LearnAdminIndexRoute
+  LearnCIndexRoute: typeof LearnCIndexRoute
+  LearnCatalogIndexRoute: typeof LearnCatalogIndexRoute
+  LearnCertificateIndexRoute: typeof LearnCertificateIndexRoute
+  LearnPIndexRoute: typeof LearnPIndexRoute
+  LearnPracticeIndexRoute: typeof LearnPracticeIndexRoute
   ProjectsPIndexRoute: typeof ProjectsPIndexRoute
   LearnAdminCourseIndexRoute: typeof LearnAdminCourseIndexRoute
 }
@@ -306,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/gifts'
       fullPath: '/gifts/'
       preLoaderRoute: typeof GiftsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/': {
+      id: '/learn/'
+      path: '/learn'
+      fullPath: '/learn/'
+      preLoaderRoute: typeof LearnIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/online-gifts/': {
@@ -371,6 +456,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnAdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learn/c/': {
+      id: '/learn/c/'
+      path: '/learn/c'
+      fullPath: '/learn/c/'
+      preLoaderRoute: typeof LearnCIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/catalog/': {
+      id: '/learn/catalog/'
+      path: '/learn/catalog'
+      fullPath: '/learn/catalog/'
+      preLoaderRoute: typeof LearnCatalogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/certificate/': {
+      id: '/learn/certificate/'
+      path: '/learn/certificate'
+      fullPath: '/learn/certificate/'
+      preLoaderRoute: typeof LearnCertificateIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/p/': {
+      id: '/learn/p/'
+      path: '/learn/p'
+      fullPath: '/learn/p/'
+      preLoaderRoute: typeof LearnPIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/practice/': {
+      id: '/learn/practice/'
+      path: '/learn/practice'
+      fullPath: '/learn/practice/'
+      preLoaderRoute: typeof LearnPracticeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/p/': {
       id: '/projects/p/'
       path: '/projects/p'
@@ -402,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   DataCareIndexRoute: DataCareIndexRoute,
   FoundationsIndexRoute: FoundationsIndexRoute,
   GiftsIndexRoute: GiftsIndexRoute,
+  LearnIndexRoute: LearnIndexRoute,
   OnlineGiftsIndexRoute: OnlineGiftsIndexRoute,
   PartnersIndexRoute: PartnersIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
@@ -412,6 +533,11 @@ const rootRouteChildren: RootRouteChildren = {
   GiftsOtherIndexRoute: GiftsOtherIndexRoute,
   GiftsRecurringIndexRoute: GiftsRecurringIndexRoute,
   LearnAdminIndexRoute: LearnAdminIndexRoute,
+  LearnCIndexRoute: LearnCIndexRoute,
+  LearnCatalogIndexRoute: LearnCatalogIndexRoute,
+  LearnCertificateIndexRoute: LearnCertificateIndexRoute,
+  LearnPIndexRoute: LearnPIndexRoute,
+  LearnPracticeIndexRoute: LearnPracticeIndexRoute,
   ProjectsPIndexRoute: ProjectsPIndexRoute,
   LearnAdminCourseIndexRoute: LearnAdminCourseIndexRoute,
 }
