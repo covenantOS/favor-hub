@@ -4,6 +4,7 @@
 import { HttpError, type Env } from './http';
 import { hubUserOf, type HubUser } from './session';
 import { isHiddenAccount, isTester } from './testuser';
+import { isEarly } from './early';
 
 export interface MeetEnv extends Env {
   SFU_APP_ID?: string;
@@ -104,12 +105,12 @@ export interface Presence {
 }
 
 /** Who may use meetings now. Admin only until MEET_RELEASE is "staff". */
-export function meetUser(request: Request, env: MeetEnv): HubUser {
+export async function meetUser(request: Request, env: MeetEnv): Promise<HubUser> {
   const user = hubUserOf(request);
   if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
   const open = (env.MEET_RELEASE || 'admin').toLowerCase() === 'staff';
   // Field staff always have Meetings, but only the ones they host or are invited to (mayJoin, listMeetings).
-  if (!open && user.role !== 'admin' && user.role !== 'field') throw new HttpError(404, 'not_found', 'Not found.');
+  if (!open && user.role !== 'admin' && user.role !== 'field' && !(await isEarly(env as never, user).catch(() => false))) throw new HttpError(404, 'not_found', 'Not found.');
   return user;
 }
 

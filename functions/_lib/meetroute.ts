@@ -47,7 +47,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
   try {
     // Settings an admin saved on Admin > Meetings sit over the Pages variables; with none saved the variables answer, as before.
     const env = await withMeetSettings(rawEnv);
-    const user = guestMode ? await guestUser(request, env, params) : meetUser(request, env);
+    const user = guestMode ? await guestUser(request, env, params) : await meetUser(request, env);
     const parts = ((params.path as string[]) || []).filter(Boolean);
     const m = request.method;
     // The moment a meeting ends the notes start; the five-minute cron and the open notes page only finish what this leaves.
