@@ -6,6 +6,7 @@ import { chatGroup, chatMode, mayUse } from '../../_lib/chat/gate';
 import { fieldBrainOn } from '../../_lib/field';
 import { releaseMap } from '../../_lib/hub/release';
 import { jobsOf } from '../../_lib/hub/jobs';
+import { bootCookie } from '../../_lib/hub/navboot';
 
 // The sidebar: who is signed in, which sections they may open, and the counts beside each.
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
@@ -29,7 +30,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     ]);
     // The first menu request after sign-in starts the saved inbox, so Mail opens warm.
     if (access.mail && user.via === 'google' && waitUntil) waitUntil(import('../../_lib/mail/route').then((m) => m.warmMail(env, user.email)).catch(() => undefined));
-    return json({ ok: true, user, access, counts, kpiTeams, jobs, release: await releaseMap(env) });
+    // The page head reads the same flags on the next load (functions/_lib/hub/navboot.ts), so the menu draws final on its first frame.
+    return json({ ok: true, user, access, counts, kpiTeams, jobs, release: await releaseMap(env) }, 200, { 'Set-Cookie': bootCookie({ user, access, kpiTeams, jobs }) });
   } catch (err) {
     return handleError(err);
   }

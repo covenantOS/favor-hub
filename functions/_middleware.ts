@@ -15,6 +15,8 @@ import { decideWeb, LOGIN_PATHS, serveWeb, tryServeWeb, webCookie, webLoginOn, w
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
 import { withAssetCache } from './_lib/assetcache';
+import { bootCookie, injectBoot } from './_lib/hub/navboot';
+import { bootFor } from './_lib/hub/navcore';
 import { honorSavedCookie, withHubWrites } from './_lib/admin/hubcache';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
@@ -249,6 +251,8 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: Who): Promise
   if (user || open || !enforce) {
     // Adoption tracker: one cheap write per person, day and area, after the page has gone out (functions/_lib/hub/usage.ts).
     if (user && !open && enforce) noteUse(ctx, user, request.method, path);
+    // The menu's access flags for this person start while the page is fetched, so the page head can carry them (navboot.ts).
+    const bootP = user && enforce && !open && request.method === 'GET' ? bootFor(env, forwarded, user) : null;
     const res = withGc(await ctx.next(forwarded));
     if (!enforce || open || !isHtml(res)) return res;
     // An address nothing answers: the web app draws the not-found page inside the frame (entry /404/ in web.routes), the Astro page when it is off or down.
@@ -257,8 +261,10 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: Who): Promise
       if (served) return served;
     }
     // A signed-in page must not sit in a shared cache.
-    const out = new Response(res.body, res);
+    const booted = bootP && res.status === 200 ? await bootP.catch(() => null) : null;
+    const out = booted ? injectBoot(new Response(res.body, res), booted.boot) : new Response(res.body, res);
     out.headers.set('Cache-Control', 'private, no-cache');
+    if (booted && booted.fresh) out.headers.append('Set-Cookie', bootCookie(booted.boot));
     // Classic pages learn which routes the web app serves this person, so a link there loads whole (hub-swap.js).
     if (webRoutes) out.headers.append('Set-Cookie', webCookie(webRoutes));
     return out;
