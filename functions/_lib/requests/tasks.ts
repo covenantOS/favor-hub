@@ -19,6 +19,8 @@ export interface Actor {
   email: string;
   name: string;
   admin: boolean;
+  /** Sees every staff-visible project and task: admins, Early access and Marketing. Others see only what they are on. */
+  wide?: boolean;
 }
 
 export interface TaskRow {
