@@ -53,14 +53,8 @@ export function TabRow({ area, navId, view, access, kpiTeams, jobs, onRemember }
   const first = anyJob ? entries.filter((e) => jobMatch(jobsOf(e) || undefined, jobs)) : entries.slice();
   const rest = anyJob ? entries.filter((e) => !jobMatch(jobsOf(e) || undefined, jobs)) : [];
   // No More menu: every page sits in the row (Danny and Will, 2026-10-15).
-  let inRow = first.concat(rest);
-  let inMore: Entry[] = [];
-  // Groups never go under More: a menu inside a menu is one tap too many.
-  inRow = inRow.concat(inMore.filter((e) => e.kind === 'group')).sort((a, b) => a.ord - b.ord);
-  inMore = inMore.filter((e) => e.kind !== 'group');
+  const inRow = first.concat(rest).sort((x, y) => x.ord - y.ord);
   const entryOn = (e: Entry) => (e.kind === 'page' ? isOnPage(area, e.page, navId) : e.pages.some((p) => isOnPage(area, p, navId)));
-  const moreOn = inMore.some(entryOn);
-  const moreCount = inMore.reduce((n, e) => n + (e.kind === 'page' ? count(e.page) : 0), 0);
 
   // One tab left is still shown when it is not the open page.
   const hide = visible.length === 0 || (visible.length === 1 && isOnPage(area, visible[0], navId)) || pages.length < 2;
@@ -161,17 +155,7 @@ export function TabRow({ area, navId, view, access, kpiTeams, jobs, onRemember }
             </span>
           )
         )}
-        <button type="button" className={'h-tab h-tab--menu h-tab--more' + (moreOn ? ' is-on' : '')} aria-haspopup="menu" aria-expanded={menu?.id === 'more'} data-menu-for="more" hidden={!inMore.length} onClick={(ev) => open('more', ev)}>
-          <span className="h-tab__t">More</span>
-          {moreCount > 0 && <span className="h-nav__count">{moreCount.toLocaleString('en-US')}</span>}
-          <Caret />
-        </button>
       </div>
-      {menuEl(
-        'more',
-        `More ${area.label} pages`,
-        inMore.map((e) => (e as Extract<Entry, { kind: 'page' }>).page)
-      )}
     </nav>
   );
 }
