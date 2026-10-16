@@ -50,8 +50,8 @@ export interface Probe {
 }
 
 const M = IDS;
-/** Meetings are admin-only until the release setting is staff (people.ts meetOpen), so a staff read answers not_found. Change this to OPEN_MARK when Meetings opens to all staff. */
-const MEET_CLOSED = 'not_found';
+/** Meetings are admin-only until the release setting is staff (people.ts meetOpen), so a staff read answers not_found; once it opens, staff must read the open row. Either passes (a must with | accepts any alternative). */
+const MEET_CLOSED = `${OPEN_MARK}|not_found`;
 
 /**
  * The Work Center and HQTY reads (2026-10-15). The person is on the staff list with the Work Center switched on and no team. The gate
@@ -351,7 +351,7 @@ export async function readCell(env: Env, origin: string, probe: Probe, who: Who)
   }
   if (text.includes(CANARY)) return { ...base, status, ok: false, why: `LEAK: the answer carries ${CANARY}: ${snippet(text)}` };
   if (probe.refuse && status !== 401 && status !== 403) return { ...base, status, ok: false, why: `LEAK: expected a refusal, the answer was ${status}: ${text.slice(0, 160).replace(/\s+/g, ' ')}` };
-  if (probe.must && !text.includes(probe.must)) return { ...base, status, ok: false, why: `control missing (${probe.must}): ${snippet(text)}` };
+  if (probe.must && !probe.must.split('|').some((m) => text.includes(m))) return { ...base, status, ok: false, why: `control missing (${probe.must}): ${snippet(text)}` };
   return { ...base, status, ok: true };
 }
 
