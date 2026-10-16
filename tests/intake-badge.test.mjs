@@ -43,6 +43,8 @@ test('the rail badge counts Intake and Triage requests for a person who triages,
 
   // Accept one into Triage. It leaves Intake and still waits on the person who owns it.
   assert.equal((await ic(w, WILL, 'POST', `r/${a.id}/accept`, {})).status, 200);
+  // The world's clock is fixed at NOW; a due date counted from it falls behind the real date, so the card is due far ahead.
+  w.d1.db.prepare("UPDATE hub_tasks SET due_date = '2099-01-01' WHERE due_date IS NOT NULL").run();
   const mid = (await ic(w, WILL, 'GET', 'teams')).data.teams;
   assert.deepEqual(mid.map((t) => [t.team, t.counts.intake, t.counts.triage, t.counts.waiting]), [['tech', 1, 1, 2], ['marketing', 1, 0, 1]]);
   nav = await T.navCounts(w.env, admin(WILL), access({ admin: true }));
