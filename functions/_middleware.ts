@@ -6,6 +6,8 @@ import { crossSiteWrite, resolveUser, signinEnforced, nameSession, whoScope, wit
 import { AREAS, REDIRECTS } from '../src/data/areas';
 import { earlyPaths } from '../src/data/early';
 import { isEarly } from './_lib/early';
+import { accessOf } from './_lib/hub/today';
+import { mayPrintReceipts } from './_lib/receipts/auth';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, isPageLoad, serveApp } from './_lib/app2';
@@ -70,6 +72,23 @@ const CLIP_OPEN = /^\/(c\/[0-9a-f]{32}\/?|api\/clips\/[0-9a-f]{32}\/(media|info|
 
 function isHtml(res: Response): boolean {
   return (res.headers.get('Content-Type') || '').includes('text/html');
+}
+
+const SHELL_GATES: Array<{ re: RegExp; need: 'projectsNav' | 'receipts' | 'giftEntry' | 'hr' | 'learn' | 'admin' }> = [
+  { re: /^\/projects(\/|$)/, need: 'projectsNav' },
+  { re: /^\/receipts(\/|$)/, need: 'receipts' },
+  { re: /^\/gift-entry(\/|$)/, need: 'giftEntry' },
+  { re: /^\/(evaluations|onboarding)(\/|$)/, need: 'hr' },
+  { re: /^\/learn(\/|$)/, need: 'learn' },
+  { re: /^\/brain\/admin(\/|$)/, need: 'admin' },
+];
+
+async function shellAllowed(env: Env, request: Request, user: NonNullable<Awaited<ReturnType<typeof resolveUser>>>, need: (typeof SHELL_GATES)[number]['need']): Promise<boolean> {
+  if (user.role === 'admin') return true;
+  if (need === 'admin') return false;
+  if (need === 'receipts') return mayPrintReceipts(env, request);
+  const access = await accessOf(env, request, user);
+  return !!access[need];
 }
 
 type Who = { tester: boolean; closed: boolean; scope: string };
@@ -186,6 +205,15 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: Who): Promise
     if (await webLoginOn(env, url, user).catch(() => false)) {
       const served = await tryServeWeb(env, forwarded);
       if (served) return served;
+    }
+  }
+
+  // App shells that embed staff names or private lists answer only the people the page's own API serves (the menu's access flags).
+  if (enforce && user && !open && user.via !== 'agent' && user.role !== 'field' && request.method === 'GET' && !path.startsWith('/api/')) {
+    const gate = SHELL_GATES.find((g) => g.re.test(path));
+    if (gate) {
+      const ok = await shellAllowed(env, forwarded, user, gate.need).catch(() => false);
+      if (!ok) return new Response(null, { status: 302, headers: { Location: new URL('/', url).toString(), 'Cache-Control': 'no-store' } });
     }
   }
 
