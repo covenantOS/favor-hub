@@ -1,5 +1,6 @@
 import { HttpError, newId, nowIso, timingSafeEqualStr, type Env } from '../http';
 import { hubUserOf, signinEnforced } from '../session';
+import { isEarly } from '../early';
 
 const COOKIE = 'favor_hub_foundations';
 const SESSION_DAYS = 14;
@@ -37,7 +38,8 @@ export function clearFoundationsSessionCookie(): string {
 
 export async function isFoundationsUser(env: Env, request: Request): Promise<boolean> {
   // Anyone signed in to the hub. The shared code only counts while Google sign-in is switched off.
-  if (hubUserOf(request)) return true;
+  const hu = hubUserOf(request);
+  if (hu) return hu.role === 'admin' || (await isEarly(env, hu).catch(() => false));
   if (signinEnforced(env)) return false;
   const token = readCookie(request);
   if (!token) return false;
