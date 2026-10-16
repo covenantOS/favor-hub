@@ -50,6 +50,8 @@ export interface Probe {
 }
 
 const M = IDS;
+/** Meetings are admin-only until the release setting is staff (people.ts meetOpen), so a staff read answers not_found. Change this to OPEN_MARK when Meetings opens to all staff. */
+const MEET_CLOSED = 'not_found';
 
 /**
  * The Work Center and HQTY reads (2026-10-15). The person is on the staff list with the Work Center switched on and no team. The gate
@@ -75,10 +77,10 @@ export function probes(): Probe[] {
     // Meetings: lists, the meeting, its notes, recording, live notes, prep, send screen, scheduling, booking.
     { name: 'Meetings upcoming list', path: '/api/meet/meetings?scope=upcoming', who: both },
     { name: 'Meetings recent list', path: '/api/meet/meetings?scope=recent', who: both },
-    { name: 'Meeting notes library', path: '/api/meet/meetings?scope=notes', who: ['staff'], must: OPEN_MARK },
+    { name: 'Meeting notes library', path: '/api/meet/meetings?scope=notes', who: ['staff'], must: MEET_CLOSED },
     { name: 'Meeting notes library (field)', path: '/api/meet/meetings?scope=notes', who: ['field'] },
     { name: 'Meeting notes search', path: '/api/meet/meetings?scope=notes&q=prvcnry', who: both },
-    { name: 'Open meeting notes (control)', path: `/api/meet/meetings/${M.meetOpen}/notes`, who: ['staff'], must: OPEN_MARK },
+    { name: 'Open meeting notes (staff, Meetings still admin-only)', path: `/api/meet/meetings/${M.meetOpen}/notes`, who: ['staff'], must: MEET_CLOSED },
     { name: 'My action items', path: '/api/meet/meetings/actions', who: both },
     ...[M.meetPrivate, M.meetEnded, M.meetGuest, M.meetStaffGuest].flatMap((id): Probe[] => [
       { name: `Meeting by id ${id.slice(-2)}`, path: `/api/meet/meetings/${id}`, who: both },

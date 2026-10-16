@@ -30,7 +30,14 @@ export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
     if (a === 'run') {
       if (method !== 'POST') return errorJson('method', 'Not allowed.', 405);
       if (user?.via !== 'agent') throw new HttpError(403, 'forbidden', 'Only the scheduler runs this.');
-      const pass = await runPass(env);
+      // The edge swaps any 502 body for "error code: 502", so the scheduler gets the reason in a 200 answer with ok:false.
+      let pass: Record<string, unknown>;
+      try {
+        pass = await runPass(env);
+      } catch (err) {
+        if (err instanceof AsanaError) return json({ ok: false, error: `Asana: ${err.message}` });
+        throw err;
+      }
       // A task ticked in Asana changes the table with no event, so the request it came from is closed here (integrations/accept.ts).
       const requestsClosed = await sweepDoneTasks(env).catch(() => 0);
       return json({ ok: true, ...pass, requestsClosed });
