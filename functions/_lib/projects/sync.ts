@@ -102,7 +102,8 @@ export class Asana {
       const r = await this.req('GET', `/tasks/${gid}?opt_fields=${TASK_FIELDS}`);
       return taskFromApi(r, projectGid);
     } catch (err) {
-      if (err instanceof AsanaError && err.status === 404) return null;
+      // Asana answers 403 for a task deleted after it was shared, the same as 404.
+      if (err instanceof AsanaError && (err.status === 404 || err.status === 403)) return null;
       throw err;
     }
   }
