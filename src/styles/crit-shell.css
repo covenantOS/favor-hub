@@ -1,9 +1,9 @@
 /* Shell critic round, 2026-10-11. Loaded after every other shell sheet.
-   Phone: the More menu is a sheet that rises from the bottom, listing only what the tab bar does not;
+   Phone: the menu is a sheet that rises from the bottom, listing only what the tab bar does not;
    the Help panel is a sheet too. Pinned with top and bottom offsets, never viewport units (iOS 26 toolbar). */
 
 @media (max-width: 860px) {
-  /* ---------- More sheet */
+  /* ---------- Menu sheet */
   body.h-body .h-side {
     top: auto; left: 0; right: 0; bottom: 0; width: auto; height: auto; max-height: calc(100% - 48px);
     border-radius: 22px 22px 0 0; overflow: hidden; z-index: 95;
@@ -13,7 +13,7 @@
   body.h-body .h-app.is-nav .h-side { transform: none; visibility: visible; transition: transform .3s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
   body.h-body .h-side::before { content: ''; position: absolute; z-index: 3; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: rgba(255, 255, 255, .28); }
   body.h-body .h-side__in { height: auto; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); padding: 0 12px calc(10px + env(safe-area-inset-bottom)); gap: 0; border-radius: 22px 22px 0 0; overflow-y: auto; }
-  body.h-body .h-side__in::before { content: 'More'; display: flex; align-items: center; min-height: 64px; padding: 14px 8px 0; font: 600 20px var(--h-font); color: #fff; }
+  body.h-body .h-side__in::before { content: ''; display: block; min-height: 28px; }
   body.h-body .h-side .h-side__x { top: 14px; right: 12px; }
   /* The tab bar already holds these. */
   body.h-body .h-side .h-brand, body.h-body .h-side .h-search, body.h-body .h-area.in-bar { display: none !important; }
