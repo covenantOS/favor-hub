@@ -70,7 +70,7 @@ describe('the middleware keeps field staff to Chat, Meetings and Favor Brain', (
       for (const p of ['/work/', '/dashboard/', '/mail/', '/reports/', '/projects/', '/chat/', '/meet/']) {
         const out = await call(w, 'GET', p, { cookie });
         // Staff outside Early access land on Today for the held apps; admins keep them.
-        if (cookie === ann && ['/mail/', '/chat/', '/meet/'].includes(p)) { assert.equal(out.reached, false, p); assert.equal(new URL(out.location).pathname, '/', p); continue; }
+        if (cookie === ann && ['/mail/', '/chat/', '/meet/', '/projects/'].includes(p)) { assert.equal(out.reached, false, p); assert.equal(new URL(out.location).pathname, '/', p); continue; }
         assert.equal(out.reached, true, p);
       }
     }
