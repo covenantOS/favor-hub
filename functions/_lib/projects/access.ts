@@ -9,8 +9,6 @@ import { effective } from '../admin/settings';
 import { actorOf, noticeGate, type Actor } from '../requests/tasks';
 import { lower, type ProjectRow, type TaskRow } from './db';
 import { isTester, TESTERS } from '../testuser';
-import { isEarly } from '../early';
-import { isMarketing } from '../hub/today';
 
 export { actorOf, noticeGate };
 export type { Actor };
@@ -38,8 +36,7 @@ export async function projectsActor(env: Env, request: Request, user: HubUser | 
   if (!actor) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
   const mode = await projectsMode(env);
   if (!modeAllows(mode, actor)) throw new HttpError(403, 'forbidden', mode === 'off' ? 'Projects is switched off.' : 'Projects is open to FavorOS admins for now.');
-  const wide = actor.admin || (await isEarly(env, user).catch(() => false)) || (actor.email !== 'agent' && (await isMarketing(env, actor.email).catch(() => false)));
-  return { ...actor, wide: wide || user?.via === 'agent' };
+  return actor;
 }
 
 /**
@@ -51,9 +48,8 @@ export function visibleProject(actor: Actor, p = 'p'): { sql: string; args: unkn
   // A test project (its lead is a FavorOS Tester) is seen by the testers alone, admins included in the "alone".
   const notTest = tester ? '' : ` AND lower(${p}.lead_email) NOT IN (${TEST_LIST})`;
   if (actor.admin) return { sql: `(1 = 1${notTest})`, args: [] };
-  const wideSql = actor.wide ? `${p}.visibility = 'staff' OR ` : '';
   return {
-    sql: `((${wideSql}${p}.lead_email = ? OR EXISTS (SELECT 1 FROM hub_project_members m WHERE m.project_id = ${p}.id AND m.email = ?))${notTest})`,
+    sql: `((${p}.visibility = 'staff' OR ${p}.lead_email = ? OR EXISTS (SELECT 1 FROM hub_project_members m WHERE m.project_id = ${p}.id AND m.email = ?))${notTest})`,
     args: [actor.email, actor.email],
   };
 }
@@ -96,7 +92,7 @@ export async function projectStanding(env: Env, actor: Actor, p: ProjectRow): Pr
   const lead = lower(p.lead_email) === actor.email;
   const member = lead || !!(await env.DB.prepare('SELECT 1 AS ok FROM hub_project_members WHERE project_id = ? AND email = ?').bind(p.id, actor.email).first());
   return {
-    see: actor.admin || (actor.wide && p.visibility === 'staff') || member,
+    see: actor.admin || p.visibility === 'staff' || member,
     member,
     lead,
     manage: actor.admin || lead,

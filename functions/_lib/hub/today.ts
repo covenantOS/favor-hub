@@ -126,7 +126,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
 }
 
 /** Marketing by the staff table (act_staff) or by the staff directory team (meet_directory), which every Marketing person has. */
-export async function isMarketing(env: Env, email: string): Promise<boolean> {
+async function isMarketing(env: Env, email: string): Promise<boolean> {
   if ((await teamOf(env, email).catch(() => '')) === 'Marketing') return true;
   const row = await env.DB.prepare(`SELECT 1 AS ok FROM meet_directory WHERE lower(email) = ? AND active = 1 AND lower(trim(team)) = 'marketing'`)
     .bind(email.toLowerCase())
