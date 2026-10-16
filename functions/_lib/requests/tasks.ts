@@ -19,7 +19,7 @@ export interface Actor {
   email: string;
   name: string;
   admin: boolean;
-  /** Sees every staff-visible project and task: admins, Early access and Marketing. Others see only what they are on. */
+  /** False for a plain staff member on the Projects routes: they see only what they are on. Unset means the old rule. */
   wide?: boolean;
 }
 
