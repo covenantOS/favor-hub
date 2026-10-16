@@ -18,6 +18,13 @@ export async function earlyMembers(env: Env): Promise<Set<string>> {
   return out;
 }
 
+/** On the Early access list by address (the people's own rows; roles and agents are not read). Leadership sees every Alpha and Beta page with data. */
+export async function isEarlyEmail(env: Env, email: string): Promise<boolean> {
+  const e = email.toLowerCase();
+  if (PROBE_EMAILS.includes(e)) return false;
+  return (await earlyMembers(env).catch(() => new Set<string>())).has(e);
+}
+
 /** An admin, or on the Early access list. Field staff and agents are not. */
 export async function isEarly(env: Env, user: { email: string; role?: string; via?: string } | null): Promise<boolean> {
   if (!user || user.via === 'agent' || user.role === 'field') return false;

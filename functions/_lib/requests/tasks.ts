@@ -19,8 +19,6 @@ export interface Actor {
   email: string;
   name: string;
   admin: boolean;
-  /** False for a plain staff member on the Projects routes: they see only what they are on. Unset means the old rule. */
-  wide?: boolean;
 }
 
 export interface TaskRow {
