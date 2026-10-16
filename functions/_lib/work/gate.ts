@@ -3,7 +3,8 @@
 import { HttpError, type Env } from '../http';
 import { hubUserOf, type HubUser } from '../session';
 import { getRelease, staffByEmail, type Release, type StaffRow } from './db';
-import { roleOfTeam, scopeFor, type Scope } from './role';
+import { roleOfTeam, scopeFor, ADMIN_SCOPE, type Scope } from './role';
+import { isEarly, isEarlyEmail } from '../early';
 
 export interface WorkAccess {
   ok: boolean;
@@ -21,6 +22,8 @@ export async function workAccessFor(env: Env, email: string, admin: boolean, opt
   // A row with no team (or a team with no role) opens nothing: only the hub's admin flag gives all-access.
   const listed = !!staff && staff.work_center === 1 && staff.active === 1 && roleOfTeam(String(staff.team || '')) !== null;
   if (admin) return { ok: true, admin: true, release, staff, reason: 'open' };
+  // Leadership on the Early access list opens the Work Center whole, whatever the release.
+  if (!opts.ignoreRelease && (await isEarlyEmail(env, email))) return { ok: true, admin: false, release, staff, reason: 'open' };
   if ((release === 'support' || opts.ignoreRelease) && listed) return { ok: true, admin: false, release, staff, reason: 'open' };
   return { ok: false, admin: false, release, staff, reason: listed ? 'before_release' : 'not_support' };
 }
@@ -77,7 +80,8 @@ export async function requireWork(env: Env, request: Request, opts: { adminOnly?
     throw new HttpError(403, 'admin_only', msg);
   }
   // No role, no scope, no access. There is no fallback to an admin-level scope for a person the staff list gives no role.
-  const scope = await scopeFor(env, email, admin);
+  const earlyAll = !admin && !actAs && !as && user.via === 'google' && (await isEarly(env, user).catch(() => false));
+  const scope = earlyAll ? { ...ADMIN_SCOPE, email, name: user.name || email } : await scopeFor(env, email, admin);
   if (!scope) throw new HttpError(403, 'admin_only', 'The Work Center is for the people whose job touches it. If yours does, tell the technology team through Feedback.');
   // An admin using ?as= is only looking at the gate screens and lists: changes stay the admin's own.
   const viewing = !!as && user.role === 'admin' && !actAs;

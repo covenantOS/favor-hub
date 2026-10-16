@@ -6,6 +6,7 @@ import { hubSettings } from '../admin/hubcache';
 import { hubPut } from '../admin/settings';
 import { HttpError, type Env } from '../http';
 import { mayOpen, mayPost } from '../gifts/perm';
+import { isEarly } from '../early';
 import { isTester } from '../testuser';
 
 export const SETTING = 'gifts.other';
@@ -30,6 +31,7 @@ export async function setOgMode(env: Env, by: string, mode: string): Promise<OgM
 export async function mayUseOther(env: Env, user: { email: string; role: string }): Promise<boolean> {
   const email = user.email.toLowerCase();
   if (isTester(email) || email === OWNER) return true;
+  if (await isEarly(env, user as never).catch(() => false)) return true;
   const mode = await ogMode(env);
   if (mode === 'off') return false;
   if (mode === 'admins') return user.role === 'admin';

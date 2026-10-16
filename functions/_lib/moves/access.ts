@@ -3,6 +3,7 @@
 // before anyone else gets it. On opens it to everyone the Work Center lets in; the board's own role and portfolio rules still apply.
 import { hubSettings } from '../admin/hubcache';
 import type { Env } from '../http';
+import { isEarly } from '../early';
 import { isTester } from '../testuser';
 
 export const SETTING = 'moves.board';
@@ -27,5 +28,6 @@ export function mayUseMovesIn(mode: MovesMode, user: { email: string; role: stri
 }
 
 export async function mayUseMoves(env: Env, user: { email: string; role: string }): Promise<boolean> {
+  if (await isEarly(env, user as never).catch(() => false)) return true;
   return mayUseMovesIn(await movesMode(env), user);
 }

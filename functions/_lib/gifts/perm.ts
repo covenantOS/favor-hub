@@ -3,6 +3,7 @@
 // Admins always open the page. Posting is never implied by a role: a person posts only when an admin switched that person on.
 import { hubDel, hubGet, hubPut } from '../admin/settings';
 import { HttpError, nowIso, type Env } from '../http';
+import { isEarly } from '../early';
 import { notTesterSql } from '../testuser';
 import { logEvent } from './store';
 
@@ -37,6 +38,7 @@ export async function personOf(env: Env, email: string): Promise<Person> {
 /** An admin, or a person an admin gave access (the admin desk and Partner Care). Regional directors have neither. */
 export async function mayOpen(env: Env, user: { email: string; role: string }): Promise<boolean> {
   if (user.role === 'admin') return true;
+  if (await isEarly(env, user).catch(() => false)) return true;
   return (await personOf(env, user.email)).access;
 }
 

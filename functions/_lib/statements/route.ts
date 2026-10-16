@@ -3,6 +3,7 @@
 import { HttpError, handleError, json, type Env } from '../http';
 import { hubUserOf, type HubUser } from '../session';
 import { audiencesOf } from '../reports/audience';
+import { isEarly } from '../early';
 import { sameSite } from '../work/route';
 
 export interface StmArgs {
@@ -16,7 +17,7 @@ export interface StmArgs {
 const ALLOWED = ['admin_desk', 'operations', 'leadership'] as const;
 
 export async function mayUseStatements(env: Env, user: HubUser): Promise<boolean> {
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || (await isEarly(env, user).catch(() => false))) return true;
   const { mine } = await audiencesOf(env, user);
   return ALLOWED.some((a) => mine.has(a));
 }
