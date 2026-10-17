@@ -1,0 +1,33 @@
+---
+// The Old hub tools button and box in the classic header. The React top bar has its own (app/src/shell/OldHub.tsx); styles in
+// app/src/styles/old-hub.css.
+import { icon } from '../data/icons';
+import { OLD_HUB_TILES } from '../data/oldHub';
+import '../../app/src/styles/old-hub.css';
+---
+<button type="button" class="h-top__cam" id="oh-btn" aria-haspopup="dialog" aria-label="Old hub tools" title="Old hub tools"><Fragment set:html={icon('tools')} /></button>
+<dialog class="oh" id="oh-dlg" aria-labelledby="oh-title">
+  <div class="oh__bar"><h2 id="oh-title">Old hub tools</h2><button type="button" class="lp__x" data-oh-close aria-label="Close">&times;</button></div>
+  <div class="oh__grid">
+    {OLD_HUB_TILES.map((t) => {
+      const ext = t.href.startsWith('http');
+      return (
+        <a class="oh__tile" href={t.href} target={ext ? '_blank' : undefined} rel={ext ? 'noopener' : undefined}>
+          <Fragment set:html={icon(t.icon)} />
+          <span class="oh__t">{t.title}{ext && <Fragment set:html={icon('ext', 'h-i oh__ext')} />}</span>
+          <span class="oh__d">{t.desc}</span>
+        </a>
+      );
+    })}
+  </div>
+</dialog>
+<script is:inline>
+  (() => {
+    const d = document.getElementById('oh-dlg');
+    const b = document.getElementById('oh-btn');
+    if (!d || !b || b.dataset.on) return;
+    b.dataset.on = '1';
+    b.addEventListener('click', () => { if (!d.open) d.showModal(); });
+    d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-oh-close]')) d.close(); });
+  })();
+</script>
