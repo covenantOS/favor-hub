@@ -1,6 +1,7 @@
 import type { Access } from '@shared/schemas';
 import { Bell } from './Bell';
 import { HelpPanel } from './HelpPanel';
+import { OldHub } from './OldHub';
 import { Icon } from './Icon';
 import { NavLink } from './NavLink';
 import { RelBadge } from './RelBadge';
@@ -92,6 +93,7 @@ export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', ac
         <button type="button" className="h-top__cam" id="clip-cam" hidden={!clipsRecord} aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip">
           <Icon name="camera" />
         </button>
+        <OldHub />
         <HelpPanel navId={navId} />
         {user && onSignOut && <Account user={user} onSignOut={onSignOut} access={access} classicHref={classicHref} />}
       </div>

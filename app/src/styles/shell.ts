@@ -26,3 +26,4 @@ import '../../../src/styles/release.css';
 import '../../../src/styles/integrations-today.css';
 import './cmdk.css';
 import './learn-panel.css';
+import './old-hub.css';
