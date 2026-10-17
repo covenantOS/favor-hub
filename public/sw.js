@@ -10,7 +10,7 @@
 // The outbox code, shared with the pages, for background sending.
 try { importScripts('/js/phone-core.js?v=2'); } catch { /* sends from the page instead */ }
 
-const VERSION = 'favoros-sw-2';
+const VERSION = 'favoros-sw-3';
 const STATIC = `${VERSION}-static`;
 const SHELL = `${VERSION}-shell`;
 const TODAY = `${VERSION}-today`;
@@ -191,7 +191,7 @@ async function refreshToday(event, name, own) {
     await cache.put(name, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'x-kept-at': String(Date.now()), 'x-drawn-at': String(Date.parse(res.headers.get('date') || '') || Date.now()), 'x-entry': entry.src, 'x-build': buildOf(html) } }));
     // The shown page came from an older build: its scripts do not match the server's reads any more, so the page loads again from the new copy.
     // Any built file counts: a release can change a chunk (the top bar) while the entry file keeps its name.
-    if (before && !own && (before.headers.get('x-entry') !== entry.src || before.headers.get('x-build') !== buildOf(html))) await loadAgain(event);
+    if (before && !own && before.headers.get('x-entry') !== entry.src) await loadAgain(event);
   } catch { /* the page already answered; the copy is tried again on the next visit */ }
 }
 /** Every built file the page names, so two pages from the same release compare equal. */

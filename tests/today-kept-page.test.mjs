@@ -81,7 +81,7 @@ describe('hub_who follows the role (server)', () => {
 });
 
 describe('kept Today in the service worker', () => {
-  const kept = async (w) => (await (await w.caches.open('favoros-sw-2-today')).keys()).length;
+  const kept = async (w) => (await (await w.caches.open('favoros-sw-3-today')).keys()).length;
 
   it('keeps the page after a visit and answers the next visit from it, with the server\'s time and the scripts held until it has drawn', async () => {
     const w = makeWorker({ cookies: signedInAs(WHO_A) });
@@ -124,7 +124,7 @@ describe('kept Today in the service worker', () => {
   it('is still shown the next morning (15 hours later)', async () => {
     const w = makeWorker({ cookies: signedInAs(WHO_A) });
     await w.load('/', webPage('Ann'));
-    const cache = await w.caches.open('favoros-sw-2-today');
+    const cache = await w.caches.open('favoros-sw-3-today');
     const key = (await cache.keys())[0];
     const old = await cache.match(key);
     await cache.put(key, new Response(await old.text(), { headers: { ...Object.fromEntries(old.headers), 'x-kept-at': String(Date.now() - 15 * 3600 * 1000) } }));
@@ -134,7 +134,7 @@ describe('kept Today in the service worker', () => {
   it('is never shown after the 24 hour limit, and is removed', async () => {
     const w = makeWorker({ cookies: signedInAs(WHO_A) });
     await w.load('/', webPage('Ann'));
-    const cache = await w.caches.open('favoros-sw-2-today');
+    const cache = await w.caches.open('favoros-sw-3-today');
     const key = (await cache.keys())[0];
     const old = await cache.match(key);
     await cache.put(key, new Response(await old.text(), { headers: { ...Object.fromEntries(old.headers), 'x-kept-at': String(Date.now() - 24 * 3600 * 1000 - 1000) } }));
